@@ -1,0 +1,62 @@
+using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+/// <summary>
+/// Thin input wrapper so the game works with either the new Input System package
+/// or the legacy Input Manager (whichever is enabled in Player Settings).
+///
+/// Controls:
+///   WASD / Arrows  - move
+///   Mouse          - look
+///   Left Shift     - run
+///   Space          - jump
+///   Left Ctrl / C  - crouch
+///   F              - flashlight
+///   Esc            - release mouse cursor (click to re-capture)
+/// </summary>
+public static class HorrorInput
+{
+#if ENABLE_INPUT_SYSTEM
+    // Scales raw pixel delta so sensitivity feels like the legacy "Mouse X/Y" axes.
+    const float MouseDeltaScale = 0.1f;
+
+    static Keyboard Kb => Keyboard.current;
+    static Mouse Ms => Mouse.current;
+
+    public static Vector2 Move
+    {
+        get
+        {
+            if (Kb == null) return Vector2.zero;
+            float x = (Kb.dKey.isPressed || Kb.rightArrowKey.isPressed ? 1f : 0f)
+                    - (Kb.aKey.isPressed || Kb.leftArrowKey.isPressed ? 1f : 0f);
+            float y = (Kb.wKey.isPressed || Kb.upArrowKey.isPressed ? 1f : 0f)
+                    - (Kb.sKey.isPressed || Kb.downArrowKey.isPressed ? 1f : 0f);
+            return new Vector2(x, y);
+        }
+    }
+
+    public static Vector2 Look => Ms != null ? Ms.delta.ReadValue() * MouseDeltaScale : Vector2.zero;
+
+    public static bool JumpPressed => Kb != null && Kb.spaceKey.wasPressedThisFrame;
+    public static bool RunHeld => Kb != null && Kb.leftShiftKey.isPressed;
+    public static bool CrouchHeld => Kb != null && (Kb.leftCtrlKey.isPressed || Kb.cKey.isPressed);
+    public static bool CrouchPressed => Kb != null && (Kb.leftCtrlKey.wasPressedThisFrame || Kb.cKey.wasPressedThisFrame);
+    public static bool FlashlightPressed => Kb != null && Kb.fKey.wasPressedThisFrame;
+    public static bool ReleaseCursorPressed => Kb != null && Kb.escapeKey.wasPressedThisFrame;
+    public static bool ClickPressed => Ms != null && Ms.leftButton.wasPressedThisFrame;
+#else
+    public static Vector2 Move => new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+    public static Vector2 Look => new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
+
+    public static bool JumpPressed => Input.GetKeyDown(KeyCode.Space);
+    public static bool RunHeld => Input.GetKey(KeyCode.LeftShift);
+    public static bool CrouchHeld => Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
+    public static bool CrouchPressed => Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C);
+    public static bool FlashlightPressed => Input.GetKeyDown(KeyCode.F);
+    public static bool ReleaseCursorPressed => Input.GetKeyDown(KeyCode.Escape);
+    public static bool ClickPressed => Input.GetMouseButtonDown(0);
+#endif
+}
