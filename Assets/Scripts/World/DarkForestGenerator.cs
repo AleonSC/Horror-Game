@@ -56,6 +56,10 @@ public class DarkForestGenerator : MonoBehaviour
     [Tooltip("Spawn a first person player with a flashlight if the scene has none.")]
     public bool spawnPlayer = true;
 
+    [Header("Entity")]
+    [Tooltip("Spawn the shadow entity that stalks the player if the scene has none.")]
+    public bool spawnEntity = true;
+
     [Header("Material Overrides (optional)")]
     public Material groundMaterial;
     public Material barkMaterial;
@@ -111,6 +115,8 @@ public class DarkForestGenerator : MonoBehaviour
 
         if (applyLighting) ApplyAtmosphere();
         if (spawnPlayer) SpawnPlayer();
+        if (spawnEntity && FindAnyObjectByType<ShadowEntity>() == null)
+            new GameObject("Shadow Entity").AddComponent<ShadowEntity>();
 
         if (Application.isPlaying) StaticBatchingUtility.Combine(root.gameObject);
     }

@@ -11,10 +11,10 @@ public class Flashlight : MonoBehaviour
     [Tooltip("Spot light to toggle. Leave empty to create one automatically.")]
     public Light flashlight;
     public bool startOn = true;
-    public float range = 25f;
-    public float spotAngle = 50f;
-    public float innerSpotAngle = 25f;
-    public float intensity = 3f;
+    public float range = 45f;
+    public float spotAngle = 60f;
+    public float innerSpotAngle = 30f;
+    public float intensity = 12f;
     public Color color = new Color(1f, 0.95f, 0.85f);
     public LightShadows shadows = LightShadows.Soft;
     [Tooltip("Position of the light relative to the camera (slightly right/down, like a hand).")]

@@ -9,6 +9,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/FirstPersonController.cs` | Walk, run, jump and crouch (CharacterController based), mouse look, head bob. |
 | `Assets/Scripts/Player/Flashlight.cs` | Spot light on the camera, toggled with **F**. Slight sway, optional click sound. |
 | `Assets/Scripts/World/DarkForestGenerator.cs` | Procedurally builds a dark wooded area: bumpy ground, pines, dead trees, rocks, logs, fog, moonlight and boundary walls. Can spawn the player too. |
+| `Assets/Scripts/World/ShadowEntity.cs` | A pitch-black silhouette that dashes around the player at a distance, sometimes stops to stare, and flees if you get too close. Spawned by the generator. |
 | `Assets/Scripts/Input/HorrorInput.cs` | Input wrapper that works with both the new Input System and the legacy Input Manager. |
 
 ## Quick start
