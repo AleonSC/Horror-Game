@@ -15,8 +15,10 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 
 1. Create a new 3D project (Built-in or URP), Unity 2022.3 or newer.
 2. Copy the `Assets/Scripts` folder into your project.
-3. Make a new empty scene, add an empty GameObject, attach **DarkForestGenerator**.
-4. Press Play. A player with a flashlight is spawned in a clearing in the middle of the forest.
+3. Open any scene that has no player in it (the default SampleScene is fine) and press Play.
+   The forest and a player with a flashlight are created automatically.
+   To tweak settings, add **DarkForestGenerator** to a GameObject yourself; auto-creation can be
+   switched off with `DarkForestGenerator.autoCreateInEmptyScenes`.
 
 Tip: right-click the DarkForestGenerator component header and choose **Generate** to build the forest in edit mode, so you can look around and tweak it. Change `seed` for a different layout.
 

@@ -47,10 +47,10 @@ public class DarkForestGenerator : MonoBehaviour
     [Header("Atmosphere")]
     public bool applyLighting = true;
     public Color fogColor = new Color(0.02f, 0.025f, 0.035f);
-    public float fogDensity = 0.07f;
-    public Color ambientColor = new Color(0.03f, 0.035f, 0.05f);
+    public float fogDensity = 0.05f;
+    public Color ambientColor = new Color(0.06f, 0.07f, 0.09f);
     public Color moonColor = new Color(0.45f, 0.55f, 0.8f);
-    public float moonIntensity = 0.08f;
+    public float moonIntensity = 0.2f;
 
     [Header("Player")]
     [Tooltip("Spawn a first person player with a flashlight if the scene has none.")]
@@ -69,6 +69,19 @@ public class DarkForestGenerator : MonoBehaviour
     Mesh coneMesh;
     Vector2 noiseOffset;
     Material groundMat, barkMat, deadBarkMat, foliageMat, rockMat;
+
+    // When true, pressing Play in a scene with no generator and no player creates one automatically.
+    // Set to false once you have other scenes (e.g. a main menu) that shouldn't get a forest.
+    public static bool autoCreateInEmptyScenes = true;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void AutoCreate()
+    {
+        if (!autoCreateInEmptyScenes) return;
+        if (FindAnyObjectByType<DarkForestGenerator>() != null) return;
+        if (FindAnyObjectByType<FirstPersonController>() != null) return;
+        new GameObject("Dark Forest Generator").AddComponent<DarkForestGenerator>();
+    }
 
     void Start()
     {

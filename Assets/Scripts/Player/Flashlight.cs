@@ -10,7 +10,7 @@ public class Flashlight : MonoBehaviour
     [Header("Light")]
     [Tooltip("Spot light to toggle. Leave empty to create one automatically.")]
     public Light flashlight;
-    public bool startOn = false;
+    public bool startOn = true;
     public float range = 25f;
     public float spotAngle = 50f;
     public float innerSpotAngle = 25f;
