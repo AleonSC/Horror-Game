@@ -75,6 +75,15 @@ public class Footsteps : MonoBehaviour
 
     void Step(float volume)
     {
+        // In water: a splash, louder the deeper, and it carries.
+        if (Water.InWater(transform.position, out float depth))
+        {
+            source.pitch = Random.Range(0.85f, 1.15f);
+            source.PlayOneShot(ProceduralAudio.Splash, Mathf.Clamp01(volume * 2.5f + depth) * (1f - 0.85f * EntityDread.Silence));
+            Noise.Emit(transform.position, depth > 0.1f ? 13f : 9f);
+            return;
+        }
+
         AudioClip clip;
         if (stepClips != null && stepClips.Length > 0)
         {

@@ -85,6 +85,13 @@ public class DarkForestGenerator : MonoBehaviour
     public int rockCount = 480;
     [Tooltip("Big boulders, half buried, scattered at random.")]
     public int boulderCount = 40;
+    [Header("Water")]
+    [Tooltip("Ponds sunk into the ground, with reeds round the edge.")]
+    public int pondCount = 3;
+    public float minPondRadius = 7f;
+    public float maxPondRadius = 13f;
+    [Tooltip("Shallow puddles on flat ground.")]
+    public int puddleCount = 40;
     public float minBoulderSize = 2.5f;
     public float maxBoulderSize = 6f;
     public int fallenLogCount = 140;
@@ -176,6 +183,8 @@ public class DarkForestGenerator : MonoBehaviour
         if (PortalDoorPosition.HasValue && Near(PortalDoorPosition.Value, flat, distance + 3f)) return true;
         foreach (var boulder in BoulderSpots)
             if (Near(boulder, flat, distance + 2f)) return true;
+        foreach (var pond in ponds)
+            if (Near(pond.center, flat, distance + pond.radius * 0.9f)) return true;
         return WatchtowerPosition.HasValue && Near(WatchtowerPosition.Value, flat, distance + 2f);
     }
 
@@ -246,6 +255,7 @@ public class DarkForestGenerator : MonoBehaviour
         rng = new System.Random(seed);
         noiseOffset = new Vector2(Range(0f, 10000f), Range(0f, 10000f));
         BuildTerrainWaves();
+        PlanPonds();
 
         root = new GameObject(RootName).transform;
         root.SetParent(transform, false);
@@ -276,6 +286,7 @@ public class DarkForestGenerator : MonoBehaviour
         ScatterLogs();
         ScatterGrass();
         ScatterBushes();
+        BuildWater();
 
         if (applyLighting) ApplyAtmosphere();
         if (spawnPlayer) SpawnPlayer();
@@ -350,11 +361,74 @@ public class DarkForestGenerator : MonoBehaviour
 
     public float GetGroundHeight(float x, float z)
     {
+        float h = BaseHeight(x, z);
+        // Ponds: smooth bowls pressed into the ground.
+        foreach (var pond in ponds)
+        {
+            float dx = Wrapped(x - pond.center.x), dz = Wrapped(z - pond.center.y);
+            float t = Mathf.Sqrt(dx * dx + dz * dz) / pond.radius;
+            if (t < 1.4f) h -= pond.depth * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 1.4f, t)));
+        }
+        return h;
+    }
+
+    /// <summary>The rolling ground before anything is pressed into it.</summary>
+    float BaseHeight(float x, float z)
+    {
         if (terrainWaves == null) return 0f;
         float h = 0f;
         foreach (var w in terrainWaves)
             h += w.amplitude * Mathf.Sin(w.kx * x + w.kz * z + w.phase);
         return h;
+    }
+
+    /// <summary>A difference along one axis, the short way round when the map loops.</summary>
+    float Wrapped(float d) => wrapWorld ? Mathf.Repeat(d + areaSize * 0.5f, areaSize) - areaSize * 0.5f : d;
+
+    struct PondShape
+    {
+        public Vector2 center;
+        public float radius, depth, level;
+    }
+    readonly List<PondShape> ponds = new List<PondShape>();
+
+    /// <summary>
+    /// Picks the ponds before the ground is built (they shape it): away from the spawn and each other. Each
+    /// bowl is made deep enough that its middle sits well under the water, and the water level is the lowest
+    /// point of its rim, so the shoreline follows the lie of the land.
+    /// </summary>
+    void PlanPonds()
+    {
+        ponds.Clear();
+        Water.Clear();
+        float half = areaSize * 0.5f - 20f;
+        for (int attempt = 0; attempt < 300 && ponds.Count < pondCount; attempt++)
+        {
+            var c = new Vector2(Range(-half, half), Range(-half, half));
+            if (c.magnitude < 35f) continue;
+            bool tooClose = false;
+            foreach (var other in ponds) if ((other.center - c).magnitude < 55f) tooClose = true;
+            if (tooClose) continue;
+
+            var pond = new PondShape { center = c, radius = Range(minPondRadius, maxPondRadius), depth = 1.6f };
+            ponds.Add(pond);
+            for (int pass = 0; pass < 3; pass++)
+            {
+                // Water level: the lowest point round the rim.
+                float level = float.MaxValue;
+                for (int k = 0; k < 24; k++)
+                {
+                    float a = k / 24f * Mathf.PI * 2f;
+                    level = Mathf.Min(level, GetGroundHeight(c.x + Mathf.Cos(a) * pond.radius, c.y + Mathf.Sin(a) * pond.radius));
+                }
+                pond.level = level - 0.1f;
+                float bottom = GetGroundHeight(c.x, c.y);
+                if (pond.level - bottom >= 0.9f) break;
+                pond.depth += 0.9f - (pond.level - bottom) + 0.1f;
+                ponds[ponds.Count - 1] = pond;
+            }
+            ponds[ponds.Count - 1] = pond;
+        }
     }
 
     void BuildTerrainWaves()
@@ -1114,6 +1188,172 @@ public class DarkForestGenerator : MonoBehaviour
             result = highest ? Mathf.Max(result, h) : Mathf.Min(result, h);
         }
         return result;
+    }
+
+    // ---------------------------------------------------------------- Water
+
+    /// <summary>The ponds' water and reeds, and puddles on flat ground.</summary>
+    void BuildWater()
+    {
+        var parent = new GameObject("Water").transform;
+        parent.SetParent(root, false);
+
+        // Dark, glassy, slowly rippling: it only shows what light falls on it (lamps, moon, flashlight).
+        var water = MaterialFactory.LitTextured(null, ProceduralTextures.WaterNormal, new Color(0.012f, 0.016f, 0.02f), 0.96f);
+        water.mainTextureScale = Vector2.one;
+        parent.gameObject.AddComponent<WaterRipples>().material = water;
+        var reedMat = MaterialFactory.Lit(new Color(0.07f, 0.08f, 0.04f), 0.1f);
+        var headMat = MaterialFactory.Lit(new Color(0.1f, 0.06f, 0.035f), 0.05f);
+
+        foreach (var pond in ponds)
+        {
+            var go = new GameObject("Pond");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(pond.center.x, pond.level, pond.center.y);
+            go.AddComponent<MeshFilter>().sharedMesh = DiscMesh(pond.radius * 1.45f, 48, 0.25f);
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = water;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            Water.AddPond(go.transform.position, pond.radius, pond.level);
+            AddReeds(go.transform, pond, reedMat, headMat);
+        }
+
+        float half = areaSize * 0.5f - 4f;
+        int puddles = 0;
+        for (int attempt = 0; attempt < puddleCount * 30 && puddles < puddleCount; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            float radius = Range(0.6f, 1.8f);
+            if (p.magnitude < 6f || IsNearStructure(new Vector3(p.x, 0f, p.y), 2f) || NearAnyTree(p, radius + 0.6f)) continue;
+            // Only where the ground is nearly level, or the water would run off.
+            float lo = float.MaxValue, hi = float.MinValue;
+            for (int k = 0; k < 8; k++)
+            {
+                float a = k / 8f * Mathf.PI * 2f;
+                float h = GetGroundHeight(p.x + Mathf.Cos(a) * radius, p.y + Mathf.Sin(a) * radius);
+                lo = Mathf.Min(lo, h);
+                hi = Mathf.Max(hi, h);
+            }
+            if (hi - lo > 0.07f) continue;
+
+            var go = new GameObject("Puddle");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
+            go.AddComponent<MeshFilter>().sharedMesh = PuddleMesh(go.transform.localPosition, radius);
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = water;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            Water.AddPuddle(go.transform.position, radius * 0.9f);
+            puddles++;
+        }
+    }
+
+    /// <summary>A flat disc, its UVs in metres times uvScale (so ripples keep their size whatever the disc).</summary>
+    static Mesh DiscMesh(float radius, int segments, float uvScale)
+    {
+        var verts = new Vector3[segments + 1];
+        var uvs = new Vector2[segments + 1];
+        var tris = new int[segments * 3];
+        for (int i = 0; i < segments; i++)
+        {
+            float a = i / (float)segments * Mathf.PI * 2f;
+            verts[i + 1] = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius;
+            uvs[i + 1] = new Vector2(verts[i + 1].x, verts[i + 1].z) * uvScale;
+            tris[i * 3] = 0;
+            tris[i * 3 + 1] = 1 + (i + 1) % segments;
+            tris[i * 3 + 2] = 1 + i;
+        }
+        var mesh = new Mesh { name = "Water" };
+        mesh.vertices = verts;
+        mesh.uv = uvs;
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>An irregular puddle, its edge hugging the ground just above it.</summary>
+    Mesh PuddleMesh(Vector3 center, float radius)
+    {
+        const int segments = 20;
+        float seed = Range(0f, 100f);
+        var verts = new Vector3[segments + 1];
+        var uvs = new Vector2[segments + 1];
+        var tris = new int[segments * 3];
+        verts[0] = new Vector3(0f, 0.015f, 0f);
+        for (int i = 0; i < segments; i++)
+        {
+            float a = i / (float)segments * Mathf.PI * 2f;
+            float r = radius * (0.75f + 0.45f * Mathf.PerlinNoise(Mathf.Cos(a) * 1.3f + seed, Mathf.Sin(a) * 1.3f + seed));
+            float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+            verts[i + 1] = new Vector3(x, GetGroundHeight(center.x + x, center.z + z) - center.y + 0.015f, z);
+            uvs[i + 1] = new Vector2(x, z) * 0.25f;
+            tris[i * 3] = 0;
+            tris[i * 3 + 1] = 1 + (i + 1) % segments;
+            tris[i * 3 + 2] = 1 + i;
+        }
+        uvs[0] = Vector2.zero;
+        var mesh = new Mesh { name = "Puddle" };
+        mesh.vertices = verts;
+        mesh.uv = uvs;
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>Clumps of reeds and bulrushes along a pond's waterline, merged into one mesh.</summary>
+    void AddReeds(Transform pondObject, PondShape pond, Material reedMat, Material headMat)
+    {
+        if (sphereMesh == null)
+        {
+            var temp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphereMesh = temp.GetComponent<MeshFilter>().sharedMesh;
+            if (Application.isPlaying) Destroy(temp); else DestroyImmediate(temp);
+        }
+        var cylinder = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        Mesh stalkMesh = cylinder.GetComponent<MeshFilter>().sharedMesh;
+        if (Application.isPlaying) Destroy(cylinder); else DestroyImmediate(cylinder);
+
+        var stalks = new List<CombineInstance>();
+        var heads = new List<CombineInstance>();
+        int clumps = Mathf.RoundToInt(pond.radius * 1.4f);
+        for (int c = 0; c < clumps; c++)
+        {
+            // Find the shore along a random direction: where the ground comes up to the water.
+            float a = Range(0f, Mathf.PI * 2f);
+            Vector2 dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+            float shore = pond.radius;
+            for (float r = pond.radius * 0.4f; r < pond.radius * 1.4f; r += 0.25f)
+            {
+                Vector2 q = pond.center + dir * r;
+                if (GetGroundHeight(q.x, q.y) > pond.level) { shore = r; break; }
+            }
+
+            int count = rng.Next(5, 13);
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 q = pond.center + dir * (shore + Range(-0.8f, 0.4f)) + new Vector2(Range(-0.6f, 0.6f), Range(-0.6f, 0.6f));
+                float ground = Mathf.Min(GetGroundHeight(q.x, q.y), pond.level);
+                float tall = Range(0.9f, 1.8f);
+                var local = new Vector3(q.x - pond.center.x, ground - pond.level - 0.2f, q.y - pond.center.y);
+                var lean = Quaternion.Euler(Range(-8f, 8f), Range(0f, 360f), Range(-8f, 8f));
+                stalks.Add(new CombineInstance { mesh = stalkMesh, transform = Matrix4x4.TRS(local + lean * Vector3.up * (tall * 0.5f), lean, new Vector3(0.02f, tall * 0.5f, 0.02f)) });
+                if (Range(0f, 1f) < 0.4f)
+                    heads.Add(new CombineInstance { mesh = sphereMesh, transform = Matrix4x4.TRS(local + lean * Vector3.up * (tall - 0.12f), lean, new Vector3(0.05f, 0.18f, 0.05f)) });
+            }
+        }
+
+        foreach (var (list, mat, name) in new[] { (stalks, reedMat, "Reeds"), (heads, headMat, "Bulrushes") })
+        {
+            if (list.Count == 0) continue;
+            var mesh = new Mesh { name = name, indexFormat = IndexFormat.UInt32 };
+            mesh.CombineMeshes(list.ToArray(), true, true);
+            var go = new GameObject(name);
+            go.transform.SetParent(pondObject, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        }
     }
 
     void PlaceWatchtower()

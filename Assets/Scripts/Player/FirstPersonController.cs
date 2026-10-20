@@ -227,7 +227,7 @@ public class FirstPersonController : MonoBehaviour
 
         IsRunning = HorrorInput.RunHeld && !IsCrouching && hasInput && input.y > 0f;
 
-        float targetSpeed = IsCrouching ? crouchSpeed : IsRunning ? runSpeed : walkSpeed;
+        float targetSpeed = (IsCrouching ? crouchSpeed : IsRunning ? runSpeed : walkSpeed) * Water.SpeedFactor(transform.position); // wading is slow
         Vector3 desired = (transform.right * input.x + transform.forward * input.y) * targetSpeed;
 
         float accel = grounded ? acceleration : acceleration * airControl;

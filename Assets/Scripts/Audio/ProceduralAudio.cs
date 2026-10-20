@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, deerGrunt, deerBleat, deerSnort, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
+        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, splash, deerGrunt, deerBleat, deerSnort, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -33,6 +33,9 @@ public static class ProceduralAudio
     static readonly AudioClip[] footsteps = new AudioClip[4];
 
     /// <summary>A soft footstep on dirt and leaves. There are a few variants (index wraps) so steps don't repeat.</summary>
+    /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
+    public static AudioClip Splash => splash != null ? splash : (splash = MakeSplash());
+
     public static AudioClip Footstep(int variant)
     {
         int i = ((variant % footsteps.Length) + footsteps.Length) % footsteps.Length;
@@ -944,6 +947,29 @@ public static class ProceduralAudio
             float tone = Mathf.Sin(TwoPi * phase) * 0.25f;
             return (rasp + tone) * env;
         }, 0.75f);
+    }
+
+    static AudioClip MakeSplash()
+    {
+        const float len = 0.45f;
+        float lp = 0f, hp = 0f, bubble = 0f;
+        float[] bubbleAt = { 0.06f, 0.11f, 0.17f, 0.24f };
+        float[] bubbleHz = { 620f, 840f, 540f, 760f };
+        return Shot("Splash", len, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.4f;
+            hp += (lp - hp) * 0.08f;
+            float slosh = (lp - hp) * Mathf.Exp(-t * 11f) * (0.8f + 0.2f * Mathf.Sin(t * 90f));
+            bubble = 0f;
+            for (int i = 0; i < bubbleAt.Length; i++)
+            {
+                float u = t - bubbleAt[i];
+                if (u < 0f || u > 0.05f) continue;
+                bubble += Mathf.Sin(TwoPi * bubbleHz[i] * (1f + u * 6f) * u) * Mathf.Exp(-u * 70f) * 0.35f; // rising plips
+            }
+            return slosh + bubble;
+        }, 0.8f);
     }
 
     static AudioClip MakeThunder()

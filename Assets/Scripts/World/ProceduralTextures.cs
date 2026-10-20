@@ -11,7 +11,7 @@ public static class ProceduralTextures
 {
     const int Size = 512;
 
-    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath, rock, rockNormal;
+    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath, rock, rockNormal, waterNormal;
 
     /// <summary>Tiling forest-floor dirt.</summary>
     public static Texture2D Dirt { get { if (dirt == null) MakeDirt(); return dirt; } }
@@ -32,6 +32,8 @@ public static class ProceduralTextures
     public static Texture2D Rock { get { if (rock == null) MakeRock(); return rock; } }
     /// <summary>Normal map matching Rock.</summary>
     public static Texture2D RockNormal { get { if (rockNormal == null) MakeRock(); return rockNormal; } }
+    /// <summary>Gentle overlapping ripples, as a tiling normal map, for still water.</summary>
+    public static Texture2D WaterNormal => waterNormal != null ? waterNormal : (waterNormal = MakeWaterNormal());
     /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
     public static Texture2D SkyEye => skyEye != null ? skyEye : (skyEye = MakeSkyEye());
 
@@ -171,6 +173,37 @@ public static class ProceduralTextures
         var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
         {
             name = "Needles", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
+
+    // ---------------------------------------------------------------- Water
+
+    static Texture2D MakeWaterNormal()
+    {
+        const int n = 256;
+        var height = new float[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float u = x / (float)n, v = y / (float)n;
+                height[y * n + x] = TileNoise(u * 6f, v * 6f, 6, 81) * 0.5f + TileNoise(u * 14f, v * 14f, 14, 82) * 0.3f + TileNoise(u * 32f, v * 32f, 32, 83) * 0.2f;
+            }
+        var px = new Color32[n * n];
+        const float strength = 2.5f;
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = height[y * n + Mod(x + 1, n)] - height[y * n + Mod(x - 1, n)];
+                float dy = height[Mod(y + 1, n) * n + x] - height[Mod(y - 1, n) * n + x];
+                var nv = new Vector3(-dx * strength, -dy * strength, 1f).normalized;
+                px[y * n + x] = new Color(nv.x * 0.5f + 0.5f, nv.y * 0.5f + 0.5f, nv.z * 0.5f + 0.5f, 1f);
+            }
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, true)
+        {
+            name = "Water Normal", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
         };
         tex.SetPixels32(px);
         tex.Apply(true);

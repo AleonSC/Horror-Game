@@ -1,0 +1,72 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// Where the water is: ponds (sunk into the ground, with a water level) and shallow puddles. Footsteps
+/// splash in it, wading slows you down (FirstPersonController), and the splashing carries (Noise).
+/// DarkForestGenerator fills it in when it builds the forest; WaterRipples animates the surfaces.
+/// </summary>
+public static class Water
+{
+    struct Pond { public Vector3 center; public float radius, level; }
+    struct Puddle { public Vector3 center; public float radius; }
+
+    static readonly List<Pond> ponds = new List<Pond>();
+    static readonly List<Puddle> puddles = new List<Puddle>();
+
+    public static void Clear()
+    {
+        ponds.Clear();
+        puddles.Clear();
+    }
+
+    public static void AddPond(Vector3 center, float radius, float level) => ponds.Add(new Pond { center = center, radius = radius, level = level });
+    public static void AddPuddle(Vector3 center, float radius) => puddles.Add(new Puddle { center = center, radius = radius });
+
+    /// <summary>True if feet at this point are in water, and how deep (a puddle is ankle-deep at most).</summary>
+    public static bool InWater(Vector3 feet, out float depth)
+    {
+        foreach (var pond in ponds)
+        {
+            Vector3 c = WorldWrap.NearestImage(pond.center, feet);
+            float dx = feet.x - c.x, dz = feet.z - c.z;
+            if (dx * dx + dz * dz < pond.radius * pond.radius * 1.6f && feet.y < pond.level)
+            {
+                depth = pond.level - feet.y;
+                return true;
+            }
+        }
+        foreach (var puddle in puddles)
+        {
+            Vector3 c = WorldWrap.NearestImage(puddle.center, feet);
+            float dx = feet.x - c.x, dz = feet.z - c.z;
+            if (dx * dx + dz * dz < puddle.radius * puddle.radius)
+            {
+                depth = 0.03f;
+                return true;
+            }
+        }
+        depth = 0f;
+        return false;
+    }
+
+    /// <summary>How much wading slows you: knee-deep and more, a lot.</summary>
+    public static float SpeedFactor(Vector3 feet) =>
+        InWater(feet, out float depth) ? Mathf.Lerp(1f, 0.5f, Mathf.InverseLerp(0.1f, 0.6f, depth)) : 1f;
+}
+
+/// <summary>Slowly drifts the ripples across every water surface (they share one material).</summary>
+public class WaterRipples : MonoBehaviour
+{
+    public Material material;
+    public Vector2 drift = new Vector2(0.012f, 0.007f);
+    Vector2 offset;
+
+    void Update()
+    {
+        if (material == null) return;
+        offset += drift * Time.deltaTime;
+        material.mainTextureOffset = offset;
+        if (material.HasProperty("_BumpMap")) material.SetTextureOffset("_BumpMap", offset);
+    }
+}
