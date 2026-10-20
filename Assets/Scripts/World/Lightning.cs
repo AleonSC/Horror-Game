@@ -36,6 +36,24 @@ public class Lightning : MonoBehaviour
         new Vector2(0.22f, 0.9f), new Vector2(0.32f, 0.5f), new Vector2(0.6f, 0f),
     };
 
+    public static Lightning Instance { get; private set; }
+
+    void Awake() => Instance = this;
+    void OnDestroy() { if (Instance == this) Instance = null; }
+
+    /// <summary>
+    /// Strikes now, in a given compass direction from the camera (degrees). Closeness 1 is right on top of
+    /// you: the thunder comes almost at once, loud; 0 is far off, late and soft.
+    /// </summary>
+    public void StrikeAt(float bearing, float closeness)
+    {
+        Strike(bearing);
+        float far = 1f - Mathf.Clamp01(closeness);
+        thunderTimer = Mathf.Lerp(0.15f, 4f, far);
+        thunderVolumeNow = thunderVolume * Mathf.Lerp(1.15f, 0.45f, far);
+        timer = Mathf.Max(timer, minInterval * 0.5f); // no other strike straight after
+    }
+
     void Start()
     {
         timer = Random.Range(minInterval * 0.5f, maxInterval);
@@ -70,11 +88,12 @@ public class Lightning : MonoBehaviour
         }
     }
 
-    void Strike()
+    void Strike() => Strike(Random.Range(0f, 360f));
+
+    void Strike(float bearing)
     {
         strikeTime = Time.time;
         // Somewhere round the horizon, from up in the clouds down to the treeline.
-        float bearing = Random.Range(0f, 360f);
         float top = Random.Range(30f, 55f), bottom = Random.Range(-2f, 6f);
         strikeDir = Direction(bearing, (top + bottom) * 0.5f);
 

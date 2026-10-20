@@ -29,19 +29,27 @@ public class BlindEntity : MonoBehaviour
     [Tooltip("How long it searches where it heard something.")]
     public float searchTime = 5f;
     [Range(0f, 1f)] public float volume = 0.8f;
+    [Tooltip("How loud its footsteps are, and how far they carry.")]
+    [Range(0f, 1f)] public float footstepVolume = 1f;
+    public float footstepRange = 160f;
+    [Tooltip("Camera shake (degrees) from a footstep right beside you; fades out with distance.")]
+    public float footstepShake = 1.4f;
+    [Tooltip("How far off it rises up out of the ground when it first comes, in front of the player.")]
+    public float entranceDistance = 45f;
 
     enum State { Appearing, Roaming, Listening, Rushing, Searching, Taking }
 
     State state = State.Appearing;
     Vector3 goal;
-    float timer, stride, clickTimer, stepTimer;
+    float timer, stride, clickTimer;
+    int lastStep;
     Quaternion headTarget = Quaternion.identity;
     FirstPersonController player;
     DarkForestGenerator generator;
     Transform body, head, mouth;
     readonly Transform[] legs = new Transform[2], arms = new Transform[2];
     readonly List<Renderer> renderers = new List<Renderer>();
-    AudioSource sfx;
+    AudioSource sfx, steps, roar, omen;
     float fadeIn;
     float scale;
 
@@ -55,6 +63,8 @@ public class BlindEntity : MonoBehaviour
     {
         All.Remove(this);
         Noise.Heard -= OnNoise;
+        if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
+        musicTaken = false;
     }
 
     /// <summary>Brings one in, somewhere out in the dark near the player.</summary>
@@ -72,6 +82,10 @@ public class BlindEntity : MonoBehaviour
         scale = height / 2.4f;
         Build();
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, volume, 4f, 45f);
+        // Its footsteps and its roar carry a long way through the woods.
+        steps = ProceduralAudio.AddSource(gameObject, null, false, true, footstepVolume, 10f, footstepRange);
+        roar = ProceduralAudio.AddSource(gameObject, null, false, true, 1f, 18f, 300f);
+        omen = ProceduralAudio.AddSource(gameObject, null, false, false, 1f); // the ground, everywhere
         generator = FindAnyObjectByType<DarkForestGenerator>();
         WorldWrap.RegisterDynamic(transform);
     }
@@ -79,19 +93,33 @@ public class BlindEntity : MonoBehaviour
     void Place(Vector3 near)
     {
         if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
+        if (player == null) player = FindAnyObjectByType<FirstPersonController>();
+        // Somewhere out in front, where you'll see it come up: whichever way you're looking.
+        Vector3 ahead = Vector3.forward;
+        var cam = Camera.main;
+        if (cam != null) ahead = cam.transform.forward;
+        else if (player != null) ahead = player.transform.forward;
+        ahead.y = 0f;
+        ahead = ahead.sqrMagnitude > 0.001f ? ahead.normalized : Vector3.forward;
         Vector3 p = near;
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 30; i++)
         {
-            Vector2 d = Random.insideUnitCircle.normalized * Random.Range(35f, 50f);
-            p = Settle(near + new Vector3(d.x, 0f, d.y));
+            float spread = i < 20 ? 40f : 180f; // fall back to anywhere if nothing in front will do
+            Vector3 d = Quaternion.Euler(0f, Random.Range(-spread, spread), 0f) * ahead * entranceDistance * Random.Range(0.85f, 1.15f);
+            p = Settle(near + d);
             if (!SafeZones.Contains(p)) break;
         }
         transform.position = p;
+        Vector3 toNear = near - p;
+        toNear.y = 0f;
+        if (toNear.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(toNear);
         goal = p;
         fadeIn = 0f;
         SetAlpha(0f);
         state = State.Appearing;
         timer = 0f;
+        entrance = 0f;
+        entranceBeat = 0;
     }
 
     // ---------------------------------------------------------------- Hearing
@@ -134,10 +162,8 @@ public class BlindEntity : MonoBehaviour
         switch (state)
         {
             case State.Appearing:
-                fadeIn = Mathf.MoveTowards(fadeIn, 1f, dt / 2.5f);
-                SetAlpha(fadeIn);
-                if (fadeIn >= 1f) { state = State.Roaming; PickRoamGoal(); }
-                return; // rising up out of the ground: nothing else yet
+                UpdateEntrance(dt);
+                return; // its entrance: nothing else yet
 
             case State.Roaming:
                 // Never strays far from where the player is; drifts after them.
@@ -211,13 +237,155 @@ public class BlindEntity : MonoBehaviour
         KnockDownTrees(speed);
         Face(target, dt * 4f);
         stride += dt * speed * 1.6f;
-        stepTimer -= dt;
-        if (stepTimer <= 0f)
+        // A footfall each time a leg comes down (every half swing of the stride).
+        int step = Mathf.FloorToInt(stride / Mathf.PI);
+        if (step != lastStep)
         {
-            stepTimer = Mathf.Lerp(0.9f, 0.35f, Mathf.InverseLerp(roamSpeed, rushSpeed, speed));
-            PlaySound(ProceduralAudio.Footstep(Random.Range(0, 4)), Random.Range(0.5f, 0.6f), speed > roamSpeed + 0.5f ? 1f : 0.6f);
+            lastStep = step;
+            Footfall(speed > roamSpeed + 0.5f ? 1f : 0.65f);
         }
         return false;
+    }
+
+    /// <summary>
+    /// One of its feet coming down: a deep, heavy thud that carries a long way, the crunch of the forest
+    /// floor under it, and the ground shaking under you when it's close.
+    /// </summary>
+    void Footfall(float weight)
+    {
+        if (steps != null)
+        {
+            steps.pitch = Random.Range(1.35f, 1.6f);
+            steps.PlayOneShot(ProceduralAudio.GiantStep, footstepVolume * weight);
+        }
+        PlaySound(ProceduralAudio.Footstep(Random.Range(0, 4)), Random.Range(0.35f, 0.45f), weight);
+        if (player != null)
+        {
+            float dist = Vector3.Distance(player.transform.position, transform.position);
+            float shake = footstepShake * weight * (1f - Mathf.Clamp01(dist / 45f));
+            if (shake > 0.02f) player.AddCameraShake(shake);
+        }
+    }
+
+    // ---------------------------------------------------------------- Entrance
+
+    // The first time it comes: the ground rumbles and shakes, lightning cracks over where it is, and it
+    // bursts up out of the earth, throwing the trees round it down. It straightens, throws its head back and
+    // its arms out and roars, the sky lighting up again; then it drops forward onto its knuckles, stamps
+    // twice, and starts listening for you.
+    const float OmenTime = 3.5f, RiseTime = 3.5f, RoarStart = OmenTime + RiseTime + 0.6f, RoarTime = 5f,
+        EntranceEnd = RoarStart + RoarTime + 2.2f;
+
+    float entrance, shake;
+    int entranceBeat;
+    bool musicTaken;
+
+    void UpdateEntrance(float dt)
+    {
+        entrance += dt;
+        float t = entrance;
+        float bearing = 0f;
+        if (player != null)
+        {
+            Vector3 to = transform.position - player.transform.position;
+            bearing = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
+        }
+
+        // Each beat happens once, in order.
+        if (Beat(0, 0f))
+        {
+            omen.pitch = 0.6f;
+            omen.PlayOneShot(ProceduralAudio.DistantRumble, 1f);
+            omen.PlayOneShot(ProceduralAudio.Tension, 0.5f);
+            if (MusicManager.Instance != null) { MusicManager.Instance.SetOverride(MusicManager.Mood.Danger); musicTaken = true; }
+        }
+        if (Beat(1, OmenTime))
+        {
+            // It breaks out of the ground.
+            if (Lightning.Instance != null) Lightning.Instance.StrikeAt(bearing, 0.85f);
+            PlaySound(ProceduralAudio.TreeImpact, 0.55f, 1f);
+            steps.pitch = 0.8f;
+            steps.PlayOneShot(ProceduralAudio.GiantStep, footstepVolume);
+            LeafBurst.Spawn(new Bounds(transform.position + Vector3.up, new Vector3(9f, 2f, 9f)));
+            ThrowDownTrees(7f);
+            shake = 2.5f;
+        }
+        if (Beat(2, OmenTime + RiseTime * 0.5f)) PlaySound(ProceduralAudio.TreeSnap, 0.5f, 1f);
+        if (Beat(3, RoarStart))
+        {
+            roar.pitch = 0.62f;
+            roar.PlayOneShot(ProceduralAudio.Scream, 1f);
+            omen.pitch = 0.45f;
+            omen.PlayOneShot(ProceduralAudio.DistantRumble, 0.8f);
+            if (MusicManager.Instance != null) MusicManager.Instance.PlayStinger();
+            shake = 3f;
+        }
+        if (Beat(4, RoarStart + 0.5f) && Lightning.Instance != null) Lightning.Instance.StrikeAt(bearing + Random.Range(-15f, 15f), 1f);
+        if (Beat(5, RoarStart + RoarTime + 0.5f)) { Footfall(1.3f); shake = 2f; }
+        if (Beat(6, RoarStart + RoarTime + 1.1f)) { Footfall(1.3f); shake = 2f; }
+
+        // The ground trembling, building as it comes and while it roars.
+        float tremble = 0f;
+        if (t < OmenTime) tremble = Mathf.Lerp(0.1f, 0.8f, t / OmenTime);
+        else if (t < RoarStart) tremble = 0.6f;
+        else if (t < RoarStart + RoarTime) tremble = 1.2f;
+        shake = Mathf.MoveTowards(shake, 0f, dt * 1.2f);
+        if (player != null) player.AddCameraShake(Mathf.Max(tremble, shake));
+
+        // Rising up out of the earth, hunched and bowed, fast at first, then heaving the last of itself out.
+        fadeIn = Mathf.Clamp01((t - OmenTime) / RiseTime);
+        SetAlpha(1f - (1f - fadeIn) * (1f - fadeIn));
+
+        // The pose: bowed as it comes up, then straightening, head and arms flung back to roar, then down.
+        float straighten = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(OmenTime + RiseTime, RoarStart, t))
+                         * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RoarStart + RoarTime - 0.3f, RoarStart + RoarTime + 0.5f, t)));
+        float k = 1f - Mathf.Exp(-6f * dt);
+        body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.Euler(Mathf.Lerp(60f, -14f, straighten), 0f, 0f), k);
+        Quaternion headGoal = Quaternion.Euler(Mathf.Lerp(30f, -55f, straighten), 0f, 0f);
+        if (straighten > 0.5f) headGoal *= Quaternion.Euler(Random.insideUnitSphere * 4f * straighten); // shaking with it
+        head.localRotation = Quaternion.Slerp(head.localRotation, headGoal, k);
+        for (int i = 0; i < 2; i++)
+        {
+            float side = i == 0 ? -1f : 1f;
+            arms[i].localRotation = Quaternion.Slerp(arms[i].localRotation,
+                Quaternion.Euler(Mathf.Lerp(0f, -25f, straighten), 0f, side * Mathf.Lerp(6f, 65f, straighten)), k);
+            legs[i].localRotation = Quaternion.Slerp(legs[i].localRotation, Quaternion.identity, k);
+        }
+        float open = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RoarStart - 0.2f, RoarStart + 0.4f, t))
+                   * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RoarStart + RoarTime - 1f, RoarStart + RoarTime, t)));
+        mouth.localScale = new Vector3(Mathf.Lerp(1f, 1.8f, open), Mathf.Lerp(0.25f, 1.5f, open), 1f);
+
+        if (t >= EntranceEnd)
+        {
+            if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
+            musicTaken = false;
+            mouth.localScale = new Vector3(1f, 0.25f, 1f);
+            state = State.Searching; // a moment listening, then it goes looking
+            timer = 2.5f;
+        }
+    }
+
+    /// <summary>True once, the first frame the entrance passes the given time.</summary>
+    bool Beat(int index, float at)
+    {
+        if (entranceBeat != index || entrance < at) return false;
+        entranceBeat++;
+        return true;
+    }
+
+    /// <summary>Bursting up out of the ground, it throws down every tree close round it, falling outward.</summary>
+    void ThrowDownTrees(float radius)
+    {
+        int count = Physics.OverlapSphereNonAlloc(transform.position + Vector3.up, radius, overlaps, ~0, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            Transform sway = TreeSway(overlaps[i]);
+            if (sway == null) continue;
+            Vector3 dir = sway.position - transform.position;
+            dir.y = 0f;
+            dir = dir.sqrMagnitude > 0.01f ? dir.normalized : Random.insideUnitSphere;
+            TreeFall.Fell(sway, dir, Random.Range(0f, 0.3f), 1.3f, volume);
+        }
     }
 
     /// <summary>Any tree its body walks into is shoved over, falling the way it's going.</summary>

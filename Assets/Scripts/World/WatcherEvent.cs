@@ -356,7 +356,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
                     root = BuildChain("Empty Chain", true),
                     bearing = (i + 1) * 360f / (emptyChains + 1) + Random.Range(-20f, 20f),
                     distance = giantStartDistance * Random.Range(0.85f, 1.25f),
-                    bottomElevation = Random.Range(14f, 32f),
+                    bottomElevation = Random.Range(EmptyChainLow, EmptyChainHigh),
                     phase = Random.Range(0f, 10f),
                 });
             }
@@ -497,6 +497,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         public Transform root;
         public float bearing, distance, bottomElevation, phase; // bearing is relative to the giant's
     }
+    // How high the empty chains' ends hang above the horizon (degrees): well up off the ground.
+    const float EmptyChainLow = 30f, EmptyChainHigh = 42f;
     readonly System.Collections.Generic.List<EmptyChain> emptyChainList = new System.Collections.Generic.List<EmptyChain>();
 
     /// <summary>
@@ -904,7 +906,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         if (chainMaterial != null && player != null)
         {
             chainMaterial.SetFloat("_SkyFade", 1f);
-            chainMaterial.SetFloat("_SkyFadeStart", player.transform.position.y + HangingNeckHeight() + giantHeight * 0.3f);
+            // Above the giant's neck and the highest empty chain's end, so none of them fades away down low.
+            float highest = HangingNeckHeight();
+            foreach (var c in emptyChainList) highest = Mathf.Max(highest, Mathf.Tan(c.bottomElevation * Mathf.Deg2Rad) * c.distance);
+            chainMaterial.SetFloat("_SkyFadeStart", player.transform.position.y + highest + giantHeight * 0.3f);
             chainMaterial.SetFloat("_SkyFadeLength", chainFadeLength);
         }
     }
@@ -939,7 +944,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         searchPausing = false;
         // It's back up on its chain, somewhere new.
         hangBearingAngle = Random.Range(0f, 360f);
-        foreach (var c in emptyChainList) c.bottomElevation = Random.Range(14f, 32f); // and so are the empty ones
+        foreach (var c in emptyChainList) c.bottomElevation = Random.Range(EmptyChainLow, EmptyChainHigh); // and so are the empty ones
 
         redness = 0f;
         if (savedAtmosphere)
