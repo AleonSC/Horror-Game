@@ -490,8 +490,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             float low = Mathf.Clamp01(1f - TorchFuel / 0.15f);
             float flicker = 0.8f + 0.4f * Mathf.PerlinNoise(time * 9f, 0.3f) - low * Random.Range(0f, 0.5f);
             torchLight.intensity = 3f * flicker;
-            torchFlame.rotation = Quaternion.identity; // flames burn upward however the torch is held
-            torchFlame.localScale = Vector3.one * Mathf.Lerp(1f, 0.5f, low) * (0.85f + 0.3f * Mathf.PerlinNoise(time * 12f, 1.7f));
+            torchFire.strength = Mathf.Lerp(1f, 0.45f, low); // shrinking as it burns down (the fire burns upward by itself)
         }
 
         flareGunModel.gameObject.SetActive(Selected == Item.FlareGun);
@@ -513,12 +512,14 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (cameraFlashPoint != null) flashLight.transform.position = cameraFlashPoint.position;
         lighterModel.gameObject.SetActive(Selected == Item.Lighter);
         lighterFlame.gameObject.SetActive(LighterLit);
+        // The lid flips open when it's lit.
+        if (lighterLid != null)
+            lighterLid.localRotation = Quaternion.Slerp(lighterLid.localRotation, Quaternion.Euler(0f, 0f, LighterLit ? -115f : 0f), 1f - Mathf.Exp(-25f * Time.deltaTime));
         lighterLight.enabled = LighterLit;
         if (LighterLit)
         {
             lighterLight.intensity = 1.4f * (0.85f + 0.3f * Mathf.PerlinNoise(time * 10f, 5.1f));
-            lighterFlame.rotation = Quaternion.identity;
-            lighterFlame.localScale = Vector3.one * (0.85f + 0.3f * Mathf.PerlinNoise(time * 14f, 2.9f));
+            lighterFire.strength = 0.85f + 0.15f * Mathf.PerlinNoise(time * 14f, 2.9f);
         }
 
         float fireVolume = TorchLit ? 0.5f : LighterLit ? 0.12f : 0f;
@@ -528,24 +529,19 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         else if (fireLoop.volume <= 0f && fireLoop.isPlaying) fireLoop.Stop();
     }
 
+    Fire torchFire, lighterFire;
+    Transform lighterLid;
+
     void BuildTorch(Transform hand)
     {
-        var wood = MaterialFactory.Lit(new Color(0.22f, 0.14f, 0.08f), 0.1f);
-        var cloth = MaterialFactory.Lit(new Color(0.12f, 0.1f, 0.07f), 0.05f);
-
         torchModel = new GameObject("Held Torch").transform;
         torchModel.SetParent(hand, false);
-        torchModel.localPosition = new Vector3(0.32f, -0.42f, 0.6f);
-        torchModel.localRotation = Quaternion.Euler(25f, 0f, -10f);
-        Part(PrimitiveType.Cylinder, wood, torchModel, Vector3.zero, new Vector3(0.035f, 0.25f, 0.035f));
-        Part(PrimitiveType.Cylinder, cloth, torchModel, new Vector3(0f, 0.27f, 0f), new Vector3(0.07f, 0.07f, 0.07f));
-
+        torchModel.localPosition = new Vector3(0.3f, -0.62f, 0.62f);
+        torchModel.localRotation = Quaternion.Euler(22f, 0f, -12f);
+        PropModels.Torch(torchModel, false, out Transform flameAt);
         torchFlame = new GameObject("Flame").transform;
-        torchFlame.SetParent(torchModel, false);
-        torchFlame.localPosition = new Vector3(0f, 0.36f, 0f);
-        Part(PrimitiveType.Sphere, MaterialFactory.Unlit(torchColor * 4f), torchFlame, new Vector3(0f, 0.06f, 0f), new Vector3(0.12f, 0.22f, 0.12f));
-        Part(PrimitiveType.Sphere, MaterialFactory.Unlit(new Color(1f, 0.85f, 0.4f) * 6f), torchFlame, new Vector3(0f, 0.04f, 0f), new Vector3(0.07f, 0.13f, 0.07f));
-
+        torchFlame.SetParent(flameAt, false);
+        torchFire = Fire.Create(torchFlame, Vector3.zero, 0.42f, new Color(1f, 0.55f, 0.15f), 8, 3);
         torchLight = new GameObject("Torch Light").AddComponent<Light>();
         torchLight.transform.SetParent(torchFlame, false);
         torchLight.transform.localPosition = new Vector3(0f, 0.15f, 0f);
@@ -554,28 +550,20 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         torchLight.range = torchRadius * 1.5f;
         torchLight.shadows = LightShadows.None;
         torchLight.enabled = false;
-
         torchModel.gameObject.SetActive(false);
     }
 
     void BuildLighter(Transform hand)
     {
-        var body = MaterialFactory.Lit(new Color(0.45f, 0.08f, 0.06f), 0.6f);
-        var metal = MaterialFactory.Lit(new Color(0.6f, 0.6f, 0.62f), 0.8f);
-
         lighterModel = new GameObject("Held Lighter").transform;
         lighterModel.SetParent(hand, false);
-        lighterModel.localPosition = new Vector3(0.2f, -0.24f, 0.42f);
-        lighterModel.localRotation = Quaternion.Euler(10f, -15f, 0f);
-        Part(PrimitiveType.Cube, body, lighterModel, Vector3.zero, new Vector3(0.04f, 0.06f, 0.015f));
-        Part(PrimitiveType.Cube, metal, lighterModel, new Vector3(0f, 0.038f, 0f), new Vector3(0.04f, 0.016f, 0.015f));
-
+        lighterModel.localPosition = new Vector3(0.18f, -0.25f, 0.4f);
+        lighterModel.localRotation = Quaternion.Euler(8f, -20f, 0f);
+        var model = PropModels.Lighter(lighterModel, false, out lighterLid, out Transform flameAt);
+        model.localScale = Vector3.one * 1.3f;
         lighterFlame = new GameObject("Flame").transform;
-        lighterFlame.SetParent(lighterModel, false);
-        lighterFlame.localPosition = new Vector3(0f, 0.05f, 0f);
-        Part(PrimitiveType.Sphere, MaterialFactory.Unlit(lighterColor * 4f), lighterFlame, new Vector3(0f, 0.02f, 0f), new Vector3(0.02f, 0.05f, 0.02f));
-        Part(PrimitiveType.Sphere, MaterialFactory.Unlit(new Color(0.5f, 0.7f, 1f) * 3f), lighterFlame, new Vector3(0f, 0.005f, 0f), new Vector3(0.01f, 0.015f, 0.01f));
-
+        lighterFlame.SetParent(flameAt, false);
+        lighterFire = Fire.Create(lighterFlame, Vector3.zero, 0.05f, new Color(1f, 0.62f, 0.25f), 0, 0);
         lighterLight = new GameObject("Lighter Light").AddComponent<Light>();
         lighterLight.transform.SetParent(lighterFlame, false);
         lighterLight.transform.localPosition = new Vector3(0f, 0.05f, 0f);
@@ -584,7 +572,6 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         lighterLight.range = lighterRadius * 1.5f;
         lighterLight.shadows = LightShadows.None;
         lighterLight.enabled = false;
-
         lighterModel.gameObject.SetActive(false);
     }
 

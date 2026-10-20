@@ -217,6 +217,89 @@ public static class PropModels
         return root;
     }
 
+    // ---------------------------------------------------------------- Torch and lighter
+
+    /// <summary>
+    /// A hand-made torch (origin at the bottom of the handle, standing up +y): a rough, slightly tapering
+    /// wooden handle with twine wrapped round the grip, and a head of tar-soaked rags bound on with wire.
+    /// FlameAt marks the top of the head, where the fire sits.
+    /// </summary>
+    public static Transform Torch(Transform parent, bool castShadows, out Transform flameAt)
+    {
+        var root = new GameObject("Torch Model").transform;
+        root.SetParent(parent, false);
+        var wood = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.55f, 0.42f, 0.3f), 0.08f);
+        var twine = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, new Color(0.45f, 0.36f, 0.24f), 0.05f);
+        var rag = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, new Color(0.13f, 0.1f, 0.07f), 0.45f); // shiny with tar
+        var wire = MaterialFactory.Lit(new Color(0.3f, 0.28f, 0.26f), 0.6f);
+        var parts = new List<Transform>();
+
+        // The handle: thicker at the grip, narrowing up toward the head, a knot or two.
+        parts.Add(Prim(PrimitiveType.Cylinder, wood, root, new Vector3(0f, 0.16f, 0f), new Vector3(0.036f, 0.16f, 0.036f), Vector3.zero));
+        parts.Add(Prim(PrimitiveType.Cylinder, wood, root, new Vector3(0.002f, 0.42f, 0f), new Vector3(0.03f, 0.12f, 0.03f), new Vector3(0f, 0f, 1.5f)));
+        parts.Add(Prim(PrimitiveType.Sphere, wood, root, new Vector3(0.014f, 0.36f, 0.006f), new Vector3(0.016f, 0.022f, 0.016f), Vector3.zero));
+        // Twine round the grip: a few turns, a little uneven.
+        for (int i = 0; i < 6; i++)
+            parts.Add(Prim(PrimitiveType.Cylinder, twine, root, new Vector3(0f, 0.06f + i * 0.032f, 0f), new Vector3(0.04f, 0.008f, 0.04f), new Vector3(Random.Range(-6f, 6f), 0f, Random.Range(-6f, 6f))));
+        // The head: rags wound round and round, lumpy, bulging.
+        for (int i = 0; i < 4; i++)
+            parts.Add(MeshObj(root, "Rag", SoftBox(new Vector3(0.075f - i * 0.004f, 0.06f, 0.07f + i * 0.003f), 0.6f, 0.05f, 0.15f, 0.006f, 31 + i, 0.05f), rag,
+                new Vector3(Random.Range(-0.004f, 0.004f), 0.54f + i * 0.035f, Random.Range(-0.004f, 0.004f)), new Vector3(Random.Range(-8f, 8f), i * 40f, Random.Range(-8f, 8f))));
+        // Bound on with wire.
+        foreach (float y in new[] { 0.53f, 0.63f })
+            parts.Add(Prim(PrimitiveType.Cylinder, wire, root, new Vector3(0f, y, 0f), new Vector3(0.078f, 0.003f, 0.078f), Vector3.zero));
+
+        foreach (var t in parts)
+            t.GetComponent<Renderer>().shadowCastingMode = castShadows
+                ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+        flameAt = new GameObject("Flame At").transform;
+        flameAt.SetParent(root, false);
+        flameAt.localPosition = new Vector3(0f, 0.6f, 0f);
+        return root;
+    }
+
+    /// <summary>
+    /// A flip-top petrol lighter (origin at its base): a brushed steel case, a lid hinged at one side (Lid,
+    /// swung open about its local z, to -110 degrees, when it's lit), the chimney with its holes, the flint wheel, the wick.
+    /// FlameAt marks the top of the wick.
+    /// </summary>
+    public static Transform Lighter(Transform parent, bool castShadows, out Transform lid, out Transform flameAt)
+    {
+        var root = new GameObject("Lighter Model").transform;
+        root.SetParent(parent, false);
+        var steel = MaterialFactory.Lit(new Color(0.62f, 0.62f, 0.64f), 0.82f);
+        var dark = MaterialFactory.Lit(new Color(0.08f, 0.08f, 0.08f), 0.4f);
+        var wickMat = MaterialFactory.Lit(new Color(0.85f, 0.8f, 0.7f), 0.1f);
+        var parts = new List<Transform>();
+        const float w = 0.038f, d = 0.013f, caseH = 0.04f, lidH = 0.017f;
+
+        parts.Add(MeshObj(root, "Case", SoftBox(new Vector3(w, caseH, d), 0.25f, 0f, 0f, 0f, 41, 0.05f), steel, new Vector3(0f, caseH * 0.5f, 0f), Vector3.zero));
+        parts.Add(Prim(PrimitiveType.Cube, dark, root, new Vector3(0f, caseH + 0.0005f, 0f), new Vector3(w * 0.96f, 0.001f, d * 0.92f), Vector3.zero)); // the seam
+        // The chimney, a perforated box round the wick, the flint wheel beside it.
+        parts.Add(Prim(PrimitiveType.Cube, steel, root, new Vector3(-0.006f, caseH + 0.008f, 0f), new Vector3(0.016f, 0.016f, 0.011f), Vector3.zero));
+        for (int row = 0; row < 2; row++)
+            for (int col = 0; col < 3; col++)
+                foreach (float side in new[] { -1f, 1f })
+                    parts.Add(Prim(PrimitiveType.Cube, dark, root, new Vector3(-0.0115f + col * 0.0055f, caseH + 0.005f + row * 0.006f, side * 0.0056f), new Vector3(0.0022f, 0.0022f, 0.0004f), Vector3.zero));
+        parts.Add(Prim(PrimitiveType.Cylinder, dark, root, new Vector3(0.008f, caseH + 0.008f, 0f), new Vector3(0.008f, 0.0035f, 0.008f), new Vector3(90f, 0f, 0f)));
+        parts.Add(Prim(PrimitiveType.Cylinder, wickMat, root, new Vector3(-0.006f, caseH + 0.016f, 0f), new Vector3(0.003f, 0.003f, 0.003f), Vector3.zero));
+
+        // The lid, hinged along the back edge of the case's top.
+        lid = new GameObject("Lid").transform;
+        lid.SetParent(root, false);
+        lid.localPosition = new Vector3(w * 0.5f, caseH, 0f);
+        parts.Add(MeshObj(lid, "Lid Shell", SoftBox(new Vector3(w, lidH, d), 0.25f, 0f, 0f, 0f, 42, 0.05f), steel, new Vector3(-w * 0.5f, lidH * 0.5f + 0.0005f, 0f), Vector3.zero));
+        parts.Add(Prim(PrimitiveType.Cylinder, steel, root, new Vector3(w * 0.5f + 0.0012f, caseH, 0f), new Vector3(0.003f, 0.006f, 0.003f), new Vector3(90f, 0f, 0f))); // the hinge
+
+        foreach (var t in parts)
+            t.GetComponent<Renderer>().shadowCastingMode = castShadows
+                ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+        flameAt = new GameObject("Flame At").transform;
+        flameAt.SetParent(root, false);
+        flameAt.localPosition = new Vector3(-0.006f, caseH + 0.018f, 0f);
+        return root;
+    }
+
     // ---------------------------------------------------------------- Key fob
 
     /// <summary>A car key fob (origin at its base, lying flat): a black plastic body, rubber buttons, a little

@@ -30,14 +30,13 @@ public class ItemPickup : MonoBehaviour
         Destroy(gameObject);
     }
 
-    /// <summary>Builds a torch: a wooden handle with a pitch-soaked cloth head.</summary>
+    /// <summary>Builds a torch (PropModels.Torch) lying on its side.</summary>
     public static ItemPickup CreateTorch(Transform parent, Vector3 localPos, float yaw)
     {
         var pickup = Create("Torch Pickup", Hotbar.Item.Torch, parent, localPos, yaw);
-        var wood = MaterialFactory.Lit(new Color(0.22f, 0.14f, 0.08f), 0.1f);
-        var cloth = MaterialFactory.Lit(new Color(0.12f, 0.1f, 0.07f), 0.05f);
-        Visual(PrimitiveType.Cylinder, wood, pickup.transform, new Vector3(0f, 0.025f, 0f), new Vector3(0.035f, 0.25f, 0.035f), new Vector3(0f, 0f, 90f));
-        Visual(PrimitiveType.Cylinder, cloth, pickup.transform, new Vector3(0.24f, 0.03f, 0f), new Vector3(0.06f, 0.07f, 0.06f), new Vector3(0f, 0f, 90f));
+        var model = PropModels.Torch(pickup.transform, true, out _);
+        model.localRotation = Quaternion.Euler(0f, 0f, -90f); // lying along +x, the head to the right
+        model.localPosition = new Vector3(-0.25f, 0.035f, 0f);
         return pickup;
     }
 
@@ -83,14 +82,11 @@ public class ItemPickup : MonoBehaviour
         return pickup;
     }
 
-    /// <summary>Builds a lighter: a small metal case with a hinged lid.</summary>
+    /// <summary>Builds a lighter (PropModels.Lighter) standing shut.</summary>
     public static ItemPickup CreateLighter(Transform parent, Vector3 localPos, float yaw)
     {
         var pickup = Create("Lighter Pickup", Hotbar.Item.Lighter, parent, localPos, yaw);
-        var body = MaterialFactory.Lit(new Color(0.45f, 0.08f, 0.06f), 0.6f);
-        var metal = MaterialFactory.Lit(new Color(0.6f, 0.6f, 0.62f), 0.8f);
-        Visual(PrimitiveType.Cube, body, pickup.transform, new Vector3(0f, 0.025f, 0f), new Vector3(0.04f, 0.05f, 0.015f), Vector3.zero);
-        Visual(PrimitiveType.Cube, metal, pickup.transform, new Vector3(0f, 0.058f, 0f), new Vector3(0.04f, 0.016f, 0.015f), Vector3.zero);
+        PropModels.Lighter(pickup.transform, true, out _, out _);
         return pickup;
     }
 

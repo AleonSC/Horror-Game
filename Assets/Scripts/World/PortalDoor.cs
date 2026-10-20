@@ -63,8 +63,11 @@ public class PortalDoor : MonoBehaviour
 
         forestDoor = BuildDoorway("Door", transform, wood, frameWood, metal, stone, true);
         forestPanel = forestDoor.GetComponentInChildren<ShackDoor>();
+        postBulb = MaterialFactory.NoFog(PostWarm * 3f);
+        Shader beamShader = Shader.Find("Horror/Beam");
+        postBeamMat = beamShader != null ? new Material(beamShader) : MaterialFactory.NoFog(Color.white * 0.2f, 3000, false);
         for (int side = -1; side <= 1; side += 2)
-            BuildLampPost(transform, new Vector3(side * 1.6f, 0f, 0.35f), metal);
+            postLights.Add(BuildLampPost(transform, new Vector3(side * 1.6f, 0f, 0.35f), metal, postBulb, postBeamMat, postBeams));
 
         // The room, far below, lined up exactly with the door above it.
         var room = new GameObject("Dark Room").transform;
@@ -106,8 +109,34 @@ public class PortalDoor : MonoBehaviour
         return door;
     }
 
-    /// <summary>A decorative lamp post, lit.</summary>
-    static void BuildLampPost(Transform parent, Vector3 at, Material metal)
+    static readonly Color PostWarm = new Color(1f, 0.8f, 0.5f);
+    readonly System.Collections.Generic.List<Light> postLights = new System.Collections.Generic.List<Light>();
+    readonly System.Collections.Generic.List<Transform> postBeams = new System.Collections.Generic.List<Transform>();
+    Material postBulb, postBeamMat;
+    float postGlow;
+
+    /// <summary>
+    /// Once every lamp is lit (the door unlocked), the lamp posts by the door blaze intense white, each
+    /// throwing a beam of light straight up into the sky, so the door can be found from anywhere.
+    /// </summary>
+    void UpdatePosts(bool unlocked)
+    {
+        postGlow = Mathf.MoveTowards(postGlow, unlocked ? 1f : 0f, Time.deltaTime / 3f);
+        float g = Mathf.SmoothStep(0f, 1f, postGlow);
+        float pulse = 1f + 0.06f * Mathf.Sin(Time.time * 2.5f) * g;
+        foreach (var light in postLights)
+        {
+            light.color = Color.Lerp(new Color(1f, 0.78f, 0.5f), Color.white, g);
+            light.intensity = Mathf.Lerp(2.2f, 9f, g) * pulse;
+            light.range = Mathf.Lerp(9f, 35f, g);
+        }
+        MaterialFactory.SetColor(postBulb, Color.Lerp(PostWarm * 3f, Color.white * 12f, g) * pulse);
+        foreach (var beam in postBeams) beam.gameObject.SetActive(g > 0.02f);
+        if (postBeamMat != null) postBeamMat.SetColor("_Color", new Color(1f, 1f, 1f, 0.18f * g * pulse));
+    }
+
+    /// <summary>A decorative lamp post, lit. Returns its light.</summary>
+    static Light BuildLampPost(Transform parent, Vector3 at, Material metal, Material bulb, Material beamMat, System.Collections.Generic.List<Transform> beams)
     {
         var post = new GameObject("Lamp Post").transform;
         post.SetParent(parent, false);
@@ -115,7 +144,21 @@ public class PortalDoor : MonoBehaviour
         Part(PrimitiveType.Cylinder, metal, post, new Vector3(0f, 1.5f, 0f), new Vector3(0.09f, 1.7f, 0.09f), true);   // runs a little into the ground
         Part(PrimitiveType.Cylinder, metal, post, new Vector3(0f, 0.05f, 0f), new Vector3(0.22f, 0.15f, 0.22f), false); // base, sunk slightly
         Part(PrimitiveType.Cube, metal, post, new Vector3(0f, 3.25f, 0f), new Vector3(0.3f, 0.06f, 0.3f), false);
-        Part(PrimitiveType.Sphere, MaterialFactory.NoFog(new Color(1f, 0.8f, 0.5f) * 3f), post, new Vector3(0f, 3.12f, 0f), new Vector3(0.18f, 0.2f, 0.18f), false);
+        Part(PrimitiveType.Sphere, bulb, post, new Vector3(0f, 3.12f, 0f), new Vector3(0.18f, 0.2f, 0.18f), false);
+
+        // The beam into the sky, for when it blazes.
+        var beam = new GameObject("Sky Beam");
+        beam.transform.SetParent(post, false);
+        beam.transform.localPosition = new Vector3(0f, 3.3f, 0f);
+        beam.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+        beam.transform.localScale = new Vector3(1.2f, 1.2f, 90f);
+        beam.AddComponent<MeshFilter>().sharedMesh = WatcherEvent.BuildBeamMesh();
+        var br = beam.AddComponent<MeshRenderer>();
+        br.sharedMaterial = beamMat;
+        br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        br.receiveShadows = false;
+        beam.SetActive(false);
+        beams.Add(beam.transform);
 
         var light = new GameObject("Lamp Light").AddComponent<Light>();
         light.transform.SetParent(post, false);
@@ -125,6 +168,7 @@ public class PortalDoor : MonoBehaviour
         light.range = 9f;
         light.intensity = 2.2f;
         light.shadows = LightShadows.None;
+        return light;
     }
 
     /// <summary>A huge room in black: glossy floor, walls and ceiling lost in the dark, rows of pillars, one dim light.</summary>
@@ -247,6 +291,7 @@ public class PortalDoor : MonoBehaviour
         int remaining = Mathf.Max(0, needed - Lamp.LitCount);
         bool unlocked = Lamp.All.Count > 0 && remaining == 0;
         if (unlocked && forestPanel.locked) Unlock();
+        UpdatePosts(unlocked);
         if (!unlocked)
         {
             forestPanel.locked = roomPanel.locked = true;
