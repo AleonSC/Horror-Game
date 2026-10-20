@@ -75,9 +75,9 @@ public class DarkForestGenerator : MonoBehaviour
     public float fogDensity = 0.05f;
     public Color ambientColor = new Color(0.06f, 0.07f, 0.09f);
     public Color moonColor = new Color(0.45f, 0.55f, 0.8f);
-    public float moonIntensity = 0.2f;
-    [Tooltip("If the scene already has a Directional Light, use it (with all its own settings) as the moonlight. Off = turn it off and create a dim moonlight from the values above.")]
-    public bool useSceneLight = true;
+    public float moonIntensity = 0.25f;
+    [Tooltip("On = use the scene's own Directional Light (with all its Inspector settings) instead. Off (default) = turn it off and create a dim blue moonlight from the values above.")]
+    public bool useSceneLight = false;
 
     [Header("Player")]
     [Tooltip("Spawn a first person player with a flashlight if the scene has none.")]
