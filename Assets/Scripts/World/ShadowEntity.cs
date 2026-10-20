@@ -238,7 +238,8 @@ public class ShadowEntity : MonoBehaviour
     Quaternion poseHead = Quaternion.identity, poseLeftArm = Quaternion.identity, poseRightArm = Quaternion.identity;
     bool peeking; // half hidden behind a trunk
     float eyeshine;
-    float eyeBrightness, crescendoStartBrightness;
+    float eyeBrightness;   // as shown, eyeshine included
+    float crescendoStartBrightness, crescendoStartShine, crescendoStartLight;
     int seenToggles = -1;
     float lastLitTime = -10f;
     readonly Queue<float> flashTimes = new Queue<float>();
@@ -348,10 +349,9 @@ public class ShadowEntity : MonoBehaviour
 
     // ---------------------------------------------------------------- States
 
-    /// <summary>Vanishes for a while. keepProgress: dismissed, not beaten; its eyes come back as bright as they were.</summary>
-    void Hide(float duration, bool keepProgress = false)
+    void Hide(float duration)
     {
-        if (!keepProgress) HuntProgress = 0f;
+        HuntProgress = 0f;
         CurrentState = State.Hidden;
         timer = duration;
         SetVisible(false);
@@ -407,7 +407,7 @@ public class ShadowEntity : MonoBehaviour
         // A lamp was lit right next to it: it's driven off.
         if (SafeZones.Contains(transform.position))
         {
-            Poof(true);
+            Poof();
             return;
         }
 
@@ -487,7 +487,6 @@ public class ShadowEntity : MonoBehaviour
         if (WatchForFlashing(eyesLit)) return;
         SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), Mathf.Max(brightness, eyeshine * eyeshineBrightness), eyeshine);
         eyeLight.intensity = brightness * eyeLightStrength; // a reflection: it doesn't light up the trees
-        eyeBrightness = brightness; // the hunt's brightness, without the eyeshine (the crescendo starts from this)
 
         // The last few metres: a too-wide mouth splits open.
         mouthTarget = Mathf.Clamp01(Mathf.InverseLerp(mouthOpenDistance, mouthFullDistance, dist));
@@ -567,7 +566,10 @@ public class ShadowEntity : MonoBehaviour
     {
         CurrentState = State.Crescendo;
         timer = 0f;
+        // Carry on from exactly how the eyes looked a moment ago (brightness, eyeshine tint, glow), no jump.
         crescendoStartBrightness = Mathf.Max(eyeBrightness, eyeIntensity);
+        crescendoStartShine = eyeshine;
+        crescendoStartLight = eyeLight.intensity / Mathf.Max(eyeLightStrength, 0.0001f);
         // The sound speeds up to match a shortened crescendo.
         PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo, crescendoTime / CrescendoDuration, crescendoVolume);
     }
@@ -637,7 +639,7 @@ public class ShadowEntity : MonoBehaviour
             StartFragments(converge: false);
             PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof, 0.7f);
             ResetVisual();
-            Hide(Random.Range(minChargeRespawn, maxChargeRespawn), true);
+            Hide(Random.Range(minChargeRespawn, maxChargeRespawn));
             return;
         }
 
@@ -730,28 +732,27 @@ public class ShadowEntity : MonoBehaviour
 
         float flicker = 1f + Random.Range(-0.3f, 0.3f) * e;
         mouthTarget = Mathf.Lerp(0.7f, 1.5f, e); // stretching wider and wider
-        // Its eyes start from however bright the hunt had made them, and burn blue as it's driven off,
-        // the glow round them swelling.
+        // Its eyes carry on from how they looked and burn blue as it's driven off, the glow round them swelling.
         float blue = Mathf.SmoothStep(0f, 1f, c);
-        SetEyes(Mathf.Lerp(maxEyeWiden, maxEyeWiden * 1.8f, e),
-                Mathf.Lerp(crescendoStartBrightness, spawnEyeIntensity * 1.5f, e) * flicker, 0f, blue);
+        float brightness = Mathf.Lerp(crescendoStartBrightness, spawnEyeIntensity * 1.5f, e) * flicker;
+        SetEyes(Mathf.Lerp(maxEyeWiden, maxEyeWiden * 1.8f, e), brightness, crescendoStartShine * (1f - blue), blue);
+        eyeLight.intensity = Mathf.Lerp(crescendoStartLight, brightness, e) * eyeLightStrength * (1f + dismissGlow * blue);
         whisper.volume = volume * Mathf.Lerp(1f, crescendoVolume, e);
         whisper.pitch = Mathf.Lerp(1f, 1.6f, e);
         advanceSource.volume = Mathf.MoveTowards(advanceSource.volume, 0f, Time.deltaTime * 2f);
 
         if (player != null) player.AddCameraShake(maxCameraShake * e);
 
-        if (c >= 1f) Poof(true);
+        if (c >= 1f) Poof();
     }
 
-    /// <summary>Bursts apart. keepProgress for a dismissal (the hunt goes on); flares and floodlights reset it.</summary>
-    void Poof(bool keepProgress = false)
+    void Poof()
     {
         StartFragments(converge: false);
         PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof);
         ResetVisual();
         whisper.pitch = Random.Range(0.85f, 1.1f);
-        Hide(Random.Range(minRespawnDelay, maxRespawnDelay), keepProgress);
+        Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
     }
 
     void StartKill()
