@@ -356,8 +356,11 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         AddCollider(body, new Vector3(0f, 0.8f, CabinBack + 0.05f), new Vector3(1.6f, 0.6f, 0.1f)); // behind the back seat
 
         // ---- Doors, hinged at their front edges, and the trunk lid, hinged at its front edge.
-        door = Door(body, "Driver Door", DoorSplit, CabinFront, paint, chrome, glass, false);
-        rearDoor = Door(body, "Rear Door", CabinBack, DoorSplit, paint, chrome, glass, true);
+        // Each door's window opening (belt and top, front and back), following the pillars and roof line.
+        door = Door(body, "Driver Door", DoorSplit, CabinFront, paint, chrome, glass, trim, false,
+            new Vector3(-0.75f, 0.98f, 0.7f), new Vector3(-0.69f, 1.43f, 0.2f), new Vector3(-0.72f, 1.43f, DoorSplit + 0.03f), new Vector3(-0.75f, 0.98f, DoorSplit + 0.03f));
+        rearDoor = Door(body, "Rear Door", CabinBack, DoorSplit, paint, chrome, glass, trim, true,
+            new Vector3(-0.75f, 0.98f, DoorSplit - 0.03f), new Vector3(-0.72f, 1.43f, DoorSplit - 0.03f), new Vector3(-0.7f, 1.42f, -1.02f), new Vector3(-0.75f, 0.98f, CabinBack + 0.06f));
         var lidPivot = new Vector3(0f, SectionTop(CabinBack), CabinBack);
         var lid = new GameObject("Trunk Lid").transform;
         lid.SetParent(body, false);
@@ -591,8 +594,14 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         StockItems();
     }
 
-    /// <summary>A door: its piece of the body's side, a window frame (and maybe glass), a handle, hinged at its front edge.</summary>
-    ShackDoor Door(Transform body, string name, float z0, float z1, Material paint, Material chrome, Material glass, bool withGlass)
+    /// <summary>
+    /// A door: its piece of the body's side, hinged at its front edge, with a window frame following the
+    /// opening (frontBelt, frontTop, backTop, backBelt, in the body's space) so it sits inside the pillars
+    /// when shut and swings out whole, the glass (or, wound down, just its top edge showing), a trim panel
+    /// and armrest on the inside, and handles.
+    /// </summary>
+    ShackDoor Door(Transform body, string name, float z0, float z1, Material paint, Material chrome, Material glass, Material trim, bool withGlass,
+        Vector3 frontBelt, Vector3 frontTop, Vector3 backTop, Vector3 backBelt)
     {
         var pivot = new Vector3(-SectionHalfWidth(z1), 0f, z1);
         var hinge = new GameObject(name).transform;
@@ -603,12 +612,34 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         // Taller than the panel, so a shut door blocks reaching in through the window too.
         block.center = new Vector3(block.center.x, 0.95f, block.center.z);
         block.size = new Vector3(Mathf.Max(block.size.x, 0.08f), 1.2f, block.size.z);
-        // Window frame, and the glass (wound down in the driver's door).
-        float top = 1.43f;
-        Box(paint, hinge, new Vector3(0.06f, top, (z0 + z1) * 0.5f - z1), new Vector3(0.04f, 0.04f, z1 - z0 - 0.04f));
+
+        // The window frame: a slim painted rail all round the opening.
+        Vector3 fb = frontBelt - pivot, ft = frontTop - pivot, bt = backTop - pivot, bb = backBelt - pivot;
+        Strut(paint, hinge, fb, ft, 0.035f);
+        Strut(paint, hinge, ft, bt, 0.035f);
+        Strut(paint, hinge, bt, bb, 0.035f);
+        Strut(trim, hinge, bb + new Vector3(0.01f, 0.01f, 0f), fb + new Vector3(0.01f, 0.01f, 0f), 0.03f); // rubber seal along the belt
+        // The glass, set just inside the frame; wound down, only its top edge shows above the belt.
+        Vector3 inset = new Vector3(0.012f, 0f, 0f);
+        Vector3 Toward(Vector3 from, Vector3 to, float d) => from + (to - from).normalized * d;
         if (withGlass)
-            Pane(glass, hinge, new Vector3(0.07f, 1.0f, z0 - z1 + 0.04f), new Vector3(0.07f, 1.0f, -0.04f), new Vector3(0.1f, top - 0.02f, -0.06f), new Vector3(0.1f, top - 0.02f, z0 - z1 + 0.3f));
-        Box(chrome, hinge, new Vector3(-0.015f, 0.88f, z0 - z1 + 0.18f), new Vector3(0.03f, 0.03f, 0.14f)); // handle
+            Pane(glass, hinge, Toward(fb, bb, 0.03f) + inset, Toward(bb, fb, 0.03f) + inset, Toward(bt, ft, 0.03f) + inset + Vector3.down * 0.02f, Toward(ft, bt, 0.03f) + inset + Vector3.down * 0.02f);
+        else
+        {
+            Vector3 up = Vector3.up * 0.04f;
+            Vector3 a = Toward(fb, bb, 0.12f) + inset, b = Toward(bb, fb, 0.04f) + inset;
+            Pane(glass, hinge, a, b, b + up, a + up);
+        }
+
+        // Inside: a dark trim panel, an armrest, the pull handle.
+        float zMid = (z0 + z1) * 0.5f - z1, len = z1 - z0;
+        // (Fitted inside the shell, which is 0.9 out at the middle and curls in to 0.73 at its top edge.)
+        float innerX = -0.84f - pivot.x;
+        Box(trim, hinge, new Vector3(innerX, 0.69f, zMid), new Vector3(0.06f, 0.38f, len - 0.14f));
+        Box(trim, hinge, new Vector3(innerX + 0.05f, 0.82f, zMid - 0.05f), new Vector3(0.06f, 0.04f, len * 0.45f));
+        Box(chrome, hinge, new Vector3(innerX + 0.04f, 0.89f, z0 - z1 + 0.22f), new Vector3(0.015f, 0.025f, 0.09f));
+
+        Box(chrome, hinge, new Vector3(-0.015f, 0.88f, z0 - z1 + 0.18f), new Vector3(0.03f, 0.03f, 0.14f)); // outside handle
         var d = hinge.gameObject.AddComponent<ShackDoor>();
         d.openAngle = 70f; // swings outward
         d.noun = "door";
