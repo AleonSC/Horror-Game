@@ -70,6 +70,8 @@ public class DarkForestGenerator : MonoBehaviour
     public Color ambientColor = new Color(0.06f, 0.07f, 0.09f);
     public Color moonColor = new Color(0.45f, 0.55f, 0.8f);
     public float moonIntensity = 0.2f;
+    [Tooltip("If the scene already has a Directional Light, use it (with all its own settings) as the moonlight. Off = turn it off and create a dim moonlight from the values above.")]
+    public bool useSceneLight = true;
 
     [Header("Player")]
     [Tooltip("Spawn a first person player with a flashlight if the scene has none.")]
@@ -798,12 +800,26 @@ public class DarkForestGenerator : MonoBehaviour
         RenderSettings.ambientLight = ambientColor;
         RenderSettings.reflectionIntensity = 0.1f;
 
-        // Replace any existing sun with dim moonlight.
+        // Find the scene's own directional lights.
         // (Resources.FindObjectsOfTypeAll also returns assets, so only take lights that are in a scene.)
+        Light sceneLight = null;
         foreach (var light in Resources.FindObjectsOfTypeAll<Light>())
-            if (light.gameObject.scene.IsValid() && light.type == LightType.Directional && light.transform.parent != root)
-                light.enabled = false;
+        {
+            if (!light.gameObject.scene.IsValid() || light.type != LightType.Directional || light.transform.IsChildOf(transform)) continue;
+            if (useSceneLight && sceneLight == null && light.isActiveAndEnabled) sceneLight = light;
+            else light.enabled = false;
+        }
 
+        // Keep the scene's light exactly as it was set up in the Inspector.
+        if (sceneLight != null)
+        {
+            RenderSettings.sun = sceneLight;
+            foreach (var cam in Camera.allCameras)
+                ConfigureCamera(cam);
+            return;
+        }
+
+        // Otherwise make a dim moonlight.
         var moon = new GameObject("Moonlight").AddComponent<Light>();
         moon.transform.SetParent(root, false);
         moon.type = LightType.Directional;
