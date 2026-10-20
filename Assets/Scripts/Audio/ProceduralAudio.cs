@@ -15,7 +15,7 @@ public static class ProceduralAudio
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
         lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop,
-        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, treeSnap, treeImpact, advance, lampSpark, lampPowerDown;
+        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -62,6 +62,15 @@ public static class ProceduralAudio
     public static AudioClip Floodlight => floodlight != null ? floodlight : (floodlight = MakeFloodlight());
     /// <summary>A flame sputtering out.</summary>
     public static AudioClip BurnOut => burnOut != null ? burnOut : (burnOut = MakeBurnOut());
+
+    // ---------------------------------------------------------------- The Watcher
+
+    /// <summary>A vast, low, dissonant swell as the eye in the sky opens.</summary>
+    public static AudioClip EyeOpen => eyeOpen != null ? eyeOpen : (eyeOpen = MakeEyeOpen());
+    /// <summary>Thunder-like rumbling from far away.</summary>
+    public static AudioClip DistantRumble => distantRumble != null ? distantRumble : (distantRumble = MakeDistantRumble());
+    /// <summary>One colossal footfall: a deep boom with a long rolling tail.</summary>
+    public static AudioClip GiantStep => giantStep != null ? giantStep : (giantStep = MakeGiantStep());
 
     // ---------------------------------------------------------------- Wildlife
 
@@ -453,6 +462,51 @@ public static class ProceduralAudio
             float sputter = Sin(11f, t) > 0f ? 1f : 0.3f;
             return (w - lp) * Mathf.Exp(-t * 4f) * sputter;
         }, 0.6f);
+    }
+
+    static AudioClip MakeEyeOpen()
+    {
+        const float len = 9f;
+        float rumble = 0f;
+        return Shot("Eye Open", len, t =>
+        {
+            float p = t / len;
+            float env = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(p * 2.5f)) * Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((p - 0.7f) / 0.3f));
+            rumble += (White() - rumble) * 0.004f;
+            // Clashing low tones, slowly bending downward.
+            float bend = 1f - 0.08f * p;
+            float tones = Sin(43f * bend, t) + 0.8f * Sin(45.5f * bend, t) + 0.5f * Sin(64.5f * bend, t) + 0.3f * Sin(91f * bend, t);
+            return (tones * 0.6f + rumble * 6f) * env;
+        }, 0.9f);
+    }
+
+    static AudioClip MakeDistantRumble()
+    {
+        const float len = 6f;
+        float lp = 0f, lp2 = 0f;
+        return Shot("Distant Rumble", len, t =>
+        {
+            lp += (White() - lp) * 0.01f;
+            lp2 += (lp - lp2) * 0.02f;
+            float rolls = 0.5f + 0.5f * Mathf.PerlinNoise(t * 1.5f, 3.3f);
+            float env = Mathf.Sin(Mathf.PI * t / len);
+            return lp2 * rolls * env;
+        }, 0.9f);
+    }
+
+    static AudioClip MakeGiantStep()
+    {
+        const float len = 4.5f;
+        float phase = 0f, lp = 0f, lp2 = 0f;
+        return Shot("Giant Step", len, t =>
+        {
+            phase += TwoPi * (28f + 25f * Mathf.Exp(-t * 3f)) / Rate;
+            float boom = Mathf.Sin(phase) * Mathf.Exp(-t * 1.6f);
+            lp += (White() - lp) * 0.015f;
+            lp2 += (lp - lp2) * 0.03f;
+            float rumble = lp2 * 8f * Mathf.Exp(-t * 0.9f);
+            return boom + rumble;
+        }, 1f);
     }
 
     static AudioClip MakeLeaves()

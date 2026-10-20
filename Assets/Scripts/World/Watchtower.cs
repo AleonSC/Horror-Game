@@ -85,6 +85,7 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
 
         foreach (var entity in new List<ShadowEntity>(ShadowEntity.All))
             entity.ResetHunt();
+        if (WatcherEvent.Instance != null) WatcherEvent.Instance.PushBack(); // even the giant is driven back
     }
 
     /// <summary>Lights off and ready again (used when the run resets).</summary>

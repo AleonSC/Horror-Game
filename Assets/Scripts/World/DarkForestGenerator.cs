@@ -94,6 +94,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnWildlife = true;
     [Tooltip("Add FallingTreeEvent (every minute or so, a nearby tree snaps and falls).")]
     public bool spawnFallingTree = true;
+    [Tooltip("Add WatcherEvent (after 10 lamps: an eye in the sky, then a giant walking toward you).")]
+    public bool spawnWatcher = true;
 
     /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
     public readonly List<Vector2> TreePositions = new List<Vector2>();
@@ -222,6 +224,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Wildlife").AddComponent<Wildlife>();
         if (spawnFallingTree && Application.isPlaying && FindAnyObjectByType<FallingTreeEvent>() == null)
             new GameObject("Falling Tree Event").AddComponent<FallingTreeEvent>();
+        if (spawnWatcher && Application.isPlaying && FindAnyObjectByType<WatcherEvent>() == null)
+            new GameObject("Watcher Event").AddComponent<WatcherEvent>();
 
         if (Application.isPlaying)
         {
