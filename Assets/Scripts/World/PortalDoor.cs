@@ -85,9 +85,10 @@ public class PortalDoor : MonoBehaviour
 
         // Frame: two posts and a lintel (solid), and a worn stone threshold.
         for (int side = -1; side <= 1; side += 2)
-            Part(PrimitiveType.Cube, frameWood, door, new Vector3(side * (DoorWidth * 0.5f + 0.06f), DoorHeight * 0.5f + 0.06f, 0f), new Vector3(0.12f, DoorHeight + 0.12f, 0.2f), true);
+            Part(PrimitiveType.Cube, frameWood, door, new Vector3(side * (DoorWidth * 0.5f + 0.06f), DoorHeight * 0.5f - 0.09f, 0f), new Vector3(0.12f, DoorHeight + 0.42f, 0.2f), true); // posts run down into the ground
         Part(PrimitiveType.Cube, frameWood, door, new Vector3(0f, DoorHeight + 0.06f, 0f), new Vector3(DoorWidth + 0.24f, 0.12f, 0.2f), true);
-        if (inForest) Part(PrimitiveType.Cube, stone, door, new Vector3(0f, -0.04f, 0f), new Vector3(DoorWidth + 0.5f, 0.12f, 0.5f), false);
+        // A stone step, deep enough to run down into the earth so it never sits on air on a slope.
+        if (inForest) Part(PrimitiveType.Cube, stone, door, new Vector3(0f, -0.3f, 0f), new Vector3(DoorWidth + 0.5f, 0.64f, 0.6f), false);
 
         // The door itself, shut, hinged on the right post. Click it to swing it open.
         var hinge = new GameObject("Hinge").transform;
@@ -109,8 +110,8 @@ public class PortalDoor : MonoBehaviour
         var post = new GameObject("Lamp Post").transform;
         post.SetParent(parent, false);
         post.localPosition = at;
-        Part(PrimitiveType.Cylinder, metal, post, new Vector3(0f, 1.6f, 0f), new Vector3(0.09f, 1.6f, 0.09f), true);
-        Part(PrimitiveType.Cylinder, metal, post, new Vector3(0f, 0.1f, 0f), new Vector3(0.22f, 0.1f, 0.22f), false);
+        Part(PrimitiveType.Cylinder, metal, post, new Vector3(0f, 1.5f, 0f), new Vector3(0.09f, 1.7f, 0.09f), true);   // runs a little into the ground
+        Part(PrimitiveType.Cylinder, metal, post, new Vector3(0f, 0.05f, 0f), new Vector3(0.22f, 0.15f, 0.22f), false); // base, sunk slightly
         Part(PrimitiveType.Cube, metal, post, new Vector3(0f, 3.25f, 0f), new Vector3(0.3f, 0.06f, 0.3f), false);
         Part(PrimitiveType.Sphere, MaterialFactory.NoFog(new Color(1f, 0.8f, 0.5f) * 3f), post, new Vector3(0f, 3.12f, 0f), new Vector3(0.18f, 0.2f, 0.18f), false);
 

@@ -1013,21 +1013,76 @@ public class DarkForestGenerator : MonoBehaviour
         var parent = new GameObject("Portal Door").transform;
         parent.SetParent(root, false);
 
+        // Look for the flattest ground: the door and its lamp posts need to stand level.
         float half = Mathf.Max(10f, areaSize * 0.5f - 75f);
-        for (int attempt = 0; attempt < 500; attempt++)
+        Vector2 best = Vector2.zero;
+        float bestYaw = 0f, bestRange = float.MaxValue;
+        for (int attempt = 0; attempt < 600 && bestRange > 0.06f; attempt++)
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < 30f) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 25f)) continue;
-
-            var go = new GameObject("Lone Door");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
-            go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
-            go.AddComponent<PortalDoor>().Build(rng);
-            PortalDoorPosition = p;
-            return;
+            float yaw = Range(0f, 360f);
+            float range = GroundUnevenness(p, yaw);
+            if (range < bestRange) { best = p; bestYaw = yaw; bestRange = range; }
         }
+        if (bestRange == float.MaxValue) return;
+
+        var go = new GameObject("Lone Door");
+        go.transform.SetParent(parent, false);
+        // Stood on the highest point under the frame, so no side of it is buried; the step below fills any gap.
+        go.transform.localPosition = new Vector3(best.x, FootprintHeight(best, bestYaw, true), best.y);
+        go.transform.localRotation = Quaternion.Euler(0f, bestYaw, 0f);
+        var door = go.AddComponent<PortalDoor>();
+        door.Build(rng);
+        // Each lamp post on the ground right under it.
+        foreach (Transform child in go.transform)
+        {
+            if (child.name != "Lamp Post") continue;
+            Vector3 w = child.position;
+            child.position = new Vector3(w.x, GetGroundHeight(w.x, w.z) - 0.05f, w.z);
+        }
+        PortalDoorPosition = best;
+    }
+
+    /// <summary>Spots under the lone door's frame and lamp posts, for a position and facing.</summary>
+    IEnumerable<Vector2> DoorFootprint(Vector2 p, float yaw)
+    {
+        Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
+        foreach (var local in new[] { new Vector3(0f, 0f, 0f), new Vector3(-0.8f, 0f, 0f), new Vector3(0.8f, 0f, 0f),
+                                      new Vector3(0f, 0f, 0.6f), new Vector3(0f, 0f, -0.6f),
+                                      new Vector3(-1.6f, 0f, 0.35f), new Vector3(1.6f, 0f, 0.35f) })
+        {
+            Vector3 w = rot * local;
+            yield return new Vector2(p.x + w.x, p.y + w.z);
+        }
+    }
+
+    /// <summary>How much the ground under the door rises and falls (highest minus lowest), in metres.</summary>
+    float GroundUnevenness(Vector2 p, float yaw)
+    {
+        float lo = float.MaxValue, hi = float.MinValue;
+        foreach (var q in DoorFootprint(p, yaw))
+        {
+            float h = GetGroundHeight(q.x, q.y);
+            lo = Mathf.Min(lo, h);
+            hi = Mathf.Max(hi, h);
+        }
+        return hi - lo;
+    }
+
+    /// <summary>The highest (or lowest) ground under the door's frame itself.</summary>
+    float FootprintHeight(Vector2 p, float yaw, bool highest)
+    {
+        float result = highest ? float.MinValue : float.MaxValue;
+        int i = 0;
+        foreach (var q in DoorFootprint(p, yaw))
+        {
+            if (i++ >= 5) break; // just the frame, not the lamp posts
+            float h = GetGroundHeight(q.x, q.y);
+            result = highest ? Mathf.Max(result, h) : Mathf.Min(result, h);
+        }
+        return result;
     }
 
     void PlaceWatchtower()
