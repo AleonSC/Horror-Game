@@ -289,7 +289,7 @@ public class BlindEntity : MonoBehaviour
     public void Lure(Vector3 at)
     {
         if (state == State.Taking || state == State.Appearing || state == State.Banished) return;
-        Vector3 g = Settle(at);
+        Vector3 g = Settle(WorldWrap.NearestImage(at, transform.position)); // the nearest way round the looping map
         if (state == State.Rushing && (g - goal).sqrMagnitude < 1f) return;
         goal = g;
         state = State.Rushing;

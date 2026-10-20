@@ -79,7 +79,7 @@ public class CarRadio : MonoBehaviour
             foreach (var blind in BlindEntity.All)
             {
                 blind.Lure(transform.position);
-                Vector3 d = blind.transform.position - transform.position;
+                Vector3 d = blind.transform.position - WorldWrap.NearestImage(transform.position, blind.transform.position);
                 d.y = 0f;
                 if (d.magnitude < smashDistance) Smash();
             }

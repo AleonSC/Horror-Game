@@ -101,7 +101,32 @@ public class FlyingEntity : MonoBehaviour
         hum = ProceduralAudio.AddSource(eye.gameObject, ProceduralAudio.LampHum, true, true, 0f, 10f, 120f);
         near = ProceduralAudio.AddSource(gameObject, null, false, false, volume); // felt everywhere
         whoosh = ProceduralAudio.AddSource(gameObject, null, false, false, volume);
-        WorldWrap.RegisterDynamic(transform);
+        // Not registered with WorldWrap: its flight is hundreds of metres across, more than half the looping
+        // map, so folding it to the copy nearest the player would throw it about. It follows the player's
+        // own jumps across the seams instead (FollowWrap).
+    }
+
+    Vector3 lastPlayerPos;
+    bool trackingPlayer;
+
+    /// <summary>
+    /// When the player crosses the edge of the looping map they're moved to the other side; everything about
+    /// the flier (where it is, its flight path, where it's searching) moves with them, so nothing jumps.
+    /// </summary>
+    void FollowWrap(Vector3 you)
+    {
+        Vector3 jump = you - lastPlayerPos;
+        jump.y = 0f;
+        if (trackingPlayer && jump.magnitude > 60f)
+        {
+            transform.position += jump;
+            lastPosition += jump;
+            enterStart += jump; enterLow += jump; enterEnd += jump;
+            center += jump; aim += jump;
+            diveStart += jump; grabFrom += jump;
+        }
+        lastPlayerPos = you;
+        trackingPlayer = true;
     }
 
     float Ground(Vector3 p) => generator != null ? generator.GetGroundHeight(p.x, p.z) : 0f;
@@ -227,6 +252,7 @@ public class FlyingEntity : MonoBehaviour
         }
         float dt = Time.deltaTime;
         Vector3 you = player.transform.position;
+        FollowWrap(you);
 
         switch (state)
         {
@@ -254,7 +280,6 @@ public class FlyingEntity : MonoBehaviour
 
     void UpdateSearch(float dt, Vector3 you)
     {
-        center = WorldWrap.NearestImage(center, you); // wherever the map has looped round to
         hardSearch = Mathf.Max(0f, hardSearch - dt);
 
         // The search area drifts after the player (slowly, unless it's already seen them).
