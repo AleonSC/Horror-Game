@@ -90,6 +90,7 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
 | Left Ctrl / C | Crouch (hold, or toggle via `toggleCrouch`) |
 | F | Use the item in hand: flashlight on/off, light / put out the torch, flick the lighter |
 | 1 / 2 / 3 / 4 / 5 | Hold the flashlight / torch / lighter / flare gun / glowsticks |
+| Mouse wheel | Switch to the next / previous item you have |
 | Left click | Charge the lamp you're looking at (click repeatedly), use a battery, open a door, pick up an item |
 | Esc | Pause menu (resume, restart, mouse sensitivity, volume, quit) |
 

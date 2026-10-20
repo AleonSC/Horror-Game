@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter, 4 = flare gun, 5 = glowsticks. Press a
-/// number to hold that item, and F to use it.
+/// number (or scroll the mouse wheel) to hold that item, and F to use it.
 ///
 /// - Glowsticks: F cracks one and tosses it a few metres ahead, where it lies glowing yellow for minutes.
 ///   Only a light to find your way by (the entities ignore it). Ten in a bundle at each campsite.
@@ -101,6 +101,10 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         int slot = HorrorInput.SlotPressed;
         if (slot > 0) Select((Item)(slot - 1));
 
+        // Mouse wheel: down moves to the next item you have, up to the previous one.
+        float scroll = HorrorInput.Scroll;
+        if (Mathf.Abs(scroll) > 0.01f) Cycle(scroll < 0f ? 1 : -1);
+
         // The flashlight handles F itself while it's in hand.
         if (HorrorInput.FlashlightPressed && Selected != Item.Flashlight) Use();
 
@@ -127,6 +131,26 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (flashlight != null) flashlight.SetEquipped(item == Item.Flashlight);
         Play(ProceduralAudio.Pickup, 0.3f, 1.3f);
     }
+
+    /// <summary>Steps through the hotbar to the next (or previous) slot that has something in it, wrapping round.</summary>
+    void Cycle(int direction)
+    {
+        for (int step = 1; step < SlotCount; step++)
+        {
+            var item = (Item)(((int)Selected + direction * step + SlotCount * 2) % SlotCount);
+            if (Count(item) > 0)
+            {
+                Select(item);
+                return;
+            }
+        }
+    }
+
+    int Count(Item item) =>
+        item == Item.Torch ? TorchCount :
+        item == Item.Lighter ? LighterCount :
+        item == Item.FlareGun ? FlareCount :
+        item == Item.Glowstick ? GlowstickCount : 1;
 
     void Use()
     {

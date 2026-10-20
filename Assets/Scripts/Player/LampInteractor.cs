@@ -26,7 +26,11 @@ public class LampInteractor : MonoBehaviour
     Flashlight flashlight;
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
-    static readonly Collider[] nearby = new Collider[128];
+    [Tooltip("Small things you pick up (items, batteries) get this much more aim leeway than lamps and doors.")]
+    public float smallItemLeeway = 1.6f;
+    // Big enough for a shack's worth of planks plus everything near it; when it was smaller, items inside
+    // busy places could be left out of the search entirely.
+    static readonly Collider[] nearby = new Collider[1024];
 
     void Update()
     {
@@ -92,11 +96,13 @@ public class LampInteractor : MonoBehaviour
             if (ahead < 0f || (closest - eye).magnitude > reach) continue;
 
             float offAxis = Vector3.Distance(closest, eye + forward * ahead);
-            float allowed = aimRadius + ahead * aimSpreadPerMetre;
+            bool small = owner is ItemPickup || owner is BatteryPickup;
+            float allowed = (aimRadius + ahead * aimSpreadPerMetre) * (small ? smallItemLeeway : 1f);
             if (offAxis > allowed) continue;
             if (!Visible(eye, col, closest, owner)) continue;
 
             float score = offAxis / allowed + ahead * 0.02f; // closest to the crosshair wins, nearer breaks ties
+            if (small) score -= 0.15f; // a small item right by a door or lamp is usually what you're after
             if (score < bestScore)
             {
                 bestScore = score;
@@ -125,9 +131,12 @@ public class LampInteractor : MonoBehaviour
     static bool Visible(Vector3 eye, Collider col, Vector3 closest, Component owner)
     {
         Bounds b = col.bounds;
+        // Within arm's reach, anything you're aiming at counts: things lie on tables, against backpacks...
+        if ((closest - eye).magnitude < 1.6f) return true;
         return Clear(eye, closest, owner)
             || Clear(eye, b.center, owner)
-            || Clear(eye, b.center + Vector3.up * b.extents.y, owner);
+            || Clear(eye, b.center + Vector3.up * b.extents.y, owner)
+            || Clear(eye, b.center + Vector3.up * (b.extents.y + 0.15f), owner);
     }
 
     /// <summary>True if nothing solid (other than the target itself) is clearly in front of the point.</summary>
@@ -138,7 +147,9 @@ public class LampInteractor : MonoBehaviour
         if (dist < 0.1f) return true;
         // Ignore hits right at the point: that's the surface the thing is resting on.
         if (!Physics.Raycast(from, d / dist, out var hit, dist - 0.35f, ~0, QueryTriggerInteraction.Ignore)) return true;
-        return Owner(hit.collider) == owner;
+        if (Owner(hit.collider) == owner) return true;
+        // Something it's lying against (a backpack, the table edge, a log) isn't really in the way.
+        return (hit.point - to).magnitude < 0.6f;
     }
 
     void OnGUI()

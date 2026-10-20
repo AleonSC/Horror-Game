@@ -56,6 +56,8 @@ public static class HorrorInput
         Kb.digit5Key.wasPressedThisFrame || Kb.numpad5Key.wasPressedThisFrame ? 5 : 0;
     public static bool ReleaseCursorPressed => Kb != null && Kb.escapeKey.wasPressedThisFrame;
     public static bool ClickPressed => Ms != null && Ms.leftButton.wasPressedThisFrame;
+    /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
+    public static float Scroll => Ms != null ? Ms.scroll.ReadValue().y : 0f;
 #else
     public static Vector2 Move => new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
     public static Vector2 Look => new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
@@ -74,5 +76,7 @@ public static class HorrorInput
         Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5) ? 5 : 0;
     public static bool ReleaseCursorPressed => Input.GetKeyDown(KeyCode.Escape);
     public static bool ClickPressed => Input.GetMouseButtonDown(0);
+    /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
+    public static float Scroll => Input.mouseScrollDelta.y;
 #endif
 }
