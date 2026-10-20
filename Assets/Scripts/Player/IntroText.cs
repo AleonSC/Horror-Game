@@ -16,10 +16,13 @@ public class IntroText : MonoBehaviour
         "There is no time.",
         "You must move.",
         "Do not stop.",
-        "They will find you.",
-        "They watch.",
-        "They hunt.",
-        "But they fear the light.",
+        "HE has found you.",
+        "But there's a chance...",
+        "...maybe.",
+        "Keep the forest bright.",
+        "They don't like the light.",
+        "But be careful...",
+        "...They like you even less.",
     };
 
     [Header("Timing (seconds)")]
