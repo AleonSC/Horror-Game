@@ -48,6 +48,12 @@ public class DarkForestGenerator : MonoBehaviour
     public Color grassColor = new Color(0.07f, 0.09f, 0.05f);
     public Material grassMaterial;
 
+    [Header("Shacks")]
+    [Tooltip("Abandoned shacks, each with a torch and a lighter inside.")]
+    public int shackCount = 3;
+    [Tooltip("Keep shacks at least this far apart.")]
+    public float minShackSpacing = 60f;
+
     [Header("Props")]
     public int rockCount = 480;
     public int fallenLogCount = 140;
@@ -88,6 +94,27 @@ public class DarkForestGenerator : MonoBehaviour
 
     /// <summary>The moving part of each tree (pivot at its base), for WeatherSystem to sway in the wind.</summary>
     public readonly List<Transform> SwayPivots = new List<Transform>();
+
+    /// <summary>Positions (x, z) of the shacks, so other things can keep clear of them.</summary>
+    public readonly List<Vector2> ShackPositions = new List<Vector2>();
+
+    /// <summary>True if the point is within distance of any shack.</summary>
+    public bool IsNearShack(Vector3 p, float distance)
+    {
+        var flat = new Vector2(p.x, p.z);
+        foreach (var shack in ShackPositions)
+        {
+            Vector2 d = shack - flat;
+            if (wrapWorld)
+            {
+                // Measure across the map's edges too.
+                d.x -= areaSize * Mathf.Round(d.x / areaSize);
+                d.y -= areaSize * Mathf.Round(d.y / areaSize);
+            }
+            if (d.sqrMagnitude < distance * distance) return true;
+        }
+        return false;
+    }
 
     /// <summary>Every grass patch, for WeatherSystem to sway in the wind.</summary>
     public readonly List<Transform> GrassPivots = new List<Transform>();
@@ -158,6 +185,7 @@ public class DarkForestGenerator : MonoBehaviour
 
         BuildGround();
         if (!wrapWorld) BuildBoundary();
+        PlaceShacks();
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
@@ -354,6 +382,7 @@ public class DarkForestGenerator : MonoBehaviour
             var p = new Vector2(Range(-half, half), Range(-half, half));
             float distFromCenter = p.magnitude;
             if (distFromCenter < clearingRadius) continue;
+            if (IsNearShack(new Vector3(p.x, 0f, p.y), 6.5f)) continue;
 
             // Patchy density: thin out trees in low-noise areas, thicker near the edges.
             float density = Mathf.PerlinNoise((p.x + noiseOffset.y) * densityNoiseScale, (p.y + noiseOffset.x) * densityNoiseScale);
@@ -515,6 +544,30 @@ public class DarkForestGenerator : MonoBehaviour
         }
     }
 
+    // ---------------------------------------------------------------- Shacks
+
+    void PlaceShacks()
+    {
+        var parent = new GameObject("Shacks").transform;
+        parent.SetParent(root, false);
+        ShackPositions.Clear();
+
+        float half = areaSize * 0.5f - 10f;
+        for (int attempt = 0; attempt < 500 && ShackPositions.Count < shackCount; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            if (p.magnitude < 30f) continue; // not right next to the spawn
+            if (IsNearShack(new Vector3(p.x, 0f, p.y), minShackSpacing)) continue;
+            ShackPositions.Add(p);
+
+            var go = new GameObject("Shack");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
+            go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+            go.AddComponent<Shack>().Build(this, rng);
+        }
+    }
+
     // ---------------------------------------------------------------- Grass
 
     void ScatterGrass()
@@ -551,6 +604,7 @@ public class DarkForestGenerator : MonoBehaviour
             // Grass grows in meadows and drifts rather than evenly everywhere.
             float n = Mathf.PerlinNoise((p.x + noiseOffset.x) * grassNoiseScale, (p.y + noiseOffset.y) * grassNoiseScale);
             if (Range(0f, 1f) > n * n * 2.2f) continue;
+            if (IsNearShack(new Vector3(p.x, 0f, p.y), 3.5f)) continue;
 
             var patch = new GameObject("Grass Patch");
             patch.transform.SetParent(parent, false);
@@ -646,6 +700,7 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < clearingRadius * 0.5f) continue;
+            if (IsNearShack(new Vector3(p.x, 0f, p.y), 5f)) continue;
             var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
             var rot = Quaternion.Euler(Range(0f, 360f), Range(0f, 360f), Range(0f, 360f));
 
@@ -674,6 +729,7 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < clearingRadius) continue;
+            if (IsNearShack(new Vector3(p.x, 0f, p.y), 8f)) continue;
 
             float length = Range(3f, 7f);
             float radius = Range(0.2f, 0.4f);

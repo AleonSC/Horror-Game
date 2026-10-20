@@ -14,7 +14,8 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, advance, lampSpark, lampPowerDown;
+        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop,
+        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -33,6 +34,21 @@ public static class ProceduralAudio
     public static AudioClip FlashlightClick => flashlightClick != null ? flashlightClick : (flashlightClick = MakeFlashlightClick());
     /// <summary>Battery sliding in and snapping into place, with a little charge-up whine.</summary>
     public static AudioClip BatteryInsert => batteryInsert != null ? batteryInsert : (batteryInsert = MakeBatteryInsert());
+
+    // ---------------------------------------------------------------- Shacks & fire
+
+    /// <summary>Old hinges groaning as a door swings.</summary>
+    public static AudioClip DoorCreak => doorCreak != null ? doorCreak : (doorCreak = MakeDoorCreak());
+    /// <summary>Something picked up and stuffed in a pocket.</summary>
+    public static AudioClip Pickup => pickup != null ? pickup : (pickup = MakePickup());
+    /// <summary>Flint wheel rasp, then the flame catching.</summary>
+    public static AudioClip LighterFlick => lighterFlick != null ? lighterFlick : (lighterFlick = MakeLighterFlick());
+    /// <summary>A torch head catching with a whoomph.</summary>
+    public static AudioClip TorchIgnite => torchIgnite != null ? torchIgnite : (torchIgnite = MakeTorchIgnite());
+    /// <summary>Crackling, popping flame. Loops seamlessly.</summary>
+    public static AudioClip FireLoop => fireLoop != null ? fireLoop : (fireLoop = MakeFireLoop());
+    /// <summary>A flame sputtering out.</summary>
+    public static AudioClip BurnOut => burnOut != null ? burnOut : (burnOut = MakeBurnOut());
 
     // ---------------------------------------------------------------- Wildlife
 
@@ -295,6 +311,96 @@ public static class ProceduralAudio
     }
 
     static float Hoof(float t, float start) => t >= start ? Mathf.Exp(-(t - start) * 45f) : 0f;
+
+    static AudioClip MakeDoorCreak()
+    {
+        const float len = 1.3f;
+        float y1 = 0f, y2 = 0f, z1 = 0f, z2 = 0f, pulse = 0f;
+        float r = 0.994f;
+        float c1 = 2f * r * Mathf.Cos(TwoPi * 850f / Rate);
+        float c2 = 2f * r * Mathf.Cos(TwoPi * 1550f / Rate);
+        return Shot("Door Creak", len, t =>
+        {
+            float p = t / len;
+            // Stick-slip friction in the hinge: the creak rises and falls in pitch as the door swings.
+            float rateHz = (60f + 50f * Mathf.Sin(Mathf.PI * p)) * (1f + 0.2f * White());
+            pulse += rateHz / Rate;
+            float x = 0f;
+            if (pulse >= 1f) { pulse -= 1f; x = 1f; }
+            float a = c1 * y1 - r * r * y2 + x; y2 = y1; y1 = a;
+            float b = c2 * z1 - r * r * z2 + x; z2 = z1; z1 = b;
+            return (a + b * 0.6f) * Mathf.Sin(Mathf.PI * p);
+        }, 0.7f);
+    }
+
+    static AudioClip MakePickup()
+    {
+        float lp = 0f;
+        return Shot("Pickup", 0.35f, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.2f;
+            float rustle = lp * Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / 0.25f)) * 0.7f;
+            float clink = Sin(2600f, t) * Burst(t, 0.22f) * 0.6f;
+            return rustle + clink;
+        }, 0.7f);
+    }
+
+    static AudioClip MakeLighterFlick()
+    {
+        float lp = 0f;
+        return Shot("Lighter Flick", 0.5f, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.08f;
+            float rasp = t < 0.07f ? (w - lp) * (0.5f + 0.5f * Sin(180f, t)) : 0f;   // flint wheel
+            float click = Burst(t, 0.07f) * w;
+            float catchFlame = t > 0.08f ? lp * 1.5f * Mathf.Exp(-(t - 0.08f) * 6f) : 0f; // soft whoosh
+            return rasp + click + catchFlame;
+        }, 0.7f);
+    }
+
+    static AudioClip MakeTorchIgnite()
+    {
+        const float len = 1.2f;
+        float lp = 0f, phase = 0f;
+        return Shot("Torch Ignite", len, t =>
+        {
+            float w = White();
+            lp += (w - lp) * (0.03f + 0.1f * Mathf.Exp(-t * 4f));
+            float env = t < 0.15f ? t / 0.15f : Mathf.Exp(-(t - 0.15f) * 2.5f);
+            phase += TwoPi * (60f + 30f * Mathf.Exp(-t * 5f)) / Rate;
+            return (lp * 2f + Mathf.Sin(phase) * 0.4f) * env;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeFireLoop()
+    {
+        float lp = 0f, roar = 0f, pop = 0f;
+        return Loop("Fire", 4f, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.3f;
+            roar += (w - roar) * 0.02f;
+            if (rng.NextDouble() < 0.0006) pop = (float)(rng.NextDouble() * 0.8 + 0.2);
+            pop *= 0.985f;
+            float flutter = 0.7f + 0.3f * Sin(1.5f, t) * Sin(2.25f, t);
+            return (lp - roar) * 0.25f * flutter + roar * 0.6f + pop * w * 1.5f;
+        }, 0.7f);
+    }
+
+    static AudioClip MakeBurnOut()
+    {
+        const float len = 0.9f;
+        float lp = 0f;
+        return Shot("Burn Out", len, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.5f;
+            float sputter = Sin(11f, t) > 0f ? 1f : 0.3f;
+            return (w - lp) * Mathf.Exp(-t * 4f) * sputter;
+        }, 0.6f);
+    }
 
     static AudioClip MakeLeaves()
     {

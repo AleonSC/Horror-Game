@@ -1,7 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Lets the player click on lamps to charge them and on batteries to refill the flashlight,
+/// Lets the player click on lamps to charge them, batteries to refill the flashlight, shack doors to
+/// open them, and torches / lighters to pick them up,
 /// and draws a simple HUD: a crosshair, the lamp's charge / energy / cooldown bar, the energy of the
 /// lamp you're standing in, and a counter of how many times lamps have been lit (top right).
 /// LampSpawner adds this to the player automatically.
@@ -14,13 +15,19 @@ public class LampInteractor : MonoBehaviour
 
     Lamp focused;
     BatteryPickup focusedBattery;
+    ShackDoor focusedDoor;
+    ItemPickup focusedItem;
     Flashlight flashlight;
+    Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
 
     void Update()
     {
         focused = null;
         focusedBattery = null;
+        focusedDoor = null;
+        focusedItem = null;
+        if (hotbar == null) hotbar = GetComponent<Hotbar>();
         var cam = Camera.main;
         if (cam == null) return;
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
@@ -30,11 +37,17 @@ public class LampInteractor : MonoBehaviour
         {
             focused = hit.collider.GetComponentInParent<Lamp>();
             focusedBattery = hit.collider.GetComponentInParent<BatteryPickup>();
+            focusedDoor = hit.collider.GetComponentInParent<ShackDoor>();
+            focusedItem = hit.collider.GetComponentInParent<ItemPickup>();
         }
 
         if (!HorrorInput.ClickPressed || Cursor.lockState != CursorLockMode.Locked) return;
 
-        if (focused != null && !focused.IsLit)
+        if (focusedItem != null)
+            focusedItem.PickUp(hotbar);
+        else if (focusedDoor != null)
+            focusedDoor.Toggle();
+        else if (focused != null && !focused.IsLit)
             focused.AddCharge();
         else if (focusedBattery != null)
             focusedBattery.Use(flashlight);
@@ -55,7 +68,12 @@ public class LampInteractor : MonoBehaviour
         float cy = Screen.height * 0.5f;
 
         // Crosshair
-        bool hasFocus = focused != null || focusedBattery != null;
+        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null;
+
+        if (focusedItem != null)
+            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), $"Click to pick up the {focusedItem.DisplayName}", labelStyle);
+        else if (focusedDoor != null)
+            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), focusedDoor.IsOpen ? "Click to close the door" : "Click to open the door", labelStyle);
         DrawRect(new Rect(cx - 2f, cy - 2f, 4f, 4f), new Color(1f, 1f, 1f, hasFocus ? 0.9f : 0.4f));
 
         if (focusedBattery != null)
@@ -100,8 +118,11 @@ public class LampInteractor : MonoBehaviour
         // While standing in a lamp's light, show how much it has left.
         if (Lamp.IsInSafeZone(transform.position, out Lamp safeLamp))
         {
-            GUI.Label(new Rect(cx - 200f, Screen.height - 70f, 400f, 30f), "The light keeps them away", labelStyle);
-            DrawBar(new Rect(cx - 80f, Screen.height - 40f, 160f, 6f), safeLamp.Energy, EnergyColor(safeLamp));
+            // Sits above the hotbar.
+            float unit = Mathf.Max(1f, Screen.height / 1080f);
+            float y = Screen.height - 175f * unit;
+            GUI.Label(new Rect(cx - 200f, y, 400f, 30f), "The light keeps them away", labelStyle);
+            DrawBar(new Rect(cx - 80f, y + 30f, 160f, 6f), safeLamp.Energy, EnergyColor(safeLamp));
         }
     }
 

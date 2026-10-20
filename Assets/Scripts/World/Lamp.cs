@@ -10,7 +10,7 @@ using UnityEngine;
 /// goes out and needs to recharge before it can be lit again, crackling with faint blue sparks meanwhile.
 /// LampSpawner places these around the map; LampInteractor handles the clicking and HUD.
 /// </summary>
-public class Lamp : MonoBehaviour
+public class Lamp : MonoBehaviour, SafeZones.ISource
 {
     public static readonly List<Lamp> All = new List<Lamp>();
 
@@ -120,8 +120,21 @@ public class Lamp : MonoBehaviour
         SetBulb(0f);
     }
 
-    void OnEnable() => All.Add(this);
-    void OnDisable() => All.Remove(this);
+    bool SafeZones.ISource.IsActive => IsLit;
+    Vector3 SafeZones.ISource.Center => transform.position;
+    float SafeZones.ISource.Radius => safeRadius;
+
+    void OnEnable()
+    {
+        All.Add(this);
+        SafeZones.Register(this);
+    }
+
+    void OnDisable()
+    {
+        All.Remove(this);
+        SafeZones.Unregister(this);
+    }
 
     /// <summary>One click's worth of charge. Lights the lamp when the meter is full.</summary>
     public void AddCharge()

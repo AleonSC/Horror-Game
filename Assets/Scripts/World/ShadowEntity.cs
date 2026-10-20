@@ -12,7 +12,7 @@ using UnityEngine.Rendering;
 ///   "poofs" and rematerializes far away with blazing eyes. That's the only way to push it back.
 /// - If the player comes near without the flashlight on it, it slowly grows and advances on them,
 ///   with a pounding audio cue. If it reaches them, they die.
-/// - While the player is inside a lit lamp's safe zone it can't hurt them or enter the light.
+/// - While the player is inside a lit lamp's light (or holding a lit torch or lighter) it can't hurt them or enter the light.
 ///   Instead, whenever it isn't being watched, it closes in and circles just outside the light.
 ///
 /// The body is unlit black, so the flashlight doesn't light it: it shows as a solid shadow against
@@ -284,7 +284,7 @@ public class ShadowEntity : MonoBehaviour
         }
 
         // A lamp was lit right next to it: it's driven off.
-        if (Lamp.IsInSafeZone(transform.position))
+        if (SafeZones.Contains(transform.position))
         {
             Poof();
             return;
@@ -295,14 +295,14 @@ public class ShadowEntity : MonoBehaviour
         // 0 when the player is far away, 1 when they're at the stop distance.
         float closeness = Mathf.Clamp01(Mathf.InverseLerp(reactDistance, stopDistance, dist));
 
-        bool playerSafe = Lamp.IsInSafeZone(target.position, out Lamp safeLamp);
+        bool playerSafe = SafeZones.Contains(target.position, out SafeZones.ISource safeLight);
         bool advancing = false;
 
         if (playerSafe)
         {
             // Can't touch them in the light. Close in and prowl around its edge while unwatched.
             ReleasePlayer();
-            if (!IsPlayerLooking()) CircleLamp(safeLamp);
+            if (!IsPlayerLooking()) CircleLight(safeLight);
         }
         else if (IsLitByFlashlight())
         {
@@ -354,10 +354,10 @@ public class ShadowEntity : MonoBehaviour
         }
     }
 
-    void CircleLamp(Lamp lamp)
+    void CircleLight(SafeZones.ISource light)
     {
-        Vector3 center = lamp.transform.position;
-        float ring = lamp.safeRadius + ringMargin;
+        Vector3 center = light.Center;
+        float ring = light.Radius + ringMargin;
 
         Vector3 offset = transform.position - center;
         offset.y = 0f;
@@ -418,7 +418,7 @@ public class ShadowEntity : MonoBehaviour
 
     void TryCreep()
     {
-        if (IsPlayerLooking() || Lamp.IsInSafeZone(target.position) || GameOverScreen.IsActive)
+        if (IsPlayerLooking() || SafeZones.Contains(target.position) || GameOverScreen.IsActive)
         {
             creepTimer = Random.Range(1f, 2f); // try again shortly
             return;
@@ -441,7 +441,7 @@ public class ShadowEntity : MonoBehaviour
         Vector3 side = Vector3.Cross(Vector3.up, dir) * Random.Range(-1f, 1f);
         Vector3 next = transform.position + dir * creepStep + side;
         next.y = GroundHeight(next);
-        if (Lamp.IsInSafeZone(next)) return;
+        if (SafeZones.Contains(next)) return;
 
         transform.position = next;
         FacePlayer();
@@ -578,7 +578,7 @@ public class ShadowEntity : MonoBehaviour
                 p.z = Mathf.Clamp(p.z, center.z - half, center.z + half);
             }
 
-            if (!Lamp.IsInSafeZone(p)) break;
+            if (!SafeZones.Contains(p)) break;
             // Lit lamps ahead: try anywhere around the player instead.
             forward = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
         }

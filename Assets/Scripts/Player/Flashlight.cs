@@ -44,6 +44,10 @@ public class Flashlight : MonoBehaviour
     /// <summary>Battery charge from 0 (empty) to 1 (full).</summary>
     public float Battery { get; private set; } = 1f;
     public bool IsFull => Battery >= 0.999f;
+    /// <summary>False while another hotbar item is in hand; the flashlight is off and F does nothing.</summary>
+    public bool Equipped { get; private set; } = true;
+
+    bool wasOnBeforeUnequip;
 
     AudioSource audioSource;
     float flickerTimer;
@@ -77,7 +81,7 @@ public class Flashlight : MonoBehaviour
 
     void Update()
     {
-        if (HorrorInput.FlashlightPressed)
+        if (HorrorInput.FlashlightPressed && Equipped)
             Toggle();
 
         if (IsOn) UpdateBattery();
@@ -138,6 +142,23 @@ public class Flashlight : MonoBehaviour
         PlayClick(1f);
     }
 
+    /// <summary>Puts the flashlight away (off) or takes it back out (back on if it was on before).</summary>
+    public void SetEquipped(bool equipped)
+    {
+        if (equipped == Equipped || flashlight == null) return;
+        Equipped = equipped;
+        if (!equipped)
+        {
+            wasOnBeforeUnequip = flashlight.enabled;
+            flashlight.enabled = false;
+        }
+        else if (wasOnBeforeUnequip && Battery > 0f)
+        {
+            flashlight.enabled = true;
+            PlayClick(1f);
+        }
+    }
+
     /// <summary>Adds charge (0-1). Returns false if the battery was already full.</summary>
     public bool AddBattery(float amount)
     {
@@ -150,6 +171,7 @@ public class Flashlight : MonoBehaviour
     public void ResetBattery()
     {
         Battery = 1f;
+        Equipped = true;
         flickerTimer = 0f;
         flickerLevel = 1f;
         if (flashlight != null)

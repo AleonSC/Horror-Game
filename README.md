@@ -16,6 +16,9 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/IntroText.cs` | Opening narration: lines fade in and out one by one over a black screen that slowly reveals the forest. Edit the lines in the inspector. |
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
 | `Assets/Scripts/World/WeatherSystem.cs` | Wind that sways the trees in rolling gusts, with wind, leaf rustle and tree creak audio. |
+| `Assets/Scripts/World/Shack.cs` / `ShackDoor.cs` / `ItemPickup.cs` | Three abandoned shacks placed at random, each with a creaky door you can open and a torch and lighter on the table inside. |
+| `Assets/Scripts/Player/Hotbar.cs` | Hotbar: 1 flashlight, 2 torch, 3 lighter. Lit torches and lighters keep the entities away, but burn out for good. |
+| `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
 | `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, and black deer that graze and gallop off when you get close. |
 | `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |
@@ -46,6 +49,8 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
   you aren't watching they gather and circle just outside it. Every lamp you light summons another one.
 - Your flashlight drains while it's on. Look for batteries (a faint pulsing green light) and click them
   to top it up by 25%.
+- Search the abandoned shacks for torches and lighters. Lighting a torch takes a little of the lighter's
+  fuel; a lit torch keeps them out of a wide circle around you, a lighter a small one. Both burn out for good.
 - Lamps burn out. They flicker as their energy runs low, go dark, and need time to cool down before
   they can be lit again.
 
@@ -58,8 +63,9 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
 | Left Shift | Run |
 | Space | Jump |
 | Left Ctrl / C | Crouch (hold, or toggle via `toggleCrouch`) |
-| F | Flashlight on/off |
-| Left click | Charge the lamp you're looking at (click repeatedly), or use a battery |
+| F | Use the item in hand: flashlight on/off, light / put out the torch, flick the lighter |
+| 1 / 2 / 3 | Hold the flashlight / torch / lighter |
+| Left click | Charge the lamp you're looking at (click repeatedly), use a battery, open a door, pick up an item |
 | Esc | Release the cursor (click to recapture) |
 
 ## Using your own player

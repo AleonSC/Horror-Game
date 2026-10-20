@@ -13,7 +13,8 @@ using UnityEngine.InputSystem;
 ///   Left Shift     - run
 ///   Space          - jump
 ///   Left Ctrl / C  - crouch
-///   F              - flashlight
+///   F              - use the item in hand (flashlight on/off, light torch, flick lighter)
+///   1 / 2 / 3      - hotbar: flashlight / torch / lighter
 ///   Esc            - release mouse cursor (click to re-capture)
 /// </summary>
 public static class HorrorInput
@@ -45,6 +46,12 @@ public static class HorrorInput
     public static bool CrouchHeld => Kb != null && (Kb.leftCtrlKey.isPressed || Kb.cKey.isPressed);
     public static bool CrouchPressed => Kb != null && (Kb.leftCtrlKey.wasPressedThisFrame || Kb.cKey.wasPressedThisFrame);
     public static bool FlashlightPressed => Kb != null && Kb.fKey.wasPressedThisFrame;
+    /// <summary>Hotbar slot (1-3) pressed this frame, or 0.</summary>
+    public static int SlotPressed =>
+        Kb == null ? 0 :
+        Kb.digit1Key.wasPressedThisFrame || Kb.numpad1Key.wasPressedThisFrame ? 1 :
+        Kb.digit2Key.wasPressedThisFrame || Kb.numpad2Key.wasPressedThisFrame ? 2 :
+        Kb.digit3Key.wasPressedThisFrame || Kb.numpad3Key.wasPressedThisFrame ? 3 : 0;
     public static bool ReleaseCursorPressed => Kb != null && Kb.escapeKey.wasPressedThisFrame;
     public static bool ClickPressed => Ms != null && Ms.leftButton.wasPressedThisFrame;
 #else
@@ -56,6 +63,11 @@ public static class HorrorInput
     public static bool CrouchHeld => Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
     public static bool CrouchPressed => Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C);
     public static bool FlashlightPressed => Input.GetKeyDown(KeyCode.F);
+    /// <summary>Hotbar slot (1-3) pressed this frame, or 0.</summary>
+    public static int SlotPressed =>
+        Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1) ? 1 :
+        Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2) ? 2 :
+        Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3) ? 3 : 0;
     public static bool ReleaseCursorPressed => Input.GetKeyDown(KeyCode.Escape);
     public static bool ClickPressed => Input.GetMouseButtonDown(0);
 #endif

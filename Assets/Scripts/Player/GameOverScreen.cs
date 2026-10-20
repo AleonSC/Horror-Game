@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Shown when an entity catches the player: fades to black, shows a message, then resets
-/// the run (all lamps off, fresh batteries, full flashlight, all entities removed, a single new
+/// the run (all lamps off, fresh batteries, full flashlight, empty hotbar, restocked shacks, all entities removed, a single new
 /// entity, player back at spawn) and fades back in.
 /// </summary>
 public class GameOverScreen : MonoBehaviour
@@ -57,6 +57,12 @@ public class GameOverScreen : MonoBehaviour
 
         var flashlight = FindAnyObjectByType<Flashlight>();
         if (flashlight != null) flashlight.ResetBattery();
+
+        var hotbar = FindAnyObjectByType<Hotbar>();
+        if (hotbar != null) hotbar.ResetInventory();
+
+        foreach (var shack in Shack.All)
+            shack.ResetShack();
 
         var player = FindAnyObjectByType<FirstPersonController>();
         if (player != null)
