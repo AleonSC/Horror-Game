@@ -76,7 +76,7 @@ public class GameOverScreen : MonoBehaviour
             player.enabled = true;
         }
 
-        ShadowEntity.Spawn();
+        ShadowEntity.Spawn(ShadowEntity.FirstEntityDelay);
     }
 
     void OnGUI()

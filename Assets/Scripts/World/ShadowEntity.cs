@@ -23,7 +23,18 @@ public class ShadowEntity : MonoBehaviour
 {
     public static readonly List<ShadowEntity> All = new List<ShadowEntity>();
 
+    /// <summary>Seconds before the first entity of a run appears.</summary>
+    public const float FirstEntityDelay = 60f;
+
     public static ShadowEntity Spawn() => new GameObject("Shadow Entity").AddComponent<ShadowEntity>();
+
+    /// <summary>Spawns an entity that stays hidden for the given number of seconds before it first appears.</summary>
+    public static ShadowEntity Spawn(float firstAppearDelay)
+    {
+        var entity = Spawn();
+        entity.initialHideTime = firstAppearDelay;
+        return entity;
+    }
 
     [Tooltip("Who to watch. Found automatically if left empty.")]
     public Transform target;

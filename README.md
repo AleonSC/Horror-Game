@@ -22,7 +22,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/Watchtower.cs` / `WatchtowerButton.cs` / `Ladder.cs` | One very tall watchtower somewhere on the map. Climb the ladder and press the button: floodlights blaze for a minute, every entity's hunt is reset, and the lit area is safe. Then it recharges. |
 | `Assets/Scripts/World/FallingTreeEvent.cs` | Every minute or so (first one about 30 seconds in), a nearby tree cracks at the base and comes crashing down. `Trigger()` sets one off any time. |
 | `Assets/Scripts/World/ProceduralTextures.cs` | Generates the forest-floor dirt texture in code. |
-| `Assets/Scripts/World/WatcherEvent.cs` | After 10 lamps: a giant red eye opens in the sky, the world turns red, and a colossal entity walks toward you. The watchtower floodlights drive it back. |
+| `Assets/Scripts/World/WatcherEvent.cs` | After 5 lamps: a giant red eye opens in the sky, the world turns red, and a colossal entity walks toward you. The watchtower floodlights drive it back. |
 | `Assets/Scripts/Resources/HorrorUnlitNoFog.shader` | Flat colour that ignores fog, for the eye and the giant. |
 | `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |

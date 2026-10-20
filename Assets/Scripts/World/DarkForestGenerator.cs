@@ -96,7 +96,7 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnWildlife = true;
     [Tooltip("Add FallingTreeEvent (every minute or so, a nearby tree snaps and falls).")]
     public bool spawnFallingTree = true;
-    [Tooltip("Add WatcherEvent (after 10 lamps: an eye in the sky, then a giant walking toward you).")]
+    [Tooltip("Add WatcherEvent (after 5 lamps: an eye in the sky, then a giant walking toward you).")]
     public bool spawnWatcher = true;
 
     /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
@@ -211,7 +211,7 @@ public class DarkForestGenerator : MonoBehaviour
         if (applyLighting) ApplyAtmosphere();
         if (spawnPlayer) SpawnPlayer();
         if (spawnEntity && FindAnyObjectByType<ShadowEntity>() == null)
-            ShadowEntity.Spawn();
+            ShadowEntity.Spawn(ShadowEntity.FirstEntityDelay); // a minute of calm before it starts
         if (spawnLamps && FindAnyObjectByType<LampSpawner>() == null)
             new GameObject("Lamp Spawner").AddComponent<LampSpawner>();
         if (spawnBatteries && FindAnyObjectByType<BatterySpawner>() == null)

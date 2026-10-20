@@ -16,7 +16,7 @@ public class WatcherEvent : MonoBehaviour
 
     [Header("Trigger")]
     [Tooltip("Number of lamps lit (this run) that wakes the Watcher.")]
-    public int lampsToTrigger = 10;
+    public int lampsToTrigger = 5;
 
     [Header("Eye")]
     public float eyeOpenTime = 4f;
