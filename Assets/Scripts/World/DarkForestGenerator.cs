@@ -60,6 +60,15 @@ public class DarkForestGenerator : MonoBehaviour
     [Tooltip("Spawn the shadow entity that stalks the player if the scene has none.")]
     public bool spawnEntity = true;
 
+    [Header("Lamps & Audio")]
+    [Tooltip("Add a LampSpawner that scatters unlit lamps around the forest.")]
+    public bool spawnLamps = true;
+    [Tooltip("Add AmbienceAudio (background drone, wind and random forest noises).")]
+    public bool spawnAmbience = true;
+
+    /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
+    public readonly List<Vector2> TreePositions = new List<Vector2>();
+
     [Header("Material Overrides (optional)")]
     public Material groundMaterial;
     public Material barkMaterial;
@@ -116,7 +125,11 @@ public class DarkForestGenerator : MonoBehaviour
         if (applyLighting) ApplyAtmosphere();
         if (spawnPlayer) SpawnPlayer();
         if (spawnEntity && FindAnyObjectByType<ShadowEntity>() == null)
-            new GameObject("Shadow Entity").AddComponent<ShadowEntity>();
+            ShadowEntity.Spawn();
+        if (spawnLamps && FindAnyObjectByType<LampSpawner>() == null)
+            new GameObject("Lamp Spawner").AddComponent<LampSpawner>();
+        if (spawnAmbience && FindAnyObjectByType<AmbienceAudio>() == null)
+            new GameObject("Ambience").AddComponent<AmbienceAudio>();
 
         if (Application.isPlaying) StaticBatchingUtility.Combine(root.gameObject);
     }
@@ -214,7 +227,8 @@ public class DarkForestGenerator : MonoBehaviour
         parent.SetParent(root, false);
 
         float half = areaSize * 0.5f - 1f;
-        var placed = new List<Vector2>(treeCount);
+        var placed = TreePositions;
+        placed.Clear();
         var grid = new Dictionary<Vector2Int, List<Vector2>>();
         float cell = Mathf.Max(minTreeSpacing, 0.1f);
         int attempts = treeCount * 15;
@@ -496,26 +510,11 @@ public class DarkForestGenerator : MonoBehaviour
 
     void CreateMaterials()
     {
-        groundMat = groundMaterial != null ? groundMaterial : MakeMaterial(new Color(0.07f, 0.06f, 0.045f));
-        barkMat = barkMaterial != null ? barkMaterial : MakeMaterial(new Color(0.11f, 0.08f, 0.06f));
-        deadBarkMat = barkMaterial != null ? barkMaterial : MakeMaterial(new Color(0.16f, 0.15f, 0.14f));
-        foliageMat = foliageMaterial != null ? foliageMaterial : MakeMaterial(new Color(0.03f, 0.08f, 0.05f));
-        rockMat = rockMaterial != null ? rockMaterial : MakeMaterial(new Color(0.18f, 0.18f, 0.19f));
-    }
-
-    static Material MakeMaterial(Color color)
-    {
-        bool usingSrp = GraphicsSettings.currentRenderPipeline != null;
-        Shader shader = usingSrp ? Shader.Find("Universal Render Pipeline/Lit") : Shader.Find("Standard");
-        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Simple Lit");
-        if (shader == null) shader = Shader.Find("Diffuse");
-
-        var mat = new Material(shader);
-        mat.color = color;
-        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
-        if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.05f);
-        if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.05f);
-        return mat;
+        groundMat = groundMaterial != null ? groundMaterial : MaterialFactory.Lit(new Color(0.07f, 0.06f, 0.045f));
+        barkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.11f, 0.08f, 0.06f));
+        deadBarkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.16f, 0.15f, 0.14f));
+        foliageMat = foliageMaterial != null ? foliageMaterial : MaterialFactory.Lit(new Color(0.03f, 0.08f, 0.05f));
+        rockMat = rockMaterial != null ? rockMaterial : MaterialFactory.Lit(new Color(0.18f, 0.18f, 0.19f));
     }
 
     /// <summary>Unit cone: radius 1 at y=0, apex at y=1. Faceted for a low-poly look.</summary>
