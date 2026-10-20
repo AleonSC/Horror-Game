@@ -1928,7 +1928,7 @@ public class DarkForestGenerator : MonoBehaviour
         camGo.transform.SetParent(player.transform, false);
         camGo.transform.localRotation = Quaternion.identity;
         cam.nearClipPlane = 0.05f;
-        cam.fieldOfView = 70f;
+        cam.fieldOfView = 60f; // 70 stretched the edges of the view badly looking down slopes (the pause menu can change it)
         if (applyLighting) ConfigureCamera(cam);
 
         var controller = player.AddComponent<FirstPersonController>();

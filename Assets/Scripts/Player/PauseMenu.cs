@@ -18,11 +18,14 @@ public class PauseMenu : MonoBehaviour
     /// <summary>The master volume (everything, music included). MusicManager scales by this.</summary>
     public static float MasterVolume { get; private set; } = 1f;
     const string MenuScaleKey = "Horror.MenuScale";
+    const string FovKey = "Horror.FieldOfView";
 
     FirstPersonController player;
     float sensitivity = 2f;
     float volume = 1f;          // master
     float effectsVolume = 1f;   // every sound but the music
+    [Tooltip("Vertical field of view (degrees). Wide angles stretch the edges of the view: looking down a slope, trees there seem to lean outward.")]
+    public float fieldOfView = 60f;
     [Tooltip("Size of the pause menu and lighting panel (1 = original size, up to 1.8). Players can change it in the menu.")]
     public float menuScale = 1.6f;
     LightingSettings lighting;
@@ -35,6 +38,7 @@ public class PauseMenu : MonoBehaviour
         volume = PlayerPrefs.GetFloat(VolumeKey, 1f);
         effectsVolume = PlayerPrefs.GetFloat(EffectsKey, 1f);
         menuScale = PlayerPrefs.GetFloat(MenuScaleKey, menuScale);
+        fieldOfView = PlayerPrefs.GetFloat(FovKey, fieldOfView);
         ApplySettings();
         lighting = gameObject.AddComponent<LightingSettings>();
     }
@@ -65,6 +69,7 @@ public class PauseMenu : MonoBehaviour
             PlayerPrefs.SetFloat(VolumeKey, volume);
             PlayerPrefs.SetFloat(EffectsKey, effectsVolume);
             PlayerPrefs.SetFloat(MenuScaleKey, menuScale);
+            PlayerPrefs.SetFloat(FovKey, fieldOfView);
             PlayerPrefs.Save();
         }
     }
@@ -76,6 +81,9 @@ public class PauseMenu : MonoBehaviour
         // The listener volume carries the sound effects; the music ignores it and uses MasterVolume itself.
         MasterVolume = volume;
         AudioListener.volume = volume * effectsVolume;
+        // Not while the dream hallway has the view stretched: it picks this up when it lets go.
+        var cam = player != null ? player.GetComponentInChildren<Camera>() : Camera.main;
+        if (cam != null && (player == null || player.DreamStretch <= 0f)) cam.fieldOfView = fieldOfView;
     }
 
     // ---------------------------------------------------------------- Drawing
@@ -186,13 +194,16 @@ public class PauseMenu : MonoBehaviour
             if (!Mathf.Approximately(newMusic, music.Volume)) music.Volume = newMusic;
             y += step;
         }
+        float newFov = Mathf.Round(Slider(5, "FIELD OF VIEW", $"{Mathf.RoundToInt(fieldOfView)}°", x, y, width, fieldOfView, 50f, 90f)); y += step;
         menuScale = Slider(4, "MENU SIZE", $"{menuScale:0.0}x", x, y, width, menuScale, 1f, 1.8f); y += step;
 
-        if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume) || !Mathf.Approximately(newEffects, effectsVolume))
+        if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume) || !Mathf.Approximately(newEffects, effectsVolume)
+            || !Mathf.Approximately(newFov, fieldOfView))
         {
             sensitivity = newSensitivity;
             volume = newVolume;
             effectsVolume = newEffects;
+            fieldOfView = newFov;
             ApplySettings();
         }
 
