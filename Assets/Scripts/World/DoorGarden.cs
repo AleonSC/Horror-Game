@@ -3,10 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// The garden round the lone door: the one cared-for place in the whole forest. A flagstone path runs up
-/// to the step between clipped box hedges and borders of flowers, across a neat lawn; a tall hedge curves
-/// round behind the door like an alcove; a low iron fence with stone gate pillars closes off the front; a
-/// stone bench and a birdbath sit out on the grass; flowers ring the foot of each lamp post; tall grass
-/// at the edges where the forest takes back over. Fireflies drift round it all, in the lamps' warm light.
+/// to the step between borders of flowers, across a neat lawn; a stone bench and a birdbath sit out on the
+/// grass; flowers ring the foot of each lamp post; tall grass at the edges where the forest takes back over. Fireflies drift round it all, in the lamps' warm light.
 /// PortalDoor.BuildGarden builds it (in the door's space: the door faces +z, the path runs out that way).
 /// </summary>
 public class DoorGarden : MonoBehaviour
@@ -16,7 +14,7 @@ public class DoorGarden : MonoBehaviour
 
     static Mesh sphereMesh, cubeMesh, cylinderMesh;
 
-    const float FenceRadius = 7.6f, PathHalfWidth = 0.55f;
+    const float GardenRadius = 7.6f, PathHalfWidth = 0.55f; // how far out the lawn and path go
 
     public static DoorGarden Build(PortalDoor door, DarkForestGenerator generator)
     {
@@ -28,11 +26,9 @@ public class DoorGarden : MonoBehaviour
         }
         var lawnMat = MaterialFactory.Lit(new Color(0.13f, 0.3f, 0.08f), 0.12f);
         var tallMat = MaterialFactory.Lit(new Color(0.12f, 0.24f, 0.07f), 0.12f);
-        var hedgeMat = MaterialFactory.Lit(new Color(0.05f, 0.17f, 0.05f), 0.2f);
         var stemMat = MaterialFactory.Lit(new Color(0.08f, 0.2f, 0.06f), 0.15f);
         var flagMat = MaterialFactory.Lit(new Color(0.3f, 0.29f, 0.27f), 0.12f);
         var paleMat = MaterialFactory.Lit(new Color(0.42f, 0.4f, 0.36f), 0.12f);
-        var ironMat = MaterialFactory.Lit(new Color(0.04f, 0.04f, 0.045f), 0.5f);
         var waterMat = MaterialFactory.Lit(new Color(0.02f, 0.03f, 0.04f), 0.95f);
         Material[] petals =
         {
@@ -51,13 +47,13 @@ public class DoorGarden : MonoBehaviour
             Vector3 w = at.TransformPoint(new Vector3(x, 0f, z));
             return (generator != null ? generator.GetGroundHeight(w.x, w.z) : at.position.y) - at.position.y;
         }
-        bool OnPath(float x, float z) => z > 0.2f && z < FenceRadius + 0.3f && Mathf.Abs(x) < PathHalfWidth + 0.1f;
+        bool OnPath(float x, float z) => z > 0.2f && z < GardenRadius + 0.3f && Mathf.Abs(x) < PathHalfWidth + 0.1f;
         Vector2 LampPost(int side) => new Vector2(side * 1.6f, 0.35f);
 
         // The path: two staggered flagstones a row, up to the step.
         var flags = new List<CombineInstance>();
         int row = 0;
-        for (float z = 1.0f; z < FenceRadius + 0.2f; z += 0.55f, row++)
+        for (float z = 1.0f; z < GardenRadius + 0.2f; z += 0.55f, row++)
             for (int k = 0; k < 2; k++)
             {
                 float x = (k == 0 ? -0.26f : 0.26f) + (row % 2 == 0 ? 0.04f : -0.04f) + Random.Range(-0.03f, 0.03f);
@@ -74,7 +70,7 @@ public class DoorGarden : MonoBehaviour
         {
             float a = Random.Range(0f, Mathf.PI * 2f);
             float sin = Mathf.Sin(a);
-            float r = Mathf.Sqrt(Random.value) * (sin > 0f ? FenceRadius - 0.1f : 4.6f);
+            float r = Mathf.Sqrt(Random.value) * (sin > 0f ? GardenRadius - 0.1f : 4.6f);
             float x = Mathf.Cos(a) * r, z = sin * r;
             if (OnPath(x, z) || (Mathf.Abs(x) < 1f && Mathf.Abs(z) < 0.8f)) continue; // not on the path or the steps
             lawn.Add(new Vector3(x, Ground(x, z) - 0.02f, z), Random.Range(0.08f, 0.18f), Random.Range(0.02f, 0.035f), Random.Range(0f, 360f), Random.Range(5f, 30f));
@@ -86,7 +82,7 @@ public class DoorGarden : MonoBehaviour
         for (int i = 0; i < 900; i++)
         {
             float a = Random.Range(0f, Mathf.PI * 2f);
-            float inner = Mathf.Sin(a) > 0f ? FenceRadius + 0.2f : 4.8f;
+            float inner = Mathf.Sin(a) > 0f ? GardenRadius + 0.2f : 4.8f;
             float r = inner + Mathf.Pow(Random.value, 1.5f) * 1.8f;
             float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
             if (OnPath(x, z)) continue;
@@ -94,32 +90,6 @@ public class DoorGarden : MonoBehaviour
             wild.Add(new Vector3(x, Ground(x, z) - 0.02f, z), h, Random.Range(0.025f, 0.045f), Random.Range(0f, 360f), Random.Range(5f, 25f));
         }
         Blades(root, "Long Grass", wild, tallMat);
-
-        // Clipped box hedges lining the path, and a tall hedge curving round behind the door.
-        var hedges = new List<CombineInstance>();
-        for (int side = -1; side <= 1; side += 2)
-            for (float z = 1.6f; z < 6.8f; z += 1.05f)
-            {
-                float x = side * 1.55f;
-                var mesh = PropModels.SoftBox(new Vector3(0.48f, 0.6f, 1.08f), 0.3f, 0.05f, 0.04f, 0.025f, Random.Range(0, 1000), 1f);
-                hedges.Add(Piece(mesh, new Vector3(x, Ground(x, z + 0.5f) + 0.26f, z + 0.5f), Quaternion.identity, Vector3.one));
-            }
-        const float alcove = 3.6f;
-        for (float deg = 207f; deg <= 333f; deg += 14f)
-        {
-            float a = deg * Mathf.Deg2Rad;
-            float x = Mathf.Cos(a) * alcove, z = Mathf.Sin(a) * alcove;
-            var rot = Quaternion.Euler(0f, 90f - deg, 0f); // along the curve
-            var mesh = PropModels.SoftBox(new Vector3(0.95f, 1.9f, 0.7f), 0.3f, 0.08f, 0.04f, 0.04f, Random.Range(0, 1000), 1f);
-            float y = Ground(x, z) + 0.85f;
-            hedges.Add(Piece(mesh, new Vector3(x, y, z), rot, Vector3.one));
-            var block = new GameObject("Hedge");
-            block.transform.SetParent(root, false);
-            block.transform.localPosition = new Vector3(x, y, z);
-            block.transform.localRotation = rot;
-            block.AddComponent<BoxCollider>().size = new Vector3(0.95f, 1.9f, 0.6f);
-        }
-        Combined(root, "Hedges", hedges, hedgeMat);
 
         // Flowers: in the borders along the path, ringing each lamp post's foot, and round the birdbath.
         var stems = new List<CombineInstance>();
@@ -182,40 +152,6 @@ public class DoorGarden : MonoBehaviour
         seat.transform.SetParent(root, false);
         seat.transform.localPosition = new Vector3(bench.x, benchY + 0.24f, bench.y);
         seat.AddComponent<BoxCollider>().size = new Vector3(0.48f, 0.5f, 1.5f);
-
-        // The low iron fence across the front, railings with spear tops, open where the path goes through
-        // between two stone gate pillars.
-        var iron = new List<CombineInstance>();
-        Vector3 last = Vector3.zero;
-        bool haveLast = false;
-        for (float deg = 18f; deg <= 162f; deg += 1.6f)
-        {
-            float a = deg * Mathf.Deg2Rad;
-            float x = Mathf.Cos(a) * FenceRadius, z = Mathf.Sin(a) * FenceRadius;
-            if (Mathf.Abs(x) < 0.85f) { haveLast = false; continue; }
-            float g = Ground(x, z);
-            iron.Add(Piece(cylinderMesh, new Vector3(x, g + 0.4f, z), Quaternion.identity, new Vector3(0.022f, 0.45f, 0.022f)));
-            iron.Add(Piece(sphereMesh, new Vector3(x, g + 0.87f, z), Quaternion.identity, new Vector3(0.035f, 0.06f, 0.035f)));
-            var here = new Vector3(x, g, z);
-            if (haveLast)
-                foreach (float rail in new[] { 0.18f, 0.72f })
-                {
-                    Vector3 from = last + Vector3.up * rail, to = here + Vector3.up * rail;
-                    Vector3 d = to - from;
-                    iron.Add(Piece(cubeMesh, (from + to) * 0.5f, Quaternion.LookRotation(d), new Vector3(0.025f, 0.03f, d.magnitude + 0.02f)));
-                }
-            last = here;
-            haveLast = true;
-        }
-        Combined(root, "Fence", iron, ironMat);
-        for (int side = -1; side <= 1; side += 2)
-        {
-            float x = side * 0.95f, z = Mathf.Sqrt(FenceRadius * FenceRadius - x * x);
-            float g = Ground(x, z);
-            Prim(root, PrimitiveType.Cube, paleMat, new Vector3(x, g + 0.4f, z), new Vector3(0.3f, 1.2f, 0.3f), true);
-            Prim(root, PrimitiveType.Cube, paleMat, new Vector3(x, g + 1.03f, z), new Vector3(0.36f, 0.06f, 0.36f), false);
-            Prim(root, PrimitiveType.Sphere, paleMat, new Vector3(x, g + 1.17f, z), Vector3.one * 0.22f, false);
-        }
 
         // A little warm light over the lawn, so the garden glows in the dark like a stage.
         var fill = new GameObject("Garden Light").AddComponent<Light>();
