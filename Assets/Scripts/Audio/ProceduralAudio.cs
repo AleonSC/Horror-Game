@@ -15,7 +15,7 @@ public static class ProceduralAudio
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
         lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop,
-        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, advance, lampSpark, lampPowerDown;
+        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -47,6 +47,8 @@ public static class ProceduralAudio
     public static AudioClip TorchIgnite => torchIgnite != null ? torchIgnite : (torchIgnite = MakeTorchIgnite());
     /// <summary>Crackling, popping flame. Loops seamlessly.</summary>
     public static AudioClip FireLoop => fireLoop != null ? fireLoop : (fireLoop = MakeFireLoop());
+    /// <summary>A heavy relay slamming shut and a big light buzzing to life.</summary>
+    public static AudioClip Floodlight => floodlight != null ? floodlight : (floodlight = MakeFloodlight());
     /// <summary>A flame sputtering out.</summary>
     public static AudioClip BurnOut => burnOut != null ? burnOut : (burnOut = MakeBurnOut());
 
@@ -387,6 +389,21 @@ public static class ProceduralAudio
             float flutter = 0.7f + 0.3f * Sin(1.5f, t) * Sin(2.25f, t);
             return (lp - roar) * 0.25f * flutter + roar * 0.6f + pop * w * 1.5f;
         }, 0.7f);
+    }
+
+    static AudioClip MakeFloodlight()
+    {
+        const float len = 1.5f;
+        float lp = 0f, thump = 0f;
+        return Shot("Floodlight", len, t =>
+        {
+            thump += TwoPi * (55f + 40f * Mathf.Exp(-t * 8f)) / Rate;
+            float clunk = Mathf.Sin(thump) * Mathf.Exp(-t * 9f) + White() * Burst(t, 0f) * 0.8f;
+            float saw = 2f * (120f * t % 1f) - 1f;
+            lp += (saw - lp) * 0.15f;
+            float buzz = lp * Mathf.SmoothStep(0f, 1f, t / 0.4f) * Mathf.Exp(-Mathf.Max(0f, t - 0.6f) * 2f) * 0.5f;
+            return clunk + buzz;
+        }, 0.9f);
     }
 
     static AudioClip MakeBurnOut()

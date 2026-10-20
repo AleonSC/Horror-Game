@@ -74,12 +74,12 @@ public class WorldWrap : MonoBehaviour
         instance.dynamicItems.Add(t);
     }
 
-    /// <summary>Registers the generator's trees, rocks, logs, grass and shacks.</summary>
+    /// <summary>Registers the generator's trees, rocks, logs, grass, shacks and watchtower.</summary>
     public void CollectFromGenerator(DarkForestGenerator generator)
     {
         Transform root = generator.transform.Find(DarkForestGenerator.RootName);
         if (root == null) return;
-        foreach (string group in new[] { "Trees", "Rocks", "Fallen Logs", "Grass", "Shacks" })
+        foreach (string group in new[] { "Trees", "Rocks", "Fallen Logs", "Grass", "Shacks", "Watchtower" })
         {
             Transform parent = root.Find(group);
             if (parent == null) continue;

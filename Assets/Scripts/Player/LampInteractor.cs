@@ -17,6 +17,7 @@ public class LampInteractor : MonoBehaviour
     BatteryPickup focusedBattery;
     ShackDoor focusedDoor;
     ItemPickup focusedItem;
+    WatchtowerButton focusedButton;
     Flashlight flashlight;
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
@@ -27,6 +28,7 @@ public class LampInteractor : MonoBehaviour
         focusedBattery = null;
         focusedDoor = null;
         focusedItem = null;
+        focusedButton = null;
         if (hotbar == null) hotbar = GetComponent<Hotbar>();
         var cam = Camera.main;
         if (cam == null) return;
@@ -39,11 +41,14 @@ public class LampInteractor : MonoBehaviour
             focusedBattery = hit.collider.GetComponentInParent<BatteryPickup>();
             focusedDoor = hit.collider.GetComponentInParent<ShackDoor>();
             focusedItem = hit.collider.GetComponentInParent<ItemPickup>();
+            focusedButton = hit.collider.GetComponentInParent<WatchtowerButton>();
         }
 
         if (!HorrorInput.ClickPressed || Cursor.lockState != CursorLockMode.Locked) return;
 
-        if (focusedItem != null)
+        if (focusedButton != null)
+            focusedButton.Press();
+        else if (focusedItem != null)
             focusedItem.PickUp(hotbar);
         else if (focusedDoor != null)
             focusedDoor.Toggle();
@@ -68,9 +73,18 @@ public class LampInteractor : MonoBehaviour
         float cy = Screen.height * 0.5f;
 
         // Crosshair
-        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null;
+        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null || focusedButton != null;
 
-        if (focusedItem != null)
+        if (focusedButton != null)
+        {
+            var tower = focusedButton.tower;
+            string text = tower == null ? "" :
+                tower.LightsOn ? $"The floodlights are on ({Mathf.CeilToInt(tower.TimeLeft)}s)" :
+                tower.IsRecharging ? $"The floodlights are recharging ({Mathf.CeilToInt(tower.RechargeLeft)}s)" :
+                "Click to turn on the floodlights";
+            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), text, labelStyle);
+        }
+        else if (focusedItem != null)
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), $"Click to pick up the {focusedItem.DisplayName}", labelStyle);
         else if (focusedDoor != null)
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), focusedDoor.IsOpen ? "Click to close the door" : "Click to open the door", labelStyle);

@@ -64,6 +64,9 @@ public class GameOverScreen : MonoBehaviour
         foreach (var shack in Shack.All)
             shack.ResetShack();
 
+        foreach (var tower in Watchtower.All)
+            tower.ResetTower();
+
         var player = FindAnyObjectByType<FirstPersonController>();
         if (player != null)
         {

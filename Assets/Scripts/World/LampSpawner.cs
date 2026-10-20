@@ -47,7 +47,7 @@ public class LampSpawner : MonoBehaviour
             var p = new Vector3(Random.Range(-half, half), 0f, Random.Range(-half, half));
             if (new Vector2(p.x, p.z).magnitude < minDistanceFromCenter) continue;
             if (TooClose(p, placed)) continue;
-            if (generator != null && (NearTree(generator, p) || generator.IsNearShack(p, 7f))) continue;
+            if (generator != null && (NearTree(generator, p) || generator.IsNearStructure(p, 7f))) continue;
 
             p.y = GroundHeight(generator, p);
             placed.Add(p);

@@ -54,6 +54,10 @@ public class DarkForestGenerator : MonoBehaviour
     [Tooltip("Keep shacks at least this far apart.")]
     public float minShackSpacing = 60f;
 
+    [Header("Watchtower")]
+    [Tooltip("Place one tall watchtower with floodlights somewhere on the map.")]
+    public bool spawnWatchtower = true;
+
     [Header("Props")]
     public int rockCount = 480;
     public int fallenLogCount = 140;
@@ -98,22 +102,28 @@ public class DarkForestGenerator : MonoBehaviour
     /// <summary>Positions (x, z) of the shacks, so other things can keep clear of them.</summary>
     public readonly List<Vector2> ShackPositions = new List<Vector2>();
 
-    /// <summary>True if the point is within distance of any shack.</summary>
-    public bool IsNearShack(Vector3 p, float distance)
+    /// <summary>Position (x, z) of the watchtower, if there is one.</summary>
+    public Vector2? WatchtowerPosition { get; private set; }
+
+    /// <summary>True if the point is within distance of any shack (or a bit more, for the bigger watchtower).</summary>
+    public bool IsNearStructure(Vector3 p, float distance)
     {
         var flat = new Vector2(p.x, p.z);
         foreach (var shack in ShackPositions)
+            if (Near(shack, flat, distance)) return true;
+        return WatchtowerPosition.HasValue && Near(WatchtowerPosition.Value, flat, distance + 2f);
+    }
+
+    bool Near(Vector2 structure, Vector2 flat, float distance)
+    {
+        Vector2 d = structure - flat;
+        if (wrapWorld)
         {
-            Vector2 d = shack - flat;
-            if (wrapWorld)
-            {
-                // Measure across the map's edges too.
-                d.x -= areaSize * Mathf.Round(d.x / areaSize);
-                d.y -= areaSize * Mathf.Round(d.y / areaSize);
-            }
-            if (d.sqrMagnitude < distance * distance) return true;
+            // Measure across the map's edges too.
+            d.x -= areaSize * Mathf.Round(d.x / areaSize);
+            d.y -= areaSize * Mathf.Round(d.y / areaSize);
         }
-        return false;
+        return d.sqrMagnitude < distance * distance;
     }
 
     /// <summary>Every grass patch, for WeatherSystem to sway in the wind.</summary>
@@ -186,6 +196,7 @@ public class DarkForestGenerator : MonoBehaviour
         BuildGround();
         if (!wrapWorld) BuildBoundary();
         PlaceShacks();
+        PlaceWatchtower();
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
@@ -382,7 +393,7 @@ public class DarkForestGenerator : MonoBehaviour
             var p = new Vector2(Range(-half, half), Range(-half, half));
             float distFromCenter = p.magnitude;
             if (distFromCenter < clearingRadius) continue;
-            if (IsNearShack(new Vector3(p.x, 0f, p.y), 6.5f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 6.5f)) continue;
 
             // Patchy density: thin out trees in low-noise areas, thicker near the edges.
             float density = Mathf.PerlinNoise((p.x + noiseOffset.y) * densityNoiseScale, (p.y + noiseOffset.x) * densityNoiseScale);
@@ -557,7 +568,7 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < 30f) continue; // not right next to the spawn
-            if (IsNearShack(new Vector3(p.x, 0f, p.y), minShackSpacing)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), minShackSpacing)) continue;
             ShackPositions.Add(p);
 
             var go = new GameObject("Shack");
@@ -565,6 +576,31 @@ public class DarkForestGenerator : MonoBehaviour
             go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
             go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
             go.AddComponent<Shack>().Build(this, rng);
+        }
+    }
+
+    void PlaceWatchtower()
+    {
+        WatchtowerPosition = null;
+        if (!spawnWatchtower) return;
+
+        var parent = new GameObject("Watchtower").transform;
+        parent.SetParent(root, false);
+
+        float half = areaSize * 0.5f - 12f;
+        for (int attempt = 0; attempt < 500; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            if (p.magnitude < 50f) continue;                         // a trek from the spawn
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 40f)) continue; // not beside a shack
+
+            var go = new GameObject("Watchtower");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
+            go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+            go.AddComponent<Watchtower>().Build(this);
+            WatchtowerPosition = p;
+            return;
         }
     }
 
@@ -604,7 +640,7 @@ public class DarkForestGenerator : MonoBehaviour
             // Grass grows in meadows and drifts rather than evenly everywhere.
             float n = Mathf.PerlinNoise((p.x + noiseOffset.x) * grassNoiseScale, (p.y + noiseOffset.y) * grassNoiseScale);
             if (Range(0f, 1f) > n * n * 2.2f) continue;
-            if (IsNearShack(new Vector3(p.x, 0f, p.y), 3.5f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 3.5f)) continue;
 
             var patch = new GameObject("Grass Patch");
             patch.transform.SetParent(parent, false);
@@ -700,7 +736,7 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < clearingRadius * 0.5f) continue;
-            if (IsNearShack(new Vector3(p.x, 0f, p.y), 5f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 5f)) continue;
             var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
             var rot = Quaternion.Euler(Range(0f, 360f), Range(0f, 360f), Range(0f, 360f));
 
@@ -729,7 +765,7 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < clearingRadius) continue;
-            if (IsNearShack(new Vector3(p.x, 0f, p.y), 8f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 8f)) continue;
 
             float length = Range(3f, 7f);
             float radius = Range(0.2f, 0.4f);

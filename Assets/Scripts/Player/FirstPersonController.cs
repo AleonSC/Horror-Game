@@ -67,6 +67,8 @@ public class FirstPersonController : MonoBehaviour
     // One slow-down zone per source (e.g. each ShadowEntity), so several can apply at once.
     readonly Dictionary<Object, ApproachLimit> approachLimits = new Dictionary<Object, ApproachLimit>();
     float pendingShake;
+    Ladder ladder;
+    int ladderContacts;
     Vector3 spawnPosition;
     Quaternion spawnRotation;
 
@@ -112,6 +114,8 @@ public class FirstPersonController : MonoBehaviour
         pitch = 0f;
         approachLimits.Clear();
         pendingShake = 0f;
+        ladder = null;
+        ladderContacts = 0;
     }
 
     void Update()
@@ -208,19 +212,67 @@ public class FirstPersonController : MonoBehaviour
         foreach (var limit in approachLimits.Values)
             moveVelocity = ApplyApproachLimit(moveVelocity, limit);
 
-        if (grounded && verticalVelocity < 0f)
-            verticalVelocity = -2f; // keep the controller snapped to the ground
+        if (ladder != null)
+        {
+            Climb(input, grounded);
+        }
+        else
+        {
+            if (grounded && verticalVelocity < 0f)
+                verticalVelocity = -2f; // keep the controller snapped to the ground
 
-        if (grounded && !IsCrouching && HorrorInput.JumpPressed)
-            verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            if (grounded && !IsCrouching && HorrorInput.JumpPressed)
+                verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
 
-        verticalVelocity += gravity * Time.deltaTime;
+            verticalVelocity += gravity * Time.deltaTime;
+        }
 
         Vector3 motion = (moveVelocity + Vector3.up * verticalVelocity) * Time.deltaTime;
         CollisionFlags flags = controller.Move(motion);
 
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)
             verticalVelocity = 0f; // bonked head
+    }
+
+    /// <summary>
+    /// Ladder movement: no gravity; W climbs (down instead if looking down), S climbs down.
+    /// Below the top the player is held against the ladder; at the top they can step off.
+    /// </summary>
+    void Climb(Vector2 input, bool grounded)
+    {
+        bool atTop = transform.position.y > ladder.TopY - 0.3f;
+        bool leavingBottom = grounded && input.y <= 0f;
+
+        float climb = input.y * ladder.climbSpeed * (pitch > 40f ? -1f : 1f);
+        if (input.y < 0f) climb = -ladder.climbSpeed;
+        verticalVelocity = leavingBottom ? -2f : climb;
+
+        if (!atTop && !leavingBottom)
+        {
+            // Hold the player against the ladder instead of walking.
+            Vector3 toLadder = ladder.ClimbPoint - transform.position;
+            toLadder.y = 0f;
+            moveVelocity = Vector3.ClampMagnitude(toLadder * 6f, 3f);
+        }
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        var l = other.GetComponent<Ladder>();
+        if (l == null) return;
+        ladder = l;
+        ladderContacts++;
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (other.GetComponent<Ladder>() == null) return;
+        ladderContacts = Mathf.Max(0, ladderContacts - 1);
+        if (ladderContacts == 0)
+        {
+            ladder = null;
+            if (verticalVelocity > 0f) verticalVelocity = 0f; // don't launch off the top
+        }
     }
 
     /// <summary>

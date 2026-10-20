@@ -538,6 +538,17 @@ public class ShadowEntity : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Wipes out its progress on the player: if it's out hunting it's blasted away (poofs) and starts over
+    /// from a distance, back to normal size. Used by the watchtower floodlights.
+    /// </summary>
+    public void ResetHunt()
+    {
+        if (CurrentState == State.Watching || CurrentState == State.Crescendo || CurrentState == State.Materializing)
+            Poof();
+        creepTimer = Random.Range(minCreepInterval, maxCreepInterval);
+    }
+
     void ReleasePlayer()
     {
         if (player == null) return;
@@ -573,7 +584,9 @@ public class ShadowEntity : MonoBehaviour
         for (int attempt = 0; attempt < 15; attempt++)
         {
             Vector3 dir = Quaternion.Euler(0f, Random.Range(-spawnViewAngle, spawnViewAngle), 0f) * forward;
-            p = target.position + dir * Random.Range(minSpawnDistance, maxSpawnDistance);
+            // If big lights keep blocking the usual spots, look further out.
+            float reach = attempt < 5 ? 1f : Mathf.Lerp(1f, 2.5f, (attempt - 5) / 9f);
+            p = target.position + dir * (Random.Range(minSpawnDistance, maxSpawnDistance) * reach);
 
             // Keep it inside the generated forest (unless the map wraps around, where anywhere is fine).
             if (generator != null && !WorldWrap.IsActive)
