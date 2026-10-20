@@ -22,7 +22,7 @@ public class IntroText : MonoBehaviour
     };
 
     [Header("Timing (seconds)")]
-    public float startDelay = 1f;
+    public float startDelay = 3f;
     public float fadeInTime = 2f;
     public float holdTime = 2.5f;
     public float fadeOutTime = 2f;
