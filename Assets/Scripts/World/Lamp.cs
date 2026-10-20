@@ -125,7 +125,8 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     public static int TimesLit { get; private set; }
     public static void ResetTimesLit() => TimesLit = 0;
 
-    public static int LitCount
+    /// <summary>How many lamps are burning right now.</summary>
+    public static int CurrentlyLitCount
     {
         get
         {
