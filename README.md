@@ -21,6 +21,8 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/Hotbar.cs` | Hotbar: 1 flashlight, 2 torch, 3 lighter. Lit torches and lighters keep the entities away, but burn out for good. |
 | `Assets/Scripts/World/Watchtower.cs` / `WatchtowerButton.cs` / `Ladder.cs` | One very tall watchtower somewhere on the map. Climb the ladder and press the button: floodlights blaze for a minute, every entity's hunt is reset, and the lit area is safe. Then it recharges. |
 | `Assets/Scripts/World/FallingTreeEvent.cs` | About 30 seconds in, a nearby tree cracks at the base and comes crashing down. `Trigger()` sets one off any time. |
+| `Assets/Scripts/World/MoonSky.cs` | A pale moon with a halo where the moonlight comes from, and faint shafts of moonlight slanting through the trees that drift in and out around you. |
+| `Assets/Scripts/World/ProceduralTextures.cs` | Generates the dirt, moon, glow and light-shaft textures in code. |
 | `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
 | `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, and black deer that graze and gallop off when you get close. |
