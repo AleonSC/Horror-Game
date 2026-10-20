@@ -1417,12 +1417,12 @@ public class DarkForestGenerator : MonoBehaviour
         var shapes = new[] { BushBuilder.Shape.Mound, BushBuilder.Shape.Mound, BushBuilder.Shape.Upright, BushBuilder.Shape.Leaning };
         var variants = new Mesh[12];
         for (int i = 0; i < variants.Length; i++) variants[i] = BushBuilder.Build(shapes[i % shapes.Length], rng);
+        // Deep forest greens: each bush gets a darker and a lighter shade for its leaves.
         var materials = new[]
         {
-            // (Tints over the leaf texture's own greens: darker, deep forest greens.)
-            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.5f, 0.62f, 0.45f), 0.5f, 0.15f),
-            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.4f, 0.52f, 0.38f), 0.5f, 0.15f),
-            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.55f, 0.58f, 0.4f), 0.5f, 0.15f),
+            (MaterialFactory.Lit(new Color(0.06f, 0.13f, 0.04f), 0.2f), MaterialFactory.Lit(new Color(0.11f, 0.2f, 0.06f), 0.2f)),
+            (MaterialFactory.Lit(new Color(0.05f, 0.11f, 0.045f), 0.2f), MaterialFactory.Lit(new Color(0.09f, 0.17f, 0.07f), 0.2f)),
+            (MaterialFactory.Lit(new Color(0.08f, 0.12f, 0.04f), 0.2f), MaterialFactory.Lit(new Color(0.14f, 0.19f, 0.06f), 0.2f)),
         };
         var stemMat = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.6f, 0.58f, 0.52f), 0.05f);
 
@@ -1443,8 +1443,8 @@ public class DarkForestGenerator : MonoBehaviour
             bush.transform.localScale = new Vector3(size, size * Range(0.8f, 1.15f), size);
             var mesh = variants[rng.Next(variants.Length)];
             bush.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var leaves = materials[rng.Next(materials.Length)];
-            bush.AddComponent<MeshRenderer>().sharedMaterials = mesh.subMeshCount > 1 ? new[] { leaves, stemMat } : new[] { leaves };
+            var (dark, light) = materials[rng.Next(materials.Length)];
+            bush.AddComponent<MeshRenderer>().sharedMaterials = mesh.subMeshCount > 2 ? new[] { dark, light, stemMat } : new[] { dark, light };
             placed++;
         }
 

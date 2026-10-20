@@ -2,13 +2,13 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Builds leafy broadleaf bushes out of leaf cards: quads each carrying a spray of pointed leaves
-/// (ProceduralTextures.LeafCluster, alpha-cutout), heaped into clumps on a skeleton of stems, lit as one
-/// soft rounded mass. Three kinds, each varied every time:
+/// Builds leafy broadleaf bushes out of hundreds of little pointed leaves (real geometry, folded along the
+/// midrib, two shades), heaped into clumps on a skeleton of stems, lit as one soft rounded mass. Three
+/// kinds, each varied every time:
 /// - Mound: a low, wide, dense dome of leaves right down to the ground;
 /// - Upright: a little tree of a bush, a short trunk with the leaves in rough tiers, taller than wide;
 /// - Leaning: several thin pale stems splaying up from the ground and leaning one way, a top-heavy crown.
-/// About 1m across at scale 1. Submesh 0 is the leaves; submesh 1 (when there is one) the stems.
+/// About 1m across at scale 1. Submesh 0 is the darker leaves, 1 the lighter ones, 2 (when there is one) the stems.
 /// DarkForestGenerator uses these for its bushes.
 /// </summary>
 public static class BushBuilder
@@ -112,45 +112,45 @@ public static class BushBuilder
             }
         }
 
-        // ---- Leaf cards.
+        // ---- Leaves: each a real little pointed leaf, folded along its midrib, drawn both sides, in two
+        // shades (two submeshes), pointing out and up from the middle of the bush at its own angle. (Real
+        // geometry, not see-through cards: cut-out materials made in code lose their cut-out in builds.)
         var verts = new List<Vector3>();
         var normals = new List<Vector3>();
         var uvs = new List<Vector2>();
-        var leafTris = new List<int>();
+        var darkTris = new List<int>();
+        var lightTris = new List<int>();
         foreach (var clump in clumps)
         {
-            for (int k = 0; k < clump.cards; k++)
+            int leaves = clump.cards * 6;
+            for (int k = 0; k < leaves; k++)
             {
                 Vector3 pos = clump.center + Vector3.Scale(InSphere(), new Vector3(1f, 0.8f, 1f)) * clump.radius;
                 Vector3 outward = pos - core;
                 outward = outward.sqrMagnitude > 0.0001f ? outward.normalized : Vector3.up;
-                // The spray points out and a little up from the middle of the bush, every one at its own angle.
-                Vector3 up = (outward + Vector3.up * 0.5f + InSphere() * 0.6f).normalized;
-                Vector3 face = Vector3.Cross(up, InSphere());
-                if (face.sqrMagnitude < 0.01f) face = Vector3.Cross(up, Mathf.Abs(up.z) < 0.9f ? Vector3.forward : Vector3.right);
-                face.Normalize();
-                Vector3 right = Vector3.Cross(up, face).normalized;
-                float size = R(0.36f, 0.5f);
-                Vector3 bottom = pos - up * size * 0.2f;
-                Vector3[] corners =
-                {
-                    bottom - right * size * 0.5f, bottom + right * size * 0.5f,
-                    bottom + right * size * 0.5f + up * size, bottom - right * size * 0.5f + up * size,
-                };
-                Vector2[] cornerUvs = { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
-                for (int side = 0; side < 2; side++) // both faces (some pipelines won't draw the back)
+                // Facing mostly outward, so the bush is clad in leaf faces; pointing out and a little up.
+                Vector3 face = (outward + InSphere() * 0.8f).normalized;
+                Vector3 along = Vector3.ProjectOnPlane(outward + Vector3.up * 0.5f + InSphere() * 0.7f, face);
+                if (along.sqrMagnitude < 0.0001f) along = Vector3.ProjectOnPlane(Vector3.up, face);
+                if (along.sqrMagnitude < 0.0001f) along = Vector3.Cross(face, Vector3.right);
+                along.Normalize();
+                Vector3 across = Vector3.Cross(face, along);
+                float length = R(0.09f, 0.15f), width = length * R(0.36f, 0.46f);
+                float fold = width * 0.35f; // the two halves tipped up off the midrib, a shallow V
+                Vector3 stalk = pos - along * length * 0.4f;
+                Vector3 tip = stalk + along * length - face * length * 0.12f; // drooping a little at the tip
+                Vector3 left = stalk + along * length * 0.38f - across * width * 0.5f + face * fold;
+                Vector3 right = stalk + along * length * 0.38f + across * width * 0.5f + face * fold;
+                // Lit as one soft rounded mass, with a little of each leaf's own tilt.
+                Vector3 n = (outward * 0.7f + face * 0.4f + Vector3.up * 0.3f).normalized;
+                var tris = R(0f, 1f) < 0.4f ? lightTris : darkTris;
+                for (int side = 0; side < 2; side++)
                 {
                     int start = verts.Count;
-                    for (int c = 0; c < 4; c++)
-                    {
-                        verts.Add(corners[c]);
-                        uvs.Add(cornerUvs[c]);
-                        // Lit as one soft rounded mass, not as flat cards.
-                        Vector3 n = (corners[c] - core).normalized * 0.8f + Vector3.up * 0.35f;
-                        normals.Add(n.normalized);
-                    }
-                    if (side == 0) leafTris.AddRange(new[] { start, start + 2, start + 1, start, start + 3, start + 2 });
-                    else leafTris.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
+                    verts.Add(stalk); verts.Add(left); verts.Add(tip); verts.Add(right);
+                    for (int c = 0; c < 4; c++) { normals.Add(n); uvs.Add(Vector2.zero); }
+                    if (side == 0) tris.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
+                    else tris.AddRange(new[] { start, start + 2, start + 1, start, start + 3, start + 2 });
                 }
             }
         }
@@ -184,12 +184,14 @@ public static class BushBuilder
         }
 
         var mesh = new Mesh { name = shape + " Bush" };
+        if (verts.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(verts);
         mesh.SetNormals(normals);
         mesh.SetUVs(0, uvs);
-        mesh.subMeshCount = stemTris.Count > 0 ? 2 : 1;
-        mesh.SetTriangles(leafTris, 0);
-        if (stemTris.Count > 0) mesh.SetTriangles(stemTris, 1);
+        mesh.subMeshCount = stemTris.Count > 0 ? 3 : 2;
+        mesh.SetTriangles(darkTris, 0);
+        mesh.SetTriangles(lightTris, 1);
+        if (stemTris.Count > 0) mesh.SetTriangles(stemTris, 2);
         mesh.RecalculateBounds();
         return mesh;
     }

@@ -79,33 +79,6 @@ public static class MaterialFactory
         return mat;
     }
 
-    /// <summary>
-    /// A lit, alpha-tested material: solid where the texture's alpha is over cutoff, a hole elsewhere (leaves).
-    /// Both faces drawn where the pipeline supports it.
-    /// </summary>
-    public static Material LitCutout(Texture albedo, Color tint, float cutoff = 0.5f, float smoothness = 0.05f)
-    {
-        var mat = LitTextured(albedo, null, tint, smoothness);
-        if (mat.HasProperty("_AlphaClip"))
-        {
-            // URP Lit
-            mat.SetFloat("_AlphaClip", 1f);
-            mat.SetFloat("_Cutoff", cutoff);
-            mat.EnableKeyword("_ALPHATEST_ON");
-            if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", (float)CullMode.Off);
-        }
-        else if (mat.HasProperty("_Mode"))
-        {
-            // Built-in Standard, "Cutout" mode
-            mat.SetFloat("_Mode", 1f);
-            mat.SetFloat("_Cutoff", cutoff);
-            mat.EnableKeyword("_ALPHATEST_ON");
-        }
-        mat.SetOverrideTag("RenderType", "TransparentCutout");
-        mat.renderQueue = (int)RenderQueue.AlphaTest;
-        return mat;
-    }
-
     /// <summary>As above, with the texture tinted by a colour.</summary>
     public static Material LitTextured(Texture albedo, Texture normalMap, Color tint, float smoothness = 0.05f)
     {
