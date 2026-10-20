@@ -49,7 +49,9 @@ public class Campsite : MonoBehaviour
         var pole = MaterialFactory.Lit(new Color(0.15f, 0.15f, 0.16f), 0.4f);
         var rope = MaterialFactory.Lit(new Color(0.2f, 0.18f, 0.14f), 0.05f);
         var ash = MaterialFactory.Lit(new Color(0.12f, 0.115f, 0.11f), 0f);
-        var pack = MaterialFactory.Lit(new Color(0.18f, 0.06f, 0.04f), 0.15f);
+        // Faded maroon, navy, olive or dull orange.
+        Color[] packColors = { new Color(0.2f, 0.06f, 0.045f), new Color(0.06f, 0.08f, 0.15f), new Color(0.12f, 0.13f, 0.07f), new Color(0.3f, 0.13f, 0.04f) };
+        Color packColor = packColors[rng.Next(packColors.Length)];
         var bark = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.85f, 0.78f, 0.7f), 0.05f);
         var charred = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.18f, 0.16f, 0.15f), 0.1f);
         var endGrain = MaterialFactory.LitTextured(ProceduralTextures.EndGrain, null, Color.white, 0.05f);
@@ -132,12 +134,11 @@ public class Campsite : MonoBehaviour
 
         // The backpack, slumped over, with the flare gun beside it.
         backpack = AnchorOnGround("Backpack", new Vector3(-0.2f, 0f, -1.4f), R(0f, 360f), 0.25f, 0.2f, Ground);
-        var body = Box(pack, backpack, new Vector3(0f, 0.25f, 0f), new Vector3(0.36f, 0.5f, 0.24f), true);
-        body.localRotation = Quaternion.Euler(-18f, 0f, 6f);
-        Part(PrimitiveType.Sphere, pack, body, new Vector3(0f, 0.5f, 0f), new Vector3(1f, 0.35f, 1f));
-        Box(pack, body, new Vector3(0f, -0.15f, 0.55f), new Vector3(0.75f, 0.35f, 0.2f), false); // front pocket (in body space)
-        for (int s = -1; s <= 1; s += 2)
-            Box(MaterialFactory.Lit(new Color(0.06f, 0.06f, 0.06f), 0.2f), body, new Vector3(s * 0.28f, 0f, -0.55f), new Vector3(0.12f, 0.9f, 0.08f), false);
+        var packModel = PropModels.Backpack(backpack, packColor, rng.Next());
+        packModel.localRotation = Quaternion.Euler(R(-14f, -8f), 0f, R(-6f, 6f)); // slumped back on its straps
+        var packBlock = packModel.gameObject.AddComponent<BoxCollider>(); // something to bump into
+        packBlock.center = new Vector3(0f, 0.28f, 0f);
+        packBlock.size = new Vector3(0.36f, 0.56f, 0.26f);
 
         // Smoke puffs, recycled as they rise.
         Material smoke = MakeSmokeMaterial();
@@ -176,6 +177,14 @@ public class Campsite : MonoBehaviour
             if (Application.isPlaying) Destroy(old.gameObject);
             else DestroyImmediate(old.gameObject);
         }
+        foreach (var old in backpack.GetComponentsInChildren<BatteryPickup>())
+        {
+            if (Application.isPlaying) Destroy(old.gameObject);
+            else DestroyImmediate(old.gameObject);
+        }
+        // A couple of spare batteries spilled out of the pack.
+        BatterySpawner.Create(backpack, new Vector3(0.08f, 0f, 0.42f), Random.Range(0f, 360f));
+        BatterySpawner.Create(backpack, new Vector3(-0.2f, 0f, -0.45f), Random.Range(0f, 360f));
         ItemPickup.CreateFlareGun(backpack, new Vector3(0.35f, 0.02f, 0.15f), Random.Range(0f, 360f));
         ItemPickup.CreateGlowsticks(backpack, new Vector3(-0.35f, 0.02f, -0.05f), Random.Range(0f, 360f));
     }

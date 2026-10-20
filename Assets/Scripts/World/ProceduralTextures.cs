@@ -11,7 +11,7 @@ public static class ProceduralTextures
 {
     const int Size = 512;
 
-    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath, rock, rockNormal, waterNormal, endGrain;
+    static Texture2D fabric, fabricNormal, dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath, rock, rockNormal, waterNormal, endGrain;
 
     /// <summary>Tiling forest-floor dirt.</summary>
     public static Texture2D Dirt { get { if (dirt == null) MakeDirt(); return dirt; } }
@@ -37,6 +37,11 @@ public static class ProceduralTextures
     /// <summary>The sawn end of a log: growth rings, darker heartwood, a few radial cracks, a rim of bark.</summary>
     public static Texture2D EndGrain => endGrain != null ? endGrain : (endGrain = MakeEndGrain());
     /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
+    /// <summary>Woven nylon/canvas, worn and grimy (greyscale: tint it with the material colour). Tiles.</summary>
+    public static Texture2D Fabric { get { if (fabric == null) MakeFabric(); return fabric; } }
+    /// <summary>Normal map for Fabric: the over-and-under of the weave.</summary>
+    public static Texture2D FabricNormal { get { if (fabricNormal == null) MakeFabric(); return fabricNormal; } }
+
     public static Texture2D SkyEye => skyEye != null ? skyEye : (skyEye = MakeSkyEye());
 
     // ---------------------------------------------------------------- Tiling noise
@@ -214,6 +219,59 @@ public static class ProceduralTextures
     }
 
     // ---------------------------------------------------------------- Water
+
+    static void MakeFabric()
+    {
+        const int n = 256, threads = 64; // 4 pixels a thread
+        var height = new float[n * n];
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float u = x / (float)n, v = y / (float)n;
+                // Plain weave: in each cell either the warp or the weft is on top, alternating like a chequerboard.
+                float cu = u * threads, cv = v * threads;
+                int ix = Mathf.FloorToInt(cu), iy = Mathf.FloorToInt(cv);
+                float fu = cu - ix, fv = cv - iy;
+                bool warpOver = ((ix + iy) & 1) == 0;
+                float warp = Mathf.Sin(Mathf.PI * fu) * (0.75f + 0.25f * Mathf.Sin(Mathf.PI * fv)); // thread along v
+                float weft = Mathf.Sin(Mathf.PI * fv) * (0.75f + 0.25f * Mathf.Sin(Mathf.PI * fu)); // thread along u
+                float h = warpOver ? Mathf.Max(warp, weft * 0.6f) : Mathf.Max(weft, warp * 0.6f);
+                // Slubs: threads a little thicker or thinner here and there.
+                h *= 0.85f + 0.3f * Hash(warpOver ? ix : iy, warpOver ? 0 : 1, 141);
+                height[y * n + x] = h;
+
+                // Colour: grime and fading in big soft patches, threads catching the light.
+                float grime = Fbm(u, v, 4, 4, 142);
+                float fade = Fbm(u, v, 2, 3, 143);
+                float c = 0.62f + 0.18f * h + 0.12f * (fade - 0.5f) - 0.3f * Ramp(0.45f, 0.75f, grime) + 0.05f * (Hash(x, y, 144) - 0.5f);
+                c = Mathf.Clamp01(c);
+                px[y * n + x] = new Color(c, c * 0.98f, c * 0.95f, 1f);
+            }
+        fabric = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
+        {
+            name = "Fabric", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
+        };
+        fabric.SetPixels32(px);
+        fabric.Apply(true);
+
+        var normals = new Color32[n * n];
+        const float strength = 3f;
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = height[y * n + Mod(x + 1, n)] - height[y * n + Mod(x - 1, n)];
+                float dy = height[Mod(y + 1, n) * n + x] - height[Mod(y - 1, n) * n + x];
+                var nv = new Vector3(-dx * strength, -dy * strength, 1f).normalized;
+                normals[y * n + x] = new Color(nv.x * 0.5f + 0.5f, nv.y * 0.5f + 0.5f, nv.z * 0.5f + 0.5f, 1f);
+            }
+        fabricNormal = new Texture2D(n, n, TextureFormat.RGBA32, true, true)
+        {
+            name = "Fabric Normal", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
+        };
+        fabricNormal.SetPixels32(normals);
+        fabricNormal.Apply(true);
+    }
 
     static Texture2D MakeWaterNormal()
     {

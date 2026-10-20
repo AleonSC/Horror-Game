@@ -14,6 +14,8 @@ public class Shack : MonoBehaviour
 
     [SerializeField] ShackDoor door;
     [SerializeField] Transform table;
+    [Range(0f, 1f), Tooltip("Chance of a battery lying on the table as well.")]
+    public float batteryChance = 0.5f;
     float floorY;
 
     void OnEnable() => All.Add(this);
@@ -134,6 +136,14 @@ public class Shack : MonoBehaviour
             if (Application.isPlaying) Destroy(old.gameObject);
             else DestroyImmediate(old.gameObject);
         }
+        foreach (var old in table.GetComponentsInChildren<BatteryPickup>())
+        {
+            if (Application.isPlaying) Destroy(old.gameObject);
+            else DestroyImmediate(old.gameObject);
+        }
+        // Sometimes someone left a battery on the table too.
+        if (Random.value < batteryChance)
+            BatterySpawner.Create(table, new Vector3(0.05f, 0.78f + 0.025f, 0.18f), Random.Range(-20f, 20f));
         ItemPickup.CreateTorch(table, new Vector3(-0.2f, 0.805f, 0.05f), Random.Range(-15f, 15f));
         ItemPickup.CreateLighter(table, new Vector3(0.3f, 0.805f, -0.08f), Random.Range(0f, 360f));
     }

@@ -662,6 +662,8 @@ public class Wildlife : MonoBehaviour
         AnimateDeer(d, speed, targetNeck, dt);
     }
 
+    BatterySpawner batterySpawner;
+
     void StartDeerFlee(Critter d, bool alertHerd)
     {
         if (d.mode == DeerFlee) return;
@@ -673,6 +675,13 @@ public class Wildlife : MonoBehaviour
         d.timer = Random.Range(5f, 8f);
         Play(d.audio, deerAlarmSound != null ? deerAlarmSound : ProceduralAudio.DeerAlarm, Random.Range(0.85f, 1.1f));
         if (!d.loop.isPlaying) d.loop.Play();
+
+        // The first deer you startle in a run drops a battery as it bolts (only the one you spooked, not the herd).
+        if (alertHerd)
+        {
+            if (batterySpawner == null) batterySpawner = FindAnyObjectByType<BatterySpawner>();
+            if (batterySpawner != null) batterySpawner.DropFromDeer(d.root.position);
+        }
 
         // One spooked deer sends the rest of the herd running.
         if (!alertHerd) return;

@@ -9,7 +9,8 @@ using UnityEngine;
 /// </summary>
 public class BatterySpawner : MonoBehaviour
 {
-    public int batteryCount = 50;
+    [Tooltip("Batteries scattered through the woods. More lie at campsites, sometimes on shack tables, and one is dropped by the first deer you startle.")]
+    public int batteryCount = 35;
     [Tooltip("Keep batteries at least this far from the middle of the map (where the player spawns).")]
     public float minDistanceFromCenter = 8f;
     public float minSpacing = 12f;
@@ -33,6 +34,7 @@ public class BatterySpawner : MonoBehaviour
     {
         foreach (var battery in batteries) if (battery != null) Destroy(battery.gameObject);
         batteries.Clear();
+        DeerDropDone = false;
 
         var generator = FindAnyObjectByType<DarkForestGenerator>();
         float size = generator != null ? generator.areaSize : areaSize;
@@ -56,6 +58,37 @@ public class BatterySpawner : MonoBehaviour
             batteries.Add(battery);
             WorldWrap.RegisterStatic(battery.transform);
         }
+    }
+
+    /// <summary>True once a deer has dropped its battery this run.</summary>
+    public bool DeerDropDone { get; private set; }
+
+    /// <summary>
+    /// The first deer startled in a run drops a battery where it stood (the run reset clears it with the
+    /// rest). Does nothing after the first.
+    /// </summary>
+    public void DropFromDeer(Vector3 at)
+    {
+        if (DeerDropDone) return;
+        DeerDropDone = true;
+        var generator = FindAnyObjectByType<DarkForestGenerator>();
+        at.y = GroundHeight(generator, at);
+        var battery = Create(null, at, Random.Range(0f, 360f), chargePerBattery);
+        battery.transform.SetParent(transform, true);
+        batteries.Add(battery);
+        WorldWrap.RegisterStatic(battery.transform);
+        ProceduralAudio.PlayAt(ProceduralAudio.TwigSnap, at, 0.5f, 1.6f, 3f); // a soft clatter as it lands
+    }
+
+    /// <summary>Makes a battery lying at a point (in the parent's space if there is one).</summary>
+    public static BatteryPickup Create(Transform parent, Vector3 localPos, float yaw, float charge = 0.25f)
+    {
+        var battery = new GameObject("Battery").AddComponent<BatteryPickup>();
+        if (parent != null) battery.transform.SetParent(parent, false);
+        battery.transform.localPosition = localPos;
+        battery.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        battery.charge = charge;
+        return battery;
     }
 
     bool TooClose(Vector3 p, List<Vector3> placed)

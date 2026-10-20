@@ -39,16 +39,14 @@ public class ItemPickup : MonoBehaviour
         return pickup;
     }
 
-    /// <summary>Builds a flare gun: a chunky orange pistol with a wide barrel, lying on its side.</summary>
+    /// <summary>Builds a flare gun (PropModels.FlareGun) lying on its side, label up.</summary>
     public static ItemPickup CreateFlareGun(Transform parent, Vector3 localPos, float yaw)
     {
         var pickup = Create("Flare Gun Pickup", Hotbar.Item.FlareGun, parent, localPos, yaw);
-        var orange = MaterialFactory.Lit(new Color(0.85f, 0.3f, 0.05f), 0.4f);
-        var dark = MaterialFactory.Lit(new Color(0.05f, 0.05f, 0.05f), 0.3f);
-        Visual(PrimitiveType.Cube, orange, pickup.transform, new Vector3(0f, 0.025f, 0.02f), new Vector3(0.05f, 0.05f, 0.16f), Vector3.zero);       // body
-        Visual(PrimitiveType.Cylinder, orange, pickup.transform, new Vector3(0f, 0.03f, 0.14f), new Vector3(0.06f, 0.05f, 0.06f), new Vector3(90f, 0f, 0f)); // barrel
-        Visual(PrimitiveType.Cube, orange, pickup.transform, new Vector3(0f, 0.02f, -0.08f), new Vector3(0.045f, 0.04f, 0.1f), new Vector3(0f, 0f, 0f));   // grip, lying flat
-        Visual(PrimitiveType.Cube, dark, pickup.transform, new Vector3(0f, 0.005f, -0.02f), new Vector3(0.012f, 0.03f, 0.03f), Vector3.zero);           // trigger
+        var model = PropModels.FlareGun(pickup.transform, true, out _);
+        // On its side: the gun's right flank up, the barrel resting on the ground.
+        model.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        model.localPosition = new Vector3(0.05f, 0.022f, -0.04f);
         return pickup;
     }
 

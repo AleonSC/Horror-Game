@@ -422,29 +422,13 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     void BuildFlareGun(Transform hand)
     {
-        var orange = MaterialFactory.Lit(new Color(0.85f, 0.3f, 0.05f), 0.4f);
-        var dark = MaterialFactory.Lit(new Color(0.05f, 0.05f, 0.05f), 0.3f);
-
         flareGunModel = new GameObject("Held Flare Gun").transform;
         flareGunModel.SetParent(hand, false);
         flareGunModel.localPosition = new Vector3(0.22f, -0.22f, 0.45f);
         flareGunModel.localRotation = Quaternion.Euler(-4f, -4f, 0f);
-        Part(PrimitiveType.Cube, orange, flareGunModel, new Vector3(0f, 0f, 0f), new Vector3(0.05f, 0.055f, 0.17f));      // body
-        var barrel = new GameObject("Barrel").transform;
-        barrel.SetParent(flareGunModel, false);
-        barrel.localPosition = new Vector3(0f, 0.005f, 0.12f);
-        barrel.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        Part(PrimitiveType.Cylinder, orange, barrel, Vector3.zero, new Vector3(0.065f, 0.05f, 0.065f));                   // wide barrel
-        var grip = new GameObject("Grip").transform;
-        grip.SetParent(flareGunModel, false);
-        grip.localPosition = new Vector3(0f, -0.06f, -0.06f);
-        grip.localRotation = Quaternion.Euler(-15f, 0f, 0f);
-        Part(PrimitiveType.Cube, orange, grip, Vector3.zero, new Vector3(0.045f, 0.11f, 0.05f));
-        Part(PrimitiveType.Cube, dark, flareGunModel, new Vector3(0f, -0.04f, 0f), new Vector3(0.012f, 0.035f, 0.03f));   // trigger
-
-        muzzle = new GameObject("Muzzle").transform;
-        muzzle.SetParent(flareGunModel, false);
-        muzzle.localPosition = new Vector3(0f, 0.005f, 0.2f);
+        var model = PropModels.FlareGun(flareGunModel, false, out muzzle);
+        model.localPosition = new Vector3(0f, -0.06f, -0.03f); // barrel where the old one was
+        model.localScale = Vector3.one * 1.15f;
 
         flareGunModel.gameObject.SetActive(false);
     }
