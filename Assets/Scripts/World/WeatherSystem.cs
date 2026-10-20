@@ -181,7 +181,6 @@ public class WeatherSystem : MonoBehaviour
         main.startColor = rainColor;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.maxParticles = maxDropsPerSecond * 2;
-        main.scalingMode = ParticleSystemScalingMode.World;
 
         var emission = ps.emission;
         emission.rateOverTime = maxDropsPerSecond * rainIntensity;
