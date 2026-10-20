@@ -288,6 +288,7 @@ public class ShadowEntity : MonoBehaviour
 
     void Awake()
     {
+        GroundLeaves.Register(transform, 0.35f); // even unseen, the leaves where it steps give it away
         scale = height / 2.4f;
         BuildSilhouette();
         BuildFragments();

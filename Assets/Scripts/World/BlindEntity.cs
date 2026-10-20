@@ -68,6 +68,7 @@ public class BlindEntity : MonoBehaviour
 
     void Awake()
     {
+        GroundLeaves.Register(transform, 0.9f);
         scale = height / 2.4f;
         Build();
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, volume, 4f, 45f);

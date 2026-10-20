@@ -156,11 +156,11 @@ public class Wildlife : MonoBehaviour
         deerEyeMat = MaterialFactory.Unlit(new Color(0.35f, 0.45f, 0.4f)); // eyeshine
 
         for (int i = 0; i < beetleCount; i++) beetles.Add(BuildBeetle());
-        for (int i = 0; i < ratCount; i++) rats.Add(BuildRat());
+        for (int i = 0; i < ratCount; i++) { rats.Add(BuildRat()); GroundLeaves.Register(rats[rats.Count - 1].root, 0.15f); }
         for (int i = 0; i < maxBatsPerFlock; i++) bats.Add(new Bat { critter = BuildBat() });
         for (int i = 0; i < maxCrowsPerFlock; i++) crows.Add(new Bat { critter = BuildCrow() });
         crowTimer = Random.Range(minCrowInterval * 0.5f, maxCrowInterval);
-        for (int i = 0; i < deerCount; i++) deer.Add(BuildDeer());
+        for (int i = 0; i < deerCount; i++) { deer.Add(BuildDeer()); GroundLeaves.Register(deer[deer.Count - 1].root, 0.45f); }
 
         batTimer = Random.Range(minBatInterval, maxBatInterval);
     }
