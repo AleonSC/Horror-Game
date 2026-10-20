@@ -125,7 +125,14 @@ public class Flashlight : MonoBehaviour
             : transform.rotation;
     }
 
-    public void Toggle() => SetOn(!IsOn);
+    /// <summary>How many times the player has clicked it on or off (entities watch for frantic flashing).</summary>
+    public int ToggleCount { get; private set; }
+
+    public void Toggle()
+    {
+        ToggleCount++;
+        SetOn(!IsOn);
+    }
 
     public void SetOn(bool on)
     {

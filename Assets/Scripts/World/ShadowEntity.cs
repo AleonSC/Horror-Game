@@ -83,6 +83,22 @@ public class ShadowEntity : MonoBehaviour
     [Tooltip("If it gets this close while advancing, it takes the player.")]
     public float touchDistance = 1.5f;
 
+    [Header("Provoking It")]
+    [Tooltip("Clicking the flashlight on and off at it this many times...")]
+    public int flashesToProvoke = 4;
+    [Tooltip("...within this many seconds makes it charge.")]
+    public float flashWindow = 2.2f;
+    [Tooltip("Metres per second it charges at you.")]
+    public float chargeSpeed = 22f;
+    [Tooltip("It stops this far from your face, and vanishes.")]
+    public float chargeStopDistance = 1.2f;
+    [Tooltip("After a charge it's back this quickly...")]
+    public float minChargeRespawn = 3f;
+    public float maxChargeRespawn = 6f;
+    [Tooltip("...and hunts harder: each charge makes it creep sooner and further, spawn closer and advance faster (up to 4 times).")]
+    public int maxAggression = 4;
+    public float chargeVolume = 0.6f;
+
     [Header("Poses")]
     [Tooltip("Chance it appears peeking out from behind a tree trunk instead of standing in the open.")]
     [Range(0f, 1f)] public float peekChance = 0.35f;
@@ -164,7 +180,7 @@ public class ShadowEntity : MonoBehaviour
     public AudioClip killSound;
     public AudioClip advanceLoop;
 
-    public enum State { Hidden, Materializing, Watching, Crescendo, Killing }
+    public enum State { Hidden, Materializing, Watching, Crescendo, Killing, Charging }
     public State CurrentState { get; private set; }
     /// <summary>
     /// How far its hunt has got, 0 to 1: how close it has worked its way to the player, and how much it has grown
@@ -172,7 +188,11 @@ public class ShadowEntity : MonoBehaviour
     /// </summary>
     public float HuntProgress { get; private set; }
 
-    public bool IsVisible => CurrentState == State.Watching || CurrentState == State.Crescendo || CurrentState == State.Killing;
+    public bool IsVisible => CurrentState == State.Watching || CurrentState == State.Crescendo || CurrentState == State.Killing
+        || CurrentState == State.Charging;
+
+    /// <summary>How riled up it is: goes up each time frantic flashing makes it charge. Never calms down this run.</summary>
+    public int Aggression { get; private set; }
 
     FirstPersonController player;
     DarkForestGenerator generator;
@@ -200,12 +220,15 @@ public class ShadowEntity : MonoBehaviour
     /// Body poses. Every time it creeps closer unseen, it's in a new one when you look back: head lolled
     /// sideways, an arm reaching for you, hunched low, turned away with its head twisted round to face you...
     /// </summary>
-    enum Pose { Neutral, HeadTilt, Reach, Crouch, TurnedAway, ArmsUp, HangingHead, Peek }
+    enum Pose { Neutral, HeadTilt, Reach, Crouch, TurnedAway, ArmsUp, HangingHead, Peek, Lunge }
     static readonly Pose[] CreepPoses = { Pose.Neutral, Pose.HeadTilt, Pose.Reach, Pose.Crouch, Pose.TurnedAway, Pose.ArmsUp, Pose.HangingHead };
     Pose pose;
     Quaternion poseHead = Quaternion.identity, poseLeftArm = Quaternion.identity, poseRightArm = Quaternion.identity;
     bool peeking; // half hidden behind a trunk
     float eyeshine;
+    int seenToggles = -1;
+    float lastLitTime = -10f;
+    readonly Queue<float> flashTimes = new Queue<float>();
     Transform mouth;
     float mouthOpen, mouthTarget;
 
@@ -296,6 +319,10 @@ public class ShadowEntity : MonoBehaviour
             case State.Killing:
                 UpdateKilling();
                 break;
+
+            case State.Charging:
+                UpdateCharging();
+                break;
         }
 
         // The mouth splits open slowly, and snaps shut when it's gone.
@@ -344,7 +371,7 @@ public class ShadowEntity : MonoBehaviour
     {
         SetVisible(true);
         eyeFlare = 1f;
-        creepTimer = Random.Range(minCreepInterval, maxCreepInterval);
+        creepTimer = NextCreepDelay();
         whisper.volume = 0f;
         whisper.Play();
         advanceSource.volume = 0f;
@@ -416,7 +443,7 @@ public class ShadowEntity : MonoBehaviour
                 }
                 Vector3 toPlayer = target.position - transform.position;
                 toPlayer.y = 0f;
-                Vector3 next = transform.position + toPlayer.normalized * (advanceSpeed * Time.deltaTime);
+                Vector3 next = transform.position + toPlayer.normalized * (advanceSpeed * (1f + 0.3f * Aggression) * Time.deltaTime);
                 next.y = GroundHeight(next);
                 transform.position = next;
             }
@@ -441,7 +468,9 @@ public class ShadowEntity : MonoBehaviour
         float flashBrightness = spawnEyeIntensity * Mathf.Lerp(0.1f, 1f, HuntProgress);
         float brightness = Mathf.Lerp(huntBrightness, Mathf.Max(huntBrightness, flashBrightness), eyeFlare);
         // Eyeshine: the beam crossing its eyes makes them flare back at you.
-        eyeshine = Mathf.MoveTowards(eyeshine, EyesInBeam() ? 1f : 0f, Time.deltaTime * 6f);
+        bool eyesLit = EyesInBeam();
+        eyeshine = Mathf.MoveTowards(eyeshine, eyesLit ? 1f : 0f, Time.deltaTime * 6f);
+        if (WatchForFlashing(eyesLit)) return;
         SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), Mathf.Max(brightness, eyeshine * eyeshineBrightness), eyeshine);
         eyeLight.intensity = brightness * eyeLightStrength; // a reflection: it doesn't light up the trees
 
@@ -531,6 +560,83 @@ public class ShadowEntity : MonoBehaviour
     float CrescendoDuration =>
         Mathf.Max(minCrescendoTime, crescendoTime / (1f + crescendoSpeedupPerLamp * Lamp.TimesLit));
 
+    /// <summary>
+    /// Counts clicks of the flashlight while it's aimed at this entity (switched on onto it, or off just after
+    /// being on it). Enough of them in quick succession and it charges. Returns true if it just did.
+    /// </summary>
+    bool WatchForFlashing(bool eyesLit)
+    {
+        if (flashlight == null) return false;
+        bool aimedAt = eyesLit || IsLitByFlashlight() || (flashlight.IsOn && InBeam(transform.position + Vector3.up * scale, 10f, peeking));
+        if (aimedAt) lastLitTime = Time.time;
+
+        if (seenToggles < 0) seenToggles = flashlight.ToggleCount;
+        while (seenToggles < flashlight.ToggleCount)
+        {
+            seenToggles++;
+            // On: it has to be in the beam now. Off: it had to be in the beam a moment ago.
+            bool counts = flashlight.IsOn ? aimedAt : Time.time - lastLitTime < 0.4f;
+            if (counts) flashTimes.Enqueue(Time.time);
+        }
+        while (flashTimes.Count > 0 && Time.time - flashTimes.Peek() > flashWindow) flashTimes.Dequeue();
+
+        if (flashTimes.Count < flashesToProvoke) return false;
+        flashTimes.Clear();
+        StartCharge();
+        return true;
+    }
+
+    /// <summary>Provoked: a shriek, and it rushes straight at the player's face.</summary>
+    void StartCharge()
+    {
+        CurrentState = State.Charging;
+        timer = 0f;
+        ReleasePlayer();
+        peeking = false;
+        SetPose(Pose.Lunge, 1);
+        ResetVisual();
+        mouthTarget = 1.6f;
+        advanceSource.Stop();
+        PlaySound(ProceduralAudio.Screech, 1.3f, chargeVolume);
+    }
+
+    void UpdateCharging()
+    {
+        timer += Time.deltaTime;
+        FacePlayer();
+        Vibrate(crescendoVibration);
+        SetEyes(maxEyeWiden * 1.8f, spawnEyeIntensity * 1.5f);
+        mouthTarget = 1.6f;
+
+        Vector3 toPlayer = target.position - transform.position;
+        toPlayer.y = 0f;
+        float dist = toPlayer.magnitude;
+        if (player != null) player.AddCameraShake(Mathf.Lerp(0.3f, maxCameraShake * 1.5f, Mathf.InverseLerp(15f, chargeStopDistance, dist)));
+
+        if (dist <= chargeStopDistance || timer > 3f)
+        {
+            // Right in your face... and gone. It'll be back soon, angrier.
+            if (player != null) player.AddCameraShake(maxCameraShake * 2f);
+            Aggression = Mathf.Min(maxAggression, Aggression + 1);
+            StartFragments(converge: false);
+            PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof, 0.7f);
+            ResetVisual();
+            Hide(Random.Range(minChargeRespawn, maxChargeRespawn));
+            return;
+        }
+
+        float step = Mathf.Min(chargeSpeed * Time.deltaTime, dist - chargeStopDistance);
+        Vector3 next = transform.position + toPlayer / dist * step;
+        next.y = GroundHeight(next);
+        transform.position = next;
+    }
+
+    /// <summary>Seconds until its next creep: sooner the angrier it is.</summary>
+    float NextCreepDelay() => Random.Range(minCreepInterval, maxCreepInterval) / (1f + 0.5f * Aggression);
+
+    /// <summary>Metres per creep: further the angrier it is.</summary>
+    float CreepStep => creepStep * (1f + 0.25f * Aggression);
+
     bool IsLitByFlashlight() => InBeam(transform.position + Vector3.up * (1.4f * scale * growth), beamMargin, false);
 
     /// <summary>True if the flashlight beam is on its eyes. Peeking round a trunk doesn't hide them.</summary>
@@ -566,7 +672,7 @@ public class ShadowEntity : MonoBehaviour
             creepTimer = Random.Range(1f, 2f); // try again shortly
             return;
         }
-        creepTimer = Random.Range(minCreepInterval, maxCreepInterval);
+        creepTimer = NextCreepDelay();
 
         Vector3 toPlayer = target.position - transform.position;
         toPlayer.y = 0f;
@@ -574,7 +680,7 @@ public class ShadowEntity : MonoBehaviour
         if (dist < 0.01f) return;
         Vector3 dir = toPlayer / dist;
 
-        if (dist - creepStep <= killDistance)
+        if (dist - CreepStep <= killDistance)
         {
             StartKill();
             return;
@@ -582,7 +688,7 @@ public class ShadowEntity : MonoBehaviour
 
         // Step closer, drifting a little to one side so it isn't a perfectly straight line.
         Vector3 side = Vector3.Cross(Vector3.up, dir) * Random.Range(-1f, 1f);
-        Vector3 next = transform.position + dir * creepStep + side;
+        Vector3 next = transform.position + dir * CreepStep + side;
         next.y = GroundHeight(next);
         if (SafeZones.Contains(next)) return;
 
@@ -688,7 +794,7 @@ public class ShadowEntity : MonoBehaviour
     {
         if (CurrentState == State.Watching || CurrentState == State.Crescendo || CurrentState == State.Materializing)
             Poof();
-        creepTimer = Random.Range(minCreepInterval, maxCreepInterval);
+        creepTimer = NextCreepDelay();
     }
 
     void ReleasePlayer()
@@ -732,7 +838,8 @@ public class ShadowEntity : MonoBehaviour
             Vector3 dir = Quaternion.Euler(0f, Random.Range(-spawnViewAngle, spawnViewAngle), 0f) * forward;
             // If big lights keep blocking the usual spots, look further out.
             float reach = attempt < 5 ? 1f : Mathf.Lerp(1f, 2.5f, (attempt - 5) / 9f);
-            p = target.position + dir * (Random.Range(minSpawnDistance, maxSpawnDistance) * reach);
+            // Angrier, it turns up closer.
+            p = target.position + dir * (Random.Range(minSpawnDistance, maxSpawnDistance) * reach * (1f - 0.12f * Aggression));
 
             // Keep it inside the generated forest (unless the map wraps around, where anywhere is fine).
             if (generator != null && !WorldWrap.IsActive)
@@ -828,6 +935,12 @@ public class ShadowEntity : MonoBehaviour
                 break;
             case Pose.HangingHead:
                 poseHead = Quaternion.Euler(55f, 0f, side * -35f);
+                break;
+            case Pose.Lunge:
+                posture.localRotation = Quaternion.Euler(20f, 0f, 0f);             // thrown forward
+                poseLeftArm = Quaternion.Euler(-80f, 0f, -15f);                     // both arms out, grabbing
+                poseRightArm = Quaternion.Euler(-80f, 0f, 15f);
+                poseHead = Quaternion.Euler(-25f, 0f, 0f);
                 break;
             case Pose.Peek:
                 posture.localRotation = Quaternion.Euler(0f, 0f, -side * 28f); // leaning out from behind the trunk
