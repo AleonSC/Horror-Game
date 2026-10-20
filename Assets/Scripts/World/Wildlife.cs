@@ -8,7 +8,8 @@ using UnityEngine;
 /// - Moths: flutter around the bulbs of lit lamps.
 /// - Bats: every so often a few swoop overhead with a flurry of wing beats.
 /// - Crows: flocks that fly over high in the sky now and then, gliding between wingbeats and cawing.
-/// - Owls: dark owls perched on branches of some trees, white eyes, heads turning to stare at you.
+/// - Owls: dark owls perched on branches of some trees, white eyes, heads turning to stare at you,
+///   and now and then one nearby calls out (a low hooting, or rarely a rasping screech).
 /// - Deer: pitch-black deer that wander and graze, look up when you come near, and gallop off,
 ///   snorting, if you get too close. A spooked deer sets off the rest of its herd.
 ///
@@ -52,6 +53,14 @@ public class Wildlife : MonoBehaviour
     [Tooltip("Owls within this distance turn their heads to stare at the player.")]
     public float owlStareDistance = 45f;
     public Color owlEyeColor = new Color(1.6f, 1.6f, 1.5f);
+    [Tooltip("Seconds between owl calls (picked at random between the two). One owl near the player calls each time.")]
+    public float minOwlCallInterval = 25f;
+    public float maxOwlCallInterval = 70f;
+    [Tooltip("Only owls within this distance call.")]
+    public float owlCallDistance = 70f;
+    [Range(0f, 1f)] public float owlCallVolume = 0.55f;
+    [Range(0f, 1f), Tooltip("Chance a call is the rasping screech instead of hooting.")]
+    public float owlScreechChance = 0.2f;
 
     [Header("Deer")]
     public int deerCount = 6;
@@ -113,6 +122,7 @@ public class Wildlife : MonoBehaviour
         public float tilt, tiltTimer;
     }
     readonly List<Owl> owls = new List<Owl>();
+    float owlCallTimer = -1f;
 
     DarkForestGenerator generator;
     Transform player;
@@ -928,6 +938,7 @@ public class Wildlife : MonoBehaviour
         var cam = Camera.main;
         if (cam == null) return;
         Vector3 eye = cam.transform.position;
+        UpdateOwlCalls(eye, dt);
         float rangeSq = owlStareDistance * owlStareDistance;
 
         foreach (var owl in owls)
@@ -946,6 +957,28 @@ public class Wildlife : MonoBehaviour
             Quaternion look = Quaternion.LookRotation(to) * Quaternion.Euler(0f, 0f, owl.tilt);
             owl.head.rotation = Quaternion.Slerp(owl.head.rotation, look, 1f - Mathf.Exp(-10f * dt));
         }
+    }
+
+    /// <summary>Every so often, one owl somewhere near the player calls out from its branch.</summary>
+    void UpdateOwlCalls(Vector3 eye, float dt)
+    {
+        if (owlCallTimer < 0f) owlCallTimer = Random.Range(minOwlCallInterval, maxOwlCallInterval);
+        owlCallTimer -= dt;
+        if (owlCallTimer > 0f) return;
+        owlCallTimer = Random.Range(minOwlCallInterval, maxOwlCallInterval);
+        if (PortalDoor.PlayerInRoom || EntityDread.Silence > 0.2f) return; // nothing calls while one of them is close
+
+        var nearby = new List<Owl>();
+        float rangeSq = owlCallDistance * owlCallDistance;
+        foreach (var owl in owls)
+            if (owl.head != null && (owl.head.position - eye).sqrMagnitude < rangeSq) nearby.Add(owl);
+        if (nearby.Count == 0) return;
+
+        var caller = nearby[Random.Range(0, nearby.Count)];
+        bool screech = Random.value < owlScreechChance;
+        ProceduralAudio.PlayAt(screech ? ProceduralAudio.OwlScreech : ProceduralAudio.OwlHoot, caller.head.position,
+            owlCallVolume, Random.Range(0.92f, 1.08f), 12f);
+        caller.tilt = Random.Range(-20f, 20f); // the head bobs as it calls
     }
 
     Owl BuildOwl(Transform sway)

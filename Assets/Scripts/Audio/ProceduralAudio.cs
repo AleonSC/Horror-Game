@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
+        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -90,6 +90,10 @@ public static class ProceduralAudio
     public static AudioClip WingFlaps => wingFlaps != null ? wingFlaps : (wingFlaps = MakeWingFlaps());
     /// <summary>A crow's harsh, rasping caw.</summary>
     public static AudioClip Caw => caw != null ? caw : (caw = MakeCaw());
+    /// <summary>A tawny owl's call: a low hoot, a pause, then a long wavering hoo-hoo-hooo.</summary>
+    public static AudioClip OwlHoot => owlHoot != null ? owlHoot : (owlHoot = MakeOwlHoot());
+    /// <summary>A barn owl's screech: a harsh, breathy rasp that trails off.</summary>
+    public static AudioClip OwlScreech => owlScreech != null ? owlScreech : (owlScreech = MakeOwlScreech());
     /// <summary>A deer's sharp alarm snort.</summary>
     public static AudioClip DeerAlarm => deerAlarm != null ? deerAlarm : (deerAlarm = MakeDeerAlarm());
     /// <summary>Hooves drumming the ground at a gallop. Loops seamlessly.</summary>
@@ -834,6 +838,55 @@ public static class ProceduralAudio
             float rustle = (lp - hp) * swish * Mathf.Sin(Mathf.PI * p) * 0.9f;
             return crackle * 0.6f + rustle;
         }, 0.8f);
+    }
+
+    static AudioClip MakeOwlHoot()
+    {
+        const float len = 3.6f;
+        float phase = 0f, lp = 0f;
+        // (start, length, pitch at start, pitch at end): one hoot, a pause, then the long wavering call.
+        var notes = new[]
+        {
+            new Vector4(0.0f, 0.45f, 400f, 380f),
+            new Vector4(1.25f, 0.18f, 360f, 380f),
+            new Vector4(1.5f, 0.16f, 370f, 390f),
+            new Vector4(1.72f, 1.2f, 390f, 330f),
+        };
+        return Shot("Owl Hoot", len, t =>
+        {
+            float amp = 0f, pitch = 380f;
+            foreach (var n in notes)
+            {
+                float u = (t - n.x) / n.y;
+                if (u < 0f || u > 1f) continue;
+                amp = Mathf.Sin(Mathf.PI * Mathf.Pow(u, 0.6f));
+                pitch = Mathf.Lerp(n.z, n.w, u) * (1f + 0.02f * Mathf.Sin(t * TwoPi * 7f) * u); // a waver as it draws out
+            }
+            phase += pitch / Rate;
+            // Soft, hollow: mostly the fundamental, a touch of the octave, some breath.
+            float tone = Mathf.Sin(TwoPi * phase) + 0.15f * Mathf.Sin(TwoPi * phase * 2f);
+            lp += (White() - lp) * 0.1f;
+            return (tone * 0.85f + lp * 0.25f) * amp;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeOwlScreech()
+    {
+        const float len = 1.4f;
+        float lp = 0f, hp = 0f, phase = 0f;
+        return Shot("Owl Screech", len, t =>
+        {
+            float p = t / len;
+            float env = Mathf.Clamp01(t / 0.05f) * Mathf.Pow(1f - p, 1.6f);
+            // Hissing, rasping noise with a strained, falling tone buried in it.
+            float w = White();
+            lp += (w - lp) * 0.55f;
+            hp += (lp - hp) * 0.15f;
+            float rasp = (lp - hp) * (0.7f + 0.3f * Mathf.Sin(t * TwoPi * 60f));
+            phase += Mathf.Lerp(1900f, 1300f, p) / Rate;
+            float tone = Mathf.Sin(TwoPi * phase) * 0.25f;
+            return (rasp + tone) * env;
+        }, 0.75f);
     }
 
     static AudioClip MakeThunder()
