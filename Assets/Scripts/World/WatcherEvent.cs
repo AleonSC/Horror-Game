@@ -840,7 +840,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     }
 
     /// <summary>An open cone, apex at the origin, widening to radius 1 at z = 1.</summary>
-    static Mesh BuildBeamMesh()
+    internal static Mesh BuildBeamMesh()
     {
         const int sides = 24;
         var verts = new System.Collections.Generic.List<Vector3>();

@@ -17,7 +17,12 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
     public float rechargeTime = 120f;
     [Tooltip("Radius of the lit, safe area around the tower.")]
     public float safeRadius = 45f;
-    public float floodlightIntensity = 10f;
+    [Tooltip("Brightness of each floodlight. Lights fall off with the square of distance, and the tower is tall, so this is big.")]
+    public float floodlightIntensity = 1400f;
+    [Tooltip("How far the floodlights reach.")]
+    public float floodlightRange = 120f;
+    [Range(0f, 1f), Tooltip("Brightness of the visible beams through the night air.")]
+    public float beamBrightness = 0.12f;
     public Color floodlightColor = new Color(0.85f, 0.9f, 1f);
 
     const float Height = 18f, BaseHalf = 2f, TopHalf = 1.5f, DeckHalf = 2.2f;
@@ -33,6 +38,9 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
 
     [SerializeField] List<Light> floodlights = new List<Light>();
     [SerializeField] List<Renderer> lenses = new List<Renderer>();
+    [SerializeField] List<Renderer> beams = new List<Renderer>();
+    [SerializeField] Light fill;
+    Material beamMaterial;
     [SerializeField] Renderer buttonRenderer;
     Material lensOff, lensOn, buttonReady, buttonOn, buttonWait;
     AudioSource hum, sfx;
@@ -114,7 +122,7 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         LightsOn = false;
         RechargeLeft = 0f;
         lightsSwitched = 0;
-        foreach (var l in floodlights) l.enabled = false;
+        LightsOff();
         if (hum != null) hum.Stop();
         ApplyVisuals();
     }
@@ -125,10 +133,15 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         {
             // Lights slam on one after another.
             switchTimer -= Time.deltaTime;
-            if (lightsSwitched < floodlights.Count && switchTimer <= 0f)
+            if (lightsSwitched < lenses.Count && switchTimer <= 0f)
             {
-                floodlights[lightsSwitched].enabled = true;
+                // Each light covers a pair of lamps: it comes on with the first of them. The fill under the
+                // deck comes on with the last.
                 lenses[lightsSwitched].sharedMaterial = lensOn;
+                if (lightsSwitched < beams.Count) beams[lightsSwitched].enabled = true;
+                int light = lightsSwitched / 2;
+                if (lightsSwitched % 2 == 0 && light < floodlights.Count) floodlights[light].enabled = true;
+                if (lightsSwitched == lenses.Count - 1 && fill != null) fill.enabled = true;
                 lightsSwitched++;
                 switchTimer = 0.18f;
                 sfx.pitch = Random.Range(0.9f, 1.1f);
@@ -141,14 +154,17 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
 
             // Flicker as they're about to cut out.
             bool dying = TimeLeft < 5f;
-            for (int i = 0; i < lightsSwitched; i++)
-                floodlights[i].intensity = floodlightIntensity * (dying && Random.value < 0.15f ? Random.Range(0.1f, 0.6f) : 1f);
+            float flicker = dying && Random.value < 0.15f ? Random.Range(0.1f, 0.6f) : 1f;
+            foreach (var l in floodlights) l.intensity = floodlightIntensity * flicker;
+            if (fill != null) fill.intensity = floodlightIntensity * 0.45f * flicker;
+            if (beamMaterial != null)
+                beamMaterial.SetColor("_Color", new Color(floodlightColor.r, floodlightColor.g, floodlightColor.b, beamBrightness * flicker));
 
             if (TimeLeft <= 0f)
             {
                 LightsOn = false;
                 RechargeLeft = rechargeTime;
-                foreach (var l in floodlights) l.enabled = false;
+                LightsOff();
                 hum.Stop();
                 sfx.pitch = 0.8f;
                 sfx.PlayOneShot(ProceduralAudio.LampPowerDown, 1f);
@@ -271,9 +287,58 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         ladder.localTopY = Height;
     }
 
+    void LightsOff()
+    {
+        foreach (var l in floodlights) if (l != null) l.enabled = false;
+        foreach (var b in beams) if (b != null) b.enabled = false;
+        if (fill != null) fill.enabled = false;
+    }
+
+    /// <summary>
+    /// Eight lamps around the deck, aimed outward and down over the forest, each throwing a visible beam.
+    /// The actual light comes from four wide, strong spots (one per pair of lamps: fewer, brighter lights
+    /// stay within the renderer's per-object light limit) and a broad fill straight down from the deck,
+    /// so the whole clearing round the tower is lit, from its foot out past the safe radius.
+    /// </summary>
     void BuildFloodlights(Material housing)
     {
-        // Eight lamps around the deck, aimed outward and down over the forest.
+        Shader beamShader = Shader.Find("Horror/Beam");
+        beamMaterial = beamShader != null ? new Material(beamShader) : MaterialFactory.NoFog(floodlightColor * beamBrightness, 3000, false);
+        beamMaterial.SetColor("_Color", new Color(floodlightColor.r, floodlightColor.g, floodlightColor.b, beamBrightness));
+        Mesh cone = WatcherEvent.BuildBeamMesh();
+        const float pitch = 35f, beamHalfAngle = 16f;
+        float beamLength = (Height + 2.2f) / Mathf.Sin(pitch * Mathf.Deg2Rad) * 1.05f; // reaching down to the ground
+
+        for (int i = 0; i < 4; i++)
+        {
+            var spot = new GameObject("Floodlight").AddComponent<Light>();
+            spot.transform.SetParent(transform, false);
+            spot.transform.localPosition = new Vector3(0f, Height + 2.4f, 0f);
+            spot.transform.localRotation = Quaternion.Euler(0f, i * 90f + 45f, 0f) * Quaternion.Euler(40f, 0f, 0f);
+            spot.type = LightType.Spot;
+            spot.spotAngle = 115f;
+            spot.innerSpotAngle = 70f;
+            spot.range = floodlightRange;
+            spot.intensity = floodlightIntensity;
+            spot.color = floodlightColor;
+            spot.shadows = LightShadows.None;
+            spot.enabled = false;
+            floodlights.Add(spot);
+        }
+
+        fill = new GameObject("Floodlight Fill").AddComponent<Light>();
+        fill.transform.SetParent(transform, false);
+        fill.transform.localPosition = new Vector3(0f, Height - 0.6f, 0f); // under the deck, so the deck doesn't shadow it
+        fill.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        fill.type = LightType.Spot;
+        fill.spotAngle = 150f;
+        fill.innerSpotAngle = 100f;
+        fill.range = floodlightRange * 0.6f;
+        fill.intensity = floodlightIntensity * 0.45f;
+        fill.color = floodlightColor;
+        fill.shadows = LightShadows.Soft; // the tower's legs and lattice cast long shadows round its foot
+        fill.enabled = false;
+
         for (int i = 0; i < 8; i++)
         {
             float yaw = i * 45f + 22.5f;
@@ -290,18 +355,19 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
             var lens = Box(housing, new Vector3(0f, 0f, 0.18f), new Vector3(0.5f, 0.35f, 0.02f), false, mount);
             lenses.Add(lens.GetComponent<Renderer>());
 
-            var light = new GameObject("Floodlight Beam").AddComponent<Light>();
-            light.transform.SetParent(mount, false);
-            light.transform.localPosition = new Vector3(0f, 0f, 0.3f);
-            light.type = LightType.Spot;
-            light.spotAngle = 80f;
-            light.innerSpotAngle = 50f;
-            light.range = 70f;
-            light.intensity = floodlightIntensity;
-            light.color = floodlightColor;
-            light.shadows = LightShadows.None;
-            light.enabled = false;
-            floodlights.Add(light);
+            // The visible beam: a long, faint cone of light through the air.
+            var beam = new GameObject("Floodlight Beam");
+            beam.transform.SetParent(mount, false);
+            beam.transform.localPosition = new Vector3(0f, 0f, 0.2f);
+            float radius = beamLength * Mathf.Tan(beamHalfAngle * Mathf.Deg2Rad);
+            beam.transform.localScale = new Vector3(radius, radius, beamLength);
+            beam.AddComponent<MeshFilter>().sharedMesh = cone;
+            var beamRenderer = beam.AddComponent<MeshRenderer>();
+            beamRenderer.sharedMaterial = beamMaterial;
+            beamRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            beamRenderer.receiveShadows = false;
+            beamRenderer.enabled = false;
+            beams.Add(beamRenderer);
         }
     }
 
