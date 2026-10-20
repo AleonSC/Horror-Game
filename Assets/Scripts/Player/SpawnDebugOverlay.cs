@@ -124,21 +124,25 @@ public class SpawnDebugOverlay : MonoBehaviour
         // The full list, nearest first, with compass bearings.
         markers.Sort((a, b) => (a.position - eye).sqrMagnitude.CompareTo((b.position - eye).sqrMagnitude));
         float y = 60f * unit;
+        float line = listStyle.fontSize * 1.35f;
+        int shown = Mathf.Min(markers.Count, Mathf.Max(1, Mathf.FloorToInt((Screen.height - y - 40f * unit) / line) - 2));
         GUI.color = new Color(0f, 0f, 0f, 0.55f);
-        GUI.DrawTexture(new Rect(8f * unit, y - 6f * unit, 330f * unit, (markers.Count + 1) * listStyle.fontSize * 1.35f + 12f * unit), Texture2D.whiteTexture);
+        GUI.DrawTexture(new Rect(8f * unit, y - 6f * unit, 330f * unit, (shown + 2) * line + 12f * unit), Texture2D.whiteTexture);
         GUI.color = Color.white;
         GUI.Label(new Rect(16f * unit, y, 320f * unit, 30f * unit), "SPAWNS (F1 to hide)", listStyle);
         y += listStyle.fontSize * 1.35f;
-        foreach (var m in markers)
+        for (int i = 0; i < shown; i++)
         {
+            var m = markers[i];
             Vector3 d = m.position - eye;
             d.y = 0f;
             float bearing = (Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg + 360f) % 360f;
             GUI.color = m.color;
             GUI.Label(new Rect(16f * unit, y, 320f * unit, 30f * unit), $"{m.label} - {Mathf.RoundToInt(d.magnitude)}m {Compass(bearing)}", listStyle);
-            y += listStyle.fontSize * 1.35f;
+            y += line;
         }
         GUI.color = Color.white;
+        if (shown < markers.Count) GUI.Label(new Rect(16f * unit, y, 320f * unit, 30f * unit), $"...and {markers.Count - shown} more further away", listStyle);
     }
 
     static string Compass(float bearing)
