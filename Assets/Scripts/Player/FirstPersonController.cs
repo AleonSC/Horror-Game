@@ -219,14 +219,18 @@ public class FirstPersonController : MonoBehaviour
 
     void HandleLook()
     {
-        if (lockCursor && Cursor.lockState != CursorLockMode.Locked) return;
+        // The mouse only turns the view while it's captured (not while the dev tools window has it)...
+        if (!lockCursor || Cursor.lockState == CursorLockMode.Locked)
+        {
+            Vector2 look = HorrorInput.Look * mouseSensitivity * Mathf.Lerp(1f, 0.5f, Grogginess); // heavy-headed
+            transform.Rotate(Vector3.up, look.x, Space.Self);
 
-        Vector2 look = HorrorInput.Look * mouseSensitivity * Mathf.Lerp(1f, 0.5f, Grogginess); // heavy-headed
-        transform.Rotate(Vector3.up, look.x, Space.Self);
+            pitch += invertY ? look.y : -look.y;
+            pitch = Mathf.Clamp(pitch, -maxLookAngle, maxLookAngle);
+        }
 
-        pitch += invertY ? look.y : -look.y;
-        pitch = Mathf.Clamp(pitch, -maxLookAngle, maxLookAngle);
-
+        // ...but a boss drawing your eye does it regardless (it used to wait for the mouse to be captured,
+        // so with the dev tools open it never happened).
         // Something big happening: the view is drawn toward it, gently (the mouse still works).
         if (attractTimer > 0f && attractTarget != null)
         {
