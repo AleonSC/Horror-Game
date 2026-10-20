@@ -123,6 +123,7 @@ public class MusicManager : MonoBehaviour
         src.spatialBlend = 0f;   // music is in your head, not in the forest
         src.bypassReverbZones = true;
         src.priority = 0;
+        src.ignoreListenerVolume = true; // the sound effects slider doesn't touch the music; MasterVolume does
         src.volume = 0f;
         return src;
     }
@@ -163,7 +164,7 @@ public class MusicManager : MonoBehaviour
     {
         if (clip == null && stingerClips.Count > 0) clip = stingerClips[Random.Range(0, stingerClips.Count)];
         if (clip == null) return;
-        stingerSource.PlayOneShot(clip, volume * stingerVolume);
+        stingerSource.PlayOneShot(clip, PauseMenu.MasterVolume * volume * stingerVolume);
     }
 
     // ---------------------------------------------------------------- Mood
@@ -310,7 +311,7 @@ public class MusicManager : MonoBehaviour
             deckGain[i] = Mathf.MoveTowards(deckGain[i], deckTarget[i], deckFadeSpeed[i] * dt);
             // A deck carries the mood it was started for; the active one is the current mood.
             float moodVolume = MoodVolume(CurrentMood);
-            decks[i].volume = volume * moodVolume * deckGain[i] * duck;
+            decks[i].volume = PauseMenu.MasterVolume * volume * moodVolume * deckGain[i] * duck;
             if (deckGain[i] <= 0f && i != activeDeck && decks[i].isPlaying) decks[i].Stop();
         }
     }

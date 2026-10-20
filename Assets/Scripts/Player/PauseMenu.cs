@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Esc pauses the game: time and sound stop, the mouse is freed, and a menu offers Resume,
-/// Restart (start the run over), Lighting (a live lighting test panel), mouse sensitivity, volume and
-/// music volume sliders, and Quit.
+/// Restart (start the run over), Lighting (a live lighting test panel), mouse sensitivity, master volume,
+/// sound effects and music volume sliders, and Quit.
 /// Settings are remembered between sessions. DarkForestGenerator adds this automatically.
 /// </summary>
 public class PauseMenu : MonoBehaviour
@@ -12,11 +12,16 @@ public class PauseMenu : MonoBehaviour
 
     const string SensitivityKey = "Horror.MouseSensitivity";
     const string VolumeKey = "Horror.Volume";
+    const string EffectsKey = "Horror.EffectsVolume";
+
+    /// <summary>The master volume (everything, music included). MusicManager scales by this.</summary>
+    public static float MasterVolume { get; private set; } = 1f;
     const string MenuScaleKey = "Horror.MenuScale";
 
     FirstPersonController player;
     float sensitivity = 2f;
-    float volume = 1f;
+    float volume = 1f;          // master
+    float effectsVolume = 1f;   // every sound but the music
     [Tooltip("Size of the pause menu and lighting panel (1 = original size, up to 1.8). Players can change it in the menu.")]
     public float menuScale = 1.6f;
     GUIStyle titleStyle, buttonStyle, labelStyle;
@@ -29,6 +34,7 @@ public class PauseMenu : MonoBehaviour
         if (player != null) sensitivity = player.mouseSensitivity;
         sensitivity = PlayerPrefs.GetFloat(SensitivityKey, sensitivity);
         volume = PlayerPrefs.GetFloat(VolumeKey, 1f);
+        effectsVolume = PlayerPrefs.GetFloat(EffectsKey, 1f);
         menuScale = PlayerPrefs.GetFloat(MenuScaleKey, menuScale);
         ApplySettings();
         lighting = gameObject.AddComponent<LightingSettings>();
@@ -56,6 +62,7 @@ public class PauseMenu : MonoBehaviour
         {
             PlayerPrefs.SetFloat(SensitivityKey, sensitivity);
             PlayerPrefs.SetFloat(VolumeKey, volume);
+            PlayerPrefs.SetFloat(EffectsKey, effectsVolume);
             PlayerPrefs.SetFloat(MenuScaleKey, menuScale);
             PlayerPrefs.Save();
         }
@@ -65,7 +72,9 @@ public class PauseMenu : MonoBehaviour
     {
         if (player == null) player = FindAnyObjectByType<FirstPersonController>();
         if (player != null) player.mouseSensitivity = sensitivity;
-        AudioListener.volume = volume;
+        // The listener volume carries the sound effects; the music ignores it and uses MasterVolume itself.
+        MasterVolume = volume;
+        AudioListener.volume = volume * effectsVolume;
     }
 
     void OnGUI()
@@ -95,7 +104,7 @@ public class PauseMenu : MonoBehaviour
 
         const float w = 360f, h = 50f, gap = 14f;
         float x = (sw - w) * 0.5f;
-        float y = Mathf.Max(10f, sh * 0.5f - 310f); // the menu is ~620 tall; keep it on screen
+        float y = Mathf.Max(10f, sh * 0.5f - 340f); // the menu is ~680 tall; keep it on screen
 
         if (showLighting)
         {
@@ -129,9 +138,14 @@ public class PauseMenu : MonoBehaviour
         float newSensitivity = GUI.HorizontalSlider(new Rect(x, y, w, 20f), sensitivity, 0.2f, 6f);
         y += 34f;
 
-        GUI.Label(new Rect(x, y, w, 26f), $"Volume: {Mathf.RoundToInt(volume * 100f)}%", labelStyle);
+        GUI.Label(new Rect(x, y, w, 26f), $"Master volume: {Mathf.RoundToInt(volume * 100f)}%", labelStyle);
         y += 28f;
         float newVolume = GUI.HorizontalSlider(new Rect(x, y, w, 20f), volume, 0f, 1f);
+        y += 34f;
+
+        GUI.Label(new Rect(x, y, w, 26f), $"Sound effects: {Mathf.RoundToInt(effectsVolume * 100f)}%", labelStyle);
+        y += 28f;
+        float newEffects = GUI.HorizontalSlider(new Rect(x, y, w, 20f), effectsVolume, 0f, 1f);
         y += 34f;
 
         var music = MusicManager.Instance;
@@ -149,10 +163,11 @@ public class PauseMenu : MonoBehaviour
         float newScale = GUI.HorizontalSlider(new Rect(x, y, w, 20f), menuScale, 1f, 1.8f);
         y += 40f;
 
-        if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume))
+        if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume) || !Mathf.Approximately(newEffects, effectsVolume))
         {
             sensitivity = newSensitivity;
             volume = newVolume;
+            effectsVolume = newEffects;
             ApplySettings();
         }
         menuScale = newScale;
