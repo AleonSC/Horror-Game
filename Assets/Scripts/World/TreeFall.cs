@@ -114,7 +114,18 @@ public class TreeFall : MonoBehaviour
                 timer -= dt;
                 bool asleep = true;
                 foreach (var body in pieces)
-                    if (body != null && !body.isKinematic && !body.IsSleeping()) asleep = false;
+                {
+                    if (body == null || body.isKinematic) continue;
+                    // A log doesn't stay balanced on its end: nudge any that come to rest upright over.
+                    if (IsLog(body) && Upright(body) && body.linearVelocity.sqrMagnitude < 0.25f && !tipped.Contains(body))
+                    {
+                        tipped.Add(body);
+                        body.WakeUp();
+                        body.AddTorque(Vector3.Cross(Vector3.up, Flat(Random.insideUnitSphere)) * body.mass * 2.5f, ForceMode.Impulse);
+                        timer = Mathf.Max(timer, 3f);
+                    }
+                    if (!body.IsSleeping()) asleep = false;
+                }
                 if (asleep || timer <= 0f) Finish();
                 break;
         }
@@ -150,7 +161,8 @@ public class TreeFall : MonoBehaviour
 
         // Where it breaks: 2 or 3 sections, the breaks somewhere in the middle of each span.
         int count = height > 6f && Random.value < 0.6f ? 3 : 2;
-        var bounds = new List<float> { -1f };
+        // The bottom of the trunk and its roots stay put as the stump: the first section starts at the cut.
+        var bounds = new List<float> { StumpHeight };
         for (int i = 1; i < count; i++) bounds.Add(height * (i + Random.Range(-0.25f, 0.25f)) / count);
         bounds.Add(height * 3f); // everything above the last break, foliage and all
         for (int i = 1; i < count; i++) breakHeights.Add(bounds[i]);
@@ -164,6 +176,8 @@ public class TreeFall : MonoBehaviour
             sources.Add((filter.sharedMesh, sway.worldToLocalMatrix * filter.transform.localToWorldMatrix, renderer.sharedMaterial));
             if (filter.name == "Trunk" || filter.name == "Bark") barkMaterial = renderer.sharedMaterial;
         }
+
+        BuildStumpBase(sources);
 
         Vector3 swayAxisWorld = tree.TransformDirection(fallAxis);
         for (int i = 0; i < count; i++)
@@ -186,7 +200,7 @@ public class TreeFall : MonoBehaviour
             }
 
             // Collision: the trunk section, plus a fatter core where there are boughs (crushed when it lands).
-            float bottom = Mathf.Max(lo, 0.7f), top = Mathf.Min(hi, height);
+            float bottom = Mathf.Max(lo, StumpHeight), top = Mathf.Min(hi, height);
             float sectionRadius = radius * Mathf.Lerp(1f, 0.45f, (bottom + top) * 0.5f / height);
             var trunkCollider = piece.AddComponent<CapsuleCollider>();
             trunkCollider.direction = 1;
@@ -214,7 +228,7 @@ public class TreeFall : MonoBehaviour
             {
                 // Pivots on the stump until it hits the ground.
                 var hinge = piece.AddComponent<HingeJoint>();
-                hinge.anchor = new Vector3(0f, 0.7f, 0f);
+                hinge.anchor = new Vector3(0f, StumpHeight, 0f);
                 hinge.axis = piece.transform.InverseTransformDirection(swayAxisWorld);
                 joints.Add(hinge);
             }
@@ -405,6 +419,88 @@ public class TreeFall : MonoBehaviour
         stumpCollider = stump.GetComponent<Collider>();
     }
 
+    readonly HashSet<Rigidbody> tipped = new HashSet<Rigidbody>();
+
+    const float StumpHeight = 0.7f;
+
+    static bool IsLog(Rigidbody body) => body.GetComponent<FallenSection>() != null;
+    static bool Upright(Rigidbody body) => Vector3.Angle(body.transform.up, Vector3.up) < 45f;
+    static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 0.0001f ? v.normalized : Vector3.forward; }
+
+    /// <summary>
+    /// A log still standing on end when everything stops: laid down flat where it is, falling the way it
+    /// leans, resting on the ground.
+    /// </summary>
+    void LayDown(Rigidbody body)
+    {
+        Vector3 com = body.worldCenterOfMass;
+        Vector3 dir = Flat(body.transform.up + Random.insideUnitSphere * 0.1f);
+        Vector3 axis = Vector3.Cross(body.transform.up, dir).normalized;
+        float tilt = Vector3.Angle(body.transform.up, dir);
+        body.transform.RotateAround(com, axis, tilt);
+        float ground = generator != null ? generator.GetGroundHeight(com.x, com.z) : com.y;
+        float lowest = float.MaxValue;
+        foreach (var col in body.GetComponents<Collider>()) lowest = Mathf.Min(lowest, col.bounds.min.y);
+        if (lowest < float.MaxValue) body.transform.position += Vector3.up * (ground - lowest - 0.03f);
+    }
+
+    /// <summary>
+    /// The stump: the bottom of the real trunk (its roots and flare) kept where it stood, cut off at
+    /// StumpHeight with a pale ring of fresh wood on top and a few splinters sticking up from the break.
+    /// The plain cylinder from AddStump stays only as its collider.
+    /// </summary>
+    void BuildStumpBase(List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources)
+    {
+        var stumpBase = new GameObject("Stump Base");
+        stumpBase.transform.SetParent(tree, true);
+        stumpBase.transform.SetPositionAndRotation(sway.position, sway.rotation);
+        bool any = false;
+        foreach (var (mesh, toSway, mat) in sources)
+        {
+            if (mat != barkMaterial) continue;
+            Mesh part = Slice(mesh, toSway, -10f, StumpHeight);
+            if (part == null) continue;
+            var go = new GameObject("Bark");
+            go.transform.SetParent(stumpBase.transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = part;
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            any = true;
+        }
+        if (!any) { Destroy(stumpBase); return; }
+        if (stumpCollider != null)
+        {
+            var r = stumpCollider.GetComponent<Renderer>();
+            if (r != null) r.enabled = false;
+        }
+
+        var standing = tree.GetComponent<CapsuleCollider>();
+        float radius = standing != null ? standing.radius : 0.25f;
+        var cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        cap.name = "Stump Top";
+        Destroy(cap.GetComponent<Collider>());
+        cap.transform.SetParent(stumpBase.transform, false);
+        cap.transform.localPosition = new Vector3(0f, StumpHeight - 0.01f, 0f);
+        cap.transform.localScale = new Vector3(radius * 2f, 0.012f, radius * 2f);
+        cap.GetComponent<Renderer>().sharedMaterial = StumpTopMaterial;
+        for (int i = 0; i < 6; i++)
+        {
+            float a = Random.Range(0f, Mathf.PI * 2f), d = Random.Range(0.3f, 0.9f) * radius;
+            var spike = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            spike.name = "Splinter";
+            Destroy(spike.GetComponent<Collider>());
+            spike.transform.SetParent(stumpBase.transform, false);
+            float h = Random.Range(0.06f, 0.22f);
+            spike.transform.localPosition = new Vector3(Mathf.Cos(a) * d, StumpHeight + h * 0.4f, Mathf.Sin(a) * d);
+            spike.transform.localRotation = Quaternion.Euler(Random.Range(-15f, 15f), Random.Range(0f, 360f), Random.Range(-15f, 15f));
+            spike.transform.localScale = new Vector3(Random.Range(0.03f, 0.07f), h, Random.Range(0.02f, 0.05f));
+            spike.GetComponent<Renderer>().sharedMaterial = SplinterMaterial;
+        }
+    }
+
+    static Material stumpTopMaterial;
+    static Material StumpTopMaterial => stumpTopMaterial != null ? stumpTopMaterial
+        : (stumpTopMaterial = MaterialFactory.LitTextured(ProceduralTextures.EndGrain, null, new Color(0.75f, 0.62f, 0.45f), 0.05f));
+
     /// <summary>Freezes the pieces where they lie: they stay as solid obstacles.</summary>
     void Finish()
     {
@@ -412,6 +508,7 @@ public class TreeFall : MonoBehaviour
         foreach (var body in pieces)
         {
             if (body == null) continue;
+            if (IsLog(body) && Upright(body)) LayDown(body);
             body.isKinematic = true;
             body.interpolation = RigidbodyInterpolation.None;
         }
