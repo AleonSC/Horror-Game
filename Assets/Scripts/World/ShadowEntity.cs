@@ -626,6 +626,23 @@ public class ShadowEntity : MonoBehaviour
         banishedUntil = Time.time + seconds;
     }
 
+    /// <summary>
+    /// Called in by the flier's alarm: it comes in now (bursting apart first if it was already out) and
+    /// starts a fresh hunt. Not while it's charging or taking someone, or while it's been flashed away.
+    /// </summary>
+    public void Rouse()
+    {
+        if (CurrentState == State.Killing || CurrentState == State.Charging || Time.time < banishedUntil) return;
+        if (CanBeFlashed)
+        {
+            StartFragments(converge: false);
+            PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof);
+            ResetVisual();
+        }
+        Hide(Random.Range(0.5f, 2.5f));
+        creepTimer = NextCreepDelay();
+    }
+
     public void Summon()
     {
         if (Time.time < banishedUntil) return; // it's been driven off: not even the watchtower brings it back early

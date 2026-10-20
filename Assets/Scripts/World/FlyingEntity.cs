@@ -8,11 +8,12 @@ using UnityEngine;
 /// Its entrance: a cry from far off, then it comes down out of the clouds in a long dive straight over the
 /// player, low enough to shake the ground and tear the leaves up, climbs away screaming, and lights its eye.
 ///
-/// After that it circles over the woods, slowly surveying the ground with its beam, its search drifting
-/// after the player. Noise means nothing to it; movement does. Standing still in the beam is safe, and trees,
-/// buildings and lit safe areas hide you. Move while the beam is on you and it notices: the light reddens and
-/// holds on you. Freeze or get out of sight and it loses interest; keep moving and it drops out of the sky
-/// and carries you off. Lose it and it searches hard round where it last saw you.
+/// After that it scouts the map: circling over one stretch of forest after another, sweeping the ground
+/// with its beam. For the first while (avoidTime) its beam deliberately keeps off the player. It never
+/// goes looking for you, but if its beam happens to pass close by, it snaps onto you and holds there, and
+/// keeps the light on you until you get out of sight (trees, roofs and lit safe areas hide you). Standing
+/// still in it is safe. Move in it for alarmMoveTime seconds in all and it screeches: the light turns red,
+/// and every scour comes in at once and begins a fresh hunt. It never takes you itself.
 /// The watchtower floodlights drive it away. FlyingEntitySpawner brings it in; a run reset removes it.
 /// </summary>
 public class FlyingEntity : MonoBehaviour
@@ -24,8 +25,18 @@ public class FlyingEntity : MonoBehaviour
     [Tooltip("Radius of the circles it flies round its search area.")]
     public float circleRadius = 34f;
     public float flySpeed = 12f;
-    [Tooltip("How fast its search area drifts after the player.")]
-    public float driftSpeed = 2.5f;
+    [Tooltip("How fast its search area moves across the map as it scouts.")]
+    public float driftSpeed = 4f;
+    [Tooltip("Seconds after it arrives that its beam deliberately keeps off the player.")]
+    public float avoidTime = 15f;
+    [Tooltip("How far it keeps its beam from the player while avoiding them.")]
+    public float avoidDistance = 25f;
+    [Tooltip("If its sweeping beam passes this close to the player (and can see them), it snaps onto them.")]
+    public float snapDistance = 9f;
+    [Tooltip("Seconds of moving in its light, in all, before it screeches and raises the alarm.")]
+    public float alarmMoveTime = 5f;
+    [Tooltip("Seconds out of its sight before it loses you and goes back to scouting.")]
+    public float loseTime = 4f;
     [Tooltip("How far its beam sweeps round the search area.")]
     public float sweepRadius = 26f;
     [Tooltip("Half-angle of the beam (degrees).")]
@@ -33,17 +44,13 @@ public class FlyingEntity : MonoBehaviour
     public float beamIntensity = 6000f;
     public Color beamColor = new Color(0.9f, 0.92f, 0.8f);
     public Color lockColor = new Color(1f, 0.08f, 0.04f);
-    [Tooltip("Seconds of moving in the beam before it comes for you.")]
-    public float lockTime = 2.2f;
     [Tooltip("How fast the beam surveys the ground (lower is slower).")]
     public float surveySpeed = 0.35f;
     [Tooltip("Moving faster than this in the beam gives you away (m/s).")]
     public float movementThreshold = 0.3f;
-    [Tooltip("How long it searches hard where it lost you.")]
-    public float searchTime = 15f;
     [Range(0f, 1f)] public float volume = 1f;
 
-    enum State { Entering, Searching, Locking, Diving, Carrying, Banished }
+    enum State { Entering, Searching, Locking, Banished }
     State state = State.Entering;
 
     FirstPersonController player;
@@ -58,7 +65,7 @@ public class FlyingEntity : MonoBehaviour
     Vector3 center;          // the middle of where it's searching
     Vector3 aim;             // where the beam is pointed
     float orbitAngle, orbitDir = 1f, surveyTime;
-    float timer, lockAmount, hardSearch, flapPhase, flapStrength, lastFlapSign, bank;
+    float timer, flapPhase, flapStrength, lastFlapSign, bank;
     Vector3 lastPosition;
     bool musicTaken;
 
@@ -67,9 +74,10 @@ public class FlyingEntity : MonoBehaviour
     float entrance;
     int entranceBeat;
 
-    // Diving and carrying.
-    Vector3 diveStart, camOffset, carryDir;
-    CharacterController playerBody;
+    // Scouting and tracking.
+    Vector3 scoutGoal;
+    float avoidTimer, scoutTimer, movedInLight, hiddenFor, alarm;
+    bool alarmed;
 
     void OnEnable()
     {
@@ -122,8 +130,7 @@ public class FlyingEntity : MonoBehaviour
             transform.position += jump;
             lastPosition += jump;
             enterStart += jump; enterLow += jump; enterEnd += jump;
-            center += jump; aim += jump;
-            diveStart += jump; grabFrom += jump;
+            center += jump; aim += jump; scoutGoal += jump;
         }
         lastPlayerPos = you;
         trackingPlayer = true;
@@ -225,6 +232,8 @@ public class FlyingEntity : MonoBehaviour
             if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
             musicTaken = false;
             state = State.Searching;
+            avoidTimer = avoidTime;
+            NewScoutGoal(you);
         }
     }
 
@@ -263,12 +272,6 @@ public class FlyingEntity : MonoBehaviour
             case State.Locking:
                 UpdateSearch(dt, you);
                 break;
-            case State.Diving:
-                UpdateDive(dt);
-                break;
-            case State.Carrying:
-                UpdateCarry(dt);
-                break;
             case State.Banished:
                 UpdateBanished(dt, you);
                 break;
@@ -278,13 +281,42 @@ public class FlyingEntity : MonoBehaviour
         lastPosition = transform.position;
     }
 
+    /// <summary>Somewhere else to scout: a stretch of forest a good way off from where it's been.</summary>
+    void NewScoutGoal(Vector3 you)
+    {
+        Vector2 d = Random.insideUnitCircle.normalized * Random.Range(60f, 130f);
+        scoutGoal = center + new Vector3(d.x, 0f, d.y);
+        scoutTimer = Random.Range(25f, 45f);
+    }
+
     void UpdateSearch(float dt, Vector3 you)
     {
-        hardSearch = Mathf.Max(0f, hardSearch - dt);
+        bool tracking = state == State.Locking;
+        avoidTimer = Mathf.Max(0f, avoidTimer - dt);
 
-        // The search area drifts after the player (slowly, unless it's already seen them).
-        if (state == State.Locking) center = Vector3.MoveTowards(center, you, driftSpeed * 4f * dt);
-        else if (hardSearch <= 0f) center = Vector3.MoveTowards(center, you, driftSpeed * dt);
+        if (tracking)
+        {
+            // Holding you in its light: it circles right over you.
+            center = Vector3.MoveTowards(center, you, driftSpeed * 3f * dt);
+        }
+        else
+        {
+            // Scouting: working its way across the map, one stretch of forest at a time. It never heads for you.
+            scoutTimer -= dt;
+            Vector3 toGoal = scoutGoal - center;
+            toGoal.y = 0f;
+            if (scoutTimer <= 0f || toGoal.magnitude < 5f) NewScoutGoal(you);
+            center = Vector3.MoveTowards(center, scoutGoal, driftSpeed * dt);
+            // While it's avoiding you, its whole search keeps its distance too.
+            if (avoidTimer > 0f)
+            {
+                Vector3 fromYou = center - you;
+                fromYou.y = 0f;
+                float keep = avoidDistance + sweepRadius;
+                if (fromYou.magnitude < keep)
+                    center = you + (fromYou.sqrMagnitude > 0.01f ? fromYou.normalized : Vector3.forward) * Mathf.MoveTowards(fromYou.magnitude, keep, driftSpeed * 2f * dt);
+            }
+        }
 
         // The watchtower's floodlights drive it off.
         foreach (var tower in Watchtower.All)
@@ -296,12 +328,12 @@ public class FlyingEntity : MonoBehaviour
                 center += (away.sqrMagnitude > 0.01f ? away.normalized : Vector3.forward) * 20f * dt;
         }
 
-        // Circling round the search area, tighter while it's searching hard.
-        float radius = circleRadius * (hardSearch > 0f || state == State.Locking ? 0.7f : 1f);
+        // Circling round its search area, tighter while it holds you.
+        float radius = circleRadius * (tracking ? 0.6f : 1f);
         orbitAngle += orbitDir * flySpeed / radius * dt;
         Vector3 goal = center + new Vector3(Mathf.Cos(orbitAngle), 0f, Mathf.Sin(orbitAngle)) * radius;
         goal.y = Ground(goal) + altitude + Mathf.Sin(Time.time * 0.21f) * 4f;
-        // Smoothly, but never faster than it can fly (coming in from far off after its entrance).
+        // Smoothly, but never faster than it can fly.
         Vector3 next = Vector3.Lerp(transform.position, goal, 1f - Mathf.Exp(-1.5f * dt));
         transform.position = Vector3.MoveTowards(transform.position, next, flySpeed * 2.5f * dt);
         FaceAlong(dt, 3f);
@@ -315,55 +347,93 @@ public class FlyingEntity : MonoBehaviour
         }
         flapStrength = Mathf.MoveTowards(flapStrength, 0f, dt * 0.35f);
 
-        // The beam: slowly surveying the ground round the search area, back and forth, or held where it noticed you.
-        surveyTime += dt * surveySpeed * (hardSearch > 0f ? 1.4f : 1f);
+        // The beam: slowly sweeping the ground round its search area, or held on you.
+        surveyTime += dt * surveySpeed;
         Vector3 target;
-        if (state == State.Locking) target = you;
+        if (tracking) target = you;
         else
         {
             float t = surveyTime;
-            float sweep = sweepRadius * (hardSearch > 0f ? 0.6f : 1f);
-            target = center + new Vector3(Mathf.Sin(t * 0.37f) + 0.35f * Mathf.Sin(t * 1.3f), 0f, Mathf.Cos(t * 0.23f) + 0.35f * Mathf.Cos(t * 1.1f)) * sweep * 0.75f;
+            target = center + new Vector3(Mathf.Sin(t * 0.37f) + 0.35f * Mathf.Sin(t * 1.3f), 0f, Mathf.Cos(t * 0.23f) + 0.35f * Mathf.Cos(t * 1.1f)) * sweepRadius * 0.75f;
+            if (avoidTimer > 0f)
+            {
+                // Deliberately steering round you.
+                Vector3 off = target - you;
+                off.y = 0f;
+                if (off.magnitude < avoidDistance) target = you + (off.sqrMagnitude > 0.01f ? off.normalized : Vector3.forward) * avoidDistance;
+            }
             target.y = Ground(target);
         }
-        aim = Vector3.Lerp(aim, target, 1f - Mathf.Exp((state == State.Locking ? -2.5f : -0.8f) * dt));
+        aim = Vector3.Lerp(aim, target, 1f - Mathf.Exp((tracking ? -4f : -0.8f) * dt));
         PointBeam();
 
-        // Moving in the light gives you away. Standing still in it doesn't.
         bool inBeam = InBeam(you);
-        bool moving = player.CurrentSpeed > movementThreshold;
-        if (inBeam && moving)
+        if (!tracking)
         {
-            if (state != State.Locking)
+            // It happens to sweep close by you, and sees you: the beam snaps onto you.
+            Vector3 fromAim = aim - you;
+            fromAim.y = 0f;
+            if (avoidTimer <= 0f && fromAim.magnitude < snapDistance && Sees(you))
             {
                 state = State.Locking;
-                voice.pitch = Random.Range(0.55f, 0.65f);
-                voice.PlayOneShot(ProceduralAudio.Screech, 0.6f);
-                if (MusicManager.Instance != null) { MusicManager.Instance.SetOverride(MusicManager.Mood.Danger); musicTaken = true; }
+                hiddenFor = 0f;
+                ProceduralAudio.PlayAt(ProceduralAudio.LampClick, eye.position, 1f, 0.5f, 60f); // a heavy clunk as it fixes on you
             }
-            lockAmount = Mathf.MoveTowards(lockAmount, 1f, dt / lockTime);
-            if (lockAmount >= 1f) StartDive();
         }
         else
         {
-            // Frozen in the beam it slowly loses interest; out of sight, faster.
-            lockAmount = Mathf.MoveTowards(lockAmount, 0f, dt / (lockTime * (inBeam ? 1.5f : 0.7f)));
-            if (state == State.Locking && lockAmount <= 0f)
+            // Out of its sight long enough, and it loses you.
+            hiddenFor = Sees(you) ? 0f : hiddenFor + dt;
+            if (hiddenFor >= loseTime)
             {
-                // Lost you: it searches hard round where it last saw you.
                 state = State.Searching;
-                hardSearch = searchTime;
-                center = you;
+                alarmed = false;
+                movedInLight = 0f;
+                avoidTimer = Mathf.Max(avoidTimer, 8f); // gives you a moment before it could find you again
+                NewScoutGoal(you);
                 if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
                 musicTaken = false;
             }
+            // Moving in its light gives you away; standing still doesn't.
+            else if (!alarmed && inBeam && player.CurrentSpeed > movementThreshold)
+            {
+                movedInLight += dt;
+                if (movedInLight >= alarmMoveTime) RaiseAlarm();
+            }
         }
-        Color c = Color.Lerp(beamColor, lockColor, Mathf.SmoothStep(0f, 1f, lockAmount));
+
+        alarm = Mathf.MoveTowards(alarm, alarmed ? 1f : 0f, dt * 2f);
+        Color c = Color.Lerp(beamColor, lockColor, Mathf.SmoothStep(0f, 1f, alarm));
         beam.color = c;
-        beamMaterial.SetColor("_Color", new Color(c.r, c.g, c.b, 0.1f + 0.08f * lockAmount));
+        beamMaterial.SetColor("_Color", new Color(c.r, c.g, c.b, 0.1f + 0.08f * alarm));
         MaterialFactory.SetColor(eyeMaterial, c * 6f);
         hum.volume = Mathf.MoveTowards(hum.volume, 0.6f * volume, dt);
-        hum.pitch = 0.7f + 0.3f * lockAmount;
+        hum.pitch = 0.7f + (tracking ? 0.1f : 0f) + 0.3f * alarm;
+    }
+
+    /// <summary>The alarm: a screech, the light turns red, and every scour comes in to hunt afresh.</summary>
+    void RaiseAlarm()
+    {
+        alarmed = true;
+        voice.pitch = Random.Range(0.5f, 0.6f);
+        voice.PlayOneShot(ProceduralAudio.Screech, 1f);
+        near.pitch = 0.45f;
+        near.PlayOneShot(ProceduralAudio.Screech, 0.35f);
+        if (MusicManager.Instance != null) { MusicManager.Instance.SetOverride(MusicManager.Mood.Danger); musicTaken = true; }
+        foreach (var scour in new List<ShadowEntity>(ShadowEntity.All)) scour.Rouse();
+    }
+
+    /// <summary>True if it can see the player from where it is: nothing in the way, not in a lit safe area.</summary>
+    bool Sees(Vector3 you)
+    {
+        if (PortalDoor.PlayerInRoom || GameOverScreen.IsActive || SafeZones.Contains(you)) return false;
+        Vector3 chest = you + Vector3.up * 1.2f;
+        Vector3 to = chest - eye.position;
+        if (to.magnitude > beam.range) return false;
+        var hits = Physics.RaycastAll(eye.position, to.normalized, to.magnitude - 0.6f, ~0, QueryTriggerInteraction.Ignore);
+        foreach (var h in hits)
+            if (h.collider.GetComponentInParent<FirstPersonController>() == null) return false;
+        return true;
     }
 
     /// <summary>
@@ -396,8 +466,8 @@ public class FlyingEntity : MonoBehaviour
         if (state != State.Searching && state != State.Locking) return;
         state = State.Banished;
         banishTimer = seconds;
-        lockAmount = 0f;
-        hardSearch = 0f;
+        alarmed = false;
+        movedInLight = 0f;
         SetBeam(false);
         voice.pitch = 0.6f;
         voice.PlayOneShot(ProceduralAudio.Screech, 0.7f);
@@ -423,10 +493,13 @@ public class FlyingEntity : MonoBehaviour
             FaceAlong(dt, 3f);
             return;
         }
-        // Back to searching (it flies back in from wherever it got to), its eye lit again.
+        // Back to scouting (it flies back in from wherever it got to), its eye lit again, and it keeps off
+        // you for a while, as when it first came.
         state = State.Searching;
-        center = you;
-        aim = you;
+        center = transform.position;
+        aim = center;
+        avoidTimer = avoidTime;
+        NewScoutGoal(you);
         SetBeam(true);
     }
 
@@ -435,107 +508,16 @@ public class FlyingEntity : MonoBehaviour
     {
         if (state != State.Searching && state != State.Locking) return;
         state = State.Searching;
-        lockAmount = 0f;
-        hardSearch = 0f;
+        alarmed = false;
+        movedInLight = 0f;
+        avoidTimer = Mathf.Max(avoidTimer, 10f);
+        if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
+        musicTaken = false;
         Vector3 away = center - from;
         away.y = 0f;
         center = from + (away.sqrMagnitude > 0.01f ? away.normalized : Vector3.forward) * 140f;
         voice.pitch = 0.45f;
         voice.PlayOneShot(ProceduralAudio.Screech, 0.7f);
-    }
-
-    // ---------------------------------------------------------------- Taking the player
-
-    void StartDive()
-    {
-        state = State.Diving;
-        timer = 0f;
-        diveStart = transform.position;
-        grabFrom = player.transform.position;
-        player.enabled = false;
-        playerBody = player.GetComponent<CharacterController>();
-        if (playerBody != null) playerBody.enabled = false; // it moves the player now (ResetToSpawn turns it back on)
-        var cam = Camera.main;
-        camOffset = cam != null ? cam.transform.position - player.transform.position : Vector3.up * 1.6f;
-        // It comes in along the way it's flying, swooping low at the end rather than dropping straight down.
-        carryDir = transform.forward;
-        carryDir.y = 0f;
-        Vector3 toYou = grabFrom - diveStart;
-        toYou.y = 0f;
-        carryDir = toYou.sqrMagnitude > 1f ? toYou.normalized : (carryDir.sqrMagnitude > 0.01f ? carryDir.normalized : Vector3.forward);
-        voice.pitch = 0.5f;
-        voice.PlayOneShot(ProceduralAudio.Scream, 0.6f);
-        whoosh.pitch = 0.4f;
-        whoosh.PlayOneShot(ProceduralAudio.WingFlaps, 0.5f);
-    }
-
-    const float DiveDuration = 2.4f, GrabBlend = 0.45f;
-    Vector3 grabFrom, velocity;
-
-    /// <summary>Wings half folded, it swoops down out of the dark at you, talons reaching forward at the end.</summary>
-    void UpdateDive(float dt)
-    {
-        timer += dt;
-        float u = Mathf.Clamp01(timer / DiveDuration);
-        float eased = u * u * (3f - 2f * u) * 0.35f + u * u * 0.65f; // slow to start, fastest at the end
-        Vector3 grabAt = grabFrom + Vector3.up * 5f;
-        // The swoop: down steeply at first, then flattening out low over the ground into you.
-        Vector3 control = grabAt - carryDir * 30f + Vector3.up * 4f;
-        Vector3 before = transform.position;
-        transform.position = Bezier(diveStart, control, grabAt, eased);
-        velocity = (transform.position - before) / Mathf.Max(dt, 0.0001f);
-        FaceAlong(dt, 6f);
-        flapStrength = 0f;
-        aim = grabFrom;
-        PointBeam();
-        player.AddCameraShake(Mathf.Lerp(0.2f, 1.5f, u * u));
-
-        var cam = Camera.main;
-        if (cam != null)
-        {
-            // You turn and look up at it coming.
-            Quaternion look = Quaternion.LookRotation(head.position - cam.transform.position);
-            cam.transform.rotation = Quaternion.Slerp(cam.transform.rotation, look, 1f - Mathf.Exp(-2.5f * dt));
-        }
-
-        if (u >= 1f)
-        {
-            state = State.Carrying;
-            timer = 0f;
-            SetBeam(false);
-            near.pitch = 0.6f;
-            near.PlayOneShot(ProceduralAudio.TreeImpact, 0.6f); // the blow of being hit
-            player.AddCameraShake(3f);
-            GameOverScreen.Show(4f);
-        }
-    }
-
-    /// <summary>Caught up without breaking stride, it beats up and away into the dark with you hanging under it.</summary>
-    void UpdateCarry(float dt)
-    {
-        timer += dt;
-        // Keep the speed it hit you with, then climb hard away.
-        Vector3 wanted = carryDir * 20f + Vector3.up * 11f;
-        velocity = Vector3.Lerp(velocity, wanted, 1f - Mathf.Exp(-1.2f * dt));
-        transform.position += velocity * dt;
-        FaceAlong(dt, 3f);
-        flapStrength = 1f;
-
-        // Lifted from where you stood into its talons, smoothly.
-        Vector3 talons = (legs[0].TransformPoint(0f, -3.8f, 1f) + legs[1].TransformPoint(0f, -3.8f, 1f)) * 0.5f;
-        Vector3 held = talons + Vector3.down * 0.5f - camOffset;
-        float g = Mathf.SmoothStep(0f, 1f, timer / GrabBlend);
-        player.transform.position = Vector3.Lerp(grabFrom, held, g);
-
-        var cam = Camera.main;
-        if (cam != null)
-        {
-            // Swinging under it, looking down at the forest dropping away.
-            Quaternion look = Quaternion.LookRotation(carryDir + Vector3.down * 1.2f);
-            float swing = Mathf.Clamp01(timer / 1.5f);
-            look *= Quaternion.Euler(Mathf.Sin(timer * 1.6f) * 5f * swing, Mathf.Sin(timer * 1.1f) * 4f * swing, Mathf.Sin(timer * 0.9f) * 7f * swing);
-            cam.transform.rotation = Quaternion.Slerp(cam.transform.rotation, look, 1f - Mathf.Exp(-1.8f * dt));
-        }
     }
 
     // ---------------------------------------------------------------- Body
@@ -556,23 +538,21 @@ public class FlyingEntity : MonoBehaviour
 
     void AnimateWings(float dt)
     {
-        bool folded = state == State.Diving;
         flapPhase += dt * Mathf.Lerp(0.6f, 1.6f, flapStrength) * Mathf.PI * 2f * 0.35f;
         float s = Mathf.Sin(flapPhase);
-        float amp = folded ? 0f : Mathf.Lerp(4f, 38f, flapStrength);
+        float amp = Mathf.Lerp(4f, 38f, flapStrength);
         for (int i = 0; i < 2; i++)
         {
             float side = i == 0 ? -1f : 1f;
-            float fold = folded ? 1f : 0f;
             // Wings swept back and tucked in when diving; beating up and down otherwise.
             shoulders[i].localRotation = Quaternion.Slerp(shoulders[i].localRotation,
-                Quaternion.Euler(0f, side * Mathf.Lerp(-6f, -55f, fold), side * (s * amp + 6f)), 1f - Mathf.Exp(-8f * dt));
+                Quaternion.Euler(0f, side * -6f, side * (s * amp + 6f)), 1f - Mathf.Exp(-8f * dt));
             float lag = Mathf.Sin(flapPhase - 0.9f);
             elbows[i].localRotation = Quaternion.Slerp(elbows[i].localRotation,
-                Quaternion.Euler(0f, side * Mathf.Lerp(-8f, -70f, fold), side * (lag * amp * 0.7f - 4f)), 1f - Mathf.Exp(-8f * dt));
-            // Legs trail, or reach forward for you.
+                Quaternion.Euler(0f, side * -8f, side * (lag * amp * 0.7f - 4f)), 1f - Mathf.Exp(-8f * dt));
+            // Legs trail behind.
             legs[i].localRotation = Quaternion.Slerp(legs[i].localRotation,
-                Quaternion.Euler(state == State.Diving || state == State.Carrying ? -40f : 55f, 0f, 0f), 1f - Mathf.Exp(-4f * dt));
+                Quaternion.Euler(55f, 0f, 0f), 1f - Mathf.Exp(-4f * dt));
         }
         body.localPosition = Vector3.up * -s * amp * 0.03f;
 
