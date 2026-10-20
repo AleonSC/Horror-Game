@@ -15,7 +15,7 @@ public static class ProceduralAudio
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
         lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
-        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, advance, lampSpark, lampPowerDown;
+        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -69,6 +69,8 @@ public static class ProceduralAudio
 
     // ---------------------------------------------------------------- The Watcher
 
+    /// <summary>A long, anguished human scream from somewhere in the trees.</summary>
+    public static AudioClip Scream => scream != null ? scream : (scream = MakeScream());
     /// <summary>A vast, low, dissonant swell as the eye in the sky opens.</summary>
     public static AudioClip EyeOpen => eyeOpen != null ? eyeOpen : (eyeOpen = MakeEyeOpen());
     /// <summary>Thunder-like rumbling from far away.</summary>
@@ -518,6 +520,37 @@ public static class ProceduralAudio
             float sputter = Sin(11f, t) > 0f ? 1f : 0.3f;
             return (w - lp) * Mathf.Exp(-t * 4f) * sputter;
         }, 0.6f);
+    }
+
+    static AudioClip MakeScream()
+    {
+        const float len = 2.8f;
+        float phase = 0f;
+        float a1 = 0f, a2 = 0f, b1 = 0f, b2 = 0f, c1 = 0f, c2 = 0f;
+        // Vocal tract resonances for an open "ah" (roughly 800, 1200 and 2800 Hz).
+        float r = 0.985f;
+        float k1 = 2f * r * Mathf.Cos(TwoPi * 800f / Rate);
+        float k2 = 2f * r * Mathf.Cos(TwoPi * 1200f / Rate);
+        float k3 = 2f * r * Mathf.Cos(TwoPi * 2800f / Rate);
+        return Shot("Scream", len, t =>
+        {
+            float p = t / len;
+            // Pitch leaps up, holds with a shaky vibrato, then cracks and falls away.
+            float pitch = 320f + 380f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(p * 5f)) - 260f * Mathf.Pow(Mathf.Clamp01((p - 0.65f) / 0.35f), 1.5f);
+            pitch *= 1f + 0.035f * Mathf.Sin(TwoPi * 6.5f * t) + 0.02f * White();
+            phase += pitch / Rate;
+            float voice = 2f * (phase % 1f) - 1f;                  // raw, buzzy vocal folds
+            float breath = White() * (0.25f + 0.4f * p);           // ragged, more breath as it gives out
+            float x = voice + breath;
+
+            float f1 = k1 * a1 - r * r * a2 + x; a2 = a1; a1 = f1;
+            float f2 = k2 * b1 - r * r * b2 + x; b2 = b1; b1 = f2;
+            float f3 = k3 * c1 - r * r * c2 + x; c2 = c1; c1 = f3;
+            float sound = f1 + f2 * 0.8f + f3 * 0.35f;
+
+            float env = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.12f)) * Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((p - 0.75f) / 0.25f));
+            return Tanh(sound * 0.08f) * env;                      // pushed hard: strained and harsh
+        }, 1f);
     }
 
     static AudioClip MakeEyeOpen()

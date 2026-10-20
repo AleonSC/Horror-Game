@@ -78,6 +78,7 @@ public class GameOverScreen : MonoBehaviour
             tower.ResetTower();
 
         if (WatcherEvent.Instance != null) WatcherEvent.Instance.ResetEvent();
+        if (ScreamEvent.Instance != null) ScreamEvent.Instance.ResetEvent();
 
         var player = FindAnyObjectByType<FirstPersonController>();
         if (player != null)

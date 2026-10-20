@@ -241,6 +241,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Pause Menu").AddComponent<PauseMenu>();
         if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<FallingLeaves>() == null)
             new GameObject("Falling Leaves").AddComponent<FallingLeaves>();
+        if (Application.isPlaying && FindAnyObjectByType<ScreamEvent>() == null)
+            new GameObject("Scream Event").AddComponent<ScreamEvent>();
         if (spawnWildlife && FindAnyObjectByType<Wildlife>() == null)
             new GameObject("Wildlife").AddComponent<Wildlife>();
         if (spawnFallingTree && Application.isPlaying && FindAnyObjectByType<FallingTreeEvent>() == null)
