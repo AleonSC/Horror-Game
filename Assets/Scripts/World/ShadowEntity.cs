@@ -177,8 +177,10 @@ public class ShadowEntity : MonoBehaviour
 
     [Header("Crescendo & Poof")]
     public float crescendoTime = 2.5f;
-    [Tooltip("Once it breaks, seconds for it to come apart into ash and blow away from the light.")]
-    public float dissolveTime = 1.2f;
+    [Tooltip("Once its eyes have burned blue, seconds it glitches (jumping, stretching, flickering out)...")]
+    public float glitchTime = 0.75f;
+    [Tooltip("...then it's gone in a crackle of small black lightning, lasting this long.")]
+    public float boltTime = 0.4f;
     [Tooltip("Each lamp the player has lit makes the crescendo this much faster (0.15 = 15% of the base speed per lamp).")]
     public float crescendoSpeedupPerLamp = 0.15f;
     [Tooltip("However many lamps are lit, the crescendo never gets shorter than this.")]
@@ -268,7 +270,7 @@ public class ShadowEntity : MonoBehaviour
     /// Body poses. Every time it creeps closer unseen, it's in a new one when you look back: head lolled
     /// sideways, an arm reaching for you, hunched low, turned away with its head twisted round to face you...
     /// </summary>
-    enum Pose { Neutral, HeadTilt, Reach, Crouch, TurnedAway, ArmsUp, HangingHead, Peek, Lunge, Flinch }
+    enum Pose { Neutral, HeadTilt, Reach, Crouch, TurnedAway, ArmsUp, HangingHead, Peek, Lunge }
     static readonly Pose[] CreepPoses = { Pose.Neutral, Pose.HeadTilt, Pose.Reach, Pose.Crouch, Pose.TurnedAway, Pose.ArmsUp, Pose.HangingHead };
     Pose pose;
     Quaternion poseHead = Quaternion.identity, poseLeftArm = Quaternion.identity, poseRightArm = Quaternion.identity;
@@ -332,6 +334,7 @@ public class ShadowEntity : MonoBehaviour
     void OnDestroy()
     {
         if (fragmentRoot != null) Destroy(fragmentRoot.gameObject);
+        ClearBolts();
     }
 
     void Update()
@@ -411,7 +414,8 @@ public class ShadowEntity : MonoBehaviour
         SetPose(Pose.Neutral, 1);
         if (wingRoot != null) wingRoot.gameObject.SetActive(false);
         if (Capturing == this) Capturing = null;
-        dissolveTimer = -1f;
+        glitchTimer = -1f;
+        ClearBolts();
     }
 
     void StartMaterialize()
@@ -685,18 +689,13 @@ public class ShadowEntity : MonoBehaviour
         if (CurrentState == State.Hidden) timer = Mathf.Min(timer, Random.Range(0.5f, 2.5f));
     }
 
-    int flinchSide = 1;
-    float dissolveTimer = -1f;
-    Vector3 dissolveFrom, dissolveAway;
+    float glitchTimer = -1f, glitchStep;
 
     void StartCrescendo()
     {
         CurrentState = State.Crescendo;
         timer = 0f;
-        dissolveTimer = -1f;
-        peeking = false;
-        flinchSide = Random.value < 0.5f ? -1 : 1;
-        SetPose(Pose.Flinch, flinchSide);
+        glitchTimer = -1f;
         // Carry on from exactly how the eyes looked a moment ago (brightness, eyeshine tint, glow), no jump.
         crescendoStartBrightness = Mathf.Max(eyeBrightness, eyeIntensity);
         crescendoStartShine = eyeshine;
@@ -851,13 +850,12 @@ public class ShadowEntity : MonoBehaviour
     }
 
     /// <summary>
-    /// Facing it down: held in the light, it recoils. It leans back from the beam, shuddering harder and
-    /// harder, an arm thrown up across its face, head turned away, mouth stretching open, its eyes burning
-    /// from red to blue. Then it breaks (Dissolve).
+    /// Facing it down: held in the light, it shudders harder and harder, stretching, its mouth splitting
+    /// wider, its eyes burning from red to blue. Then it breaks (Glitch).
     /// </summary>
     void UpdateCrescendo()
     {
-        if (dissolveTimer >= 0f) { UpdateDissolve(); return; }
+        if (glitchTimer >= 0f) { UpdateGlitch(); return; }
         FacePlayer();
         if (player != null) player.SetApproachLimit(this, transform.position, reactDistance, stopDistance);
 
@@ -865,11 +863,8 @@ public class ShadowEntity : MonoBehaviour
         float c = Mathf.Clamp01(timer / Mathf.Max(CrescendoDuration, 0.01f));
         float e = c * c; // ease in: slow build, violent finish
 
-        float recoil = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(c * 1.6f));
-        Tremble(Mathf.Lerp(maxVibration * 0.6f, crescendoVibration * 0.45f, e), Mathf.Lerp(9f, 22f, e));
-        posture.localRotation = Quaternion.Euler(-18f * recoil, flinchSide * 14f * recoil, flinchSide * -5f * recoil);
-        posture.localPosition = Vector3.back * (0.3f * scale * recoil);
-        visual.localScale = Vector3.one;
+        Vibrate(Mathf.Lerp(maxVibration, crescendoVibration, e));
+        visual.localScale = new Vector3(1f - 0.15f * e, 1f + 0.2f * e, 1f - 0.15f * e);
 
         float flicker = 1f + Random.Range(-0.3f, 0.3f) * e;
         mouthTarget = Mathf.Lerp(0.7f, 1.5f, e); // stretching wider and wider
@@ -884,67 +879,153 @@ public class ShadowEntity : MonoBehaviour
 
         if (player != null) player.AddCameraShake(maxCameraShake * e);
 
-        if (c >= 1f) StartDissolve();
-    }
-
-    /// <summary>A smooth shudder (not a jitter): the silhouette trembling in place, faster and harder with amount/speed.</summary>
-    void Tremble(float amount, float speed)
-    {
-        float t = Time.time * speed;
-        visual.localPosition = new Vector3(Mathf.PerlinNoise(t, 3.1f) - 0.5f, (Mathf.PerlinNoise(7.7f, t) - 0.5f) * 0.4f, Mathf.PerlinNoise(t, 11.3f) - 0.5f) * 2f * amount;
-        visual.localRotation = Quaternion.Euler(new Vector3(Mathf.PerlinNoise(t, 21f) - 0.5f, Mathf.PerlinNoise(31f, t) - 0.5f, Mathf.PerlinNoise(t, 41f) - 0.5f) * amount * 70f);
-    }
-
-    /// <summary>It breaks: a gasp, and it's blown back away from the light, coming apart into ash as it goes.</summary>
-    void StartDissolve()
-    {
-        dissolveTimer = 0f;
-        dissolveFrom = transform.position;
-        dissolveAway = transform.position - target.position;
-        dissolveAway.y = 0f;
-        dissolveAway = dissolveAway.sqrMagnitude > 0.001f ? dissolveAway.normalized : -transform.forward;
-        StartFragments(converge: false, ash: true);
-        PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof, 0.8f);
-        if (player != null) player.AddCameraShake(maxCameraShake);
+        if (c >= 1f)
+        {
+            glitchTimer = 0f;
+            glitchStep = 0f;
+        }
     }
 
     /// <summary>
-    /// Coming apart: the body is swept back and up away from the light, thinning into nothing as ash streams
-    /// off it on the same wind. The blue eyes go last: a final flare, and they wink out.
+    /// It breaks like a bad signal. First it glitches: it holds still, then jumps to a slightly wrong
+    /// place, stretched or squashed, flickers out for a frame and back, again and again, faster and
+    /// faster, its blue eyes burning. Then it's gone: a crack, and a few small, jagged bolts of black
+    /// lightning snapping out from where it stood, flickering, then nothing.
     /// </summary>
-    void UpdateDissolve()
+    void UpdateGlitch()
     {
-        dissolveTimer += Time.deltaTime;
-        float d = Mathf.Clamp01(dissolveTimer / Mathf.Max(dissolveTime, 0.01f));
-        float drift = Mathf.SmoothStep(0f, 1f, d);
-        transform.position = dissolveFrom + dissolveAway * (1.6f * scale * drift) + Vector3.up * (0.35f * scale * drift * drift);
+        float dt = Time.deltaTime;
+        glitchTimer += dt;
+        mouthTarget = 1.5f;
+        whisper.volume = volume * crescendoVolume;
 
-        // Thinning, stretched out on the wind, the shudder dying, until the last of it has blown away as
-        // ash (just over halfway) and only the eyes are left hanging there.
-        float thin = 1f - 0.65f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((d - 0.05f) / 0.55f));
-        Vector3 bodyScale = new Vector3(thin, 1f + 0.3f * (1f - thin), thin);
-        visual.localScale = bodyScale;
-        Tremble(crescendoVibration * 0.4f * thin, 22f);
-        bool bodyGone = d >= 0.6f;
-        foreach (var r in bodyRenderers)
-            r.enabled = !bodyGone || r.transform == leftEye || r.transform == rightEye;
-        posture.localRotation = Quaternion.Euler(-18f - 22f * drift, flinchSide * 14f, flinchSide * -5f);
+        if (glitchTimer < glitchTime)
+        {
+            float g = glitchTimer / glitchTime;
+            glitchStep -= dt;
+            if (glitchStep <= 0f)
+            {
+                // A new wrong frame: held until the next one (stepped, not smooth).
+                glitchStep = Mathf.Lerp(0.11f, 0.035f, g) * Random.Range(0.6f, 1.3f);
+                Vector3 jump = Vector3.Scale(Random.insideUnitSphere, new Vector3(1f, 0.25f, 1f)) * Mathf.Lerp(0.12f, 0.4f, g) * scale;
+                visual.localPosition = jump;
+                visual.localRotation = Quaternion.Euler(0f, Random.Range(-12f, 12f), Random.Range(-6f, 6f));
+                float wide = Random.value < 0.5f ? Random.Range(1.3f, 1.9f) : Random.Range(0.35f, 0.75f);
+                visual.localScale = new Vector3(wide, Random.Range(0.85f, 1.15f), Mathf.Lerp(1f, wide, 0.5f));
+                SetVisible(Random.value > Mathf.Lerp(0.15f, 0.45f, g)); // flickering out, more and more
+                SetEyes(maxEyeWiden * Random.Range(1.4f, 2.2f), spawnEyeIntensity * Random.Range(1.2f, 2.2f), 0f, 1f);
+                eyeLight.intensity = spawnEyeIntensity * eyeLightStrength * (1f + dismissGlow) * Random.Range(0.4f, 1f);
+                sfx.pitch = Random.Range(1.6f, 2.6f);
+                sfx.PlayOneShot(ProceduralAudio.LampSpark, volume * 0.25f);
+                if (player != null) player.AddCameraShake(maxCameraShake * 0.5f);
+            }
+            return;
+        }
 
-        // The eyes stay whole (unstretched) until the very end: a last flare, then gone.
-        float eyesLeft = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((d - 0.72f) / 0.2f));
-        float flare = Mathf.Exp(-Mathf.Pow((d - 0.75f) / 0.08f, 2f));
-        SetEyes(maxEyeWiden * 1.8f * eyesLeft, spawnEyeIntensity * 1.5f * (1f + flare), 0f, 1f);
-        eyeLight.intensity *= eyesLeft + flare * 2f;
-        foreach (var eyeT in new[] { leftEye, rightEye })
-            eyeT.localScale = new Vector3(eyeT.localScale.x / bodyScale.x, eyeT.localScale.y / bodyScale.y, eyeT.localScale.z / bodyScale.z);
-        mouthTarget = 1.5f * thin;
-        whisper.volume = volume * crescendoVolume * (1f - d);
+        // Gone, in black lightning.
+        if (bolts.Count == 0)
+        {
+            SetVisible(false);
+            whisper.Stop();
+            StartFragments(converge: false);
+            PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof, 0.7f);
+            sfx.pitch = 0.8f;
+            sfx.PlayOneShot(ProceduralAudio.LampSpark, volume * 0.8f);
+            if (player != null) player.AddCameraShake(maxCameraShake);
+            MakeBolts();
+        }
+        float b = (glitchTimer - glitchTime) / Mathf.Max(boltTime, 0.01f);
+        glitchStep -= dt;
+        if (glitchStep <= 0f)
+        {
+            glitchStep = Random.Range(0.04f, 0.08f);
+            bool show = Random.value < Mathf.Lerp(0.9f, 0.35f, b);
+            foreach (var bolt in bolts)
+            {
+                bolt.enabled = show;
+                if (show) Jag(bolt);
+            }
+        }
+        if (b < 1f) return;
 
-        if (d < 1f) return;
-        dissolveTimer = -1f;
+        ClearBolts();
+        glitchTimer = -1f;
         ResetVisual();
         whisper.pitch = Random.Range(0.85f, 1.1f);
         Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
+    }
+
+    // ---------------------------------------------------------------- Black lightning
+
+    readonly List<LineRenderer> bolts = new List<LineRenderer>();
+    readonly List<(Vector3 from, Vector3 to)> boltEnds = new List<(Vector3 from, Vector3 to)>();
+    static Material boltCore, boltRim;
+
+    /// <summary>A few short bolts from where it stood, out and up into the dark: each a black core with a faint blue edge.</summary>
+    void MakeBolts()
+    {
+        if (boltCore == null)
+        {
+            boltCore = MaterialFactory.NoFog(Color.black);
+            boltRim = MaterialFactory.NoFog(new Color(0.12f, 0.25f, 0.6f));
+        }
+        boltEnds.Clear();
+        int count = Random.Range(3, 6);
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 from = transform.position + Vector3.up * Random.Range(0.4f, 2.2f) * scale;
+            Vector3 dir = (Random.onUnitSphere + Vector3.up * 0.7f).normalized;
+            Vector3 to = from + dir * Random.Range(1.2f, 2.8f) * scale;
+            boltEnds.Add((from, to));
+            foreach (bool rim in new[] { true, false })
+            {
+                var lr = new GameObject(rim ? "Black Bolt Edge" : "Black Bolt").AddComponent<LineRenderer>();
+                lr.transform.SetParent(transform.parent, true);
+                lr.sharedMaterial = rim ? boltRim : boltCore;
+                lr.widthMultiplier = rim ? 0.07f : 0.035f;
+                lr.positionCount = 7;
+                lr.useWorldSpace = true;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                lr.receiveShadows = false;
+                lr.sortingOrder = rim ? 0 : 1;
+                bolts.Add(lr);
+            }
+        }
+        foreach (var bolt in bolts) Jag(bolt);
+    }
+
+    /// <summary>A fresh jagged path for a bolt (its core and edge share a path, the edge drawn first, wider).</summary>
+    void Jag(LineRenderer bolt)
+    {
+        int index = bolts.IndexOf(bolt);
+        if (index < 0 || index / 2 >= boltEnds.Count) return;
+        if (index % 2 == 1) { bolt.SetPositions(BoltPath(bolts[index - 1])); return; } // the core follows its edge
+        var (from, to) = boltEnds[index / 2];
+        var path = new Vector3[bolt.positionCount];
+        Vector3 side = Vector3.Cross(to - from, Vector3.up).normalized;
+        if (side.sqrMagnitude < 0.01f) side = Vector3.right;
+        Vector3 other = Vector3.Cross(to - from, side).normalized;
+        for (int k = 0; k < path.Length; k++)
+        {
+            float u = k / (float)(path.Length - 1);
+            float off = (k == 0 || k == path.Length - 1) ? 0f : 0.25f * scale;
+            path[k] = Vector3.Lerp(from, to, u) + side * Random.Range(-off, off) + other * Random.Range(-off, off);
+        }
+        bolt.SetPositions(path);
+    }
+
+    static Vector3[] BoltPath(LineRenderer bolt)
+    {
+        var path = new Vector3[bolt.positionCount];
+        bolt.GetPositions(path);
+        return path;
+    }
+
+    void ClearBolts()
+    {
+        foreach (var bolt in bolts) if (bolt != null) Destroy(bolt.gameObject);
+        bolts.Clear();
+        boltEnds.Clear();
     }
 
     void Poof()
@@ -1492,12 +1573,6 @@ public class ShadowEntity : MonoBehaviour
                 poseRightArm = Quaternion.Euler(-80f, 0f, 15f);
                 poseHead = Quaternion.Euler(-25f, 0f, 0f);
                 break;
-            case Pose.Flinch:
-                poseHead = Quaternion.Euler(30f, side * -50f, side * 25f); // face turned away and down from the light
-                arm = Quaternion.Euler(-140f, 0f, side * -35f);            // an arm thrown up across its face
-                if (side < 0) poseRightArm = Quaternion.Euler(20f, 0f, side * 20f); // the other hanging back
-                else poseLeftArm = Quaternion.Euler(20f, 0f, side * 20f);
-                break;
             case Pose.Peek:
                 posture.localRotation = Quaternion.Euler(0f, 0f, -side * 28f); // leaning out from behind the trunk
                 poseHead = Quaternion.Euler(0f, 0f, side * 20f);
@@ -1597,11 +1672,7 @@ public class ShadowEntity : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Bursts it into smoky specks (or, converge, gathers them in to form it). ash: instead of all at once,
-    /// they stream off its body over the dissolve, blown away from the player on the dissolve wind.
-    /// </summary>
-    void StartFragments(bool converge, bool ash = false)
+    void StartFragments(bool converge)
     {
         fragmentsConverge = converge;
         fragmentsActive = true;
@@ -1622,17 +1693,6 @@ public class ShadowEntity : MonoBehaviour
                 fragEnd[i] = bodyPoint;
                 fragLife[i] = materializeTime * Random.Range(0.6f, 1f);
             }
-            else if (ash)
-            {
-                // Peeling off over the dissolve, from where the body will be by then, and carried off on the wind.
-                float delay = Random.Range(0f, dissolveTime * 0.55f);
-                float drift = Mathf.SmoothStep(0f, 1f, delay / Mathf.Max(dissolveTime, 0.01f));
-                fragStart[i] = bodyPoint + dissolveAway * (1.6f * scale * drift);
-                fragVelocity[i] = dissolveAway * Random.Range(1.2f, 3.5f) + Vector3.up * Random.Range(0.3f, 1.8f) + Random.insideUnitSphere * 0.8f;
-                fragLife[i] = Random.Range(0.8f, 1.6f);
-                fragSize[i] *= 0.8f;
-                fragAge[i] = -delay;
-            }
             else
             {
                 Vector3 outward = Random.insideUnitSphere;
@@ -1644,7 +1704,7 @@ public class ShadowEntity : MonoBehaviour
 
             fragments[i].position = fragStart[i];
             fragments[i].localScale = converge ? Vector3.zero : Vector3.one * fragSize[i];
-            fragments[i].GetComponent<Renderer>().enabled = fragAge[i] >= 0f;
+            fragments[i].GetComponent<Renderer>().enabled = true;
         }
     }
 
@@ -1658,19 +1718,6 @@ public class ShadowEntity : MonoBehaviour
         for (int i = 0; i < fragments.Length; i++)
         {
             if (fragAge[i] >= fragLife[i]) continue;
-
-            if (fragAge[i] < 0f)
-            {
-                // Not off the body yet (ash streaming off over the dissolve).
-                fragAge[i] += dt;
-                anyAlive = true;
-                if (fragAge[i] >= 0f)
-                {
-                    fragments[i].position = fragStart[i];
-                    fragments[i].GetComponent<Renderer>().enabled = true;
-                }
-                continue;
-            }
 
             fragAge[i] += dt;
             float p = Mathf.Clamp01(fragAge[i] / fragLife[i]);
@@ -1907,12 +1954,8 @@ public class ShadowEntity : MonoBehaviour
         headPivot.localRotation = Quaternion.Slerp(headPivot.localRotation, poseHead * headTarget, 1f - Mathf.Exp(-25f * dt));
 
         float t = Time.time;
-        Quaternion leftTarget = poseLeftArm * Quaternion.Euler(Mathf.Sin(t * 0.7f + 1f) * 6f, 0f, Mathf.Sin(t * 0.5f) * 4f);
-        Quaternion rightTarget = poseRightArm * Quaternion.Euler(Mathf.Sin(t * 0.6f + 2.5f) * 6f, 0f, Mathf.Sin(t * 0.45f + 1f) * 4f);
-        // Recoiling from the light, the arm comes up rather than snapping there (elsewhere poses change unseen).
-        float limbBlend = CurrentState == State.Crescendo ? 1f - Mathf.Exp(-9f * dt) : 1f;
-        leftArm.localRotation = Quaternion.Slerp(leftArm.localRotation, leftTarget, limbBlend);
-        rightArm.localRotation = Quaternion.Slerp(rightArm.localRotation, rightTarget, limbBlend);
+        leftArm.localRotation = poseLeftArm * Quaternion.Euler(Mathf.Sin(t * 0.7f + 1f) * 6f, 0f, Mathf.Sin(t * 0.5f) * 4f);
+        rightArm.localRotation = poseRightArm * Quaternion.Euler(Mathf.Sin(t * 0.6f + 2.5f) * 6f, 0f, Mathf.Sin(t * 0.45f + 1f) * 4f);
         // Extra arms grope about on their own, out of time with the rest.
         for (int i = 0; i < extraArms.Count; i++)
             extraArms[i].localRotation = extraArmRest[i] * Quaternion.Euler(
