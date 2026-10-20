@@ -43,6 +43,7 @@ public class LightingSettings : MonoBehaviour
     bool captured;
     float lightRefresh;
     Vector2 scroll;
+    float panelUnit = 1f;
     GUIStyle headerStyle, labelStyle, buttonStyle, selectedStyle;
 
     static readonly string[] ShadowNames = { "Off", "Hard", "Soft" };
@@ -157,6 +158,7 @@ public class LightingSettings : MonoBehaviour
     public void DrawPanel(Rect area, float unit)
     {
         if (!captured) Capture();
+        panelUnit = unit;
 
         if (headerStyle == null)
         {
@@ -229,7 +231,7 @@ public class LightingSettings : MonoBehaviour
     bool Slider(string label, ref float value, float min, float max, string format)
     {
         GUILayout.BeginHorizontal();
-        GUILayout.Label($"{label}: {value.ToString(format)}", labelStyle, GUILayout.Width(220f * Mathf.Max(1f, Screen.height / 1080f)));
+        GUILayout.Label($"{label}: {value.ToString(format)}", labelStyle, GUILayout.Width(220f * panelUnit));
         float v = GUILayout.HorizontalSlider(value, min, max);
         GUILayout.EndHorizontal();
         if (Mathf.Approximately(v, value)) return false;
