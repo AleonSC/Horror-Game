@@ -13,6 +13,12 @@ public class ShackDoor : MonoBehaviour
 
     public bool IsOpen { get; private set; }
 
+    /// <summary>How far open it is right now, 0 shut to 1 fully open.</summary>
+    public float OpenAmount => Mathf.Approximately(openAngle, 0f) ? 0f : Mathf.Clamp01(angle / openAngle);
+
+    /// <summary>Another door that opens and shuts along with this one (the lone door and its twin in the dark room).</summary>
+    [HideInInspector] public ShackDoor linked;
+
     float angle;
     AudioSource audioSource;
 
@@ -24,6 +30,7 @@ public class ShackDoor : MonoBehaviour
     public void Toggle()
     {
         IsOpen = !IsOpen;
+        if (linked != null) linked.IsOpen = IsOpen; // silently, it's the same door
         if (audioSource != null)
         {
             audioSource.pitch = IsOpen ? Random.Range(0.9f, 1.05f) : Random.Range(0.75f, 0.9f);

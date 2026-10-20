@@ -303,7 +303,7 @@ public class MusicManager : MonoBehaviour
 
     void UpdateVolumes()
     {
-        float duck = 1f - dreadDuck * EntityDread.Silence;
+        float duck = (1f - dreadDuck * EntityDread.Silence) * (1f - PortalDoor.RoomQuiet); // silent in the dark room
         float dt = Time.unscaledDeltaTime;
         for (int i = 0; i < 2; i++)
         {

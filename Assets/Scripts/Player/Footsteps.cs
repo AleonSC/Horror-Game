@@ -84,6 +84,7 @@ public class Footsteps : MonoBehaviour
         }
 
         source.pitch = Random.Range(0.9f, 1.1f);
-        source.PlayOneShot(clip, volume * (1f - 0.85f * EntityDread.Silence)); // even your steps go quiet near it
+        // Even your steps go quiet near it; in the dark room's silence they're all there is, ringing off the walls.
+        source.PlayOneShot(clip, volume * (1f - 0.85f * EntityDread.Silence) * (1f + 1.5f * PortalDoor.RoomQuiet));
     }
 }

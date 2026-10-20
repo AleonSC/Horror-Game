@@ -33,6 +33,7 @@ public class AmbienceAudio : MonoBehaviour
     public AudioClip[] randomNoiseClips;
 
     AudioSource drone, tension;
+    AudioReverbZone reverb;
     float noiseTimer;
 
     void Start()
@@ -42,7 +43,8 @@ public class AmbienceAudio : MonoBehaviour
 
         if (forestReverb)
         {
-            var reverb = gameObject.AddComponent<AudioReverbZone>();
+            reverb = new GameObject("Reverb").AddComponent<AudioReverbZone>();
+            reverb.transform.SetParent(transform, false);
             reverb.reverbPreset = AudioReverbPreset.Forest;
             reverb.minDistance = 500f;
             reverb.maxDistance = 1000f;
@@ -73,13 +75,21 @@ public class AmbienceAudio : MonoBehaviour
 
         float closeness = Mathf.Clamp01(Mathf.InverseLerp(tensionDistance, 3f, nearest));
         // Right up close it all drops away (EntityDread): the silence is the warning.
-        float quiet = 1f - 0.9f * EntityDread.Silence;
+        // ...and in the dark room behind the lone door, the whole forest fades away.
+        float quiet = (1f - 0.9f * EntityDread.Silence) * (1f - PortalDoor.RoomQuiet);
+        if (reverb != null)
+        {
+            // In the room: a vast, echoing hall. Out here: the woods.
+            reverb.transform.position = listener;
+            var preset = PortalDoor.PlayerInRoom ? AudioReverbPreset.Hangar : AudioReverbPreset.Forest;
+            if (reverb.reverbPreset != preset) reverb.reverbPreset = preset;
+        }
         tension.volume = Mathf.MoveTowards(tension.volume, closeness * tensionVolume * quiet, Time.deltaTime * 0.5f);
         drone.pitch = Mathf.Lerp(1f, 0.92f, closeness);
         drone.volume = droneVolume * quiet;
 
         noiseTimer -= Time.deltaTime;
-        if (noiseTimer <= 0f && EntityDread.Silence > 0.3f) noiseTimer = 2f; // nothing stirs while it's close
+        if (noiseTimer <= 0f && (EntityDread.Silence > 0.3f || PortalDoor.RoomQuiet > 0.05f)) noiseTimer = 2f; // nothing stirs while it's close, or in the room
         if (noiseTimer <= 0f)
         {
             noiseTimer = Random.Range(minNoiseInterval, maxNoiseInterval);

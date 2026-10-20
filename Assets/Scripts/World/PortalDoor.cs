@@ -1,11 +1,13 @@
 using UnityEngine;
 
 /// <summary>
-/// A door standing on its own in the forest, wide open, between two lit lamp posts. Through the doorway
-/// there's no forest: there's a vast, dark room. Walk round the back of it, or past its sides, and it's just
-/// a door frame in the trees. Step through and you're in the room: black floor, black walls, black pillars
-/// receding into the dark, one dim light. The door stands open in the middle of it, and through it you
-/// can see the forest; look round the back of it and there's only more room. Step back through to leave.
+/// A door standing on its own in the forest, shut, between two lit lamp posts. Click it to open it (and
+/// again to shut it). Through the doorway there's no forest: there's a vast, dark room. Walk round the
+/// back of it, or past its sides, and it's just a door frame in the trees. Step through and you're in the room: black floor, black walls, black pillars
+/// receding into the dark, one dim light. The door stands in the middle of it, and through it you can see
+/// the forest; look round the back of it and there's only more room. Step back through to leave. Both
+/// sides are the same door: shut it from inside and it's shut outside too. In the room the forest's sounds
+/// fade away to an echoing silence, just your own footsteps (RoomQuiet).
 ///
 /// The room is built far underground below the door. Each doorway shows a render texture from a camera
 /// placed at the matching spot by the other door, clipped to the doorway's plane; crossing a doorway moves
@@ -16,6 +18,14 @@ public class PortalDoor : MonoBehaviour
 {
     /// <summary>True while the player is in the dark room.</summary>
     public static bool PlayerInRoom { get; private set; }
+
+    /// <summary>0 in the forest, fading up to 1 in the room: the outside world's sounds duck by this.</summary>
+    public static float RoomQuiet { get; private set; }
+
+    [Tooltip("Seconds for the forest's sounds to fade away once you're in the room.")]
+    public float quietFadeIn = 2.5f;
+    [Tooltip("Seconds for them to come back once you're out.")]
+    public float quietFadeOut = 1.5f;
 
     [Tooltip("How far below the door the room is built.")]
     public float roomDepth = 400f;
@@ -29,6 +39,7 @@ public class PortalDoor : MonoBehaviour
     const int PortalLayer = 30; // the doorway screens; the portal cameras don't see them
 
     Transform forestDoor, roomDoor;
+    ShackDoor forestPanel, roomPanel;
     Renderer forestScreen, roomScreen;
     Camera forestViewCam, roomViewCam; // forestViewCam shows the forest (seen from the room), roomViewCam the room
     RenderTexture forestView, roomView;
@@ -48,6 +59,7 @@ public class PortalDoor : MonoBehaviour
         var stone = MaterialFactory.Lit(new Color(0.15f, 0.15f, 0.15f), 0.1f);
 
         forestDoor = BuildDoorway("Door", transform, wood, frameWood, metal, stone, true);
+        forestPanel = forestDoor.GetComponentInChildren<ShackDoor>();
         for (int side = -1; side <= 1; side += 2)
             BuildLampPost(transform, new Vector3(side * 1.6f, 0f, 0.35f), metal);
 
@@ -57,6 +69,9 @@ public class PortalDoor : MonoBehaviour
         room.localPosition = Vector3.down * roomDepth;
         BuildRoom(room, rng);
         roomDoor = BuildDoorway("Door", room, wood, frameWood, metal, stone, false);
+        roomPanel = roomDoor.GetComponentInChildren<ShackDoor>();
+        forestPanel.linked = roomPanel;
+        roomPanel.linked = forestPanel;
 
         forestScreen = BuildScreen(forestDoor);
         roomScreen = BuildScreen(roomDoor);
@@ -73,11 +88,12 @@ public class PortalDoor : MonoBehaviour
         Part(PrimitiveType.Cube, frameWood, door, new Vector3(0f, DoorHeight + 0.06f, 0f), new Vector3(DoorWidth + 0.24f, 0.12f, 0.2f), true);
         if (inForest) Part(PrimitiveType.Cube, stone, door, new Vector3(0f, -0.04f, 0f), new Vector3(DoorWidth + 0.5f, 0.12f, 0.5f), false);
 
-        // The door itself, swung wide open, hinged on the right post.
+        // The door itself, shut, hinged on the right post. Click it to swing it open.
         var hinge = new GameObject("Hinge").transform;
         hinge.SetParent(door, false);
         hinge.localPosition = new Vector3(DoorWidth * 0.5f, 0f, 0.08f);
-        hinge.localRotation = Quaternion.Euler(0f, 100f, 0f);
+        var swing = hinge.gameObject.AddComponent<ShackDoor>();
+        swing.openAngle = 100f;
         Part(PrimitiveType.Cube, wood, hinge, new Vector3(-DoorWidth * 0.5f, DoorHeight * 0.5f, 0f), new Vector3(DoorWidth, DoorHeight - 0.02f, 0.05f), true);
         for (int panel = 0; panel < 2; panel++)
             Part(PrimitiveType.Cube, frameWood, hinge, new Vector3(-DoorWidth * 0.5f, DoorHeight * (panel == 0 ? 0.3f : 0.72f), 0.03f), new Vector3(DoorWidth * 0.7f, DoorHeight * (panel == 0 ? 0.36f : 0.36f), 0.015f), false);
@@ -192,6 +208,7 @@ public class PortalDoor : MonoBehaviour
     void OnDestroy()
     {
         PlayerInRoom = false;
+        RoomQuiet = 0f;
         if (forestView != null) forestView.Release();
         if (roomView != null) roomView.Release();
     }
@@ -220,8 +237,14 @@ public class PortalDoor : MonoBehaviour
         lastInRoom = inRoom;
         PlayerInRoom = inRoom;
 
-        CheckCrossing(inRoom);
+        // Shut, it's just a door: no view through it, no way through.
+        forestScreen.enabled = forestPanel.OpenAmount > 0.01f;
+        roomScreen.enabled = roomPanel.OpenAmount > 0.01f;
+
+        if ((inRoom ? roomPanel : forestPanel).IsOpen) CheckCrossing(inRoom);
+        else lastSide = 0;
         inRoom = PlayerInRoom;
+        RoomQuiet = Mathf.MoveTowards(RoomQuiet, inRoom ? 1f : 0f, Time.deltaTime / Mathf.Max(inRoom ? quietFadeIn : quietFadeOut, 0.01f));
 
         // Only the doorway in the player's world needs a view, and only when it could be seen.
         Transform here = inRoom ? roomDoor : forestDoor;

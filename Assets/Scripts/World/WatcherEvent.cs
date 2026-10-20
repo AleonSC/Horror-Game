@@ -220,6 +220,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         }
 
         UpdateSearchlights(dt);
+        audioSource.volume = 1f - PortalDoor.RoomQuiet; // the giant's booms don't reach the dark room
 
         // The sky turns red as the eye opens, and stays that way while the giant walks.
         float targetRed = phase == Phase.Waiting || phase == Phase.Done ? 0f : 1f;
