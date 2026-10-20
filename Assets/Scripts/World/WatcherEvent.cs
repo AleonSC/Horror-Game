@@ -597,6 +597,23 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     }
 
     /// <summary>Drives the giant back to where it started (the watchtower floodlights do this).</summary>
+    /// <summary>
+    /// The player was caught: if it's walking (or reached them) it's back at the horizon, walking in again.
+    /// Everything else about it stays as it was.
+    /// </summary>
+    public void AfterDeath()
+    {
+        shake = 0f;
+        if (phase == Phase.Done || phase == Phase.GiantWalking)
+        {
+            phase = Phase.GiantWalking;
+            giantDistance = giantStartDistance;
+            searchTimer = -1f;
+            searchPausing = false;
+        }
+        if (player != null) player.DreamStretch = 0f;
+    }
+
     public void PushBack()
     {
         if (phase != Phase.GiantWalking) return;

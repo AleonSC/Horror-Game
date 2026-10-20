@@ -2,9 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Shown when an entity catches the player: fades to black, shows a message, then resets
-/// the run (all lamps off, fresh batteries, full flashlight, empty hotbar, restocked shacks, all entities removed, a single new
-/// entity, player back at spawn) and fades back in.
+/// Shown when an entity catches the player: fades to black, shows a message, then brings them back and
+/// fades in. Progress is kept: every lamp stays lit, everything they're carrying stays with them, the
+/// world stays as they left it. They wake (groggy) by the lamp they lit last (or at the start, if none), the
+/// scours melt away and come back to hunt afresh after a while, the blind one and the flier are gone for a
+/// bit, and the giant's back at the horizon. The pause menu's Restart starts the whole run over (RestartRun).
 /// </summary>
 public class GameOverScreen : MonoBehaviour
 {
@@ -42,7 +44,7 @@ public class GameOverScreen : MonoBehaviour
         if (!hasReset && timer >= FadeOutTime + HoldTime)
         {
             hasReset = true;
-            ResetRun();
+            Respawn();
         }
 
         if (timer >= FadeOutTime + HoldTime + FadeInTime) Destroy(gameObject);
@@ -55,6 +57,43 @@ public class GameOverScreen : MonoBehaviour
         ResetRun();
     }
 
+    /// <summary>Back from being caught, keeping all progress (see the class summary).</summary>
+    static void Respawn()
+    {
+        foreach (var entity in new List<ShadowEntity>(ShadowEntity.All))
+            entity.Retreat(Random.Range(20f, 35f));
+        foreach (var blind in new List<BlindEntity>(BlindEntity.All))
+            blind.Retreat(30f);
+        foreach (var flier in new List<FlyingEntity>(FlyingEntity.All))
+            flier.Banish(30f);
+        Shockwave.Cancel();
+
+        var player = FindAnyObjectByType<FirstPersonController>();
+        if (player != null)
+        {
+            // By the last lamp they lit, in its light; or back at the start.
+            var lamp = Lamp.LastLit;
+            if (lamp != null)
+            {
+                Vector2 off = Random.insideUnitCircle.normalized * 2.4f;
+                Vector3 at = lamp.transform.position + new Vector3(off.x, 0f, off.y);
+                var generator = FindAnyObjectByType<DarkForestGenerator>();
+                if (generator != null) at.y = generator.GetGroundHeight(at.x, at.z) + 0.1f;
+                Vector3 face = lamp.transform.position - at;
+                face.y = 0f;
+                player.RespawnAt(at, Quaternion.LookRotation(face.sqrMagnitude > 0.01f ? -face : Vector3.forward));
+            }
+            else player.ResetToSpawn();
+            player.enabled = true;
+        }
+
+        var flashlight = FindAnyObjectByType<Flashlight>();
+        if (flashlight != null) flashlight.EnsureCharge(0.3f); // enough to get going again
+
+        if (WatcherEvent.Instance != null) WatcherEvent.Instance.AfterDeath();
+    }
+
+    /// <summary>Everything back to the very start (the pause menu's Restart).</summary>
     static void ResetRun()
     {
         foreach (var entity in new List<ShadowEntity>(ShadowEntity.All))

@@ -311,6 +311,21 @@ public class BlindEntity : MonoBehaviour
         timer = seconds;
     }
 
+    /// <summary>
+    /// The player was caught (by anything): it's gone for a while, then rises again near them quietly. Unlike
+    /// Banish this works whatever it's doing (except mid-entrance, which plays out).
+    /// </summary>
+    public void Retreat(float seconds)
+    {
+        if (state == State.Appearing && !quietReturn) return;
+        SetAlpha(0f);
+        mouth.localScale = new Vector3(1f, 0.25f, 1f); // (if it was taking the player, its mouth was open)
+        transform.position += Vector3.down * 100f;
+        quietReturn = false;
+        state = State.Banished;
+        timer = seconds;
+    }
+
     /// <summary>True when it's out in the world, where it can be seen (and flashed).</summary>
     public bool IsPresent => state != State.Banished && (state != State.Appearing || fadeIn > 0.3f);
 

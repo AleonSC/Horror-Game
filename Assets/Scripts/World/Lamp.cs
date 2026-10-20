@@ -126,7 +126,10 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
     /// <summary>How many times any lamp has been turned on this run.</summary>
     public static int TimesLit { get; private set; }
-    public static void ResetTimesLit() => TimesLit = 0;
+    public static void ResetTimesLit() { TimesLit = 0; LastLit = null; }
+
+    /// <summary>The lamp lit most recently: where the player comes back after being caught.</summary>
+    public static Lamp LastLit { get; private set; }
 
     /// <summary>How many lamps are burning right now.</summary>
     public static int CurrentlyLitCount
@@ -382,6 +385,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     {
         IsLit = true;
         TimesLit++;
+        LastLit = this;
         HasBeenLit = true;
         Energy = 1f;
         flickerTimer = 0f;

@@ -252,6 +252,9 @@ public class Flashlight : MonoBehaviour
     }
 
     /// <summary>Full battery and back to the starting on/off state (used when the run resets).</summary>
+    /// <summary>Tops the battery up to at least this much (after being caught).</summary>
+    public void EnsureCharge(float atLeast) => Battery = Mathf.Max(Battery, Mathf.Clamp01(atLeast));
+
     public void ResetBattery()
     {
         Battery = 1f;

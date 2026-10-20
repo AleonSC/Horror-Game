@@ -413,7 +413,7 @@ public class LampInteractor : MonoBehaviour
         Diamond(bar.xMax + 6f * unit, bar.center.y, 3f * unit, Ember);
     }
 
-    /// <summary>How many times lamps have been turned on, in the top right: a glowing dot and a big number.</summary>
+    /// <summary>How many of the lamps have been lit, in the top right: a glowing dot and "3/10".</summary>
     void DrawLampCounter()
     {
         float unit = Mathf.Max(1f, Screen.height / 1080f);
@@ -430,9 +430,9 @@ public class LampInteractor : MonoBehaviour
         smallStyle.normal.textColor = new Color(0.95f, 0.88f, 0.72f);
         var textRect = new Rect(area.x, area.y, area.width - dot - 12f * unit, height);
         GUI.color = new Color(0f, 0f, 0f, 0.7f);
-        GUI.Label(new Rect(textRect.x + 2f, textRect.y + 2f, textRect.width, textRect.height), Lamp.TimesLit.ToString(), smallStyle);
+        GUI.Label(new Rect(textRect.x + 2f, textRect.y + 2f, textRect.width, textRect.height), $"{Lamp.LitCount}/{Lamp.All.Count}", smallStyle);
         GUI.color = Color.white;
-        GUI.Label(textRect, Lamp.TimesLit.ToString(), smallStyle);
+        GUI.Label(textRect, $"{Lamp.LitCount}/{Lamp.All.Count}", smallStyle);
     }
 
     static Color EnergyColor(Lamp lamp) =>

@@ -174,10 +174,13 @@ public class FirstPersonController : MonoBehaviour
         controller.enabled = true;
     }
 
-    public void ResetToSpawn()
+    public void ResetToSpawn() => RespawnAt(spawnPosition, spawnRotation);
+
+    /// <summary>Puts the player somewhere (after being caught), clearing any movement effects, waking up groggy.</summary>
+    public void RespawnAt(Vector3 position, Quaternion rotation)
     {
         controller.enabled = false; // CharacterController overrides teleports while enabled
-        transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+        transform.SetPositionAndRotation(position, rotation);
         controller.enabled = true;
 
         horizontalVelocity = moveVelocity = Vector3.zero;

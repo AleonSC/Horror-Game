@@ -643,6 +643,18 @@ public class ShadowEntity : MonoBehaviour
         creepTimer = NextCreepDelay();
     }
 
+    /// <summary>The player was caught: it melts away and comes back to start its hunt over, after a while.</summary>
+    public void Retreat(float seconds)
+    {
+        if (CanBeFlashed || CurrentState == State.Killing)
+        {
+            StartFragments(converge: false);
+            ResetVisual();
+        }
+        Hide(seconds);
+        creepTimer = NextCreepDelay();
+    }
+
     public void Summon()
     {
         if (Time.time < banishedUntil) return; // it's been driven off: not even the watchtower brings it back early
