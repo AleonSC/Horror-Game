@@ -22,7 +22,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/Footsteps.cs` | Very faint footsteps on the dirt (quieter crouching, a little louder running) and a thump on landing. |
 | `Assets/Scripts/Player/Hotbar.cs` | Hotbar: 1 flashlight, 2 torch, 3 lighter, 4 flare gun, 5 glowsticks. Lit torches and lighters keep the entities away, but burn out for good. |
 | `Assets/Scripts/World/Watchtower.cs` / `WatchtowerButton.cs` / `Ladder.cs` | One very tall watchtower somewhere on the map. Climb the ladder and press the button: floodlights blaze for a minute, every entity's hunt is reset, and the lit area is safe. Then it recharges. |
-| `Assets/Scripts/World/FallingTreeEvent.cs` | Every minute or so (first one about 30 seconds in), a nearby tree cracks at the base and comes crashing down. `Trigger()` sets one off any time. |
+| `Assets/Scripts/World/FallingTreeEvent.cs` | Every minute or so (first one about 30 seconds in), a nearby tree cracks at the base and topples under physics, splintering into sections (and flying shards) that settle into the lie of the ground. `Trigger()` sets one off any time. |
 | `Assets/Scripts/World/ProceduralTextures.cs` | Generates the forest-floor dirt texture in code. |
 | `Assets/Scripts/World/WatcherEvent.cs` | After 5 lamps: a giant red eye opens in the sky, the world turns red, and a colossal entity walks toward you. The watchtower floodlights drive it back. |
 | `Assets/Scripts/Resources/HorrorUnlitNoFog.shader` | Flat colour that ignores fog, for the eye and the giant. |
