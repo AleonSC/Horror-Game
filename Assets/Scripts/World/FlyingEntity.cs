@@ -20,6 +20,11 @@ public class FlyingEntity : MonoBehaviour
 {
     public static readonly List<FlyingEntity> All = new List<FlyingEntity>();
 
+    // Static state is cleared when Play starts, so nothing carries over from the last session if the
+    // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() => All.Clear();
+
     [Tooltip("Height it circles at above the ground.")]
     public float altitude = 36f;
     [Tooltip("Radius of the circles it flies round its search area.")]

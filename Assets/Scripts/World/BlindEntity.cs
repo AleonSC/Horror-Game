@@ -15,6 +15,11 @@ public class BlindEntity : MonoBehaviour
 {
     public static readonly List<BlindEntity> All = new List<BlindEntity>();
 
+    // Static state is cleared when Play starts, so nothing carries over from the last session if the
+    // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() { All.Clear(); BlindEntitySpawner.ResetRun(); }
+
     public float height = 6.5f;
     [Tooltip("Walking speed while it roams.")]
     public float roamSpeed = 1.5f;
@@ -775,13 +780,21 @@ public class BlindEntitySpawner : MonoBehaviour
     [Tooltip("Lamps lit before the blind one comes.")]
     public int lampsToSpawn = 3;
 
+    // It comes once a run: after that it's only ever banished or retreating and coming back quietly, never
+    // a second entrance. Cleared when the run restarts (or the count drops back below lampsToSpawn).
+    static bool spawnedThisRun;
+    public static void ResetRun() => spawnedThisRun = false;
+
     void Start() => BlindEntityTheme.Prepare(); // its music takes a moment to make: start now, in the background
 
     void Update()
     {
-        if (Lamp.TimesLit < lampsToSpawn || BlindEntity.All.Count > 0 || GameOverScreen.IsActive) return;
+        if (Lamp.TimesLit < lampsToSpawn) { spawnedThisRun = false; return; }
+        if (spawnedThisRun || BlindEntity.All.Count > 0 || GameOverScreen.IsActive) return;
         var player = FindAnyObjectByType<FirstPersonController>();
         if (player == null || PortalDoor.PlayerInRoom) return;
+        spawnedThisRun = true;
+        Debug.Log($"[Horror] The blind one comes: lamps lit {Lamp.LitCount}, times lit {Lamp.TimesLit} (needs {lampsToSpawn}).");
         BlindEntity.Spawn(player.transform.position);
     }
 }

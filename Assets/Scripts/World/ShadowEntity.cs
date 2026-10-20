@@ -23,6 +23,11 @@ public class ShadowEntity : MonoBehaviour
 {
     public static readonly List<ShadowEntity> All = new List<ShadowEntity>();
 
+    // Static state is cleared when Play starts, so nothing carries over from the last session if the
+    // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() { All.Clear(); Capturing = null; }
+
     /// <summary>Seconds before the first entity of a run appears.</summary>
     public const float FirstEntityDelay = 60f;
 

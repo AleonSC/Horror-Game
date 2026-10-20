@@ -128,6 +128,15 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     public static int TimesLit { get; private set; }
     public static void ResetTimesLit() { TimesLit = 0; LastLit = null; }
 
+    // Static state is cleared when Play starts, so nothing carries over from the last session if the
+    // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        All.Clear();
+        ResetTimesLit();
+    }
+
     /// <summary>Dev tools: lights it now, as if it had been cranked up (if it isn't already).</summary>
     public void ForceLight()
     {

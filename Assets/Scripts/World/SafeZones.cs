@@ -25,6 +25,11 @@ public static class SafeZones
 
     static readonly List<ISource> sources = new List<ISource>();
 
+    // Static state is cleared when Play starts, so nothing carries over from the last session if the
+    // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() => sources.Clear();
+
     public static void Register(ISource source)
     {
         if (!sources.Contains(source)) sources.Add(source);

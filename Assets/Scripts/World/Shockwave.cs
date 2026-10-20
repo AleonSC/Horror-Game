@@ -12,6 +12,11 @@ public class Shockwave : MonoBehaviour
 {
     static readonly List<Shockwave> all = new List<Shockwave>();
 
+    // Static state is cleared when Play starts, so nothing carries over from the last session if the
+    // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() => all.Clear();
+
     public Vector3 origin;
     public float speed = 220f;
     [Tooltip("How far the front of the wave is spread (metres).")]

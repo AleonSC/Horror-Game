@@ -20,6 +20,11 @@ public class MusicCue : MonoBehaviour
 
     static readonly Dictionary<string, MusicCue> cues = new Dictionary<string, MusicCue>();
 
+    // Static state is cleared when Play starts, so nothing carries over from the last session if the
+    // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() => cues.Clear();
+
     /// <summary>How far the playing cues are ducking the soundtrack, 0 to 1.</summary>
     public static float Duck
     {

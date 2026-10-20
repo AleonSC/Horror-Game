@@ -106,6 +106,7 @@ public class GameOverScreen : MonoBehaviour
         foreach (var lamp in Lamp.All)
             lamp.ResetLamp();
         Lamp.ResetTimesLit();
+        BlindEntitySpawner.ResetRun();
 
         var batteries = FindAnyObjectByType<BatterySpawner>();
         if (batteries != null) batteries.SpawnBatteries();
