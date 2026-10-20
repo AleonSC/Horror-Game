@@ -62,6 +62,9 @@ public static class ProceduralTextures
 
     static int Mod(int a, int m) => ((a % m) + m) % m;
 
+    // Smooth 0..1 ramp as x goes from edge0 to edge1. (Mathf.SmoothStep interpolates values instead.)
+    static float Ramp(float edge0, float edge1, float x) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge0, edge1, x));
+
     // ---------------------------------------------------------------- Dirt
 
     static void MakeDirt()
@@ -149,7 +152,7 @@ public static class ProceduralTextures
                 float d = Mathf.Sqrt(u * u + v * v) / 0.46f;
                 float alpha = Mathf.Clamp01((1f - d) * 40f); // crisp but anti-aliased edge
                 float maria = Fbm(u + 0.5f, v + 0.5f, 3, 4, 7);
-                float shade = Mathf.Lerp(0.75f, 1f, Mathf.SmoothStep(0.35f, 0.65f, maria));
+                float shade = Mathf.Lerp(0.75f, 1f, Ramp(0.35f, 0.65f, maria));
                 shade *= Mathf.Lerp(1f, 0.85f, d * d); // a little darker toward the rim
                 px[y * size + x] = new Color(shade, shade, shade * 1.03f, alpha);
             }
@@ -190,7 +193,7 @@ public static class ProceduralTextures
             {
                 float u = (x + 0.5f) / w, v = (y + 0.5f) / h;
                 float across = Mathf.Pow(Mathf.Sin(Mathf.PI * u), 2f);               // soft sides
-                float along = Mathf.SmoothStep(0f, 0.25f, v) * Mathf.SmoothStep(1f, 0.6f, v); // fade at both ends, longer at the top
+                float along = Ramp(0f, 0.25f, v) * (1f - Ramp(0.6f, 1f, v)); // fade at both ends, longer at the top
                 float streaks = 0.75f + 0.25f * TileNoise(u * 16f, v * 2f, 16, 5);   // dust in the light
                 float g = across * along * streaks;
                 px[y * w + x] = new Color(g, g, g, g);

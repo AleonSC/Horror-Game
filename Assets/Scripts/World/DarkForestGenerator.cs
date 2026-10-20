@@ -880,7 +880,9 @@ public class DarkForestGenerator : MonoBehaviour
 
     void CreateMaterials()
     {
-        groundMat = groundMaterial != null ? groundMaterial : MaterialFactory.Lit(new Color(0.07f, 0.06f, 0.045f));
+        groundMat = groundMaterial != null
+            ? groundMaterial
+            : MaterialFactory.LitTextured(ProceduralTextures.Dirt, ProceduralTextures.DirtNormal, 0.1f);
         barkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.11f, 0.08f, 0.06f));
         deadBarkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.16f, 0.15f, 0.14f));
         foliageMat = foliageMaterial != null ? foliageMaterial : MaterialFactory.Lit(new Color(0.03f, 0.08f, 0.05f));

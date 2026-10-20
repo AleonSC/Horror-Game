@@ -22,6 +22,19 @@ public static class MaterialFactory
         return mat;
     }
 
+    /// <summary>A lit material with a colour texture (tiled by the mesh's UVs) and an optional normal map.</summary>
+    public static Material LitTextured(Texture albedo, Texture normalMap, float smoothness = 0.05f)
+    {
+        var mat = Lit(Color.white, smoothness);
+        mat.mainTexture = albedo;
+        if (normalMap != null && mat.HasProperty("_BumpMap"))
+        {
+            mat.SetTexture("_BumpMap", normalMap);
+            mat.EnableKeyword("_NORMALMAP");
+        }
+        return mat;
+    }
+
     /// <summary>An unlit material. Colors brighter than 1 glow when Bloom is enabled.</summary>
     public static Material Unlit(Color color)
     {
