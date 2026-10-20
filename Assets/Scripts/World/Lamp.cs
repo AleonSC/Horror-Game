@@ -49,6 +49,22 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     public AudioClip powerDownSound;
     public AudioClip flickerSound;
 
+    /// <summary>
+    /// Re-applies settings that are baked in when the lamp is built (colours, light range), after they've been
+    /// changed (LampSpawner pushes its settings to every lamp through this).
+    /// </summary>
+    public void RefreshSettings()
+    {
+        if (lampLight != null)
+        {
+            lampLight.color = lightColor;
+            lampLight.range = safeRadius * 1.6f;
+            if (IsLit) lampLight.intensity = lightIntensity;
+        }
+        if (sparkMat != null) MaterialFactory.SetColor(sparkMat, sparkColor * 4f);
+        if (sparkLight != null) sparkLight.color = sparkColor;
+    }
+
     public bool IsLit { get; private set; }
     /// <summary>Meter from 0 to 1.</summary>
     public float Charge { get; private set; }
