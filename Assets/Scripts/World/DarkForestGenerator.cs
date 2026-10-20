@@ -38,6 +38,10 @@ public class DarkForestGenerator : MonoBehaviour
     public float deadTreeRatio = 0.3f;
     [Tooltip("Chance a tree has vines hanging from its branches (they swing in the wind and when brushed).")]
     [Range(0f, 1f)] public float vineTreeChance = 0.04f;
+    [Tooltip("Chance a tree grows far bigger than the rest: an old giant towering over the forest.")]
+    [Range(0f, 1f)] public float bigTreeChance = 0.03f;
+    public float minBigTreeSize = 1.7f;
+    public float maxBigTreeSize = 2.5f;
     [Tooltip("Perlin scale for tree density patches (lower = bigger patches).")]
     public float densityNoiseScale = 0.05f;
     [Tooltip("Optional tree prefabs. If set, these are used instead of procedural trees.")]
@@ -512,13 +516,15 @@ public class DarkForestGenerator : MonoBehaviour
                 t.transform.localScale *= Range(0.8f, 1.3f);
                 SwayPivots.Add(t.transform);
             }
-            else if (Range(0f, 1f) < deadTreeRatio)
-            {
-                BuildDeadTree(pos, parent);
-            }
             else
             {
-                BuildPineTree(pos, parent);
+                // Now and then an old giant, where there's room for one.
+                float size = Range(0f, 1f) < bigTreeChance && !Crowded(p, 3.5f) ? Range(minBigTreeSize, maxBigTreeSize) : 1f;
+                if (size > 1f)
+                    for (int k = 0; k < 6; k++) // keep later trees back from its wide trunk
+                        AddToGrid(p + new Vector2(Mathf.Cos(k * Mathf.PI / 3f), Mathf.Sin(k * Mathf.PI / 3f)) * 1.6f, grid, cell);
+                if (Range(0f, 1f) < deadTreeRatio) BuildDeadTree(pos, parent, size);
+                else BuildPineTree(pos, parent, size);
             }
         }
     }
@@ -543,11 +549,23 @@ public class DarkForestGenerator : MonoBehaviour
         list.Add(p);
     }
 
-    void BuildPineTree(Vector3 pos, Transform parent)
+    /// <summary>True if another tree already stands within distance of p.</summary>
+    bool Crowded(Vector2 p, float distance)
     {
-        float scale = Range(0.8f, 1.6f);
+        foreach (var other in TreePositions)
+        {
+            float d = (other - p).sqrMagnitude;
+            if (d > 0.0001f && d < distance * distance) return true;
+        }
+        return false;
+    }
+
+    /// <summary>A pine. size above 1 makes one of the rare giants (taller, wider, and thicker in the trunk).</summary>
+    void BuildPineTree(Vector3 pos, Transform parent, float size = 1f)
+    {
+        float scale = Range(0.8f, 1.6f) * size;
         float trunkHeight = Range(6f, 10f) * scale;
-        float trunkRadius = Range(0.18f, 0.3f) * scale;
+        float trunkRadius = Range(0.18f, 0.3f) * scale * (size > 1f ? 1.15f : 1f);
 
         var tree = new GameObject("Pine");
         tree.transform.SetParent(parent, false);
@@ -556,9 +574,24 @@ public class DarkForestGenerator : MonoBehaviour
 
         var shape = new TrunkShape(this, trunkHeight, trunkRadius, 0.45f, scale);
         float foliageStart = trunkHeight * Range(0.3f, 0.45f);
+        bool hasVines = Range(0f, 1f) < vineTreeChance;
+        var vineLimbs = new List<Vector3[]>();
 
         Transform sway = AddTrunk(tree.transform, shape, barkMat, "Trunk", bark =>
         {
+            // Vines need something to hang from: a sturdy dead branch just under the lowest boughs, reaching out.
+            if (hasVines)
+            {
+                int count = rng.Next(1, 4);
+                for (int i = 0; i < count; i++)
+                {
+                    float y = foliageStart - Range(0.15f, 0.5f);
+                    Vector3 dir = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Vector3.forward;
+                    dir = (dir + Vector3.up * Range(0f, 0.15f)).normalized;
+                    vineLimbs.Add(AddLimb(bark, shape, y, dir, Range(1f, 1.8f) * scale, shape.RadiusAt(y) * Range(0.3f, 0.4f), 0.1f, 0));
+                }
+            }
+
             // Snapped-off dead branch stubs on the bare lower trunk.
             int stubs = rng.Next(3, 8);
             for (int i = 0; i < stubs; i++)
@@ -588,16 +621,11 @@ public class DarkForestGenerator : MonoBehaviour
         foliageObject.AddComponent<MeshFilter>().sharedMesh = foliage.ToMesh("Foliage", false);
         foliageObject.AddComponent<MeshRenderer>().sharedMaterial = foliageMats[rng.Next(foliageMats.Length)];
 
-        // Now and then, vines trailing from the lowest boughs.
-        if (Range(0f, 1f) < vineTreeChance)
+        // The vines, each hanging from near the end of its branch.
+        foreach (var path in vineLimbs)
         {
-            int vines = rng.Next(1, 4);
-            for (int i = 0; i < vines; i++)
-            {
-                Vector3 dir = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Vector3.forward;
-                Vector3 at = shape.Center(foliageStart) + dir * baseRadius * Range(0.45f, 0.8f);
-                AddVine(sway, at, Range(1.5f, Mathf.Max(1.6f, foliageStart - 0.6f)));
-            }
+            Vector3 at = path[path.Length - 2];
+            AddVine(sway, at, Range(1.5f, Mathf.Max(1.6f, at.y - 0.6f)));
         }
     }
 
@@ -606,11 +634,12 @@ public class DarkForestGenerator : MonoBehaviour
         VineAnchors.Add(new VineAnchor { sway = sway, local = local, length = length });
     }
 
-    void BuildDeadTree(Vector3 pos, Transform parent)
+    /// <summary>A dead tree. size above 1 makes one of the rare giants.</summary>
+    void BuildDeadTree(Vector3 pos, Transform parent, float size = 1f)
     {
-        float scale = Range(0.7f, 1.3f);
+        float scale = Range(0.7f, 1.3f) * size;
         float trunkHeight = Range(4f, 8f) * scale;
-        float trunkRadius = Range(0.12f, 0.25f) * scale;
+        float trunkRadius = Range(0.12f, 0.25f) * scale * (size > 1f ? 1.15f : 1f);
 
         var tree = new GameObject("Dead Tree");
         tree.transform.SetParent(parent, false);
