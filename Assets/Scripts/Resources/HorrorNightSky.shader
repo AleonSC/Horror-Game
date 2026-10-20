@@ -10,6 +10,9 @@ Shader "Horror/Night Sky"
         _CloudColor ("Cloud Color", Color) = (0.05, 0.055, 0.065, 1)
         _CloudCover ("Cloud Cover", Range(0, 1)) = 0.5
         _CloudOffset ("Cloud Offset", Vector) = (0, 0, 0, 0)
+        _Flash ("Lightning Flash", Range(0, 1)) = 0
+        _FlashColor ("Flash Color", Color) = (0.6, 0.65, 0.85, 1)
+        _FlashDir ("Flash Direction", Vector) = (0, 1, 0, 0)
     }
     SubShader
     {
@@ -29,6 +32,9 @@ Shader "Horror/Night Sky"
             float4 _CloudColor;
             float _CloudCover;
             float4 _CloudOffset;
+            float _Flash;
+            float4 _FlashColor;
+            float4 _FlashDir;
 
             struct v2f
             {
@@ -109,6 +115,16 @@ Shader "Horror/Night Sky"
 
                 float3 color = lerp(starColor, cloudColor, cloud);
                 float alpha = saturate(max(s * (1 - cloud), cloud * 0.95)) * horizon;
+
+                // Lightning: the clouds light up from within, brightest toward the bolt.
+                if (_Flash > 0.001)
+                {
+                    float toward = pow(saturate(dot(dir, normalize(_FlashDir.xyz)) * 0.5 + 0.5), 4);
+                    float lit = _Flash * (0.15 + 0.85 * toward);
+                    float low = saturate((up + 0.08) / 0.3); // reaches right down to the treeline
+                    color += _FlashColor.rgb * lit * (0.3 + cloud * 1.2);
+                    alpha = max(alpha, lit * (0.35 + 0.6 * cloud) * low);
+                }
                 return float4(color, alpha);
             }
             ENDCG

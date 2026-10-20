@@ -303,6 +303,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Vines").AddComponent<VineSystem>();
         if (Application.isPlaying && FindAnyObjectByType<NightSky>() == null)
             new GameObject("Sky").AddComponent<NightSky>();
+        if (Application.isPlaying && FindAnyObjectByType<Lightning>() == null)
+            new GameObject("Lightning").AddComponent<Lightning>();
         if (Application.isPlaying && FindAnyObjectByType<ScreamEvent>() == null)
             new GameObject("Scream Event").AddComponent<ScreamEvent>();
         if (spawnWildlife && FindAnyObjectByType<Wildlife>() == null)

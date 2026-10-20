@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
+        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -75,6 +75,8 @@ public static class ProceduralAudio
     public static AudioClip EyeOpen => eyeOpen != null ? eyeOpen : (eyeOpen = MakeEyeOpen());
     /// <summary>Thunder-like rumbling from far away.</summary>
     public static AudioClip DistantRumble => distantRumble != null ? distantRumble : (distantRumble = MakeDistantRumble());
+    /// <summary>Thunder: a ripping crack, then a long, rolling, uneven rumble that dies away.</summary>
+    public static AudioClip Thunder => thunder != null ? thunder : (thunder = MakeThunder());
     /// <summary>One colossal footfall: a deep boom with a long rolling tail.</summary>
     public static AudioClip GiantStep => giantStep != null ? giantStep : (giantStep = MakeGiantStep());
 
@@ -832,6 +834,34 @@ public static class ProceduralAudio
             float rustle = (lp - hp) * swish * Mathf.Sin(Mathf.PI * p) * 0.9f;
             return crackle * 0.6f + rustle;
         }, 0.8f);
+    }
+
+    static AudioClip MakeThunder()
+    {
+        const float len = 8f;
+        float lp1 = 0f, lp2 = 0f, lp3 = 0f, crackLp = 0f;
+        // A few swells as the rumble rolls round the hills.
+        float[] swellAt = { 0.4f, 1.3f, 2.4f, 3.6f };
+        float[] swellSize = { 1f, 0.7f, 0.85f, 0.5f };
+        return Shot("Thunder", len, t =>
+        {
+            float w = White();
+            // The crack: a bright, ripping burst right at the start.
+            crackLp += (w - crackLp) * 0.5f;
+            float crack = crackLp * Mathf.Exp(-t * 9f) * (0.6f + 0.4f * Mathf.Sin(t * 180f));
+
+            // The rumble: deep filtered noise, swelling and fading unevenly.
+            lp1 += (w - lp1) * 0.02f;
+            lp2 += (lp1 - lp2) * 0.02f;
+            lp3 += (w - lp3) * 0.006f;
+            float swell = 0f;
+            for (int i = 0; i < swellAt.Length; i++)
+                swell += swellSize[i] * Mathf.Exp(-Mathf.Pow((t - swellAt[i]) / 0.7f, 2f));
+            float tail = Mathf.Exp(-t * 0.45f);
+            float rumble = (lp2 * 6f + lp3 * 10f) * (0.35f * tail + 0.65f * swell * tail);
+            float fade = Mathf.Clamp01((len - t) / 1.5f);
+            return (crack * 0.8f + rumble) * fade;
+        }, 1f);
     }
 
     static AudioClip MakeBreath()

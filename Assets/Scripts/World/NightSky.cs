@@ -7,6 +7,11 @@ using UnityEngine;
 /// </summary>
 public class NightSky : MonoBehaviour
 {
+    public static NightSky Instance { get; private set; }
+
+    /// <summary>Lightning: 0 none, 1 full flash. Lightning sets this; the clouds light up toward FlashDirection.</summary>
+    public float Flash { get; set; }
+    public Vector3 FlashDirection { get; set; } = Vector3.up;
     [Tooltip("Radius of the sky dome. Keep it inside the camera's far clip distance.")]
     public float radius = 120f;
     [Range(0f, 2f)] public float starBrightness = 1f;
@@ -19,6 +24,13 @@ public class NightSky : MonoBehaviour
     Material material;
     WeatherSystem weather;
     Vector2 cloudOffset;
+
+    void Awake() => Instance = this;
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 
     void Start()
     {
@@ -53,5 +65,7 @@ public class NightSky : MonoBehaviour
         material.SetFloat("_CloudCover", cloudCover);
         material.SetColor("_CloudColor", cloudColor);
         material.SetVector("_CloudOffset", cloudOffset);
+        material.SetFloat("_Flash", Flash);
+        material.SetVector("_FlashDir", FlashDirection);
     }
 }
