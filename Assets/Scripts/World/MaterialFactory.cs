@@ -23,9 +23,13 @@ public static class MaterialFactory
     }
 
     /// <summary>A lit material with a colour texture (tiled by the mesh's UVs) and an optional normal map.</summary>
-    public static Material LitTextured(Texture albedo, Texture normalMap, float smoothness = 0.05f)
+    public static Material LitTextured(Texture albedo, Texture normalMap, float smoothness = 0.05f) =>
+        LitTextured(albedo, normalMap, Color.white, smoothness);
+
+    /// <summary>As above, with the texture tinted by a colour.</summary>
+    public static Material LitTextured(Texture albedo, Texture normalMap, Color tint, float smoothness = 0.05f)
     {
-        var mat = Lit(Color.white, smoothness);
+        var mat = Lit(tint, smoothness);
         mat.mainTexture = albedo;
         if (normalMap != null && mat.HasProperty("_BumpMap"))
         {

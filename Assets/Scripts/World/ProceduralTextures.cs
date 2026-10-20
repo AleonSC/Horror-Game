@@ -4,18 +4,25 @@ using UnityEngine;
 /// Generates textures in code (no image files needed), each made once on first use and shared:
 /// - the forest floor: dark, damp soil covered in rotting leaf litter, twigs and the odd stone, plus a
 ///   matching normal map so the flashlight picks out every bump (tiles seamlessly);
+/// - bark (with a normal map) for tree trunks and branches, and pine needles for foliage;
 /// - the eyeball of the giant eye in the sky.
 /// </summary>
 public static class ProceduralTextures
 {
     const int Size = 512;
 
-    static Texture2D dirt, dirtNormal, skyEye;
+    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles;
 
     /// <summary>Tiling forest-floor dirt.</summary>
     public static Texture2D Dirt { get { if (dirt == null) MakeDirt(); return dirt; } }
     /// <summary>Normal map matching Dirt.</summary>
     public static Texture2D DirtNormal { get { if (dirtNormal == null) MakeDirt(); return dirtNormal; } }
+    /// <summary>Tiling bark: furrowed plates running lengthwise, with faint lichen. Tall (v runs up the trunk).</summary>
+    public static Texture2D Bark { get { if (bark == null) MakeBark(); return bark; } }
+    /// <summary>Normal map matching Bark.</summary>
+    public static Texture2D BarkNormal { get { if (barkNormal == null) MakeBark(); return barkNormal; } }
+    /// <summary>Tiling pine needles: dark green streaks running down from the tips.</summary>
+    public static Texture2D Needles => needles != null ? needles : (needles = MakeNeedles());
     /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
     public static Texture2D SkyEye => skyEye != null ? skyEye : (skyEye = MakeSkyEye());
 
@@ -40,6 +47,20 @@ public static class ProceduralTextures
         fy = fy * fy * (3f - 2f * fy);
         int ax = Mod(x0, period), bx = Mod(x0 + 1, period);
         int ay = Mod(y0, period), by = Mod(y0 + 1, period);
+        float a = Mathf.Lerp(Hash(ax, ay, seed), Hash(bx, ay, seed), fx);
+        float b = Mathf.Lerp(Hash(ax, by, seed), Hash(bx, by, seed), fx);
+        return Mathf.Lerp(a, b, fy);
+    }
+
+    /// <summary>Like TileNoise, but wrapping every px cells across and py cells down (for stretched patterns).</summary>
+    static float TileNoise2(float x, float y, int px, int py, int seed)
+    {
+        int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y);
+        float fx = x - x0, fy = y - y0;
+        fx = fx * fx * (3f - 2f * fx);
+        fy = fy * fy * (3f - 2f * fy);
+        int ax = Mod(x0, px), bx = Mod(x0 + 1, px);
+        int ay = Mod(y0, py), by = Mod(y0 + 1, py);
         float a = Mathf.Lerp(Hash(ax, ay, seed), Hash(bx, ay, seed), fx);
         float b = Mathf.Lerp(Hash(ax, by, seed), Hash(bx, by, seed), fx);
         return Mathf.Lerp(a, b, fy);
@@ -108,6 +129,91 @@ public static class ProceduralTextures
         float across = Mathf.Abs(-dx * s + dy * c);
         float thickness = d.length * d.width * (1f - 0.5f * Mathf.Abs(along) / d.length); // tapers
         return Mathf.Clamp01((1f - across / thickness) * 3f);
+    }
+
+    // ---------------------------------------------------------------- Bark & needles
+
+    static void MakeBark()
+    {
+        const int w = 256, h = 512;
+        var height = new float[w * h];
+        var albedo = new Color32[w * h];
+
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float u = x / (float)w, v = y / (float)h;
+
+                // Long plates of bark, split by deep vertical cracks, with fine grain.
+                float plates = 0.6f * TileNoise2(u * 9f, v * 3f, 9, 3, 21) + 0.4f * TileNoise2(u * 18f, v * 6f, 18, 6, 22);
+                float crackNoise = TileNoise2(u * 14f, v * 2f, 14, 2, 23) * 0.7f + TileNoise2(u * 28f, v * 5f, 28, 5, 24) * 0.3f;
+                float crack = Mathf.Pow(1f - Mathf.Abs(crackNoise * 2f - 1f), 7f);          // 1 along thin crack lines
+                float grain = TileNoise2(u * 64f, v * 32f, 64, 32, 25);
+                float hgt = plates * (1f - 0.85f * crack) + grain * 0.1f;
+                height[y * w + x] = hgt;
+
+                Color c = Color.Lerp(new Color(0.05f, 0.04f, 0.032f), new Color(0.16f, 0.13f, 0.1f), Mathf.Clamp01(hgt * 1.2f));
+                // Patches of pale lichen on the raised plates.
+                float lichen = Ramp(0.68f, 0.78f, TileNoise2(u * 6f, v * 10f, 6, 10, 26)) * Mathf.Clamp01(hgt * 1.5f - 0.3f);
+                c = Color.Lerp(c, new Color(0.17f, 0.19f, 0.15f), lichen * 0.55f);
+                c.a = 1f;
+                albedo[y * w + x] = c;
+            }
+        }
+
+        bark = new Texture2D(w, h, TextureFormat.RGBA32, true, false)
+        {
+            name = "Bark", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
+        };
+        bark.SetPixels32(albedo);
+        bark.Apply(true);
+
+        var normals = new Color32[w * h];
+        const float strength = 5f;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float dx = height[y * w + Mod(x + 1, w)] - height[y * w + Mod(x - 1, w)];
+                float dy = height[Mod(y + 1, h) * w + x] - height[Mod(y - 1, h) * w + x];
+                var n = new Vector3(-dx * strength, -dy * strength, 1f).normalized;
+                normals[y * w + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
+            }
+        }
+        barkNormal = new Texture2D(w, h, TextureFormat.RGBA32, true, true)
+        {
+            name = "Bark Normal", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
+        };
+        barkNormal.SetPixels32(normals);
+        barkNormal.Apply(true);
+    }
+
+    static Texture2D MakeNeedles()
+    {
+        const int n = 256;
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+        {
+            for (int x = 0; x < n; x++)
+            {
+                float u = x / (float)n, v = y / (float)n;
+                // Fine streaks running down the branches, in clumps of lighter and darker green.
+                float streaks = TileNoise2(u * 64f, v * 6f, 64, 6, 41) * 0.6f + TileNoise2(u * 128f, v * 12f, 128, 12, 42) * 0.4f;
+                float clumps = TileNoise2(u * 8f, v * 4f, 8, 4, 43);
+                Color c = Color.Lerp(new Color(0.02f, 0.05f, 0.03f), new Color(0.07f, 0.13f, 0.07f), streaks * (0.5f + 0.7f * clumps));
+                c = Color.Lerp(c, new Color(0.06f, 0.08f, 0.04f), Ramp(0.7f, 0.9f, clumps) * 0.4f); // older, browner patches
+                c.a = 1f;
+                px[y * n + x] = c;
+            }
+        }
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
+        {
+            name = "Needles", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
     }
 
     // ---------------------------------------------------------------- Sky eye
