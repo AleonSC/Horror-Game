@@ -6,7 +6,7 @@ using UnityEngine;
 /// Lamps: set how many lamps are lit right now, 0 to all of them. Going up lights the nearest unlit ones
 /// for real (so everything that follows lamps being lit happens: entities, narration, the bird, the eye,
 /// the searchlight...); going down puts the furthest lit ones back out and sets the count to match (anything
-/// already spawned stays). Also: restart the run. The Lighting tab is the full lighting panel
+/// already spawned stays). Field of view (players always get 60; this isn't saved). Also: restart the run. The Lighting tab is the full lighting panel
 /// (LightingSettings: themes, moon, fog, sky, flashlight, picture). DarkForestGenerator adds this.
 /// </summary>
 public class DevTools : MonoBehaviour
@@ -16,6 +16,7 @@ public class DevTools : MonoBehaviour
     int lampTarget = -1;
     int tab; // 0 game, 1 lighting
     LightingSettings lighting;
+    PauseMenu pause;
     Vector2 scroll;
     GUIStyle title, label, button, small;
 
@@ -89,7 +90,7 @@ public class DevTools : MonoBehaviour
 
         var area = tab == 1
             ? new Rect(20f * unit, 20f * unit, Mathf.Min(620f * unit, Screen.width - 40f * unit), Screen.height - 40f * unit)
-            : new Rect(20f * unit, 20f * unit, 380f * unit, 340f * unit);
+            : new Rect(20f * unit, 20f * unit, 380f * unit, 400f * unit);
         GUI.color = new Color(0f, 0f, 0f, 0.85f);
         GUI.DrawTexture(area, Texture2D.whiteTexture);
         GUI.color = Color.white;
@@ -134,6 +135,17 @@ public class DevTools : MonoBehaviour
         GUILayout.Label("Lights the nearest dark lamps (or puts out the furthest lit ones). Everything tied to lamps follows: entities, narration, the bird, the eye, the searchlight.", small);
 
         GUILayout.Space(10f * unit);
+        if (pause == null) pause = FindAnyObjectByType<PauseMenu>();
+        if (pause != null)
+        {
+            GUILayout.Label($"Field of view: {Mathf.RoundToInt(pause.fieldOfView)}°  (players get 60, not saved)", label);
+            GUILayout.BeginHorizontal();
+            float fov = Mathf.Round(GUILayout.HorizontalSlider(pause.fieldOfView, 40f, 100f, GUILayout.ExpandWidth(true)));
+            if (GUILayout.Button("60", button, GUILayout.Width(50f * unit))) fov = 60f;
+            GUILayout.EndHorizontal();
+            if (!Mathf.Approximately(fov, pause.fieldOfView)) pause.SetFieldOfView(fov);
+            GUILayout.Space(10f * unit);
+        }
         if (GUILayout.Button("Restart the run", button)) GameOverScreen.RestartRun();
 
         GUILayout.EndScrollView();

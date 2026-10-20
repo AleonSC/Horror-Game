@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 /// Esc pauses the game: time and sound stop, the mouse is freed, and a cinematic menu appears: black
 /// letterbox bars slide in, the game stays visible behind, and plain left-aligned items (Return to Game,
 /// Restart, Options, Quit) light up under the pointer. Options has mouse sensitivity, master volume,
-/// sound effects, music and field of view sliders, and motion blur (on/off and strength). (The lighting
+/// sound effects and music sliders, and motion blur (on/off and strength). (The lighting
 /// panel is a developer tool now, in DevTools.) The menu is laid out on a virtual 1600x900 screen and
 /// scaled to fit whatever the real one is, its text drawn at the scaled size so it stays sharp.
 /// Settings are remembered between sessions. DarkForestGenerator adds this automatically.
@@ -21,7 +21,6 @@ public class PauseMenu : MonoBehaviour
 
     /// <summary>The master volume (everything, music included). MusicManager scales by this.</summary>
     public static float MasterVolume { get; private set; } = 1f;
-    const string FovKey = "Horror.FieldOfView";
     const string MotionBlurKey = "Horror.MotionBlur", MotionBlurStrengthKey = "Horror.MotionBlurStrength";
 
     FirstPersonController player;
@@ -43,7 +42,7 @@ public class PauseMenu : MonoBehaviour
         sensitivity = PlayerPrefs.GetFloat(SensitivityKey, sensitivity);
         volume = PlayerPrefs.GetFloat(VolumeKey, 1f);
         effectsVolume = PlayerPrefs.GetFloat(EffectsKey, 1f);
-        fieldOfView = PlayerPrefs.GetFloat(FovKey, fieldOfView);
+        // (Field of view isn't a player setting: always the default, changed only from the dev tools.)
         motionBlur = PlayerPrefs.GetInt(MotionBlurKey, motionBlur ? 1 : 0) == 1;
         motionBlurStrength = PlayerPrefs.GetFloat(MotionBlurStrengthKey, motionBlurStrength);
         ApplySettings();
@@ -125,11 +124,17 @@ public class PauseMenu : MonoBehaviour
             PlayerPrefs.SetFloat(SensitivityKey, sensitivity);
             PlayerPrefs.SetFloat(VolumeKey, volume);
             PlayerPrefs.SetFloat(EffectsKey, effectsVolume);
-            PlayerPrefs.SetFloat(FovKey, fieldOfView);
             PlayerPrefs.SetInt(MotionBlurKey, motionBlur ? 1 : 0);
             PlayerPrefs.SetFloat(MotionBlurStrengthKey, motionBlurStrength);
             PlayerPrefs.Save();
         }
+    }
+
+    /// <summary>Dev tools: sets the field of view (degrees) for this session; it isn't saved.</summary>
+    public void SetFieldOfView(float degrees)
+    {
+        fieldOfView = Mathf.Clamp(degrees, 30f, 120f);
+        ApplySettings();
     }
 
     void ApplySettings()
@@ -277,7 +282,6 @@ public class PauseMenu : MonoBehaviour
             if (!Mathf.Approximately(newMusic, music.Volume)) music.Volume = newMusic;
             y += step;
         }
-        float newFov = Mathf.Round(Slider(5, "FIELD OF VIEW", $"{Mathf.RoundToInt(fieldOfView)}°", x, y, width, fieldOfView, 50f, 90f)); y += step;
 
         if (Item(12, motionBlur ? "MOTION BLUR: ON" : "MOTION BLUR: OFF", x, y))
         {
@@ -292,13 +296,11 @@ public class PauseMenu : MonoBehaviour
             y += step;
         }
 
-        if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume) || !Mathf.Approximately(newEffects, effectsVolume)
-            || !Mathf.Approximately(newFov, fieldOfView))
+        if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume) || !Mathf.Approximately(newEffects, effectsVolume))
         {
             sensitivity = newSensitivity;
             volume = newVolume;
             effectsVolume = newEffects;
-            fieldOfView = newFov;
             ApplySettings();
         }
 
