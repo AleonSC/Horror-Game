@@ -36,6 +36,8 @@ public class DarkForestGenerator : MonoBehaviour
     public float minTreeSpacing = 2.2f;
     [Range(0f, 1f), Tooltip("Portion of trees that are dead/bare instead of pines.")]
     public float deadTreeRatio = 0.3f;
+    [Tooltip("Chance a tree has vines hanging from its branches (they swing in the wind and when brushed).")]
+    [Range(0f, 1f)] public float vineTreeChance = 0.04f;
     [Tooltip("Perlin scale for tree density patches (lower = bigger patches).")]
     public float densityNoiseScale = 0.05f;
     [Tooltip("Optional tree prefabs. If set, these are used instead of procedural trees.")]
@@ -118,6 +120,17 @@ public class DarkForestGenerator : MonoBehaviour
 
     /// <summary>The moving part of each tree (pivot at its base), for WeatherSystem to sway in the wind.</summary>
     public readonly List<Transform> SwayPivots = new List<Transform>();
+
+    /// <summary>Where a vine hangs from: a point on a tree's sway pivot (in its local space), and how long the vine is.</summary>
+    public struct VineAnchor
+    {
+        public Transform sway;
+        public Vector3 local;
+        public float length;
+    }
+
+    /// <summary>Every vine to hang (VineSystem simulates them).</summary>
+    public readonly List<VineAnchor> VineAnchors = new List<VineAnchor>();
 
     /// <summary>Positions (x, z) of the shacks, so other things can keep clear of them.</summary>
     public readonly List<Vector2> ShackPositions = new List<Vector2>();
@@ -255,6 +268,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Pause Menu").AddComponent<PauseMenu>();
         if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<FallingLeaves>() == null)
             new GameObject("Falling Leaves").AddComponent<FallingLeaves>();
+        if (Application.isPlaying && FindAnyObjectByType<VineSystem>() == null)
+            new GameObject("Vines").AddComponent<VineSystem>();
         if (Application.isPlaying && FindAnyObjectByType<NightSky>() == null)
             new GameObject("Sky").AddComponent<NightSky>();
         if (Application.isPlaying && FindAnyObjectByType<ScreamEvent>() == null)
@@ -431,6 +446,7 @@ public class DarkForestGenerator : MonoBehaviour
         var placed = TreePositions;
         placed.Clear();
         SwayPivots.Clear();
+        VineAnchors.Clear();
         var grid = new Dictionary<Vector2Int, List<Vector2>>();
         float cell = Mathf.Max(minTreeSpacing, 0.1f);
         int attempts = treeCount * 15;
@@ -538,6 +554,23 @@ public class DarkForestGenerator : MonoBehaviour
         foliageObject.transform.SetParent(sway, false);
         foliageObject.AddComponent<MeshFilter>().sharedMesh = foliage.ToMesh("Foliage", false);
         foliageObject.AddComponent<MeshRenderer>().sharedMaterial = foliageMats[rng.Next(foliageMats.Length)];
+
+        // Now and then, vines trailing from the lowest boughs.
+        if (Range(0f, 1f) < vineTreeChance)
+        {
+            int vines = rng.Next(1, 4);
+            for (int i = 0; i < vines; i++)
+            {
+                Vector3 dir = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Vector3.forward;
+                Vector3 at = shape.Center(foliageStart) + dir * baseRadius * Range(0.45f, 0.8f);
+                AddVine(sway, at, Range(1.5f, Mathf.Max(1.6f, foliageStart - 0.6f)));
+            }
+        }
+    }
+
+    void AddVine(Transform sway, Vector3 local, float length)
+    {
+        VineAnchors.Add(new VineAnchor { sway = sway, local = local, length = length });
     }
 
     void BuildDeadTree(Vector3 pos, Transform parent)
@@ -552,7 +585,9 @@ public class DarkForestGenerator : MonoBehaviour
         tree.transform.localRotation = Quaternion.Euler(Range(-8f, 8f), Range(0f, 360f), Range(-8f, 8f));
 
         var shape = new TrunkShape(this, trunkHeight, trunkRadius, 0.3f, scale);
-        AddTrunk(tree.transform, shape, deadBarkMat, "Bark", bark =>
+        bool vines = Range(0f, 1f) < vineTreeChance;
+        var limbs = new List<Vector3[]>();
+        Transform sway = AddTrunk(tree.transform, shape, deadBarkMat, "Bark", bark =>
         {
             // Gnarled bare branches reaching outward and up, forking into twigs.
             int branches = rng.Next(3, 7);
@@ -560,9 +595,20 @@ public class DarkForestGenerator : MonoBehaviour
             {
                 float y = trunkHeight * Range(0.45f, 0.92f);
                 Vector3 dir = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Quaternion.Euler(-Range(20f, 65f), 0f, 0f) * Vector3.forward;
-                AddLimb(bark, shape, y, dir, Range(1f, 2.8f) * scale, shape.RadiusAt(y) * Range(0.4f, 0.6f), 0.35f, rng.Next(1, 4));
+                limbs.Add(AddLimb(bark, shape, y, dir, Range(1f, 2.8f) * scale, shape.RadiusAt(y) * Range(0.4f, 0.6f), 0.35f, rng.Next(1, 4)));
             }
         });
+
+        // Now and then, vines draped over the bare branches, some long enough to trail on the ground.
+        if (vines)
+        {
+            foreach (var path in limbs)
+            {
+                if (Range(0f, 1f) < 0.35f) continue;
+                Vector3 at = path[rng.Next(2, path.Length)];
+                AddVine(sway, at, Range(1.5f, at.y + 0.5f));
+            }
+        }
     }
 
     /// <summary>
@@ -705,7 +751,7 @@ public class DarkForestGenerator : MonoBehaviour
     /// A branch leaving the trunk at a height: a tapering, slightly curving limb, with forked twigs near its end.
     /// curl bends it upward along its length.
     /// </summary>
-    void AddLimb(MeshBuilder mesh, TrunkShape shape, float y, Vector3 dir, float length, float thickness, float curl, int twigs)
+    Vector3[] AddLimb(MeshBuilder mesh, TrunkShape shape, float y, Vector3 dir, float length, float thickness, float curl, int twigs)
     {
         Vector3 start = shape.Center(y) + new Vector3(dir.x, 0f, dir.z).normalized * shape.RadiusAt(y) * 0.5f;
         Vector3 kink = Random3() * 0.25f;
@@ -741,6 +787,7 @@ public class DarkForestGenerator : MonoBehaviour
             }
             mesh.AddTube(twig, (j, a) => twigWidths[j], 5, 1, 1.2f);
         }
+        return path;
     }
 
     Vector3 Random3() => new Vector3(Range(-1f, 1f), Range(-1f, 1f), Range(-1f, 1f));
