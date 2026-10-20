@@ -1,8 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter. Press a number to hold that item,
-/// and F to use it.
+/// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter, 4 = flare gun. Press a number to hold
+/// that item, and F to use it.
+///
+/// - Flare gun: each one holds a single flare. Fire it into the sky and it bursts at the top of its arc,
+///   wiping out every entity's hunt progress. Fired low, it's wasted. Found at campsites.
 ///
 /// - Torch: lighting it uses some of the lighter's fuel. While lit it throws a wide circle of firelight
 ///   the entities won't enter or attack in. It burns down, and when it's gone it's gone for good.
@@ -44,6 +47,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public float LighterFuel { get; private set; } = 1f;
     public bool TorchLit { get; private set; }
     public bool LighterLit { get; private set; }
+    /// <summary>Flares left (one per flare gun picked up).</summary>
+    public int FlareCount { get; private set; }
 
     bool SafeZones.ISource.IsActive => TorchLit || LighterLit;
     Vector3 SafeZones.ISource.Center => transform.position;
@@ -57,7 +62,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter" };
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun" };
+    Transform flareGunModel, muzzle;
 
     void OnEnable() => SafeZones.Register(this);
     void OnDisable() => SafeZones.Unregister(this);
@@ -70,6 +76,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         Transform hand = Camera.main != null ? Camera.main.transform : transform;
         BuildTorch(hand);
         BuildLighter(hand);
+        BuildFlareGun(hand);
 
         fireLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FireLoop, true, false, 0f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.8f);
@@ -96,6 +103,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Selected) return;
         if (item == Item.Torch && TorchCount == 0) { Message("You don't have a torch"); return; }
         if (item == Item.Lighter && LighterCount == 0) { Message("You don't have a lighter"); return; }
+        if (item == Item.FlareGun && FlareCount == 0) { Message("You don't have a flare gun"); return; }
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -132,6 +140,23 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             LighterLit = !LighterLit;
             Play(LighterLit ? ProceduralAudio.LighterFlick : ProceduralAudio.FlashlightClick, 0.7f);
         }
+        else if (Selected == Item.FlareGun)
+        {
+            FireFlare();
+        }
+    }
+
+    void FireFlare()
+    {
+        if (FlareCount <= 0) return;
+        var cam = Camera.main;
+        Vector3 direction = cam != null ? cam.transform.forward : transform.forward;
+        Flare.Fire(muzzle.position, direction, 30f);
+        Play(ProceduralAudio.FlareShot, 1f);
+        FlareCount--;
+
+        if (direction.y < 0.4f) Message("Too low. Flares need to go up into the sky.");
+        if (FlareCount == 0) Select(Item.Flashlight);
     }
 
     void BurnFuel(float dt)
@@ -204,13 +229,18 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             LighterCount++;
             Message("Picked up a lighter. Press 3 to hold it, F to flick it.");
         }
+        else if (item == Item.FlareGun)
+        {
+            FlareCount++;
+            Message("Picked up a flare gun. Press 4 to hold it, then aim up and press F to fire.");
+        }
     }
 
     /// <summary>Empties the hotbar back to just the flashlight (used when the run resets).</summary>
     public void ResetInventory()
     {
         TorchLit = LighterLit = false;
-        TorchCount = LighterCount = 0;
+        TorchCount = LighterCount = FlareCount = 0;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
         if (flashlight != null) flashlight.SetEquipped(true);
@@ -249,6 +279,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             torchFlame.localScale = Vector3.one * Mathf.Lerp(1f, 0.5f, low) * (0.85f + 0.3f * Mathf.PerlinNoise(time * 12f, 1.7f));
         }
 
+        flareGunModel.gameObject.SetActive(Selected == Item.FlareGun);
         lighterModel.gameObject.SetActive(Selected == Item.Lighter);
         lighterFlame.gameObject.SetActive(LighterLit);
         lighterLight.enabled = LighterLit;
@@ -326,6 +357,35 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         lighterModel.gameObject.SetActive(false);
     }
 
+    void BuildFlareGun(Transform hand)
+    {
+        var orange = MaterialFactory.Lit(new Color(0.85f, 0.3f, 0.05f), 0.4f);
+        var dark = MaterialFactory.Lit(new Color(0.05f, 0.05f, 0.05f), 0.3f);
+
+        flareGunModel = new GameObject("Held Flare Gun").transform;
+        flareGunModel.SetParent(hand, false);
+        flareGunModel.localPosition = new Vector3(0.22f, -0.22f, 0.45f);
+        flareGunModel.localRotation = Quaternion.Euler(-4f, -4f, 0f);
+        Part(PrimitiveType.Cube, orange, flareGunModel, new Vector3(0f, 0f, 0f), new Vector3(0.05f, 0.055f, 0.17f));      // body
+        var barrel = new GameObject("Barrel").transform;
+        barrel.SetParent(flareGunModel, false);
+        barrel.localPosition = new Vector3(0f, 0.005f, 0.12f);
+        barrel.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        Part(PrimitiveType.Cylinder, orange, barrel, Vector3.zero, new Vector3(0.065f, 0.05f, 0.065f));                   // wide barrel
+        var grip = new GameObject("Grip").transform;
+        grip.SetParent(flareGunModel, false);
+        grip.localPosition = new Vector3(0f, -0.06f, -0.06f);
+        grip.localRotation = Quaternion.Euler(-15f, 0f, 0f);
+        Part(PrimitiveType.Cube, orange, grip, Vector3.zero, new Vector3(0.045f, 0.11f, 0.05f));
+        Part(PrimitiveType.Cube, dark, flareGunModel, new Vector3(0f, -0.04f, 0f), new Vector3(0.012f, 0.035f, 0.03f));   // trigger
+
+        muzzle = new GameObject("Muzzle").transform;
+        muzzle.SetParent(flareGunModel, false);
+        muzzle.localPosition = new Vector3(0f, 0.005f, 0.2f);
+
+        flareGunModel.gameObject.SetActive(false);
+    }
+
     static void Part(PrimitiveType type, Material mat, Transform parent, Vector3 pos, Vector3 scale)
     {
         var go = GameObject.CreatePrimitive(type);
@@ -346,7 +406,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
         float unit = Mathf.Max(1f, Screen.height / 1080f);
         float size = 76f * unit, gap = 10f * unit, margin = 24f * unit;
-        float x0 = (Screen.width - (3f * size + 2f * gap)) * 0.5f;
+        float x0 = (Screen.width - (4f * size + 3f * gap)) * 0.5f;
         float y = Screen.height - size - margin;
 
         if (nameStyle == null)
@@ -359,11 +419,11 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         numberStyle.fontSize = Mathf.RoundToInt(13f * unit);
         messageStyle.fontSize = Mathf.RoundToInt(17f * unit);
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
         {
             var item = (Item)i;
             var slot = new Rect(x0 + i * (size + gap), y, size, size);
-            int count = item == Item.Torch ? TorchCount : item == Item.Lighter ? LighterCount : 1;
+            int count = item == Item.Torch ? TorchCount : item == Item.Lighter ? LighterCount : item == Item.FlareGun ? FlareCount : 1;
             bool owned = count > 0;
             bool selected = Selected == item;
             bool lit = (item == Item.Torch && TorchLit) || (item == Item.Lighter && LighterLit) || (item == Item.Flashlight && flashlight != null && flashlight.IsOn);
@@ -386,7 +446,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
             if (owned)
             {
-                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : (flashlight != null ? flashlight.Battery : 1f);
+                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.FlareGun ? 1f : (flashlight != null ? flashlight.Battery : 1f);
                 var bar = new Rect(slot.x + 8f * unit, slot.yMax - 14f * unit, slot.width - 16f * unit, 5f * unit);
                 DrawRect(bar, new Color(0.15f, 0.15f, 0.15f, 0.9f));
                 Color barColor = fill < 0.2f ? new Color(0.9f, 0.3f, 0.2f) : item == Item.Flashlight ? new Color(0.95f, 0.9f, 0.7f) : new Color(1f, 0.6f, 0.25f);

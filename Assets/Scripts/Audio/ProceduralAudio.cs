@@ -15,7 +15,7 @@ public static class ProceduralAudio
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
         lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
-        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, advance, lampSpark, lampPowerDown;
+        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -60,6 +60,10 @@ public static class ProceduralAudio
     public static AudioClip FireLoop => fireLoop != null ? fireLoop : (fireLoop = MakeFireLoop());
     /// <summary>A heavy relay slamming shut and a big light buzzing to life.</summary>
     public static AudioClip Floodlight => floodlight != null ? floodlight : (floodlight = MakeFloodlight());
+    /// <summary>A flare gun firing: a hard pop and a rising whoosh.</summary>
+    public static AudioClip FlareShot => flareShot != null ? flareShot : (flareShot = MakeFlareShot());
+    /// <summary>A flare burning: an angry fizzing hiss with crackles. Loops seamlessly.</summary>
+    public static AudioClip FlareBurn => flareBurn != null ? flareBurn : (flareBurn = MakeFlareBurn());
     /// <summary>A flame sputtering out.</summary>
     public static AudioClip BurnOut => burnOut != null ? burnOut : (burnOut = MakeBurnOut());
 
@@ -471,6 +475,36 @@ public static class ProceduralAudio
             float buzz = lp * Mathf.SmoothStep(0f, 1f, t / 0.4f) * Mathf.Exp(-Mathf.Max(0f, t - 0.6f) * 2f) * 0.5f;
             return clunk + buzz;
         }, 0.9f);
+    }
+
+    static AudioClip MakeFlareShot()
+    {
+        const float len = 1.1f;
+        float lp = 0f, hp = 0f, thump = 0f;
+        return Shot("Flare Shot", len, t =>
+        {
+            float w = White();
+            thump += TwoPi * (90f * Mathf.Exp(-t * 20f) + 40f) / Rate;
+            float pop = w * Burst(t, 0f) * 1.5f + Mathf.Sin(thump) * Mathf.Exp(-t * 18f);
+            lp += (w - lp) * Mathf.Lerp(0.05f, 0.4f, Mathf.Clamp01(t / len)); // whoosh brightening as it climbs
+            hp += (lp - hp) * 0.05f;
+            float whoosh = (lp - hp) * Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / len)) * 0.8f;
+            return pop + whoosh;
+        }, 0.9f);
+    }
+
+    static AudioClip MakeFlareBurn()
+    {
+        float lp = 0f, crackle = 0f;
+        return Loop("Flare Burn", 3f, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.5f;
+            float hiss = (w - lp) * (0.8f + 0.2f * Sin(5f, t));
+            if (rng.NextDouble() < 0.003) crackle = (float)rng.NextDouble();
+            crackle *= 0.95f;
+            return hiss * 0.6f + crackle * w;
+        }, 0.7f);
     }
 
     static AudioClip MakeBurnOut()

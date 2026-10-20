@@ -27,6 +27,8 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/WatcherEvent.cs` | After 5 lamps: a giant red eye opens in the sky, the world turns red, and a colossal entity walks toward you. The watchtower floodlights drive it back. |
 | `Assets/Scripts/Resources/HorrorUnlitNoFog.shader` | Flat colour that ignores fog, for the eye and the giant. |
 | `Assets/Scripts/World/FallingLeaves.cs` | Leaves drifting down from the canopy around you, carried by the wind, settling, and skittering along in strong gusts. |
+| `Assets/Scripts/World/Campsite.cs` / `Flare.cs` | Three abandoned campsites (tent, smoking burnt-out campfire seen from afar, backpack with a flare gun). Fire a flare into the sky to wipe every entity's hunt progress. |
+| `Assets/Scripts/Resources/HorrorSmoke.shader` | Soft, fog-proof smoke puffs for the campfires. |
 | `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
 | `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, crows flying over high up, dark owls in the trees whose white eyes follow you, and black deer that graze and gallop off when you get close. |
@@ -60,6 +62,8 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
   to top it up by 25%.
 - Search the abandoned shacks for torches and lighters. Lighting a torch takes a little of the lighter's
   fuel; a lit torch keeps them out of a wide circle around you, a lighter a small one. Both burn out for good.
+- Look for thin columns of smoke: they lead to campsites, each with a flare gun. Fire it into the sky
+  (press 4, aim up, F) and every one of them has to start its hunt over. Fired low, it's wasted.
 - Somewhere there's a tall watchtower. Climb the ladder (W, or look down and W / S to go down) and press
   the button at the top: floodlights drive every one of them away and light up the area for a minute.
 - Lamps burn out. They flicker as their energy runs low, go dark, and need time to cool down before
@@ -75,7 +79,7 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
 | Space | Jump |
 | Left Ctrl / C | Crouch (hold, or toggle via `toggleCrouch`) |
 | F | Use the item in hand: flashlight on/off, light / put out the torch, flick the lighter |
-| 1 / 2 / 3 | Hold the flashlight / torch / lighter |
+| 1 / 2 / 3 / 4 | Hold the flashlight / torch / lighter / flare gun |
 | Left click | Charge the lamp you're looking at (click repeatedly), use a battery, open a door, pick up an item |
 | Esc | Pause menu (resume, restart, mouse sensitivity, volume, quit) |
 
