@@ -419,8 +419,8 @@ public class IntroText : MonoBehaviour
 }
 
 /// <summary>
-/// More narration as lamps are lit (2nd, 3rd and 5th times), from Resources/LampText2, LampText3 and
-/// LampText5 (or the lines below). Written with quotes: "quoted" words are red, "-hyphened" quotes linger,
+/// More narration as lamps are lit (2nd, 3rd, 5th and 7th times), from Resources/LampText2, 3, 5 and 7
+/// (or the lines below). Written with quotes: "quoted" words are red, "-hyphened" quotes linger,
 /// and -WORD- inside a quote lingers much longer. The 5th is frantic. Each plays once a run, after any
 /// narration already on screen. DarkForestGenerator adds this.
 /// </summary>
@@ -449,6 +449,14 @@ public class LampNarration : MonoBehaviour
             "\"LIGHT THE REMAINING!!!!\"",
             "\"FIND THE DOOR!!!\"",
             "\"IT IS YOUR ONLY HOPE!!!\"",
+        }),
+        (7, "LampText7", false, new[]
+        {
+            "\"Dear god help you.\"",
+            "\"I have never witnessed this entity.\"",
+            "\"I must leave you, for my own safety.\"",
+            "\"please understand.\"",
+            "\"remember, the door.\"",
         }),
     };
 
