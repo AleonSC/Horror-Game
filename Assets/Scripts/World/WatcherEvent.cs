@@ -130,6 +130,15 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     Light searchlight;
     readonly Transform[] beams = new Transform[2];
 
+    /// <summary>Where the giant's head is, if it's in the world (hanging or walking).</summary>
+    public bool TryGetGiantHead(out Vector3 head)
+    {
+        head = Vector3.zero;
+        if (giant == null || !giant.gameObject.activeInHierarchy || giantHead == null) return false;
+        head = giantHead.position;
+        return true;
+    }
+
     /// <summary>True once the giant's searchlights are on and tracking the player.</summary>
     public bool SearchlightsOn => searchlightsOn;
 

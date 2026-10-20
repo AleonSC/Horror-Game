@@ -185,6 +185,15 @@ public class ShadowEntity : MonoBehaviour
     [Header("Catching The Player")]
     [Tooltip("Seconds of jumpscare before the screen fades out.")]
     public float killTime = 1.6f;
+    [Header("Taking the Player")]
+    [Tooltip("After the stare, it grabs the player and lifts them off the ground over this many seconds...")]
+    public float liftTime = 3f;
+    [Tooltip("...this high...")]
+    public float liftHeight = 3f;
+    [Tooltip("...then flies them toward the giant, the screen fading to black over this many seconds.")]
+    public float flightTime = 6f;
+    [Tooltip("Top speed of the flight, metres per second.")]
+    public float flightSpeed = 35f;
 
     [Header("Look")]
     public float height = 2.4f;
@@ -783,6 +792,7 @@ public class ShadowEntity : MonoBehaviour
         CurrentState = State.Killing;
         timer = 0f;
         gameOverStarted = false;
+        taking = false;
         ReleasePlayer();
         if (player != null) player.enabled = false;
 
@@ -811,9 +821,9 @@ public class ShadowEntity : MonoBehaviour
         mouthTarget = 1.6f;
         whisper.volume = volume * killVolume;
 
-        // Force the camera to stare into its face.
+        // Force the camera to stare into its face (until it takes them).
         Transform cam = Camera.main != null ? Camera.main.transform : null;
-        if (cam != null)
+        if (cam != null && timer < killTime + liftTime)
         {
             Vector3 head = transform.position + Vector3.up * (2.2f * scale * growth);
             Quaternion look = Quaternion.LookRotation(head - cam.position);
@@ -821,10 +831,70 @@ public class ShadowEntity : MonoBehaviour
             cam.rotation *= Quaternion.Euler(Random.insideUnitSphere * 1.5f);
         }
 
-        if (!gameOverStarted && timer >= killTime)
+        if (timer >= killTime) UpdateTaking(Time.deltaTime);
+    }
+
+    Vector3 takeStart, takeForward, flightVelocity;
+    bool taking;
+
+    /// <summary>
+    /// The end, drawn out: it takes hold, slowly lifts the player off the ground, then carries them up and away
+    /// toward the giant, faster and faster, as the screen fades to black.
+    /// </summary>
+    void UpdateTaking(float dt)
+    {
+        if (target == null) return;
+        Transform cam = Camera.main != null ? Camera.main.transform : null;
+        if (!taking)
+        {
+            taking = true;
+            takeStart = target.position;
+            takeForward = transform.position - target.position;
+            takeForward.y = 0f;
+            takeForward = takeForward.sqrMagnitude > 0.001f ? takeForward.normalized : target.forward;
+            flightVelocity = Vector3.zero;
+            var body = target.GetComponent<CharacterController>();
+            if (body != null) body.enabled = false; // it moves the player now
+            SetPose(Pose.Lunge, 1);                 // both hands on you
+            PlaySound(ProceduralAudio.Moan, 0.6f, 0.8f);
+        }
+
+        float t = timer - killTime;
+        float eye = 2.2f * scale * growth;
+        if (t < liftTime)
+        {
+            // Held at arm's length, rising slowly off the ground, feet dangling.
+            float u = Mathf.SmoothStep(0f, 1f, t / liftTime);
+            target.position = takeStart + Vector3.up * liftHeight * u + Random.insideUnitSphere * 0.015f;
+            Vector3 camPos = cam != null ? cam.position : target.position + Vector3.up * 1.6f;
+            transform.position = camPos + takeForward * 1.0f - Vector3.up * (eye - 0.05f);
+            transform.rotation = Quaternion.LookRotation(-takeForward);
+            return;
+        }
+
+        // Away, toward the giant.
+        if (!gameOverStarted)
         {
             gameOverStarted = true;
-            GameOverScreen.Show();
+            GameOverScreen.Show(flightTime);
+            PlaySound(ProceduralAudio.DistantRumble, 0.7f, 1f);
+        }
+        Vector3 destination;
+        var watcher = WatcherEvent.Instance;
+        if (watcher == null || !watcher.TryGetGiantHead(out destination))
+            destination = target.position - takeForward * 500f + Vector3.up * 300f; // up and away into the dark
+        Vector3 dir = (destination - target.position).normalized;
+        float f = Mathf.Clamp01((t - liftTime) / 2.5f);
+        flightVelocity = Vector3.MoveTowards(flightVelocity, dir * flightSpeed * f * f, flightSpeed * dt);
+        target.position += flightVelocity * dt;
+
+        // It carries you from behind; you're turned to face where you're being taken.
+        transform.position = target.position - dir * 0.9f + Vector3.up * (1.6f - eye + 0.3f);
+        transform.rotation = Quaternion.LookRotation(dir);
+        if (cam != null)
+        {
+            cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(dir), 1f - Mathf.Exp(-1.2f * dt));
+            cam.rotation *= Quaternion.Euler(Random.insideUnitSphere * Mathf.Lerp(0.3f, 1.2f, f)); // buffeted
         }
     }
 

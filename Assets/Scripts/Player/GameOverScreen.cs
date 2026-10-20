@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public class GameOverScreen : MonoBehaviour
 {
-    const float FadeOutTime = 1.2f;
+    const float DefaultFadeOutTime = 1.2f;
     const float HoldTime = 3f;
     const float FadeInTime = 1.5f;
 
@@ -17,12 +17,17 @@ public class GameOverScreen : MonoBehaviour
 
     float timer;
     bool hasReset;
+    float FadeOutTime = DefaultFadeOutTime;
     GUIStyle style;
 
-    public static void Show()
+    public static void Show() => Show(DefaultFadeOutTime);
+
+    /// <summary>Starts the game over, taking fadeOutTime seconds to fade to black (longer for a drawn-out end).</summary>
+    public static void Show(float fadeOutTime)
     {
         if (instance != null) return;
         instance = new GameObject("Game Over").AddComponent<GameOverScreen>();
+        instance.FadeOutTime = Mathf.Max(0.1f, fadeOutTime);
     }
 
     void OnDestroy()
