@@ -6,7 +6,12 @@ using UnityEngine;
 /// </summary>
 public class ItemPickup : MonoBehaviour
 {
+    public static readonly System.Collections.Generic.List<ItemPickup> All = new System.Collections.Generic.List<ItemPickup>();
+
     public Hotbar.Item item;
+
+    void OnEnable() => All.Add(this);
+    void OnDisable() => All.Remove(this);
 
     public string DisplayName =>
         item == Hotbar.Item.Torch ? "torch" :

@@ -46,6 +46,8 @@ public static class HorrorInput
     public static bool CrouchHeld => Kb != null && (Kb.leftCtrlKey.isPressed || Kb.cKey.isPressed);
     public static bool CrouchPressed => Kb != null && (Kb.leftCtrlKey.wasPressedThisFrame || Kb.cKey.wasPressedThisFrame);
     public static bool FlashlightPressed => Kb != null && Kb.fKey.wasPressedThisFrame;
+    /// <summary>F1: the debug overlay of where everything spawned.</summary>
+    public static bool DebugOverlayPressed => Kb != null && Kb.f1Key.wasPressedThisFrame;
     /// <summary>Hotbar slot (1-5) pressed this frame, or 0.</summary>
     public static int SlotPressed =>
         Kb == null ? 0 :
@@ -67,6 +69,8 @@ public static class HorrorInput
     public static bool CrouchHeld => Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
     public static bool CrouchPressed => Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C);
     public static bool FlashlightPressed => Input.GetKeyDown(KeyCode.F);
+    /// <summary>F1: the debug overlay of where everything spawned.</summary>
+    public static bool DebugOverlayPressed => Input.GetKeyDown(KeyCode.F1);
     /// <summary>Hotbar slot (1-5) pressed this frame, or 0.</summary>
     public static int SlotPressed =>
         Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1) ? 1 :
