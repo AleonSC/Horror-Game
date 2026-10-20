@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The flier. Once seven different lamps have been lit, something enormous comes out of the sky: a vast,
+/// The flier. Once lamps have been lit seven times, something enormous comes out of the sky: a vast,
 /// ragged black bird, near forty metres across the wings, with a single eye that burns like a searchlight.
 ///
 /// Its entrance: a cry from far off, then it comes down out of the clouds in a long dive straight over the
@@ -720,15 +720,18 @@ public class FlyingEntity : MonoBehaviour
     }
 }
 
-/// <summary>Brings in the flier the first time seven different lamps have been lit in a run. DarkForestGenerator adds this.</summary>
+/// <summary>
+/// Brings in the flier once lamps have been lit seven times in a run (the count at the top right of the screen,
+/// the same one the blind one and the eye go by). DarkForestGenerator adds this.
+/// </summary>
 public class FlyingEntitySpawner : MonoBehaviour
 {
-    [Tooltip("Different lamps lit before the flier comes.")]
+    [Tooltip("Times lamps have been lit (the counter at the top right) before the flier comes.")]
     public int lampsToSpawn = 7;
 
     void Update()
     {
-        if (Lamp.LitCount < lampsToSpawn || FlyingEntity.All.Count > 0 || GameOverScreen.IsActive) return;
+        if (Lamp.TimesLit < lampsToSpawn || FlyingEntity.All.Count > 0 || GameOverScreen.IsActive) return;
         var player = FindAnyObjectByType<FirstPersonController>();
         if (player == null || PortalDoor.PlayerInRoom) return;
         FlyingEntity.Spawn(player);
