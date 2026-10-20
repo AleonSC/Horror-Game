@@ -7,10 +7,13 @@ using UnityEngine.Rendering;
 ///
 /// - While the player isn't looking, it creeps a few metres closer every few seconds.
 ///   If a creep would bring it within kill distance, it takes the player (game over).
-/// - If the player approaches, it vibrates and its eyes widen while the player slows down until
-///   they can't get any closer. Then it builds to a crescendo, "poofs" and rematerializes far
-///   away with blazing eyes. That's the only way to push it back.
-/// - It can't enter or creep into a lit lamp's safe zone, and won't creep while the player is in one.
+/// - If the player approaches while shining the flashlight on it, it vibrates and its eyes widen
+///   while the player slows down until they can't get any closer. Then it builds to a crescendo,
+///   "poofs" and rematerializes far away with blazing eyes. That's the only way to push it back.
+/// - If the player comes near without the flashlight on it, it slowly grows and advances on them,
+///   with a pounding audio cue. If it reaches them, they die.
+/// - While the player is inside a lit lamp's safe zone it can't hurt them or enter the light.
+///   Instead, whenever it isn't being watched, it closes in and circles just outside the light.
 ///
 /// The body is unlit black, so the flashlight doesn't light it: it shows as a solid shadow against
 /// lit trees and ground. Eyes use HDR colors, so they glow if the camera has Bloom.
@@ -56,6 +59,24 @@ public class ShadowEntity : MonoBehaviour
     [Tooltip("If a creep would bring it this close, it takes the player.")]
     public float killDistance = 4f;
 
+    [Header("Flashlight")]
+    [Tooltip("Extra degrees beyond the edge of the flashlight beam that still count as shining on it.")]
+    public float beamMargin = 5f;
+
+    [Header("Advancing (no flashlight on it)")]
+    [Tooltip("Metres per second it closes in when the player is near without the flashlight on it.")]
+    public float advanceSpeed = 0.5f;
+    [Tooltip("How fast it grows while advancing (scale per second).")]
+    public float growRate = 0.03f;
+    public float maxGrowth = 1.8f;
+    [Tooltip("If it gets this close while advancing, it takes the player.")]
+    public float touchDistance = 1.5f;
+
+    [Header("Circling Lamps")]
+    [Tooltip("How far outside a lamp's light it circles.")]
+    public float ringMargin = 1.5f;
+    public float circleSpeed = 1.2f;
+
     [Header("Vibration")]
     public float maxVibration = 0.04f;
     public float crescendoVibration = 0.25f;
@@ -97,6 +118,7 @@ public class ShadowEntity : MonoBehaviour
     public AudioClip crescendoSound;
     public AudioClip poofSound;
     public AudioClip killSound;
+    public AudioClip advanceLoop;
 
     public enum State { Hidden, Materializing, Watching, Crescendo, Killing }
     public State CurrentState { get; private set; }
@@ -104,7 +126,11 @@ public class ShadowEntity : MonoBehaviour
 
     FirstPersonController player;
     DarkForestGenerator generator;
-    AudioSource sfx, whisper;
+    AudioSource sfx, whisper, advanceSource;
+    Flashlight flashlight;
+    float growth = 1f;
+    float circleDirection = 1f;
+    float stepSoundTimer;
 
     Transform visual;
     Renderer[] bodyRenderers;
@@ -136,6 +162,9 @@ public class ShadowEntity : MonoBehaviour
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, volume, 6f, 80f);
         whisper = ProceduralAudio.AddSource(gameObject, whisperLoop != null ? whisperLoop : ProceduralAudio.Whisper, true, true, 0f, 2f, 30f);
         whisper.pitch = Random.Range(0.85f, 1.1f); // so several entities don't sound identical
+        advanceSource = ProceduralAudio.AddSource(gameObject, advanceLoop != null ? advanceLoop : ProceduralAudio.Advance, true, true, 0f, 8f, 60f);
+        advanceSource.spatialBlend = 0.6f; // mostly 3D, but always clearly audible
+        circleDirection = Random.value < 0.5f ? -1f : 1f;
     }
 
     void Start()
@@ -206,6 +235,8 @@ public class ShadowEntity : MonoBehaviour
         timer = duration;
         SetVisible(false);
         whisper.Stop();
+        advanceSource.Stop();
+        SetGrowth(1f);
         ReleasePlayer();
     }
 
@@ -230,6 +261,8 @@ public class ShadowEntity : MonoBehaviour
         creepTimer = Random.Range(minCreepInterval, maxCreepInterval);
         whisper.volume = 0f;
         whisper.Play();
+        advanceSource.volume = 0f;
+        advanceSource.Play();
         CurrentState = State.Watching;
     }
 
@@ -251,28 +284,130 @@ public class ShadowEntity : MonoBehaviour
             return;
         }
 
-        if (player != null) player.SetApproachLimit(this, transform.position, reactDistance, stopDistance);
-
         eyeFlare = Mathf.MoveTowards(eyeFlare, 0f, Time.deltaTime / Mathf.Max(eyeDimTime, 0.01f));
 
         // 0 when the player is far away, 1 when they're at the stop distance.
         float closeness = Mathf.Clamp01(Mathf.InverseLerp(reactDistance, stopDistance, dist));
 
-        Vibrate(maxVibration * closeness);
+        bool playerSafe = Lamp.IsInSafeZone(target.position, out Lamp safeLamp);
+        bool advancing = false;
+
+        if (playerSafe)
+        {
+            // Can't touch them in the light. Close in and prowl around its edge while unwatched.
+            ReleasePlayer();
+            if (!IsPlayerLooking()) CircleLamp(safeLamp);
+        }
+        else if (IsLitByFlashlight())
+        {
+            // Facing it down with the light: the player slows, and reaching it sets off the crescendo.
+            if (player != null) player.SetApproachLimit(this, transform.position, reactDistance, stopDistance);
+            if (dist <= stopDistance + triggerMargin)
+            {
+                StartCrescendo();
+                return;
+            }
+        }
+        else
+        {
+            // Near it in the dark: it grows and comes for them.
+            ReleasePlayer();
+            if (dist < reactDistance)
+            {
+                advancing = true;
+                if (dist <= touchDistance)
+                {
+                    StartKill();
+                    return;
+                }
+                Vector3 toPlayer = target.position - transform.position;
+                toPlayer.y = 0f;
+                Vector3 next = transform.position + toPlayer.normalized * (advanceSpeed * Time.deltaTime);
+                next.y = GroundHeight(next);
+                transform.position = next;
+            }
+        }
+
+        SetGrowth(advancing
+            ? Mathf.Min(maxGrowth, growth + growRate * Time.deltaTime)
+            : Mathf.MoveTowards(growth, 1f, growRate * 2f * Time.deltaTime));
+
+        Vibrate(maxVibration * Mathf.Max(closeness, advancing ? 0.6f : 0f));
         float brightness = Mathf.Lerp(eyeIntensity, spawnEyeIntensity, eyeFlare) + closeness * eyeIntensity * 2f;
         SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), brightness);
         whisper.volume = Mathf.Lerp(0.25f, 1f, closeness) * volume;
 
-        if (dist <= stopDistance + triggerMargin)
+        float advanceTarget = advancing ? Mathf.Lerp(0.5f, 1f, closeness) * volume : 0f;
+        advanceSource.volume = Mathf.MoveTowards(advanceSource.volume, advanceTarget, Time.deltaTime * 1.5f);
+        advanceSource.pitch = Mathf.Lerp(0.9f, 1.3f, Mathf.InverseLerp(1f, maxGrowth, growth));
+
+        if (!playerSafe)
         {
-            CurrentState = State.Crescendo;
-            timer = 0f;
-            PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo);
-            return;
+            creepTimer -= Time.deltaTime;
+            if (creepTimer <= 0f) TryCreep();
+        }
+    }
+
+    void CircleLamp(Lamp lamp)
+    {
+        Vector3 center = lamp.transform.position;
+        float ring = lamp.safeRadius + ringMargin;
+
+        Vector3 offset = transform.position - center;
+        offset.y = 0f;
+        float r = offset.magnitude;
+        float angle = r > 0.01f ? Mathf.Atan2(offset.x, offset.z) : Random.Range(0f, Mathf.PI * 2f);
+
+        // Head in to the edge of the light, then walk around it.
+        if (r > ring + 0.2f)
+            r = Mathf.MoveTowards(r, ring, circleSpeed * Time.deltaTime);
+        else
+        {
+            r = ring;
+            angle += circleDirection * circleSpeed * Time.deltaTime / ring;
         }
 
-        creepTimer -= Time.deltaTime;
-        if (creepTimer <= 0f) TryCreep();
+        Vector3 next = center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * r;
+        next.y = GroundHeight(next);
+        transform.position = next;
+
+        stepSoundTimer -= Time.deltaTime;
+        if (stepSoundTimer <= 0f)
+        {
+            stepSoundTimer = Random.Range(1.5f, 3.5f);
+            PlaySound(creepSound != null ? creepSound : ProceduralAudio.Creep);
+        }
+    }
+
+    void StartCrescendo()
+    {
+        CurrentState = State.Crescendo;
+        timer = 0f;
+        PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo);
+    }
+
+    bool IsLitByFlashlight()
+    {
+        if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
+        if (flashlight == null || !flashlight.IsOn) return false;
+
+        Light beam = flashlight.flashlight;
+        Vector3 chest = transform.position + Vector3.up * (1.4f * scale * growth);
+        Vector3 toChest = chest - beam.transform.position;
+        float dist = toChest.magnitude;
+
+        if (dist > beam.range) return false;
+        if (Vector3.Angle(beam.transform.forward, toChest) > beam.spotAngle * 0.5f + beamMargin) return false;
+        // Trees in the way block the beam.
+        if (Physics.Raycast(beam.transform.position, toChest / dist, dist - 0.3f, ~0, QueryTriggerInteraction.Ignore))
+            return false;
+        return true;
+    }
+
+    void SetGrowth(float value)
+    {
+        growth = value;
+        transform.localScale = Vector3.one * growth;
     }
 
     void TryCreep()
@@ -324,6 +459,7 @@ public class ShadowEntity : MonoBehaviour
                 Mathf.Lerp(eyeIntensity * 3f, spawnEyeIntensity * 1.5f, e) * flicker);
         whisper.volume = volume;
         whisper.pitch = Mathf.Lerp(1f, 1.6f, e);
+        advanceSource.volume = Mathf.MoveTowards(advanceSource.volume, 0f, Time.deltaTime * 2f);
 
         if (player != null) player.AddCameraShake(maxCameraShake * e);
 
@@ -360,6 +496,7 @@ public class ShadowEntity : MonoBehaviour
         FacePlayer();
 
         SetVisible(true);
+        advanceSource.Stop();
         PlaySound(killSound != null ? killSound : ProceduralAudio.Screech, 1f);
     }
 
@@ -376,7 +513,7 @@ public class ShadowEntity : MonoBehaviour
         Transform cam = Camera.main != null ? Camera.main.transform : null;
         if (cam != null)
         {
-            Vector3 head = transform.position + Vector3.up * 2.2f * scale;
+            Vector3 head = transform.position + Vector3.up * (2.2f * scale * growth);
             Quaternion look = Quaternion.LookRotation(head - cam.position);
             cam.rotation = Quaternion.Slerp(cam.rotation, look, 1f - Mathf.Exp(-12f * Time.deltaTime));
             cam.rotation *= Quaternion.Euler(Random.insideUnitSphere * 1.5f);
@@ -400,7 +537,7 @@ public class ShadowEntity : MonoBehaviour
     bool IsPlayerLooking()
     {
         Transform cam = Camera.main != null ? Camera.main.transform : target;
-        Vector3 head = transform.position + Vector3.up * 2f * scale;
+        Vector3 head = transform.position + Vector3.up * (2f * scale * growth);
         Vector3 toHead = head - cam.position;
 
         if (Vector3.Angle(cam.forward, toHead) > lookAngle) return false;

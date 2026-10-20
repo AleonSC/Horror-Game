@@ -5,6 +5,9 @@ using UnityEngine;
 /// A lamp post that starts off. The player clicks it repeatedly to fill a meter (which slowly
 /// drains if they stop). A full meter lights the lamp, making a safe zone that entities can't
 /// enter or creep into. Every lamp lit also summons another ShadowEntity.
+///
+/// A lit lamp burns through its energy. It flickers more and more as the energy runs low, then
+/// goes out and needs to cool down before it can be lit again.
 /// LampSpawner places these around the map; LampInteractor handles the clicking and HUD.
 /// </summary>
 public class Lamp : MonoBehaviour
@@ -27,14 +30,34 @@ public class Lamp : MonoBehaviour
     [Tooltip("Summon another entity each time a lamp is lit.")]
     public bool spawnEntityWhenLit = true;
 
+    [Header("Energy")]
+    [Tooltip("Seconds a lit lamp lasts before going out.")]
+    public float energyDuration = 90f;
+    [Range(0f, 1f), Tooltip("Below this much energy the light starts flickering, more as it gets lower.")]
+    public float flickerBelow = 0.35f;
+    [Tooltip("Seconds after going out before the lamp can be lit again.")]
+    public float cooldownTime = 30f;
+
     [Header("Audio (optional)")]
     public AudioClip clickSound;
     public AudioClip igniteSound;
     public AudioClip humLoop;
+    public AudioClip powerDownSound;
+    public AudioClip flickerSound;
 
     public bool IsLit { get; private set; }
     /// <summary>Meter from 0 to 1.</summary>
     public float Charge { get; private set; }
+    /// <summary>Remaining energy from 1 (just lit) to 0 (goes out).</summary>
+    public float Energy { get; private set; }
+    public float CooldownRemaining { get; private set; }
+    public bool IsCoolingDown => CooldownRemaining > 0f;
+    /// <summary>Cooldown progress from 0 (just went out) to 1 (ready).</summary>
+    public float CooldownProgress => cooldownTime > 0f ? 1f - CooldownRemaining / cooldownTime : 1f;
+
+    /// <summary>How many times any lamp has been turned on this run.</summary>
+    public static int TimesLit { get; private set; }
+    public static void ResetTimesLit() => TimesLit = 0;
 
     public static int LitCount
     {
@@ -47,15 +70,23 @@ public class Lamp : MonoBehaviour
     }
 
     /// <summary>True if the point is inside any lit lamp's safe zone.</summary>
-    public static bool IsInSafeZone(Vector3 point)
+    public static bool IsInSafeZone(Vector3 point) => IsInSafeZone(point, out _);
+
+    /// <summary>True if the point is inside any lit lamp's safe zone, and which lamp.</summary>
+    public static bool IsInSafeZone(Vector3 point, out Lamp lamp)
     {
-        foreach (var lamp in All)
+        foreach (var l in All)
         {
-            if (!lamp.IsLit) continue;
-            Vector3 d = point - lamp.transform.position;
+            if (!l.IsLit) continue;
+            Vector3 d = point - l.transform.position;
             d.y = 0f;
-            if (d.sqrMagnitude < lamp.safeRadius * lamp.safeRadius) return true;
+            if (d.sqrMagnitude < l.safeRadius * l.safeRadius)
+            {
+                lamp = l;
+                return true;
+            }
         }
+        lamp = null;
         return false;
     }
 
@@ -64,6 +95,8 @@ public class Lamp : MonoBehaviour
     AudioSource hum, sfx;
     float lastClickTime;
     float flash;
+    float flickerTimer;
+    float flickerLevel = 1f;
 
     const float PoleHeight = 3f;
 
@@ -81,7 +114,7 @@ public class Lamp : MonoBehaviour
     /// <summary>One click's worth of charge. Lights the lamp when the meter is full.</summary>
     public void AddCharge()
     {
-        if (IsLit) return;
+        if (IsLit || IsCoolingDown) return;
 
         Charge = Mathf.Clamp01(Charge + chargePerClick);
         lastClickTime = Time.time;
@@ -97,8 +130,16 @@ public class Lamp : MonoBehaviour
     {
         if (IsLit)
         {
-            // Occasional flicker so it never feels completely safe.
-            lampLight.intensity = Random.value < 0.01f ? lightIntensity * 0.4f : lightIntensity;
+            UpdateLit();
+            return;
+        }
+
+        if (IsCoolingDown)
+        {
+            CooldownRemaining = Mathf.Max(0f, CooldownRemaining - Time.deltaTime);
+            // The filament glows a dull red as it cools.
+            float ember = (1f - CooldownProgress) * 0.25f;
+            MaterialFactory.SetColor(bulbMat, Color.Lerp(new Color(0.08f, 0.07f, 0.06f), new Color(1f, 0.25f, 0.05f), ember));
             return;
         }
 
@@ -113,9 +154,48 @@ public class Lamp : MonoBehaviour
         SetBulb(glow);
     }
 
+    void UpdateLit()
+    {
+        Energy = Mathf.Max(0f, Energy - Time.deltaTime / Mathf.Max(energyDuration, 0.01f));
+        if (Energy <= 0f)
+        {
+            TurnOff();
+            return;
+        }
+
+        // 0 while healthy, rising to 1 as the energy runs out.
+        float low = flickerBelow > 0f ? Mathf.Clamp01(1f - Energy / flickerBelow) : 0f;
+
+        if (flickerTimer > 0f)
+        {
+            flickerTimer -= Time.deltaTime;
+            if (flickerTimer <= 0f) flickerLevel = 1f;
+        }
+        else
+        {
+            // Flickers per second: rare while healthy, constant sputtering near the end.
+            float rate = Mathf.Lerp(0.3f, 9f, low * low);
+            if (Random.value < rate * Time.deltaTime)
+            {
+                flickerTimer = Random.Range(0.04f, Mathf.Lerp(0.1f, 0.35f, low));
+                flickerLevel = Random.Range(0f, Mathf.Lerp(0.6f, 0.25f, low));
+                if (low > 0f) sfx.PlayOneShot(flickerSound != null ? flickerSound : ProceduralAudio.LampSpark, 0.3f + 0.4f * low);
+            }
+        }
+
+        float level = flickerLevel * Mathf.Lerp(1f, 0.7f, low); // also dims overall near the end
+        lampLight.intensity = lightIntensity * level;
+        SetBulb(level);
+        hum.volume = 0.35f * level;
+    }
+
     void TurnOn()
     {
         IsLit = true;
+        TimesLit++;
+        Energy = 1f;
+        flickerTimer = 0f;
+        flickerLevel = 1f;
         Charge = 1f;
         lampLight.enabled = true;
         lampLight.intensity = lightIntensity;
@@ -124,9 +204,25 @@ public class Lamp : MonoBehaviour
 
         sfx.pitch = 1f;
         sfx.PlayOneShot(igniteSound != null ? igniteSound : ProceduralAudio.LampIgnite);
+        hum.volume = 0.35f;
         hum.Play();
 
         if (spawnEntityWhenLit) ShadowEntity.Spawn();
+    }
+
+    void TurnOff()
+    {
+        IsLit = false;
+        Energy = 0f;
+        Charge = 0f;
+        CooldownRemaining = cooldownTime;
+        lampLight.enabled = false;
+        lampLight.range = 6f;
+        SetBulb(0f);
+        hum.Stop();
+
+        sfx.pitch = 1f;
+        sfx.PlayOneShot(powerDownSound != null ? powerDownSound : ProceduralAudio.LampPowerDown);
     }
 
     /// <summary>Turns the lamp back off and empties the meter.</summary>
@@ -134,6 +230,8 @@ public class Lamp : MonoBehaviour
     {
         IsLit = false;
         Charge = 0f;
+        Energy = 0f;
+        CooldownRemaining = 0f;
         flash = 0f;
         lampLight.enabled = false;
         lampLight.range = 6f;

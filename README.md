@@ -9,8 +9,8 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/FirstPersonController.cs` | Walk, run, jump and crouch (CharacterController based), mouse look, head bob. |
 | `Assets/Scripts/Player/Flashlight.cs` | Spot light on the camera, toggled with **F**. Slight sway, optional click sound. |
 | `Assets/Scripts/World/DarkForestGenerator.cs` | Procedurally builds a dark wooded area: bumpy ground, pines, dead trees, rocks, logs, fog, moonlight and boundary walls. Can spawn the player too. |
-| `Assets/Scripts/World/ShadowEntity.cs` | A pitch-black silhouette that watches you from the dark. When you're not looking it creeps a few metres closer; if it gets close enough, it takes you. Run at it to make it crescendo, poof and rematerialize far away. |
-| `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | Unlit lamps scattered around the map. Click one repeatedly to fill its meter and light it, making a safe zone the entities can't enter. Every lamp lit summons another entity. |
+| `Assets/Scripts/World/ShadowEntity.cs` | A pitch-black silhouette that watches you from the dark. It creeps closer when you're not looking, grows and advances if you get near it in the dark, circles lamps you're sheltering in, and poofs if you face it down with the flashlight. |
+| `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | Unlit lamps scattered around the map. Click one repeatedly to light it, making a safe zone the entities can't enter. Lamps run out of energy (flickering as they fade), then need to cool down. Every lamp lit summons another entity. |
 | `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps, plus the HUD (crosshair, lamp meter, tiny lit-lamp counter top right). |
 | `Assets/Scripts/Player/IntroText.cs` | Opening narration: lines fade in and out one by one over a black screen that slowly reveals the forest. Edit the lines in the inspector. |
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
@@ -35,10 +35,14 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
 
 - Something watches you from the dark. Each time you look away, it creeps a little closer.
   Let it get too close and it takes you.
-- Running straight at it is the only way to drive it back: you'll slow to a halt, it will shriek and vanish,
-  then reappear far away.
-- Find the lamps and click them repeatedly to light them. A lit lamp's light is safe ground,
-  but every lamp you light summons another one of them.
+- Walk at it with your flashlight on it and you'll slow to a halt; it shrieks and vanishes, then
+  reappears far away. That's the only way to drive it back.
+- Get near it *without* the flashlight on it and it grows, and comes for you. A pounding heartbeat
+  means it's coming. If it reaches you, you die.
+- Find the lamps and click them repeatedly to light them. In the light they can't hurt you, but when
+  you aren't watching they gather and circle just outside it. Every lamp you light summons another one.
+- Lamps burn out. They flicker as their energy runs low, go dark, and need time to cool down before
+  they can be lit again.
 
 ## Controls
 

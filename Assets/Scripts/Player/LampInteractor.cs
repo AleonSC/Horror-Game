@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Lets the player click on lamps to charge them, and draws a simple HUD:
-/// a crosshair, the lamp meter, and a tiny counter of lamps lit (top right).
+/// a crosshair, the lamp's charge / energy / cooldown bar, the energy of the lamp you're standing in,
+/// and a tiny counter of how many times lamps have been lit (top right).
 /// LampSpawner adds this to the player automatically.
 /// </summary>
 public class LampInteractor : MonoBehaviour
@@ -47,26 +48,52 @@ public class LampInteractor : MonoBehaviour
 
         if (focused != null)
         {
+            string label;
+            float fill;
+            Color barColor;
             if (focused.IsLit)
             {
-                GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), "The lamp is lit", labelStyle);
+                label = "The lamp is lit";
+                fill = focused.Energy;
+                barColor = EnergyColor(focused);
+            }
+            else if (focused.IsCoolingDown)
+            {
+                label = "The lamp is cooling down...";
+                fill = focused.CooldownProgress;
+                barColor = new Color(0.45f, 0.45f, 0.5f);
             }
             else
             {
-                GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), "Click repeatedly to light the lamp", labelStyle);
-                var bar = new Rect(cx - 100f, cy + 52f, 200f, 10f);
-                DrawRect(bar, new Color(0f, 0f, 0f, 0.6f));
-                DrawRect(new Rect(bar.x, bar.y, bar.width * focused.Charge, bar.height), new Color(1f, 0.75f, 0.4f));
+                label = "Click repeatedly to light the lamp";
+                fill = focused.Charge;
+                barColor = new Color(1f, 0.75f, 0.4f);
             }
+
+            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), label, labelStyle);
+            DrawBar(new Rect(cx - 100f, cy + 52f, 200f, 10f), fill, barColor);
         }
 
-        // Tiny lit-lamp counter in the top right: a warm dot and a number.
+        // Tiny counter in the top right of how many times lamps have been turned on: a warm dot and a number.
         var counter = new Rect(Screen.width - 66f, 12f, 50f, 16f);
         DrawRect(new Rect(counter.xMax - 6f, counter.y + 5f, 6f, 6f), new Color(1f, 0.75f, 0.4f, 0.9f));
-        GUI.Label(new Rect(counter.x, counter.y, counter.width - 12f, counter.height), Lamp.LitCount.ToString(), smallStyle);
+        GUI.Label(new Rect(counter.x, counter.y, counter.width - 12f, counter.height), Lamp.TimesLit.ToString(), smallStyle);
 
-        if (Lamp.IsInSafeZone(transform.position))
-            GUI.Label(new Rect(cx - 200f, Screen.height - 60f, 400f, 30f), "The light keeps them away", labelStyle);
+        // While standing in a lamp's light, show how much it has left.
+        if (Lamp.IsInSafeZone(transform.position, out Lamp safeLamp))
+        {
+            GUI.Label(new Rect(cx - 200f, Screen.height - 70f, 400f, 30f), "The light keeps them away", labelStyle);
+            DrawBar(new Rect(cx - 80f, Screen.height - 40f, 160f, 6f), safeLamp.Energy, EnergyColor(safeLamp));
+        }
+    }
+
+    static Color EnergyColor(Lamp lamp) =>
+        lamp.Energy < lamp.flickerBelow ? new Color(0.9f, 0.25f, 0.15f) : new Color(1f, 0.75f, 0.4f);
+
+    static void DrawBar(Rect bar, float fill, Color color)
+    {
+        DrawRect(bar, new Color(0f, 0f, 0f, 0.6f));
+        DrawRect(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(fill), bar.height), color);
     }
 
     static void DrawRect(Rect r, Color c)

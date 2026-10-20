@@ -50,6 +50,7 @@ public class GameOverScreen : MonoBehaviour
 
         foreach (var lamp in Lamp.All)
             lamp.ResetLamp();
+        Lamp.ResetTimesLit();
 
         var player = FindAnyObjectByType<FirstPersonController>();
         if (player != null)

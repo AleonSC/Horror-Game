@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, rain, rainHeavy, leaves, treeCreak;
+        lampClick, lampIgnite, lampHum, rain, rainHeavy, leaves, treeCreak, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -48,6 +48,8 @@ public static class ProceduralAudio
     /// <summary>Rustle and crackle of something moving through the undergrowth.</summary>
     public static AudioClip Creep => creep != null ? creep : (creep = MakeCreep());
     public static AudioClip Screech => screech != null ? screech : (screech = MakeScreech());
+    /// <summary>Pounding heartbeat under a deep, swelling groan: something is coming. Loops seamlessly.</summary>
+    public static AudioClip Advance => advance != null ? advance : (advance = MakeAdvance());
 
     // ---------------------------------------------------------------- Lamps
 
@@ -55,6 +57,10 @@ public static class ProceduralAudio
     public static AudioClip LampIgnite => lampIgnite != null ? lampIgnite : (lampIgnite = MakeLampIgnite());
     /// <summary>Electrical mains hum. Loops seamlessly.</summary>
     public static AudioClip LampHum => lampHum != null ? lampHum : (lampHum = MakeLampHum());
+    /// <summary>Short electrical crackle when the lamp flickers.</summary>
+    public static AudioClip LampSpark => lampSpark != null ? lampSpark : (lampSpark = MakeLampSpark());
+    /// <summary>Buzz winding down to a clunk as the lamp dies.</summary>
+    public static AudioClip LampPowerDown => lampPowerDown != null ? lampPowerDown : (lampPowerDown = MakeLampPowerDown());
 
     // ---------------------------------------------------------------- Playback helpers
 
@@ -348,6 +354,68 @@ public static class ProceduralAudio
             float env = t < 0.05f ? t / 0.05f : Mathf.Exp(-(t - 0.05f) * 0.8f);
             return Tanh(s * 2f) * env;
         }, 1f);
+    }
+
+    static AudioClip MakeAdvance()
+    {
+        float lp = 0f, breathLp = 0f, breathHp = 0f;
+        return Loop("Advance", 4f, t =>
+        {
+            // Heartbeat: lub-dub once per second.
+            float beat = t % 1f;
+            float lub = beat < 0.3f ? Mathf.Sin(TwoPi * 48f * beat) * Mathf.Exp(-beat * 18f) : 0f;
+            float dubT = beat - 0.25f;
+            float dub = dubT >= 0f && dubT < 0.3f ? Mathf.Sin(TwoPi * 42f * dubT) * Mathf.Exp(-dubT * 22f) * 0.7f : 0f;
+
+            // Groan: two detuned saws, low-passed, swelling with each pair of beats.
+            float saw = (2f * (46f * t % 1f) - 1f) + (2f * (46.5f * t % 1f) - 1f);
+            lp += (saw - lp) * 0.02f;
+            float swell = 0.5f + 0.5f * Sin(0.5f, t);
+
+            breathLp += (White() - breathLp) * 0.15f;
+            breathHp += (breathLp - breathHp) * 0.04f;
+
+            return (lub + dub) * 1.2f + lp * 0.5f * swell + (breathLp - breathHp) * 0.3f * swell;
+        }, 0.9f);
+    }
+
+    static AudioClip MakeLampSpark()
+    {
+        float lp = 0f;
+        return Shot("Lamp Spark", 0.12f, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.25f;
+            float crackle = rng.NextDouble() < 0.02 ? White() * 3f : 0f;
+            return ((w - lp) * 0.6f + crackle) * Mathf.Exp(-t * 30f);
+        }, 0.8f);
+    }
+
+    static AudioClip MakeLampPowerDown()
+    {
+        const float len = 1.4f;
+        float phase = 0f, lp = 0f, clunkPhase = 0f;
+        return Shot("Lamp Power Down", len, t =>
+        {
+            float p = t / len;
+            // Buzz sagging in pitch and stuttering as it dies.
+            float hz = Mathf.Lerp(120f, 35f, p * p);
+            phase += hz / Rate;
+            float saw = 2f * (phase % 1f) - 1f;
+            lp += (saw - lp) * 0.12f;
+            float stutter = Sin(9f + 14f * p, t) > -0.2f ? 1f : 0.2f;
+            float buzz = lp * (1f - p) * stutter;
+
+            // Relay clunk at the very end.
+            float ct = t - (len - 0.25f);
+            float clunk = 0f;
+            if (ct >= 0f)
+            {
+                clunkPhase += TwoPi * 70f / Rate;
+                clunk = Mathf.Sin(clunkPhase) * Mathf.Exp(-ct * 25f);
+            }
+            return buzz + clunk * 0.8f;
+        }, 0.9f);
     }
 
     static AudioClip MakeTwigSnap()
