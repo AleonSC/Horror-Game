@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// A door standing on its own in the forest, shut and locked, between two lit lamp posts. It unlocks once
-/// every lamp in the forest has been lit (with a heavy clunk heard wherever you are); then click it to
-/// open it (and again to shut it). Through the doorway there's no forest: there's a vast, dark room. Walk round the
+/// lampsToUnlock (10) different lamps have been lit (with a heavy clunk heard wherever you are); then
+/// click it to open it (and again to shut it). Through the doorway there's no forest: there's a vast, dark room. Walk round the
 /// back of it, or past its sides, and it's just a door frame in the trees. Step through and you're in the room: black floor, black walls, black pillars
 /// receding into the dark, one dim light. The door stands in the middle of it, and through it you can see
 /// the forest; look round the back of it and there's only more room. Step back through to leave. Both
@@ -28,6 +28,8 @@ public class PortalDoor : MonoBehaviour
     [Tooltip("Seconds for them to come back once you're out.")]
     public float quietFadeOut = 1.5f;
 
+    [Tooltip("Different lamps that must be lit before the door unlocks (never more than there are lamps).")]
+    public int lampsToUnlock = 10;
     [Tooltip("How far below the door the room is built.")]
     public float roomDepth = 400f;
     [Tooltip("Width and length of the room.")]
@@ -241,13 +243,14 @@ public class PortalDoor : MonoBehaviour
         PlayerInRoom = inRoom;
 
         // Locked until every lamp in the forest has been lit; then it stays unlocked for the run.
-        bool unlocked = Lamp.AllHaveBeenLit;
+        int needed = Mathf.Min(lampsToUnlock, Lamp.All.Count); // never more lamps than there are
+        int remaining = Mathf.Max(0, needed - Lamp.LitCount);
+        bool unlocked = Lamp.All.Count > 0 && remaining == 0;
         if (unlocked && forestPanel.locked) Unlock();
         if (!unlocked)
         {
             forestPanel.locked = roomPanel.locked = true;
-            int dark = Lamp.DarkCount;
-            forestPanel.lockedMessage = dark == 1 ? "Locked. One lamp is still dark." : $"Locked. {dark} lamps are still dark.";
+            forestPanel.lockedMessage = remaining == 1 ? "Locked. Light one more lamp." : $"Locked. Light {remaining} more lamps.";
         }
 
         // Shut, it's just a door: no view through it, no way through.

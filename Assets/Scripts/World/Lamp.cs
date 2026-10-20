@@ -82,6 +82,17 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         }
     }
 
+    /// <summary>How many different lamps have been lit at least once this run.</summary>
+    public static int LitCount
+    {
+        get
+        {
+            int lit = 0;
+            foreach (var lamp in All) if (lamp.HasBeenLit) lit++;
+            return lit;
+        }
+    }
+
     /// <summary>How many lamps have never been lit this run.</summary>
     public static int DarkCount
     {

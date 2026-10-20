@@ -2,29 +2,30 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The blind one. Once three lamps have been lit, a single larger entity comes out of the dark: hunched,
+/// The blind one. Once three lamps have been lit, a single huge entity (6.5m) comes out of the dark: hunched,
 /// long-armed, its head a smooth eyeless shape with a split for a mouth. It can't see: the flashlight means
 /// nothing to it. It roams the woods around the player, stopping to cock its head and listen, clicking
 /// softly to itself. Any noise in earshot (Noise.Emit: footsteps, running, bushes, doors, lamp cranking,
 /// the flare gun, a glowstick clattering down) and it turns and rushes to the spot, then searches there.
 /// If the player is in reach, it takes them. Crouch, move slowly, keep still when it's close. It won't
-/// come into lit lamps or other lights. BlindEntitySpawner brings it in; a run reset removes it.
+/// come into lit lamps or other lights. Nothing else stops it: it walks straight through trees and rocks,
+/// trunks creaking and cracking as it shoulders past. BlindEntitySpawner brings it in; a run reset removes it.
 /// </summary>
 public class BlindEntity : MonoBehaviour
 {
     public static readonly List<BlindEntity> All = new List<BlindEntity>();
 
-    public float height = 3.4f;
+    public float height = 6.5f;
     [Tooltip("Walking speed while it roams.")]
-    public float roamSpeed = 1.1f;
+    public float roamSpeed = 1.5f;
     [Tooltip("Speed when it rushes toward a noise.")]
-    public float rushSpeed = 4.2f;
+    public float rushSpeed = 5.2f;
     [Tooltip("It roams within this distance of the player.")]
     public float roamRadius = 40f;
     [Tooltip("Moving at all within this distance of it, it hears you (even crouched).")]
-    public float closeHearing = 3f;
+    public float closeHearing = 4f;
     [Tooltip("Within this distance it takes the player.")]
-    public float grabDistance = 1.7f;
+    public float grabDistance = 2.6f;
     [Tooltip("How long it searches where it heard something.")]
     public float searchTime = 5f;
     [Range(0f, 1f)] public float volume = 0.8f;
@@ -206,6 +207,7 @@ public class BlindEntity : MonoBehaviour
         Vector3 next = Settle(transform.position + to / dist * Mathf.Min(speed * dt, dist));
         if (SafeZones.Contains(next)) return true; // the light stops it: it gives up here
         transform.position = next;
+        ShoulderThroughTrees(speed);
         Face(target, dt * 4f);
         stride += dt * speed * 1.6f;
         stepTimer -= dt;
@@ -215,6 +217,30 @@ public class BlindEntity : MonoBehaviour
             PlaySound(ProceduralAudio.Footstep(Random.Range(0, 4)), Random.Range(0.5f, 0.6f), speed > roamSpeed + 0.5f ? 1f : 0.6f);
         }
         return false;
+    }
+
+    float crashCooldown;
+    Collider lastTrunk;
+
+    /// <summary>Pushing through a trunk: it groans and cracks (more at a run). Shown by sound; it doesn't stop.</summary>
+    void ShoulderThroughTrees(float speed)
+    {
+        crashCooldown -= Time.deltaTime;
+        int count = Physics.OverlapCapsuleNonAlloc(transform.position + Vector3.up * 1.5f, transform.position + Vector3.up * (height - 1f),
+            0.9f * scale / 2.7f, overlaps, ~0, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            var c = overlaps[i];
+            if (!(c is CapsuleCollider) || c.GetComponentInParent<FirstPersonController>() != null) continue;
+            if (c == lastTrunk || crashCooldown > 0f) return;
+            lastTrunk = c;
+            crashCooldown = 0.6f;
+            bool rushing = speed > roamSpeed + 0.5f;
+            ProceduralAudio.PlayAt(rushing ? ProceduralAudio.TreeSnap : ProceduralAudio.TreeCreak, c.bounds.center,
+                volume * (rushing ? 0.6f : 0.4f), Random.Range(0.8f, 1.1f), 8f);
+            return;
+        }
+        lastTrunk = null;
     }
 
     void Face(Vector3 target, float rate)
@@ -389,42 +415,13 @@ public class BlindEntity : MonoBehaviour
 
     static readonly Collider[] overlaps = new Collider[16];
 
-    /// <summary>Puts a point on the ground, pushed out of any trunk or rock its body would be inside.</summary>
+    /// <summary>Puts a point on the ground. It goes straight through trunks and rocks (ShoulderThroughTrees just makes them creak).</summary>
     Vector3 Settle(Vector3 p)
     {
-        const float r = 0.45f;
         p.y = GroundHeight(p);
-        for (int iteration = 0; iteration < 4; iteration++)
-        {
-            int count = Physics.OverlapCapsuleNonAlloc(p + Vector3.up * (0.8f + r), p + Vector3.up * (height - r), r, overlaps, ~0, QueryTriggerInteraction.Ignore);
-            bool pushed = false;
-            Vector3 probe = p + Vector3.up * 1.3f;
-            for (int i = 0; i < count; i++)
-            {
-                Collider c = overlaps[i];
-                if (c is CharacterController || c.GetComponentInParent<FirstPersonController>() != null) continue;
-                if (c is MeshCollider ground && ground.sharedMesh != null && ground.sharedMesh.name == "Forest Ground") continue;
-                Bounds b = c.bounds;
-                Vector3 push;
-                float clearance;
-                if (c is MeshCollider mesh && !mesh.convex) { push = probe - b.center; clearance = Mathf.Max(b.extents.x, b.extents.z) * 0.85f + r; }
-                else
-                {
-                    push = probe - c.ClosestPoint(probe);
-                    push.y = 0f;
-                    clearance = r + 0.02f;
-                    if (push.sqrMagnitude < 0.0001f) { push = probe - b.center; clearance = r + Mathf.Max(b.extents.x, b.extents.z); }
-                }
-                push.y = 0f;
-                if (push.sqrMagnitude < 0.0001f) push = transform.right;
-                float d = push.magnitude;
-                if (d < clearance) { p += push / d * (clearance - d); pushed = true; }
-            }
-            p.y = GroundHeight(p);
-            if (!pushed) break;
-        }
         return p;
     }
+
 }
 
 /// <summary>Brings in the blind entity the first time enough lamps have been lit in a run. DarkForestGenerator adds this.</summary>
