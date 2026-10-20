@@ -21,6 +21,12 @@ public class Flashlight : MonoBehaviour
     public float intensity = 12f;
     public Color color = new Color(1f, 0.95f, 0.85f);
     public LightShadows shadows = LightShadows.Soft;
+
+    [Header("Edge")]
+    [Tooltip("Soften the edge of the beam into a feathered fade instead of a hard circle.")]
+    public bool featherEdge = true;
+    [Range(0f, 1f), Tooltip("How soft the edge is: 0 a crisp ring, 1 a gentle fade from the centre outward.")]
+    public float edgeFeather = 0.6f;
     [Tooltip("Position of the light relative to the camera (slightly right/down, like a hand).")]
     public Vector3 localOffset = new Vector3(0.25f, -0.2f, 0.2f);
 
@@ -73,6 +79,7 @@ public class Flashlight : MonoBehaviour
         flashlight.range = range;
         flashlight.spotAngle = spotAngle;
         flashlight.innerSpotAngle = innerSpotAngle;
+        ApplyFeather();
         flashlight.intensity = intensity;
         flashlight.color = color;
         flashlight.shadows = shadows;
@@ -83,8 +90,61 @@ public class Flashlight : MonoBehaviour
         audioSource.spatialBlend = 0f;
     }
 
+    bool appliedFeather;
+    float appliedFeatherAmount = -1f;
+
+    /// <summary>
+    /// Feathers the beam's edge: widens the falloff between the bright core and the rim, and lays a soft radial
+    /// cookie over it (smoothstep from the centre to the edge, with a faint brighter ring like a real reflector),
+    /// so the circle of light melts into the dark. Rebuilt whenever the settings change, even during play.
+    /// </summary>
+    void ApplyFeather()
+    {
+        if (flashlight == null) return;
+        if (appliedFeather == featherEdge && Mathf.Abs(appliedFeatherAmount - edgeFeather) < 0.01f) return;
+        appliedFeather = featherEdge;
+        appliedFeatherAmount = edgeFeather;
+
+        if (!featherEdge)
+        {
+            flashlight.innerSpotAngle = innerSpotAngle;
+            flashlight.cookie = null;
+            return;
+        }
+        flashlight.innerSpotAngle = Mathf.Lerp(spotAngle * 0.9f, spotAngle * 0.05f, edgeFeather);
+        flashlight.cookie = MakeFeatherCookie(edgeFeather);
+    }
+
+    static Texture2D MakeFeatherCookie(float feather)
+    {
+        const int n = 128;
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, false, true)
+        {
+            name = "Flashlight Feather", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear,
+        };
+        var px = new Color32[n * n];
+        float inner = Mathf.Lerp(0.85f, 0.15f, feather); // where the fade starts, as a fraction of the radius
+        for (int y = 0; y < n; y++)
+        {
+            for (int x = 0; x < n; x++)
+            {
+                float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                float v = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(inner, 0.98f, r));
+                v *= 1f + 0.12f * Mathf.Exp(-Mathf.Pow((r - inner * 0.9f) / 0.08f, 2f)); // a faint reflector ring
+                v = Mathf.Clamp01(v);
+                byte b = (byte)Mathf.RoundToInt(v * 255f);
+                px[y * n + x] = new Color32(b, b, b, b);
+            }
+        }
+        tex.SetPixels32(px);
+        tex.Apply(false, true);
+        return tex;
+    }
+
     void Update()
     {
+        ApplyFeather(); // live: picks up changes to the edge settings during play
         if (PauseMenu.IsPaused) return;
         if (HorrorInput.FlashlightPressed && Equipped)
             Toggle();
