@@ -79,6 +79,10 @@ public class DarkForestGenerator : MonoBehaviour
 
     [Header("Props")]
     public int rockCount = 480;
+    [Tooltip("Big boulders, half buried, scattered at random.")]
+    public int boulderCount = 40;
+    public float minBoulderSize = 2.5f;
+    public float maxBoulderSize = 6f;
     public int fallenLogCount = 140;
     public GameObject[] rockPrefabs;
 
@@ -143,6 +147,9 @@ public class DarkForestGenerator : MonoBehaviour
     /// <summary>Positions (x, z) of the campsites.</summary>
     public readonly List<Vector2> CampsitePositions = new List<Vector2>();
 
+    /// <summary>Where the big boulders are (x, z).</summary>
+    public readonly List<Vector2> BoulderSpots = new List<Vector2>();
+
     /// <summary>Spots kept clear for the broken-down car: where it's parked, and the ground its headlights light up.</summary>
     public readonly List<Vector2> CarClearings = new List<Vector2>();
 
@@ -163,6 +170,8 @@ public class DarkForestGenerator : MonoBehaviour
         foreach (var spot in CarClearings)
             if (Near(spot, flat, distance + 2f)) return true;
         if (PortalDoorPosition.HasValue && Near(PortalDoorPosition.Value, flat, distance + 3f)) return true;
+        foreach (var boulder in BoulderSpots)
+            if (Near(boulder, flat, distance + 2f)) return true;
         return WatchtowerPosition.HasValue && Near(WatchtowerPosition.Value, flat, distance + 2f);
     }
 
@@ -250,6 +259,7 @@ public class DarkForestGenerator : MonoBehaviour
         CampsitePositions.Clear(); // before the others, so old camps don't count as obstacles
         CarClearings.Clear();
         PortalDoorPosition = null;
+        BoulderSpots.Clear();
         PlaceShacks();
         PlaceWatchtower();
         PlaceCampsites();
@@ -1339,14 +1349,21 @@ public class DarkForestGenerator : MonoBehaviour
         var parent = new GameObject("Rocks").transform;
         parent.SetParent(root, false);
         float half = areaSize * 0.5f - 2f;
+        BoulderSpots.Clear();
+
+        // A handful of rock shapes shared by the small ones.
+        var shapes = new Mesh[10];
+        for (int i = 0; i < shapes.Length; i++) shapes[i] = BuildRockMesh(1f);
 
         for (int i = 0; i < rockCount; i++)
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < clearingRadius * 0.5f) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 5f)) continue;
-            var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
-            var rot = Quaternion.Euler(Range(0f, 360f), Range(0f, 360f), Range(0f, 360f));
+            float size = Range(0.3f, 1.6f);
+            // Sunk a little into the ground so it sits in the earth rather than on it.
+            var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y) - size * 0.12f, p.y);
+            var rot = Quaternion.Euler(Range(-15f, 15f), Range(0f, 360f), Range(-15f, 15f));
 
             if (rockPrefabs != null && rockPrefabs.Length > 0)
             {
@@ -1355,12 +1372,115 @@ public class DarkForestGenerator : MonoBehaviour
                 continue;
             }
 
-            var rock = CreatePrimitive(PrimitiveType.Sphere, "Rock", parent, rockMat);
-            float size = Range(0.3f, 1.6f);
-            rock.transform.localPosition = pos;
-            rock.transform.localRotation = rot;
-            rock.transform.localScale = new Vector3(size * Range(0.8f, 1.6f), size * Range(0.4f, 0.8f), size * Range(0.8f, 1.4f));
+            var scale = new Vector3(size * Range(0.8f, 1.5f), size * Range(0.5f, 0.9f), size * Range(0.8f, 1.3f));
+            AddRock("Rock", shapes[rng.Next(shapes.Length)], parent, pos, rot, scale);
         }
+
+        if (rockPrefabs != null && rockPrefabs.Length > 0) return;
+
+        // Now and then a great boulder, half buried, shouldering out of the forest floor.
+        for (int i = 0, attempts = 0; i < boulderCount && attempts < boulderCount * 20; attempts++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            float size = Range(minBoulderSize, maxBoulderSize);
+            if (p.magnitude < clearingRadius + size) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 6f + size * 0.5f)) continue;
+            if (NearAnyTree(p, size * 0.55f)) continue;
+
+            var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y) - size * Range(0.15f, 0.3f), p.y);
+            var rot = Quaternion.Euler(Range(-10f, 10f), Range(0f, 360f), Range(-10f, 10f));
+            var scale = new Vector3(size * Range(0.9f, 1.3f), size * Range(0.6f, 0.95f), size * Range(0.85f, 1.2f));
+            AddRock("Boulder", BuildRockMesh(size), parent, pos, rot, scale); // its own mesh, so the texture keeps its scale
+            BoulderSpots.Add(p);
+            i++;
+        }
+    }
+
+    void AddRock(string name, Mesh mesh, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale)
+    {
+        var rock = new GameObject(name);
+        rock.transform.SetParent(parent, false);
+        rock.transform.localPosition = pos;
+        rock.transform.localRotation = rot;
+        rock.transform.localScale = scale;
+        rock.AddComponent<MeshFilter>().sharedMesh = mesh;
+        rock.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+        rock.AddComponent<MeshCollider>().sharedMesh = mesh;
+    }
+
+    bool NearAnyTree(Vector2 p, float distance)
+    {
+        foreach (var tree in TreePositions)
+            if ((tree - p).sqrMagnitude < distance * distance) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// A rough, chunky rock about 1 unit across: a lumpy ball with a few flat faces sheared off it (like
+    /// split stone) and a flattened base, flat-shaded so the facets catch the light. Texture mapped per face,
+    /// repeating about once a metre at the given size.
+    /// </summary>
+    Mesh BuildRockMesh(float size)
+    {
+        if (sphereMesh == null)
+        {
+            var temp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphereMesh = temp.GetComponent<MeshFilter>().sharedMesh;
+            if (Application.isPlaying) Destroy(temp); else DestroyImmediate(temp);
+        }
+        Vector3[] source = sphereMesh.vertices;
+        int[] tris = sphereMesh.triangles;
+        float seed = Range(0f, 100f);
+
+        // Shear planes: chunks split off the rock.
+        int cuts = rng.Next(3, 7);
+        var cutNormals = new Vector3[cuts];
+        var cutDist = new float[cuts];
+        for (int c = 0; c < cuts; c++)
+        {
+            cutNormals[c] = new Vector3(Range(-1f, 1f), Range(-0.3f, 1f), Range(-1f, 1f)).normalized;
+            cutDist[c] = Range(0.3f, 0.45f);
+        }
+
+        Vector3 Shape(Vector3 v)
+        {
+            Vector3 dir = v.normalized;
+            float n = (Mathf.PerlinNoise(dir.x * 1.8f + seed, dir.y * 1.8f) + Mathf.PerlinNoise(dir.y * 1.8f + seed, dir.z * 1.8f)
+                     + Mathf.PerlinNoise(dir.z * 1.8f + seed, dir.x * 1.8f)) / 3f;
+            float fine = Mathf.PerlinNoise(dir.x * 6f + seed, dir.z * 6f + dir.y * 3f);
+            Vector3 p = dir * 0.5f * (0.75f + n * 0.5f + fine * 0.1f);
+            for (int c = 0; c < cuts; c++)
+            {
+                float d = Vector3.Dot(p, cutNormals[c]);
+                if (d > cutDist[c]) p -= cutNormals[c] * (d - cutDist[c]);
+            }
+            p.y = Mathf.Max(p.y, -0.25f); // flat underneath
+            return p;
+        }
+
+        // Flat-shaded: every triangle gets its own corners.
+        var verts = new Vector3[tris.Length];
+        var uvs = new Vector2[tris.Length];
+        var newTris = new int[tris.Length];
+        for (int t = 0; t < tris.Length; t += 3)
+        {
+            Vector3 a = Shape(source[tris[t]]), b = Shape(source[tris[t + 1]]), c = Shape(source[tris[t + 2]]);
+            Vector3 normal = Vector3.Cross(b - a, c - a);
+            Vector3 an = new Vector3(Mathf.Abs(normal.x), Mathf.Abs(normal.y), Mathf.Abs(normal.z));
+            Vector2 Project(Vector3 p) => (an.x >= an.y && an.x >= an.z ? new Vector2(p.z, p.y) : an.y >= an.z ? new Vector2(p.x, p.z) : new Vector2(p.x, p.y)) * size;
+            verts[t] = a; verts[t + 1] = b; verts[t + 2] = c;
+            uvs[t] = Project(a); uvs[t + 1] = Project(b); uvs[t + 2] = Project(c);
+            newTris[t] = t; newTris[t + 1] = t + 1; newTris[t + 2] = t + 2;
+        }
+
+        var mesh = new Mesh { name = "Rock" };
+        mesh.vertices = verts;
+        mesh.uv = uvs;
+        mesh.triangles = newTris;
+        mesh.RecalculateNormals();
+        mesh.RecalculateTangents();
+        mesh.RecalculateBounds();
+        return mesh;
     }
 
     void ScatterLogs()
@@ -1518,6 +1638,8 @@ public class DarkForestGenerator : MonoBehaviour
                 MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(0.75f, 0.85f, 0.8f), 0.05f),
                 MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(1f, 0.95f, 0.75f), 0.05f),
             };
-        rockMat = rockMaterial != null ? rockMaterial : MaterialFactory.Lit(new Color(0.18f, 0.18f, 0.19f));
+        rockMat = rockMaterial != null
+            ? rockMaterial
+            : MaterialFactory.LitTextured(ProceduralTextures.Rock, ProceduralTextures.RockNormal, new Color(0.8f, 0.8f, 0.82f), 0.12f);
     }
 }

@@ -11,7 +11,7 @@ public static class ProceduralTextures
 {
     const int Size = 512;
 
-    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath;
+    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath, rock, rockNormal;
 
     /// <summary>Tiling forest-floor dirt.</summary>
     public static Texture2D Dirt { get { if (dirt == null) MakeDirt(); return dirt; } }
@@ -28,6 +28,10 @@ public static class ProceduralTextures
     /// Mostly see-through, so the ground shows through it.
     /// </summary>
     public static Texture2D WornPath => wornPath != null ? wornPath : (wornPath = MakeWornPath());
+    /// <summary>Tiling weathered granite: grey speckled stone, dark cracks, pale lichen and dark moss.</summary>
+    public static Texture2D Rock { get { if (rock == null) MakeRock(); return rock; } }
+    /// <summary>Normal map matching Rock.</summary>
+    public static Texture2D RockNormal { get { if (rockNormal == null) MakeRock(); return rockNormal; } }
     /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
     public static Texture2D SkyEye => skyEye != null ? skyEye : (skyEye = MakeSkyEye());
 
@@ -219,6 +223,68 @@ public static class ProceduralTextures
         tex.SetPixels32(px);
         tex.Apply(true);
         return tex;
+    }
+
+    // ---------------------------------------------------------------- Rock
+
+    static void MakeRock()
+    {
+        const int n = 256;
+        var height = new float[n * n];
+        var albedo = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+        {
+            for (int x = 0; x < n; x++)
+            {
+                float u = x / (float)n, v = y / (float)n;
+                float body = TileNoise2(u * 4f, v * 4f, 4, 4, 61) * 0.5f + TileNoise2(u * 9f, v * 9f, 9, 9, 62) * 0.3f + TileNoise2(u * 24f, v * 24f, 24, 24, 63) * 0.2f;
+                // Cracks: thin ridges where the noise crosses its middle.
+                float crackNoise = TileNoise2(u * 6f, v * 6f, 6, 6, 64) * 0.7f + TileNoise2(u * 15f, v * 15f, 15, 15, 65) * 0.3f;
+                float crack = Mathf.Pow(1f - Mathf.Abs(crackNoise * 2f - 1f), 14f);
+                float grain = TileNoise2(u * 96f, v * 96f, 96, 96, 66);
+                float hgt = body * (1f - 0.7f * crack) + grain * 0.08f;
+                height[y * n + x] = hgt;
+
+                Color c = Color.Lerp(new Color(0.16f, 0.16f, 0.16f), new Color(0.36f, 0.35f, 0.34f), Mathf.Clamp01(body * 1.3f - 0.1f));
+                // Feldspar and mica speckles.
+                if (grain > 0.8f) c = Color.Lerp(c, new Color(0.48f, 0.46f, 0.44f), 0.5f);
+                else if (grain < 0.18f) c *= 0.7f;
+                c = Color.Lerp(c, new Color(0.06f, 0.06f, 0.06f), crack * 0.8f);
+                // Crusty pale lichen and dark moss.
+                float lichen = Ramp(0.66f, 0.74f, TileNoise2(u * 7f, v * 7f, 7, 7, 67));
+                c = Color.Lerp(c, new Color(0.38f, 0.4f, 0.32f), lichen * 0.6f);
+                float moss = Ramp(0.6f, 0.75f, TileNoise2(u * 3f, v * 3f, 3, 3, 68)) * Mathf.Clamp01(1.2f - body);
+                c = Color.Lerp(c, new Color(0.06f, 0.1f, 0.05f), moss * 0.7f);
+                c.a = 1f;
+                albedo[y * n + x] = c;
+            }
+        }
+
+        rock = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
+        {
+            name = "Rock", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
+        };
+        rock.SetPixels32(albedo);
+        rock.Apply(true);
+
+        var normals = new Color32[n * n];
+        const float strength = 4f;
+        for (int y = 0; y < n; y++)
+        {
+            for (int x = 0; x < n; x++)
+            {
+                float dx = height[y * n + Mod(x + 1, n)] - height[y * n + Mod(x - 1, n)];
+                float dy = height[Mod(y + 1, n) * n + x] - height[Mod(y - 1, n) * n + x];
+                var nv = new Vector3(-dx * strength, -dy * strength, 1f).normalized;
+                normals[y * n + x] = new Color(nv.x * 0.5f + 0.5f, nv.y * 0.5f + 0.5f, nv.z * 0.5f + 0.5f, 1f);
+            }
+        }
+        rockNormal = new Texture2D(n, n, TextureFormat.RGBA32, true, true)
+        {
+            name = "Rock Normal", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
+        };
+        rockNormal.SetPixels32(normals);
+        rockNormal.Apply(true);
     }
 
     // ---------------------------------------------------------------- Worn path
