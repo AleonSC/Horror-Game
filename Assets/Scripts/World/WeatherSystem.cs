@@ -109,8 +109,8 @@ public class WeatherSystem : MonoBehaviour
         {
             trees.Refresh(generator.SwayPivots);
             grass.Refresh(generator.GrassPivots);
-            Sway(trees, listener, wind, maxSwayAngle, 1f, swayRadius);
-            Sway(grass, listener, wind, grassSwayAngle, grassSwaySpeed, grassSwayRadius);
+            Sway(trees, listener, wind, maxSwayAngle, 1f, swayRadius, 1f);
+            Sway(grass, listener, wind, grassSwayAngle, grassSwaySpeed, grassSwayRadius, 2f);
         }
         UpdateAudio(listener);
     }
@@ -126,7 +126,7 @@ public class WeatherSystem : MonoBehaviour
 
     // ---------------------------------------------------------------- Trees
 
-    void Sway(SwayGroup group, Vector3 listener, Vector3 wind, float maxAngle, float speed, float radius)
+    void Sway(SwayGroup group, Vector3 listener, Vector3 wind, float maxAngle, float speed, float radius, float shockScale)
     {
         Vector3 axisWorld = Vector3.Cross(Vector3.up, wind); // leaning around this tilts things downwind
         float radiusSq = radius * radius;
@@ -150,7 +150,17 @@ public class WeatherSystem : MonoBehaviour
 
             Transform parent = pivot.parent;
             Vector3 axis = parent != null ? parent.InverseTransformDirection(axisWorld) : axisWorld;
-            pivot.localRotation = Quaternion.AngleAxis(lean + bob, axis) * group.baseRotations[i];
+            Quaternion rotation = Quaternion.AngleAxis(lean + bob, axis) * group.baseRotations[i];
+
+            // A shockwave passing throws it over, away from where it came from.
+            float shock = Shockwave.LeanAt(p, out Vector3 away);
+            if (Mathf.Abs(shock) > 0.01f)
+            {
+                Vector3 shockAxis = Vector3.Cross(Vector3.up, away);
+                if (parent != null) shockAxis = parent.InverseTransformDirection(shockAxis);
+                rotation = Quaternion.AngleAxis(shock * shockScale, shockAxis) * rotation;
+            }
+            pivot.localRotation = rotation;
         }
     }
 

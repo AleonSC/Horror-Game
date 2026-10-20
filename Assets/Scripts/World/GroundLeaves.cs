@@ -138,8 +138,11 @@ public class GroundLeaves : MonoBehaviour
 
             if (!leaf.flying)
             {
+                // A shockwave going through blasts them up and away.
+                if (Shockwave.Front(leaf.position, out Vector3 blast) && Random.value < 12f * dt)
+                    Kick(ref leaf, blast * Random.Range(5f, 10f), Random.Range(1.2f, 3f));
                 // Gusts pick a few up.
-                if (wind > gustThreshold && Random.value < (wind - gustThreshold) * 0.25f * dt)
+                else if (wind > gustThreshold && Random.value < (wind - gustThreshold) * 0.25f * dt)
                     Kick(ref leaf, windDir * Random.Range(1.5f, 3.5f) * wind, Random.Range(0.3f, 1.1f));
 
                 // Anything passing through.
