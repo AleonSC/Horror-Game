@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -23,6 +24,12 @@ public static class ProceduralTextures
     public static Texture2D BarkNormal { get { if (barkNormal == null) MakeBark(); return barkNormal; } }
     /// <summary>Tiling pine needles: dark green streaks running down from the tips.</summary>
     public static Texture2D Needles => needles != null ? needles : (needles = MakeNeedles());
+    /// <summary>
+    /// A spray of broad, pointed leaves on twigs fanning out from the bottom middle, see-through between them
+    /// (alpha, for cutout). For leaf cards on bushes.
+    /// </summary>
+    public static Texture2D LeafCluster => leafCluster != null ? leafCluster : (leafCluster = MakeLeafCluster());
+    static Texture2D leafCluster;
     /// <summary>
     /// A faded strip of trodden dirt: u runs across the path (fading out at both edges), v along it (tiles).
     /// Mostly see-through, so the ground shows through it.
@@ -182,6 +189,102 @@ public static class ProceduralTextures
             name = "Needles", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
         };
         tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
+
+    // ---------------------------------------------------------------- Leaf cluster
+
+    static Texture2D MakeLeafCluster()
+    {
+        const int n = 256;
+        var col = new Color[n * n];
+        var rng = new System.Random(77);
+        float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+
+        // Twigs fanning up from the bottom middle; leaves along and at the ends of them.
+        var twigs = new List<(Vector2 a, Vector2 b)>();
+        var leaves = new List<(Vector2 at, float angle, float length, float width, Color tint)>();
+        Vector2 root = new Vector2(0.5f, 0.02f);
+        int twigCount = 5;
+        for (int t = 0; t < twigCount; t++)
+        {
+            float spread = Mathf.Lerp(-55f, 55f, t / (float)(twigCount - 1)) + R(-10f, 10f);
+            Vector2 dir = Quaternion.Euler(0f, 0f, -spread) * Vector2.up;
+            Vector2 tip = root + dir * R(0.55f, 0.75f);
+            twigs.Add((root, tip));
+            int along = 3;
+            for (int k = 1; k <= along; k++)
+            {
+                float u = k / (float)along;
+                Vector2 at = Vector2.Lerp(root, tip, u * 0.95f);
+                float baseAngle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+                foreach (int side in k == along ? new[] { 0 } : new[] { -1, 1 })
+                {
+                    float angle = baseAngle + side * R(30f, 55f) + R(-8f, 8f);
+                    Color tint = Color.Lerp(new Color(0.11f, 0.24f, 0.05f), new Color(0.3f, 0.45f, 0.1f), R(0f, 1f) * R(0.4f, 1f));
+                    leaves.Add((at, angle, R(0.2f, 0.28f) * (k == along ? 1.1f : 1f), R(0.085f, 0.11f), tint));
+                }
+            }
+        }
+
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                var p = new Vector2((x + 0.5f) / n, (y + 0.5f) / n);
+                Color c = new Color(0f, 0f, 0f, 0f);
+                // Twigs underneath.
+                foreach (var (a, b) in twigs)
+                {
+                    Vector2 ab = b - a;
+                    float h = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+                    float d = (p - (a + ab * h)).magnitude;
+                    if (d < 0.009f * (1f - h * 0.6f)) c = new Color(0.16f, 0.12f, 0.08f, 1f);
+                }
+                // Leaves on top (later ones over earlier ones).
+                foreach (var leaf in leaves)
+                {
+                    float rad = leaf.angle * Mathf.Deg2Rad;
+                    Vector2 along = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+                    Vector2 across = new Vector2(-along.y, along.x);
+                    Vector2 q = p - leaf.at;
+                    float u = Vector2.Dot(q, along) / leaf.length; // 0 at the stalk, 1 at the tip
+                    if (u < 0f || u > 1f) continue;
+                    float v = Vector2.Dot(q, across);
+                    // Broad near the base, drawn out to a point, the edge finely toothed.
+                    float half = leaf.width * 0.5f * Mathf.Pow(Mathf.Sin(Mathf.PI * Mathf.Pow(u, 0.8f)), 0.85f) * (1f - 0.25f * u);
+                    half *= 1f + 0.05f * Mathf.Sin(u * 60f);
+                    if (Mathf.Abs(v) > half) continue;
+                    float edge = Mathf.Abs(v) / Mathf.Max(half, 0.0001f);
+                    Color lc = leaf.tint;
+                    lc *= Mathf.Lerp(0.8f, 1.15f, u);                          // paler toward the tip
+                    lc *= v > 0f ? 1.08f : 0.9f;                                // folded along the midrib: one half catches more light
+                    if (edge < 0.08f) lc *= 0.75f;                             // the midrib
+                    else if (Mathf.Abs(Mathf.Sin((u * 7f - edge * 2.5f) * Mathf.PI)) < 0.12f) lc *= 0.9f; // veins
+                    lc = Color.Lerp(lc, lc * 1.25f, Ramp(0.8f, 1f, edge));    // a light rim
+                    lc.a = 1f;
+                    c = lc;
+                }
+                col[y * n + x] = c;
+            }
+        // Bleed leaf colour into the see-through texels round them, so mipmaps don't fringe the edges dark.
+        var bled = (Color[])col.Clone();
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                if (col[y * n + x].a > 0f) continue;
+                for (int k = 0; k < 8; k++)
+                {
+                    int xx = Mathf.Clamp(x + (k % 3) - 1, 0, n - 1), yy = Mathf.Clamp(y + (k / 3) - 1, 0, n - 1);
+                    if (col[yy * n + xx].a > 0f) { var b = col[yy * n + xx]; b.a = 0f; bled[y * n + x] = b; break; }
+                }
+                if (bled[y * n + x].a == 0f && bled[y * n + x].r == 0f) bled[y * n + x] = new Color(0.15f, 0.28f, 0.07f, 0f);
+            }
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
+        {
+            name = "Leaf Cluster", wrapMode = TextureWrapMode.Clamp, anisoLevel = 2, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels(bled);
         tex.Apply(true);
         return tex;
     }
