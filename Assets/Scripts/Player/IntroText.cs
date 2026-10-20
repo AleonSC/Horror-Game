@@ -3,7 +3,9 @@ using UnityEngine;
 /// <summary>
 /// Opening narration: each line slowly fades in, lingers, and fades out before the next.
 /// The game starts on a black screen that fades away during the first lines.
-/// DarkForestGenerator adds this automatically; edit the lines in the inspector.
+/// The lines are read from Assets/Scripts/Resources/IntroText.txt (one line each; blank lines are skipped),
+/// so the intro can be rewritten without touching code. If that file is missing, the lines below are used.
+/// DarkForestGenerator adds this automatically.
 /// </summary>
 public class IntroText : MonoBehaviour
 {
@@ -45,6 +47,20 @@ public class IntroText : MonoBehaviour
 
     float timer;
     GUIStyle style;
+
+    void Awake()
+    {
+        var file = Resources.Load<TextAsset>("IntroText");
+        if (file == null) return;
+
+        var fromFile = new System.Collections.Generic.List<string>();
+        foreach (var raw in file.text.Split('\n'))
+        {
+            string line = raw.Trim();
+            if (line.Length > 0) fromFile.Add(line);
+        }
+        if (fromFile.Count > 0) lines = fromFile.ToArray();
+    }
 
     void Update()
     {
