@@ -221,10 +221,10 @@ public class IntroText : MonoBehaviour
             {
                 float since = t - starts[index - 1];
                 float linger = LingerAlpha(since);
-                if (linger > 0f) DrawLine(lines[index - 1], 0f, linger, 0f);
+                if (linger > 0f) DrawLine(lines[index - 1], 0f, linger, 0f, since);
             }
             bool lastDone = index == lines.Length - 1 && local > LineDuration + longLingerTime + 1f;
-            if (!lastDone) DrawLine(lines[index], LineAlpha(local), LingerAlpha(local), LongLingerAlpha(local));
+            if (!lastDone) DrawLine(lines[index], LineAlpha(local), LingerAlpha(local), LongLingerAlpha(local), local);
         }
 
         GUI.color = Color.white;
@@ -295,7 +295,7 @@ public class IntroText : MonoBehaviour
         return ColorUtility.ToHtmlStringRGBA(c);
     }
 
-    void DrawLine(string line, float alpha, float lingerAlpha, float longAlpha)
+    void DrawLine(string line, float alpha, float lingerAlpha, float longAlpha, float age)
     {
         if (alpha <= 0f && lingerAlpha <= 0f && longAlpha <= 0f) return;
 
@@ -317,39 +317,99 @@ public class IntroText : MonoBehaviour
         float height = style.fontSize * 3f;
         var rect = new Rect((Screen.width - width) * 0.5f, Screen.height * verticalPosition - height * 0.5f, width, height);
 
-        // Frantic: the whole line shakes and stutters, and flickers.
-        float flicker = 1f;
+        // Frantic: it trembles, letter by letter, like it's terrified.
         if (frantic)
         {
-            float unit = Screen.height / 1080f;
-            rect.x += Random.Range(-4f, 4f) * unit;
-            rect.y += Random.Range(-3f, 3f) * unit;
-            if (Random.value < 0.08f) flicker = Random.Range(0.35f, 0.8f);
+            DrawTrembling(line, alpha, lingerAlpha, longAlpha, age, rect);
+            return;
         }
+        float flicker = 1f;
 
         // Each run gets its own colour and fade (rich text), so red words and lingering words sit in place.
         var text = new System.Text.StringBuilder();
         var shadow = new System.Text.StringBuilder();
-        var ghost = new System.Text.StringBuilder();
         foreach (var (run, kind) in Parse(allCaps ? line.ToUpperInvariant() : line))
         {
             float a = (kind == 3 ? longAlpha : kind == 2 ? lingerAlpha : alpha) * flicker;
             Color c = kind == 0 ? textColor : highlightColor;
             text.Append("<color=#").Append(Hex(c, a * c.a)).Append('>').Append(run).Append("</color>");
             shadow.Append("<color=#").Append(Hex(Color.black, a * 0.8f)).Append('>').Append(run).Append("</color>");
-            ghost.Append("<color=#").Append(Hex(new Color(1f, 0.15f, 0.1f), a * 0.35f)).Append('>').Append(run).Append("</color>");
         }
 
         // Soft shadow so it reads over bright lamps.
         GUI.color = Color.white;
         GUI.Label(new Rect(rect.x + 2f, rect.y + 2f, rect.width, rect.height), shadow.ToString(), style);
-        if (frantic)
-        {
-            // A smeared red double, jumping about behind it.
-            float unit = Screen.height / 1080f;
-            GUI.Label(new Rect(rect.x + Random.Range(-9f, 9f) * unit, rect.y + Random.Range(-5f, 5f) * unit, rect.width, rect.height), ghost.ToString(), style);
-        }
         GUI.Label(rect, text.ToString(), style);
+    }
+
+    GUIStyle letterStyle;
+
+    /// <summary>
+    /// Frantic lines, drawn a letter at a time, each one trembling on its own: violently as the line comes
+    /// in, settling to a constant, terrified shiver, with sudden flinches now and then. A smeared red double
+    /// jitters behind it, and the whole thing flickers.
+    /// </summary>
+    void DrawTrembling(string line, float alpha, float lingerAlpha, float longAlpha, float age, Rect rect)
+    {
+        if (letterStyle == null)
+        {
+            letterStyle = new GUIStyle(style) { alignment = TextAnchor.MiddleLeft, wordWrap = false, richText = false };
+            letterStyle.normal.textColor = Color.white;
+        }
+        letterStyle.fontSize = style.fontSize;
+        float unit = Screen.height / 1080f;
+        float t = Time.time;
+
+        // Lay the letters out along one centred line.
+        var letters = new System.Collections.Generic.List<(string ch, Color c, float a, float w)>();
+        float total = 0f;
+        foreach (var (run, kind) in Parse(allCaps ? line.ToUpperInvariant() : line))
+        {
+            float a = kind == 3 ? longAlpha : kind == 2 ? lingerAlpha : alpha;
+            Color c = kind == 0 ? textColor : highlightColor;
+            foreach (char ch in run)
+            {
+                string s = ch.ToString();
+                float w = ch == ' ' ? letterStyle.fontSize * 0.3f : letterStyle.CalcSize(new GUIContent(s)).x * 0.82f;
+                letters.Add((s, c, a, w));
+                total += w;
+            }
+        }
+
+        // Shaking hard as it arrives, then a constant shiver; a flinch now and then.
+        float arrive = Mathf.Exp(-age * 2.2f);
+        float flinch = Mathf.PerlinNoise(t * 1.7f, 3.1f) > 0.72f ? 2.5f : 1f;
+        float shake = (1.6f + 10f * arrive) * flinch * unit;
+        float flicker = Random.value < 0.07f ? Random.Range(0.35f, 0.8f) : 1f;
+        float height = letterStyle.fontSize * 1.6f;
+        float x = rect.center.x - total * 0.5f;
+        float y = rect.center.y - height * 0.5f;
+
+        Matrix4x4 saved = GUI.matrix;
+        for (int i = 0; i < letters.Count; i++)
+        {
+            var (ch, c, a, w) = letters[i];
+            a *= flicker;
+            if (a > 0.003f && ch != " ")
+            {
+                Vector2 off = new Vector2(
+                    Mathf.Sin(t * 47f + i * 1.7f) * shake + Random.Range(-0.5f, 0.5f) * shake,
+                    Mathf.Sin(t * 39f + i * 2.3f) * shake * 0.8f + Random.Range(-0.5f, 0.5f) * shake);
+                var r = new Rect(x + off.x, y + off.y, w * 2f, height);
+                float angle = Mathf.Sin(t * 31f + i * 0.9f) * (2f + 9f * arrive) * flinch;
+                GUIUtility.RotateAroundPivot(angle, new Vector2(r.x + w * 0.5f, r.center.y));
+
+                GUI.color = new Color(0f, 0f, 0f, a * 0.8f);
+                GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), ch, letterStyle);
+                GUI.color = new Color(1f, 0.15f, 0.1f, a * 0.3f);
+                GUI.Label(new Rect(r.x + Random.Range(-6f, 6f) * unit, r.y + Random.Range(-4f, 4f) * unit, r.width, r.height), ch, letterStyle);
+                GUI.color = new Color(c.r, c.g, c.b, a * c.a);
+                GUI.Label(r, ch, letterStyle);
+                GUI.matrix = saved;
+            }
+            x += w;
+        }
+        GUI.color = Color.white;
     }
 }
 
