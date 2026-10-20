@@ -100,6 +100,9 @@ public class Lamp : MonoBehaviour
 
     const float PoleHeight = 3f;
 
+    /// <summary>World position of the bulb (moths gather here).</summary>
+    public Vector3 BulbPosition => transform.position + Vector3.up * (PoleHeight - 0.05f);
+
     void Awake()
     {
         Build();

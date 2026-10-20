@@ -16,6 +16,8 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/IntroText.cs` | Opening narration: lines fade in and out one by one over a black screen that slowly reveals the forest. Edit the lines in the inspector. |
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
 | `Assets/Scripts/World/WeatherSystem.cs` | Wind that sways the trees in rolling gusts, with wind, leaf rustle and tree creak audio. |
+| `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
+| `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, and bats swooping overhead. |
 | `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |
 | `Assets/Scripts/Audio/ProceduralAudio.cs` | Synthesizes every sound in code, so no audio files are needed. Each script has clip slots to swap in real sounds. |
 | `Assets/Scripts/World/MaterialFactory.cs` | Placeholder materials for Built-in and URP. |
@@ -26,7 +28,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 1. Create a new 3D project (Built-in or URP), Unity 2022.3 or newer.
 2. Copy the `Assets/Scripts` folder into your project.
 3. Open any scene that has no player in it (the default SampleScene is fine) and press Play.
-   The forest, player, entity, lamps, batteries, wind and audio are all created automatically.
+   The forest, player, entity, lamps, batteries, wildlife, wind and audio are all created automatically.
    To tweak settings, add **DarkForestGenerator** to a GameObject yourself; auto-creation can be
    switched off with `DarkForestGenerator.autoCreateInEmptyScenes`.
 

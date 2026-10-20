@@ -54,6 +54,7 @@ public class BatterySpawner : MonoBehaviour
             battery.transform.SetPositionAndRotation(p, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
             battery.charge = chargePerBattery;
             batteries.Add(battery);
+            WorldWrap.RegisterStatic(battery.transform);
         }
     }
 

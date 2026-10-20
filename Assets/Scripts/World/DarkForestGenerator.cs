@@ -4,7 +4,8 @@ using UnityEngine.Rendering;
 
 /// <summary>
 /// Procedurally builds a dark wooded area: bumpy ground, pine and dead trees,
-/// rocks, fallen logs, thick fog, moonlight and boundary walls.
+/// rocks, fallen logs, thick fog and moonlight. With "Wrap World" on, the map loops
+/// (walk off one edge and you come back in on the other); otherwise it has boundary walls.
 ///
 /// Usage: add this to an empty GameObject in an empty scene and press Play.
 /// With "Spawn Player" on, a first person player with a flashlight is created too.
@@ -23,11 +24,12 @@ public class DarkForestGenerator : MonoBehaviour
     public float areaSize = 160f;
     [Tooltip("Radius of the open clearing around the center where the player spawns.")]
     public float clearingRadius = 8f;
+    [Tooltip("Make the map loop: leaving one side brings you in on the opposite side. Off = invisible walls at the edges.")]
+    public bool wrapWorld = true;
 
     [Header("Ground")]
     public float groundVertexSpacing = 1f;
     public float groundBumpiness = 1.5f;
-    public float groundNoiseScale = 0.04f;
 
     [Header("Trees")]
     public int treeCount = 700;
@@ -71,6 +73,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnWeather = true;
     [Tooltip("Add IntroText (opening narration that fades in and out).")]
     public bool spawnIntro = true;
+    [Tooltip("Add Wildlife (beetles, rats, moths around lit lamps, bats overhead).")]
+    public bool spawnWildlife = true;
 
     /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
     public readonly List<Vector2> TreePositions = new List<Vector2>();
@@ -84,12 +88,20 @@ public class DarkForestGenerator : MonoBehaviour
     public Material foliageMaterial;
     public Material rockMaterial;
 
-    const string RootName = "Generated Forest";
+    public const string RootName = "Generated Forest";
 
     System.Random rng;
     Transform root;
     Mesh coneMesh;
     Vector2 noiseOffset;
+
+    // The ground is a sum of sine waves that each fit a whole number of times across the map,
+    // so its edges line up perfectly and it can tile when the world wraps.
+    struct TerrainWave
+    {
+        public float kx, kz, amplitude, phase;
+    }
+    TerrainWave[] terrainWaves;
     Material groundMat, barkMat, deadBarkMat, foliageMat, rockMat;
 
     // When true, pressing Play in a scene with no generator and no player creates one automatically.
@@ -118,15 +130,24 @@ public class DarkForestGenerator : MonoBehaviour
         if (randomizeSeed) seed = Random.Range(int.MinValue, int.MaxValue);
         rng = new System.Random(seed);
         noiseOffset = new Vector2(Range(0f, 10000f), Range(0f, 10000f));
+        BuildTerrainWaves();
 
         root = new GameObject(RootName).transform;
         root.SetParent(transform, false);
+
+        if (wrapWorld && Application.isPlaying)
+        {
+            var wrap = FindAnyObjectByType<WorldWrap>();
+            if (wrap == null) wrap = new GameObject("World Wrap").AddComponent<WorldWrap>();
+            wrap.size = areaSize;
+            wrap.center = transform.position;
+        }
 
         CreateMaterials();
         coneMesh = BuildConeMesh(10);
 
         BuildGround();
-        BuildBoundary();
+        if (!wrapWorld) BuildBoundary();
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
@@ -145,12 +166,23 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Weather").AddComponent<WeatherSystem>();
         if (spawnIntro && Application.isPlaying && FindAnyObjectByType<IntroText>() == null)
             new GameObject("Intro Text").AddComponent<IntroText>();
+        if (spawnWildlife && FindAnyObjectByType<Wildlife>() == null)
+            new GameObject("Wildlife").AddComponent<Wildlife>();
 
-        // Batch the things that never move. Trees are left out so the wind can sway them.
         if (Application.isPlaying)
         {
-            StaticBatchingUtility.Combine(root.Find("Rocks").gameObject);
-            StaticBatchingUtility.Combine(root.Find("Fallen Logs").gameObject);
+            var wrap = FindAnyObjectByType<WorldWrap>();
+            if (wrapWorld && wrap != null)
+            {
+                wrap.CollectFromGenerator(this);
+            }
+            else
+            {
+                // Batch the things that never move. Trees are left out so the wind can sway them,
+                // and nothing is batched when the world wraps, since wrapping moves things around.
+                StaticBatchingUtility.Combine(root.Find("Rocks").gameObject);
+                StaticBatchingUtility.Combine(root.Find("Fallen Logs").gameObject);
+            }
         }
     }
 
@@ -167,9 +199,49 @@ public class DarkForestGenerator : MonoBehaviour
 
     public float GetGroundHeight(float x, float z)
     {
-        float n = Mathf.PerlinNoise((x + noiseOffset.x) * groundNoiseScale, (z + noiseOffset.y) * groundNoiseScale);
-        float detail = Mathf.PerlinNoise((x - noiseOffset.y) * groundNoiseScale * 4f, (z + noiseOffset.x) * groundNoiseScale * 4f);
-        return (n - 0.5f) * groundBumpiness * 2f + (detail - 0.5f) * groundBumpiness * 0.3f;
+        if (terrainWaves == null) return 0f;
+        float h = 0f;
+        foreach (var w in terrainWaves)
+            h += w.amplitude * Mathf.Sin(w.kx * x + w.kz * z + w.phase);
+        return h;
+    }
+
+    void BuildTerrainWaves()
+    {
+        var waves = new List<TerrainWave>();
+        AddWaves(waves, 6, 4, 0.35f);   // broad rolling hills
+        AddWaves(waves, 8, 16, 0.06f);  // small bumps
+        terrainWaves = waves.ToArray();
+    }
+
+    void AddWaves(List<TerrainWave> waves, int count, int maxCycles, float amplitude)
+    {
+        float k = Mathf.PI * 2f / areaSize;
+        for (int i = 0; i < count; i++)
+        {
+            int nx, nz;
+            do
+            {
+                nx = rng.Next(-maxCycles, maxCycles + 1);
+                nz = rng.Next(-maxCycles, maxCycles + 1);
+            } while (nx == 0 && nz == 0);
+
+            waves.Add(new TerrainWave
+            {
+                kx = nx * k,
+                kz = nz * k,
+                amplitude = groundBumpiness * amplitude * Range(0.6f, 1.2f),
+                phase = Range(0f, Mathf.PI * 2f),
+            });
+        }
+    }
+
+    Vector3 GroundNormal(float x, float z)
+    {
+        const float e = 0.25f;
+        float dx = GetGroundHeight(x + e, z) - GetGroundHeight(x - e, z);
+        float dz = GetGroundHeight(x, z + e) - GetGroundHeight(x, z - e);
+        return new Vector3(-dx, 2f * e, -dz).normalized;
     }
 
     void BuildGround()
@@ -179,6 +251,7 @@ public class DarkForestGenerator : MonoBehaviour
         float step = areaSize / res;
 
         var verts = new Vector3[(res + 1) * (res + 1)];
+        var normals = new Vector3[verts.Length];
         var uvs = new Vector2[verts.Length];
         var tris = new int[res * res * 6];
 
@@ -189,6 +262,7 @@ public class DarkForestGenerator : MonoBehaviour
                 float wx = -half + x * step;
                 float wz = -half + z * step;
                 verts[i] = new Vector3(wx, GetGroundHeight(wx, wz), wz);
+                normals[i] = GroundNormal(wx, wz); // computed from the height function so tile edges shade seamlessly
                 uvs[i] = new Vector2(wx, wz) * 0.25f;
             }
         }
@@ -209,16 +283,25 @@ public class DarkForestGenerator : MonoBehaviour
 
         var mesh = new Mesh { name = "Forest Ground", indexFormat = IndexFormat.UInt32 };
         mesh.vertices = verts;
+        mesh.normals = normals;
         mesh.uv = uvs;
         mesh.triangles = tris;
-        mesh.RecalculateNormals();
         mesh.RecalculateBounds();
 
-        var go = new GameObject("Ground");
-        go.transform.SetParent(root, false);
-        go.AddComponent<MeshFilter>().sharedMesh = mesh;
-        go.AddComponent<MeshRenderer>().sharedMaterial = groundMat;
-        go.AddComponent<MeshCollider>().sharedMesh = mesh;
+        // When the world wraps, surround the map with copies of the ground so the far side is always underfoot.
+        int copies = wrapWorld ? 1 : 0;
+        for (int tz = -copies; tz <= copies; tz++)
+        {
+            for (int tx = -copies; tx <= copies; tx++)
+            {
+                var go = new GameObject(tx == 0 && tz == 0 ? "Ground" : $"Ground ({tx}, {tz})");
+                go.transform.SetParent(root, false);
+                go.transform.localPosition = new Vector3(tx * areaSize, 0f, tz * areaSize);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                go.AddComponent<MeshRenderer>().sharedMaterial = groundMat;
+                go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            }
+        }
     }
 
     void BuildBoundary()
@@ -246,7 +329,7 @@ public class DarkForestGenerator : MonoBehaviour
         var parent = new GameObject("Trees").transform;
         parent.SetParent(root, false);
 
-        float half = areaSize * 0.5f - 1f;
+        float half = areaSize * 0.5f - (wrapWorld ? 0f : 1f); // no gap at the seam when the map loops
         var placed = TreePositions;
         placed.Clear();
         SwayPivots.Clear();
@@ -262,7 +345,8 @@ public class DarkForestGenerator : MonoBehaviour
 
             // Patchy density: thin out trees in low-noise areas, thicker near the edges.
             float density = Mathf.PerlinNoise((p.x + noiseOffset.y) * densityNoiseScale, (p.y + noiseOffset.x) * densityNoiseScale);
-            float edgeBoost = Mathf.InverseLerp(half * 0.6f, half, Mathf.Max(Mathf.Abs(p.x), Mathf.Abs(p.y)));
+            // Without wrapping, the edges get thicker so the walls feel like dense forest.
+            float edgeBoost = wrapWorld ? 0f : Mathf.InverseLerp(half * 0.6f, half, Mathf.Max(Mathf.Abs(p.x), Mathf.Abs(p.y)));
             // Trees right at the clearing edge are sparse so the spawn feels open.
             float clearingFade = Mathf.InverseLerp(clearingRadius, clearingRadius * 2f, distFromCenter);
             if (Range(0f, 1f) > (density * 1.4f + edgeBoost) * clearingFade) continue;

@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, advance, lampSpark, lampPowerDown;
+        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -33,6 +33,15 @@ public static class ProceduralAudio
     public static AudioClip FlashlightClick => flashlightClick != null ? flashlightClick : (flashlightClick = MakeFlashlightClick());
     /// <summary>Battery sliding in and snapping into place, with a little charge-up whine.</summary>
     public static AudioClip BatteryInsert => batteryInsert != null ? batteryInsert : (batteryInsert = MakeBatteryInsert());
+
+    // ---------------------------------------------------------------- Wildlife
+
+    /// <summary>A rat's quick, high chirps.</summary>
+    public static AudioClip Squeak => squeak != null ? squeak : (squeak = MakeSqueak());
+    /// <summary>Tiny claws scrabbling over leaves.</summary>
+    public static AudioClip Skitter => skitter != null ? skitter : (skitter = MakeSkitter());
+    /// <summary>Leathery wing beats passing overhead.</summary>
+    public static AudioClip WingFlaps => wingFlaps != null ? wingFlaps : (wingFlaps = MakeWingFlaps());
 
     // ---------------------------------------------------------------- Weather
 
@@ -202,6 +211,55 @@ public static class ProceduralAudio
             float whine = t > 0.25f ? Mathf.Sin(phase) * 0.15f * Mathf.Sin(Mathf.PI * (t - 0.25f) / (len - 0.25f)) : 0f;
             return slide + snap + whine;
         }, 0.8f);
+    }
+
+    static AudioClip MakeSqueak()
+    {
+        float phase = 0f;
+        return Shot("Squeak", 0.35f, t =>
+        {
+            // Three short chirps, each sweeping downward.
+            float env = 0f, local = 0f;
+            for (int i = 0; i < 3; i++)
+            {
+                float start = i * 0.1f;
+                float d = t - start;
+                if (d >= 0f && d < 0.07f)
+                {
+                    env = Mathf.Sin(Mathf.PI * d / 0.07f);
+                    local = d;
+                }
+            }
+            phase += TwoPi * (4200f - local * 18000f) / Rate;
+            return Mathf.Sin(phase + 0.6f * Mathf.Sin(phase * 0.5f)) * env;
+        }, 0.6f);
+    }
+
+    static AudioClip MakeSkitter()
+    {
+        const float len = 0.6f;
+        float click = 0f, lp = 0f;
+        return Shot("Skitter", len, t =>
+        {
+            if (rng.NextDouble() < 0.006) click = (float)(rng.NextDouble() * 0.8 + 0.2);
+            click *= 0.9f;
+            float w = White();
+            lp += (w - lp) * 0.4f;
+            return (w - lp) * click * Mathf.Sin(Mathf.PI * t / len);
+        }, 0.7f);
+    }
+
+    static AudioClip MakeWingFlaps()
+    {
+        const float len = 1.6f;
+        float lp = 0f;
+        return Shot("Wing Flaps", len, t =>
+        {
+            float beat = (t * 7f) % 1f;                 // seven beats a second
+            float flap = Mathf.Exp(-beat * 9f);
+            lp += (White() - lp) * 0.08f;               // soft, papery whoosh
+            return lp * flap * Mathf.Sin(Mathf.PI * t / len);
+        }, 0.7f);
     }
 
     static AudioClip MakeLeaves()

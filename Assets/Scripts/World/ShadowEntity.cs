@@ -111,6 +111,10 @@ public class ShadowEntity : MonoBehaviour
 
     [Header("Audio")]
     [Range(0f, 1f)] public float volume = 0.9f;
+    [Range(0f, 1f), Tooltip("Volume of the shriek as it builds up before poofing (relative to Volume).")]
+    public float crescendoVolume = 0.35f;
+    [Range(0f, 1f), Tooltip("Volume of the scream when it catches the player (relative to Volume).")]
+    public float killVolume = 0.4f;
     [Tooltip("Leave clips empty to use the built-in synthesized sounds.")]
     public AudioClip whisperLoop;
     public AudioClip materializeSound;
@@ -170,6 +174,8 @@ public class ShadowEntity : MonoBehaviour
     void Start()
     {
         generator = FindAnyObjectByType<DarkForestGenerator>();
+        WorldWrap.RegisterDynamic(transform);
+        WorldWrap.RegisterDynamic(fragmentRoot);
         Hide(initialHideTime);
     }
 
@@ -383,7 +389,7 @@ public class ShadowEntity : MonoBehaviour
     {
         CurrentState = State.Crescendo;
         timer = 0f;
-        PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo);
+        PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo, 0f, crescendoVolume);
     }
 
     bool IsLitByFlashlight()
@@ -457,7 +463,7 @@ public class ShadowEntity : MonoBehaviour
         float flicker = 1f + Random.Range(-0.3f, 0.3f) * e;
         SetEyes(Mathf.Lerp(maxEyeWiden, maxEyeWiden * 1.8f, e),
                 Mathf.Lerp(eyeIntensity * 3f, spawnEyeIntensity * 1.5f, e) * flicker);
-        whisper.volume = volume;
+        whisper.volume = volume * Mathf.Lerp(1f, crescendoVolume, e);
         whisper.pitch = Mathf.Lerp(1f, 1.6f, e);
         advanceSource.volume = Mathf.MoveTowards(advanceSource.volume, 0f, Time.deltaTime * 2f);
 
@@ -497,7 +503,7 @@ public class ShadowEntity : MonoBehaviour
 
         SetVisible(true);
         advanceSource.Stop();
-        PlaySound(killSound != null ? killSound : ProceduralAudio.Screech, 1f);
+        PlaySound(killSound != null ? killSound : ProceduralAudio.Screech, 1f, killVolume);
     }
 
     void UpdateKilling()
@@ -507,7 +513,7 @@ public class ShadowEntity : MonoBehaviour
         Vibrate(crescendoVibration * 0.6f);
         visual.localScale = new Vector3(0.85f, 1.2f, 0.85f);
         SetEyes(maxEyeWiden * 2f, spawnEyeIntensity * 2f * Random.Range(0.7f, 1.3f));
-        whisper.volume = volume;
+        whisper.volume = volume * killVolume;
 
         // Force the camera to stare into its face.
         Transform cam = Camera.main != null ? Camera.main.transform : null;
@@ -563,8 +569,8 @@ public class ShadowEntity : MonoBehaviour
             Vector3 dir = Quaternion.Euler(0f, Random.Range(-spawnViewAngle, spawnViewAngle), 0f) * forward;
             p = target.position + dir * Random.Range(minSpawnDistance, maxSpawnDistance);
 
-            // Keep it inside the generated forest.
-            if (generator != null)
+            // Keep it inside the generated forest (unless the map wraps around, where anywhere is fine).
+            if (generator != null && !WorldWrap.IsActive)
             {
                 float half = generator.areaSize * 0.5f - 3f;
                 Vector3 center = generator.transform.position;
@@ -633,11 +639,11 @@ public class ShadowEntity : MonoBehaviour
         eyeLight.enabled = visible;
     }
 
-    void PlaySound(AudioClip clip, float pitch = 0f)
+    void PlaySound(AudioClip clip, float pitch = 0f, float volumeScale = 1f)
     {
         if (clip == null) return;
         sfx.pitch = pitch > 0f ? pitch : Random.Range(0.9f, 1.1f);
-        sfx.PlayOneShot(clip, volume);
+        sfx.PlayOneShot(clip, volume * volumeScale);
     }
 
     // ---------------------------------------------------------------- Fragments

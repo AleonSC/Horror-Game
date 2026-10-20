@@ -57,6 +57,7 @@ public class LampSpawner : MonoBehaviour
             lamp.safeRadius = safeRadius;
             lamp.chargePerClick = chargePerClick;
             lamps.Add(lamp);
+            WorldWrap.RegisterStatic(lamp.transform);
         }
     }
 
