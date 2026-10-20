@@ -132,6 +132,17 @@ public class Campsite : MonoBehaviour
             cap.localRotation = Quaternion.Euler(0f, 0f, 90f) * Quaternion.Euler(0f, R(0f, 360f), 0f);
         }
 
+        // Sometimes a portable radio left on the log: turn it on and the blind one comes for it.
+        if (rng.NextDouble() < radioChance)
+        {
+            var radioGo = new GameObject("Radio");
+            radioGo.transform.SetParent(seat, false);
+            radioGo.transform.localPosition = new Vector3(R(-0.5f, 0.5f), seatRadius * 0.85f + seatRadius - 0.02f, 0f);
+            radioGo.transform.localRotation = Quaternion.Euler(0f, R(-30f, 30f) + 180f, 0f);
+            radio = radioGo.AddComponent<CarRadio>();
+            radio.Build();
+        }
+
         // The backpack, slumped over, with the flare gun beside it.
         backpack = AnchorOnGround("Backpack", new Vector3(-0.2f, 0f, -1.4f), R(0f, 360f), 0.25f, 0.2f, Ground);
         var packModel = PropModels.Backpack(backpack, packColor, rng.Next());
@@ -167,7 +178,12 @@ public class Campsite : MonoBehaviour
     public void ResetCampsite()
     {
         SpawnItems();
+        if (radio != null) radio.ResetRadio();
     }
+
+    [Range(0f, 1f), Tooltip("Chance of a portable radio on the log (the blind one comes for it when it plays).")]
+    public float radioChance = 0.3f;
+    CarRadio radio;
 
     void SpawnItems()
     {

@@ -138,7 +138,7 @@ public class LampInteractor : MonoBehaviour
     {
         Bounds b = col.bounds;
         // Things inside a shack can only be taken from inside it (or its doorway), not through the walls.
-        if (owner is ItemPickup || owner is BatteryPickup)
+        if (owner is ItemPickup || owner is BatteryPickup || owner is CarRadio)
         {
             var shack = owner.GetComponentInParent<Shack>();
             if (shack != null && !shack.Contains(eye)) return false;

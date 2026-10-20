@@ -18,6 +18,9 @@ public class Shack : MonoBehaviour
     public float batteryChance = 0.5f;
     [Range(0f, 1f), Tooltip("Chance of the car's key fob lying on the table.")]
     public float keyFobChance = 0.2f;
+    [Range(0f, 1f), Tooltip("Chance of a portable radio on the floor (the blind one comes for it when it plays).")]
+    public float radioChance = 0.3f;
+    CarRadio radio;
 
     /// <summary>
     /// True if a point is inside the shack (or just in its doorway). Things on its table can only be reached
@@ -114,6 +117,17 @@ public class Shack : MonoBehaviour
             Box(wood, new Vector3(DoorWidth * 0.5f, 0.3f + i * 0.7f, 0.035f), new Vector3(DoorWidth - 0.08f, 0.1f, 0.03f), Vector3.zero, false, hinge);
         Box(darkWood, new Vector3(DoorWidth - 0.12f, DoorHeight * 0.5f, 0.06f), new Vector3(0.04f, 0.12f, 0.04f), Vector3.zero, false, hinge); // handle
 
+        // Sometimes a portable radio on the floor in the corner: turn it on and the blind one comes for it.
+        if (rng.NextDouble() < radioChance)
+        {
+            var radioGo = new GameObject("Radio");
+            radioGo.transform.SetParent(transform, false);
+            radioGo.transform.localPosition = new Vector3(Width * 0.5f - 0.4f, floorY + 0.02f, -Depth * 0.5f + 0.35f);
+            radioGo.transform.localRotation = Quaternion.Euler(0f, R(-160f, -110f), 0f);
+            radio = radioGo.AddComponent<CarRadio>();
+            radio.Build();
+        }
+
         // Rickety table against the back wall.
         table = new GameObject("Table").transform;
         table.SetParent(transform, false);
@@ -140,6 +154,7 @@ public class Shack : MonoBehaviour
     {
         if (door != null) door.Close();
         SpawnItems();
+        if (radio != null) radio.ResetRadio();
     }
 
     void SpawnItems()

@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// An old portable radio on the car's back seat. Click it and it crackles into life, loud: a scratchy waltz
+/// An old portable radio, on the car's back seat (and sometimes at a campsite or in a shack). Click it and it crackles into life, loud: a scratchy waltz
 /// on a dying station, carrying through the whole forest. The blind one hears it from anywhere and comes
 /// for it, crashing through the trees; when it gets there it smashes it, and that's the end of the radio
 /// (until the run restarts). It also gives out by itself after a while. Use it to pull the blind one away
