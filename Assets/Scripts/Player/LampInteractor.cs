@@ -189,7 +189,8 @@ public class LampInteractor : MonoBehaviour
         else if (focusedItem != null)
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), $"Click to pick up the {focusedItem.DisplayName}", labelStyle);
         else if (focusedDoor != null)
-            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), focusedDoor.IsOpen ? "Click to close the door" : "Click to open the door", labelStyle);
+            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), focusedDoor.locked && !focusedDoor.IsOpen ? focusedDoor.lockedMessage
+                : focusedDoor.IsOpen ? "Click to close the door" : "Click to open the door", labelStyle);
         DrawRect(new Rect(cx - 2f, cy - 2f, 4f, 4f), new Color(1f, 1f, 1f, hasFocus ? 0.9f : 0.4f));
 
         if (focusedBattery != null)

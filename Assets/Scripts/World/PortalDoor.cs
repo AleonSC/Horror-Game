@@ -1,8 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// A door standing on its own in the forest, shut, between two lit lamp posts. Click it to open it (and
-/// again to shut it). Through the doorway there's no forest: there's a vast, dark room. Walk round the
+/// A door standing on its own in the forest, shut and locked, between two lit lamp posts. It unlocks once
+/// every lamp in the forest has been lit (with a heavy clunk heard wherever you are); then click it to
+/// open it (and again to shut it). Through the doorway there's no forest: there's a vast, dark room. Walk round the
 /// back of it, or past its sides, and it's just a door frame in the trees. Step through and you're in the room: black floor, black walls, black pillars
 /// receding into the dark, one dim light. The door stands in the middle of it, and through it you can see
 /// the forest; look round the back of it and there's only more room. Step back through to leave. Both
@@ -94,6 +95,7 @@ public class PortalDoor : MonoBehaviour
         hinge.localPosition = new Vector3(DoorWidth * 0.5f, 0f, 0.08f);
         var swing = hinge.gameObject.AddComponent<ShackDoor>();
         swing.openAngle = 100f;
+        swing.locked = true; // until every lamp has been lit
         Part(PrimitiveType.Cube, wood, hinge, new Vector3(-DoorWidth * 0.5f, DoorHeight * 0.5f, 0f), new Vector3(DoorWidth, DoorHeight - 0.02f, 0.05f), true);
         for (int panel = 0; panel < 2; panel++)
             Part(PrimitiveType.Cube, frameWood, hinge, new Vector3(-DoorWidth * 0.5f, DoorHeight * (panel == 0 ? 0.3f : 0.72f), 0.03f), new Vector3(DoorWidth * 0.7f, DoorHeight * (panel == 0 ? 0.36f : 0.36f), 0.015f), false);
@@ -237,6 +239,16 @@ public class PortalDoor : MonoBehaviour
         lastInRoom = inRoom;
         PlayerInRoom = inRoom;
 
+        // Locked until every lamp in the forest has been lit; then it stays unlocked for the run.
+        bool unlocked = Lamp.AllHaveBeenLit;
+        if (unlocked && forestPanel.locked) Unlock();
+        if (!unlocked)
+        {
+            forestPanel.locked = roomPanel.locked = true;
+            int dark = Lamp.DarkCount;
+            forestPanel.lockedMessage = dark == 1 ? "Locked. One lamp is still dark." : $"Locked. {dark} lamps are still dark.";
+        }
+
         // Shut, it's just a door: no view through it, no way through.
         forestScreen.enabled = forestPanel.OpenAmount > 0.01f;
         roomScreen.enabled = roomPanel.OpenAmount > 0.01f;
@@ -309,6 +321,28 @@ public class PortalDoor : MonoBehaviour
             cam.projectionMatrix = playerCam.CalculateObliqueMatrix(new Vector4(planeNormal.x, planeNormal.y, planeNormal.z, planeDist));
         else
             cam.projectionMatrix = playerCam.projectionMatrix;
+    }
+
+    /// <summary>The lock gives: a deep clunk, heard wherever you are in the forest.</summary>
+    void Unlock()
+    {
+        forestPanel.locked = roomPanel.locked = false;
+        var src = ProceduralAudio.AddSource(gameObject, null, false, false, 1f);
+        src.pitch = 0.45f;
+        src.PlayOneShot(ProceduralAudio.LampClick, 1f);
+        src.PlayOneShot(ProceduralAudio.DistantRumble, 0.6f);
+        Destroy(src, 4f);
+    }
+
+    /// <summary>Shut and locked again for a new run (GameOverScreen).</summary>
+    public void ResetDoor()
+    {
+        foreach (var panel in new[] { forestPanel, roomPanel })
+        {
+            if (panel == null) continue;
+            panel.Close();
+            panel.locked = true;
+        }
     }
 
     /// <summary>

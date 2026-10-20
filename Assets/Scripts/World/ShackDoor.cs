@@ -16,6 +16,10 @@ public class ShackDoor : MonoBehaviour
     /// <summary>How far open it is right now, 0 shut to 1 fully open.</summary>
     public float OpenAmount => Mathf.Approximately(openAngle, 0f) ? 0f : Mathf.Clamp01(angle / openAngle);
 
+    /// <summary>Locked doors only rattle. lockedMessage is what the player is told when they look at it.</summary>
+    [HideInInspector] public bool locked;
+    [HideInInspector] public string lockedMessage = "It's locked";
+
     /// <summary>Another door that opens and shuts along with this one (the lone door and its twin in the dark room).</summary>
     [HideInInspector] public ShackDoor linked;
 
@@ -29,6 +33,18 @@ public class ShackDoor : MonoBehaviour
 
     public void Toggle()
     {
+        if (locked && !IsOpen)
+        {
+            // The handle turns, the door shudders in its frame, and doesn't give.
+            if (audioSource != null)
+            {
+                audioSource.pitch = Random.Range(1.5f, 1.8f);
+                audioSource.PlayOneShot(ProceduralAudio.DoorCreak, 0.5f);
+                audioSource.PlayOneShot(ProceduralAudio.LampClick, 0.6f);
+            }
+            Noise.Emit(transform.position, 6f);
+            return;
+        }
         IsOpen = !IsOpen;
         if (linked != null) linked.IsOpen = IsOpen; // silently, it's the same door
         Noise.Emit(transform.position, 13f); // a creaking hinge carries

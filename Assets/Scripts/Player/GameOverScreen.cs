@@ -81,6 +81,8 @@ public class GameOverScreen : MonoBehaviour
         Glowstick.ClearAll();
         foreach (var car in BrokenCar.All)
             car.ResetCar();
+        var door = FindAnyObjectByType<PortalDoor>();
+        if (door != null) door.ResetDoor();
         foreach (var camp in Campsite.All)
             camp.ResetCampsite();
 

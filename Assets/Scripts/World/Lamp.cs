@@ -68,6 +68,30 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     }
 
     public bool IsLit { get; private set; }
+    /// <summary>Lit at least once this run (the lone door opens once every lamp has been).</summary>
+    public bool HasBeenLit { get; private set; }
+
+    /// <summary>True once every lamp in the forest has been lit at least once this run.</summary>
+    public static bool AllHaveBeenLit
+    {
+        get
+        {
+            if (All.Count == 0) return false;
+            foreach (var lamp in All) if (!lamp.HasBeenLit) return false;
+            return true;
+        }
+    }
+
+    /// <summary>How many lamps have never been lit this run.</summary>
+    public static int DarkCount
+    {
+        get
+        {
+            int dark = 0;
+            foreach (var lamp in All) if (!lamp.HasBeenLit) dark++;
+            return dark;
+        }
+    }
     /// <summary>Meter from 0 to 1.</summary>
     public float Charge { get; private set; }
     /// <summary>Remaining energy from 1 (just lit) to 0 (goes out).</summary>
@@ -272,6 +296,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     {
         IsLit = true;
         TimesLit++;
+        HasBeenLit = true;
         Energy = 1f;
         flickerTimer = 0f;
         flickerLevel = 1f;
@@ -308,6 +333,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     public void ResetLamp()
     {
         IsLit = false;
+        HasBeenLit = false;
         Charge = 0f;
         Energy = 0f;
         CooldownRemaining = 0f;
