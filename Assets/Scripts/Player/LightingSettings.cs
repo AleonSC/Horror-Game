@@ -5,9 +5,9 @@ using UnityEngine.Rendering.Universal;
 /// <summary>
 /// The lighting panel, opened from the pause menu: pick a theme, then tweak the night live: moonlight,
 /// ambient light, fog, the night sky, the flashlight, shadows, and the camera's picture (exposure, contrast,
-/// saturation, vignette, film grain). Settings are saved between sessions. "Default" is the intended dark
-/// look (only a little moonlight, so the flashlight matters); "Original" puts back what the scene started
-/// with. "Log Values" prints the current setup to the Console so a look you like can be made the default.
+/// saturation, vignette, film grain). Settings are saved between sessions. "Default" is the usual moonlit
+/// night, "Darker" a much darker one where the flashlight matters more; "Original" puts back what the scene
+/// started with. "Log Values" prints the current setup to the Console so a look you like can be made the default.
 /// PauseMenu adds this and draws its panel.
 /// </summary>
 public class LightingSettings : MonoBehaviour
@@ -27,8 +27,8 @@ public class LightingSettings : MonoBehaviour
 
     public Theme[] themes =
     {
-        new Theme { name = "Default", moonColor = new Color(0.42f, 0.5f, 0.75f), moonIntensity = 0.07f, moonHeight = 35f, ambient = new Color(0.016f, 0.018f, 0.024f), fogColor = new Color(0.012f, 0.014f, 0.02f), fogDensity = 0.055f, flashlightColor = new Color(1f, 0.95f, 0.85f) },
-        new Theme { name = "Moonlit", moonColor = new Color(0.45f, 0.55f, 0.8f), moonIntensity = 0.25f, moonHeight = 35f, ambient = new Color(0.06f, 0.07f, 0.09f), fogColor = new Color(0.02f, 0.025f, 0.035f), fogDensity = 0.05f, flashlightColor = new Color(1f, 0.95f, 0.85f) },
+        new Theme { name = "Default", moonColor = new Color(0.45f, 0.55f, 0.8f), moonIntensity = 0.25f, moonHeight = 35f, ambient = new Color(0.06f, 0.07f, 0.09f), fogColor = new Color(0.02f, 0.025f, 0.035f), fogDensity = 0.05f, flashlightColor = new Color(1f, 0.95f, 0.85f) },
+        new Theme { name = "Darker", moonColor = new Color(0.42f, 0.5f, 0.75f), moonIntensity = 0.07f, moonHeight = 35f, ambient = new Color(0.016f, 0.018f, 0.024f), fogColor = new Color(0.012f, 0.014f, 0.02f), fogDensity = 0.055f, flashlightColor = new Color(1f, 0.95f, 0.85f) },
         new Theme { name = "Pitch Black", moonColor = new Color(0.4f, 0.45f, 0.6f), moonIntensity = 0.02f, moonHeight = 30f, ambient = new Color(0.006f, 0.006f, 0.008f), fogColor = new Color(0.004f, 0.004f, 0.006f), fogDensity = 0.07f, flashlightColor = new Color(1f, 0.93f, 0.8f) },
         new Theme { name = "Blood Moon", moonColor = new Color(0.9f, 0.2f, 0.15f), moonIntensity = 0.18f, moonHeight = 25f, ambient = new Color(0.04f, 0.01f, 0.01f), fogColor = new Color(0.05f, 0.008f, 0.008f), fogDensity = 0.045f, flashlightColor = new Color(1f, 0.9f, 0.8f) },
         new Theme { name = "Foggy", moonColor = new Color(0.6f, 0.65f, 0.7f), moonIntensity = 0.1f, moonHeight = 40f, ambient = new Color(0.04f, 0.04f, 0.045f), fogColor = new Color(0.06f, 0.06f, 0.065f), fogDensity = 0.1f, flashlightColor = new Color(1f, 0.97f, 0.9f) },
@@ -37,7 +37,7 @@ public class LightingSettings : MonoBehaviour
         new Theme { name = "Bright (testing)", moonColor = new Color(0.7f, 0.75f, 0.9f), moonIntensity = 1f, moonHeight = 50f, ambient = new Color(0.25f, 0.27f, 0.3f), fogColor = new Color(0.05f, 0.06f, 0.08f), fogDensity = 0.015f, flashlightColor = Color.white },
     };
 
-    const string SaveKey = "Horror.Lighting";
+    const string SaveKey = "Horror.Lighting.v2"; // v1 saves started from the too-dark default: ignored
 
     /// <summary>Everything the panel controls, as saved between sessions.</summary>
     [System.Serializable]
@@ -50,7 +50,7 @@ public class LightingSettings : MonoBehaviour
         public int moonShadows = 2; // 0 off, 1 hard, 2 soft
         public float flashlightIntensity = 12f, flashlightRange = 45f, flashlightAngle = 60f, flashlightSoftness = 0.6f;
         public float starBrightness = 1f, cloudCover = 0.5f;
-        public float exposure, contrast, saturation, vignette = 0.25f, grain = 0.15f;
+        public float exposure, contrast, saturation, vignette, grain;
     }
 
     Values v = new Values();
@@ -339,8 +339,8 @@ public class LightingSettings : MonoBehaviour
         if (GUILayout.Button("Reset Picture", buttonStyle))
         {
             v.exposure = v.contrast = v.saturation = 0f;
-            v.vignette = 0.25f;
-            v.grain = 0.15f;
+            v.vignette = 0f;
+            v.grain = 0f;
             changed = true;
         }
         if (GUILayout.Button("Log Values to Console", buttonStyle)) LogValues();
