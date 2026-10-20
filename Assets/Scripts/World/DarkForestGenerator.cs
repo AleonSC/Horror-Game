@@ -268,6 +268,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Pause Menu").AddComponent<PauseMenu>();
         if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<FallingLeaves>() == null)
             new GameObject("Falling Leaves").AddComponent<FallingLeaves>();
+        if (Application.isPlaying && FindAnyObjectByType<MusicManager>() == null)
+            new GameObject("Music").AddComponent<MusicManager>();
         if (Application.isPlaying && FindAnyObjectByType<EntityDread>() == null)
             new GameObject("Entity Dread").AddComponent<EntityDread>();
         if (Application.isPlaying && FindAnyObjectByType<VineSystem>() == null)

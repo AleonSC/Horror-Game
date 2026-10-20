@@ -30,6 +30,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/Campsite.cs` / `Flare.cs` | Three abandoned campsites (tent, smoking burnt-out campfire seen from afar, backpack with a flare gun and 10 glowsticks). Fire a flare into the sky to wipe every entity's hunt progress. |
 | `Assets/Scripts/Resources/HorrorSmoke.shader` | Soft, fog-proof smoke puffs for the campfires. |
 | `Assets/Scripts/World/BushRustle.cs` | Bushes (small to medium) you can run straight through: they lean away, shake and rustle as you pass. |
+| `Assets/Scripts/Audio/MusicManager.cs` | Soundtrack manager: picks a mood (Calm, Intro, Tension, Danger, Watcher, GameOver) from what's happening and crossfades shuffled playlists. Drop music into `Assets/Scripts/Resources/Music/<Mood>/` (see the README there) or assign it in the Inspector. Music volume is in the pause menu. |
 | `Assets/Scripts/Audio/EntityDread.cs` | Within ~7m of a visible entity the forest goes silent (drone, wind, noises, even your footsteps) and slow breathing starts right behind your head. |
 | `Assets/Scripts/World/VineSystem.cs` | Vines hanging from the branches of a few trees (4%). Rope physics: they swing in the wind, move with the tree, trail on the ground, and get pushed aside by you and the entities. |
 | `Assets/Scripts/World/LampPaths.cs` | Faded paths worn into the dirt around each lamp post: a trodden ring round the pole and a few trails wandering off. |

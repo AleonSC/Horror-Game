@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Esc pauses the game: time and sound stop, the mouse is freed, and a menu offers Resume,
-/// Restart (start the run over), Lighting (a live lighting test panel), mouse sensitivity and
-/// volume sliders, and Quit.
+/// Restart (start the run over), Lighting (a live lighting test panel), mouse sensitivity, volume and
+/// music volume sliders, and Quit.
 /// Settings are remembered between sessions. DarkForestGenerator adds this automatically.
 /// </summary>
 public class PauseMenu : MonoBehaviour
@@ -95,7 +95,7 @@ public class PauseMenu : MonoBehaviour
 
         const float w = 360f, h = 50f, gap = 14f;
         float x = (sw - w) * 0.5f;
-        float y = Mathf.Max(10f, sh * 0.5f - 280f); // the menu is ~560 tall; keep it on screen
+        float y = Mathf.Max(10f, sh * 0.5f - 310f); // the menu is ~620 tall; keep it on screen
 
         if (showLighting)
         {
@@ -133,6 +133,16 @@ public class PauseMenu : MonoBehaviour
         y += 28f;
         float newVolume = GUI.HorizontalSlider(new Rect(x, y, w, 20f), volume, 0f, 1f);
         y += 34f;
+
+        var music = MusicManager.Instance;
+        if (music != null)
+        {
+            GUI.Label(new Rect(x, y, w, 26f), $"Music: {Mathf.RoundToInt(music.Volume * 100f)}%", labelStyle);
+            y += 28f;
+            float newMusic = GUI.HorizontalSlider(new Rect(x, y, w, 20f), music.Volume, 0f, 1f);
+            if (!Mathf.Approximately(newMusic, music.Volume)) music.Volume = newMusic;
+            y += 34f;
+        }
 
         GUI.Label(new Rect(x, y, w, 26f), $"Menu size: {menuScale:0.0}x", labelStyle);
         y += 28f;

@@ -55,6 +55,9 @@ public class WatcherEvent : MonoBehaviour
     enum Phase { Waiting, EyeOpening, EyeWatching, EyeClosing, Pause, GiantWalking, Done }
 
     Phase phase = Phase.Waiting;
+
+    /// <summary>True from the moment the eye starts to open until the giant is gone (the soundtrack follows this).</summary>
+    public bool IsActive => phase != Phase.Waiting && phase != Phase.Done;
     float timer;
     float redness;           // 0 normal sky, 1 full red haze
     bool savedAtmosphere;
