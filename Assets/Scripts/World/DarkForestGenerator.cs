@@ -43,6 +43,10 @@ public class DarkForestGenerator : MonoBehaviour
 
     [Header("Grass")]
     public int grassPatchCount = 9000;
+    [Tooltip("Bushes you can push through (they rustle and shake).")]
+    public int bushCount = 1400;
+    public float minBushSize = 0.45f;
+    public float maxBushSize = 1.4f;
     [Tooltip("Perlin scale for where grass grows (lower = bigger meadows).")]
     public float grassNoiseScale = 0.03f;
     public Color grassColor = new Color(0.07f, 0.09f, 0.05f);
@@ -169,6 +173,7 @@ public class DarkForestGenerator : MonoBehaviour
     TerrainWave[] terrainWaves;
     Material groundMat, barkMat, deadBarkMat, rockMat;
     Material[] foliageMats;
+    Mesh sphereMesh;
 
     // When true, pressing Play in a scene with no generator and no player creates one automatically.
     // Set to false once you have other scenes (e.g. a main menu) that shouldn't get a forest.
@@ -221,6 +226,7 @@ public class DarkForestGenerator : MonoBehaviour
         ScatterRocks();
         ScatterLogs();
         ScatterGrass();
+        ScatterBushes();
 
         if (applyLighting) ApplyAtmosphere();
         if (spawnPlayer) SpawnPlayer();
@@ -938,6 +944,95 @@ public class DarkForestGenerator : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- Grass
+
+    void ScatterBushes()
+    {
+        var parent = new GameObject("Bushes").transform;
+        parent.SetParent(root, false);
+
+        var variants = new Mesh[6];
+        for (int i = 0; i < variants.Length; i++) variants[i] = BuildBushMesh();
+        var materials = new[]
+        {
+            MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(0.8f, 1f, 0.75f), 0.05f),
+            MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(0.65f, 0.8f, 0.6f), 0.05f),
+            MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(0.9f, 0.85f, 0.6f), 0.05f),
+        };
+
+        float half = areaSize * 0.5f;
+        int placed = 0;
+        for (int attempt = 0; attempt < bushCount * 4 && placed < bushCount; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 4f)) continue;
+            if (Vector2.Distance(p, Vector2.zero) < 6f) continue; // leave the spawn point clear
+
+            // Mostly small, now and then a bigger one.
+            float size = Mathf.Lerp(minBushSize, maxBushSize, Mathf.Pow(Range(0f, 1f), 1.6f));
+            var bush = new GameObject("Bush");
+            bush.transform.SetParent(parent, false);
+            bush.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.08f * size, p.y);
+            bush.transform.localRotation = Quaternion.Euler(Range(-4f, 4f), Range(0f, 360f), Range(-4f, 4f));
+            bush.transform.localScale = new Vector3(size, size * Range(0.8f, 1.15f), size);
+            bush.AddComponent<MeshFilter>().sharedMesh = variants[rng.Next(variants.Length)];
+            bush.AddComponent<MeshRenderer>().sharedMaterial = materials[rng.Next(materials.Length)];
+            placed++;
+        }
+
+        if (Application.isPlaying) parent.gameObject.AddComponent<BushRustle>();
+    }
+
+    /// <summary>A leafy bush about 1m across: a cluster of lumpy blobs, the middle ones highest. No collider.</summary>
+    Mesh BuildBushMesh()
+    {
+        if (sphereMesh == null)
+        {
+            var temp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphereMesh = temp.GetComponent<MeshFilter>().sharedMesh;
+            if (Application.isPlaying) Destroy(temp); else DestroyImmediate(temp);
+        }
+        Vector3[] sphereVerts = sphereMesh.vertices;
+        Vector2[] sphereUVs = sphereMesh.uv;
+        int[] sphereTris = sphereMesh.triangles;
+
+        var combine = new List<CombineInstance>();
+        int blobs = rng.Next(5, 9);
+        for (int b = 0; b < blobs; b++)
+        {
+            float t = b / (float)blobs;
+            float angle = Range(0f, Mathf.PI * 2f), reach = b == 0 ? 0f : Range(0.15f, 0.5f);
+            float size = Range(0.35f, 0.55f) * (b == 0 ? 1.2f : 1f);
+            var center = new Vector3(Mathf.Cos(angle) * reach, size * 0.75f + (0.5f - reach) * 0.4f, Mathf.Sin(angle) * reach);
+            float seed = Range(0f, 100f);
+
+            var verts = new Vector3[sphereVerts.Length];
+            var uvs = new Vector2[sphereVerts.Length];
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 dir = sphereVerts[i].normalized;
+                // Lumpy outline, the same at shared seam vertices since it depends only on direction.
+                float lump = 1f + 0.35f * (Mathf.PerlinNoise(dir.x * 1.7f + seed, dir.z * 1.7f + dir.y * 1.3f) - 0.5f)
+                                + 0.15f * (Mathf.PerlinNoise(dir.x * 4f + seed, dir.y * 4f - dir.z * 2f) - 0.5f);
+                verts[i] = center + Vector3.Scale(dir * size * lump, new Vector3(1f, 0.8f, 1f));
+                uvs[i] = new Vector2(sphereUVs[i].x * 4f, sphereUVs[i].y * 2f);
+            }
+            var blob = new Mesh();
+            blob.vertices = verts;
+            blob.uv = uvs;
+            blob.triangles = sphereTris;
+            blob.RecalculateNormals();
+            combine.Add(new CombineInstance { mesh = blob, transform = Matrix4x4.identity });
+        }
+
+        var mesh = new Mesh { name = "Bush" };
+        mesh.CombineMeshes(combine.ToArray(), true, true);
+        mesh.RecalculateBounds();
+        foreach (var c in combine)
+        {
+            if (Application.isPlaying) Destroy(c.mesh); else DestroyImmediate(c.mesh);
+        }
+        return mesh;
+    }
 
     void ScatterGrass()
     {

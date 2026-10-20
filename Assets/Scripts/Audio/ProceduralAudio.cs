@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
+        lampClick, lampIgnite, lampHum, leaves, bushRustle, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -97,6 +97,8 @@ public static class ProceduralAudio
 
     /// <summary>Leaves and needles rustling in the wind. Loops seamlessly.</summary>
     public static AudioClip Leaves => leaves != null ? leaves : (leaves = MakeLeaves());
+    /// <summary>Pushing through a bush: a few leafy swishes and the odd twig snapping.</summary>
+    public static AudioClip BushRustle => bushRustle != null ? bushRustle : (bushRustle = MakeBushRustle());
     /// <summary>A trunk cracking through: a sharp report, then splintering.</summary>
     public static AudioClip TreeSnap => treeSnap != null ? treeSnap : (treeSnap = MakeTreeSnap());
     /// <summary>A tree crashing to the ground: deep thud and smashing branches.</summary>
@@ -746,6 +748,26 @@ public static class ProceduralAudio
             phase += TwoPi * (90f * Mathf.Exp(-t * 4f) + 30f) / Rate;
             return lp * Mathf.Exp(-t * 6f) + Mathf.Sin(phase) * Mathf.Exp(-t * 5f) * 0.8f;
         }, 0.9f);
+    }
+
+    static AudioClip MakeBushRustle()
+    {
+        const float len = 0.9f;
+        float crackle = 0f, lp = 0f, hp = 0f;
+        float swishes = 2f + (float)rng.NextDouble() * 2f;
+        return Shot("Bush Rustle", len, t =>
+        {
+            float p = t / len;
+            if (rng.NextDouble() < 0.0008 * (1f - p))
+                crackle = (float)(rng.NextDouble() * 0.5 + 0.2) * (White() > 0f ? 1f : -1f);
+            crackle *= 0.95f;
+            lp += (White() - lp) * 0.45f;
+            hp += (lp - hp) * 0.12f;
+            // Leaves brushing past in a few uneven swishes.
+            float swish = Mathf.Pow(Mathf.Abs(Mathf.Sin(Mathf.PI * p * swishes + Mathf.Sin(p * 9f) * 0.6f)), 1.5f);
+            float rustle = (lp - hp) * swish * Mathf.Sin(Mathf.PI * p) * 0.9f;
+            return crackle * 0.6f + rustle;
+        }, 0.8f);
     }
 
     static AudioClip MakeCreep()
