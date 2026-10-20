@@ -28,6 +28,17 @@ public static class ProceduralAudio
     public static AudioClip TwigSnap => twigSnap != null ? twigSnap : (twigSnap = MakeTwigSnap());
     public static AudioClip Moan => moan != null ? moan : (moan = MakeMoan());
 
+    // ---------------------------------------------------------------- Player
+
+    static readonly AudioClip[] footsteps = new AudioClip[4];
+
+    /// <summary>A soft footstep on dirt and leaves. There are a few variants (index wraps) so steps don't repeat.</summary>
+    public static AudioClip Footstep(int variant)
+    {
+        int i = ((variant % footsteps.Length) + footsteps.Length) % footsteps.Length;
+        return footsteps[i] != null ? footsteps[i] : (footsteps[i] = MakeFootstep(i));
+    }
+
     // ---------------------------------------------------------------- Flashlight
 
     /// <summary>Plasticky switch click.</summary>
@@ -209,6 +220,27 @@ public static class ProceduralAudio
             lp2 += (lp1 - lp2) * a;
             return (lp1 - lp2) * swell;
         }, 0.7f);
+    }
+
+    static AudioClip MakeFootstep(int variant)
+    {
+        const float len = 0.28f;
+        float lp = 0f, hp = 0f, crunch = 0f, phase = 0f;
+        float thudHz = 70f + variant * 9f;
+        float crunchiness = 0.002f + variant * 0.0007f;
+        return Shot("Footstep " + variant, len, t =>
+        {
+            // Heel then toe: a soft thud, and the crunch of leaves and grit underfoot.
+            phase += TwoPi * thudHz / Rate;
+            float thud = Mathf.Sin(phase) * Mathf.Exp(-t * 35f) + Mathf.Sin(phase * 1.3f) * Burst(t, 0.07f) * 0.3f;
+            float w = White();
+            lp += (w - lp) * 0.35f;
+            hp += (lp - hp) * 0.1f;
+            float scuff = (lp - hp) * (Mathf.Exp(-t * 25f) + 0.6f * Burst(t, 0.07f) * 20f / 25f);
+            if (rng.NextDouble() < crunchiness * Mathf.Exp(-t * 12f)) crunch = (float)(rng.NextDouble() * 0.6 + 0.2);
+            crunch *= 0.94f;
+            return thud * 0.7f + scuff + crunch * w;
+        }, 0.8f);
     }
 
     static AudioClip MakeFlashlightClick()

@@ -4,8 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// Scatters unlit lamps around the map when the game starts, away from trees, the spawn
-/// clearing, shacks and each other. Also gives the player a LampInteractor (so they can light them)
-/// and a Hotbar.
+/// clearing, shacks and each other. Also gives the player a LampInteractor (so they can light them),
+/// a Hotbar and Footsteps.
 /// DarkForestGenerator adds this automatically.
 /// </summary>
 public class LampSpawner : MonoBehaviour
@@ -91,5 +91,6 @@ public class LampSpawner : MonoBehaviour
         if (player == null) return;
         if (player.GetComponent<LampInteractor>() == null) player.gameObject.AddComponent<LampInteractor>();
         if (player.GetComponent<Hotbar>() == null) player.gameObject.AddComponent<Hotbar>();
+        if (player.GetComponent<Footsteps>() == null) player.gameObject.AddComponent<Footsteps>();
     }
 }
