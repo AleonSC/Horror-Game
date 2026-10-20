@@ -36,7 +36,12 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong;
+    /// <summary>
+    /// The pause menu's song: a slow, music-box lullaby in a minor key on a warped old record, played down a
+    /// bad radio line: wobbling, sagging, skipping, crackling, a hollow voice humming under it. Loops.
+    /// </summary>
+    public static AudioClip PauseSong => pauseSong != null ? pauseSong : (pauseSong = MakePauseSong());
     /// <summary>A tornado far off: a low, endless, rushing roar, swelling and fading. Loops.</summary>
     public static AudioClip TornadoRoar => tornadoRoar != null ? tornadoRoar : (tornadoRoar = MakeTornadoRoar());
     /// <summary>A car answering its key fob: two sharp, bright chirps.</summary>
@@ -1164,6 +1169,64 @@ public static class ProceduralAudio
             float swell = 0.85f + 0.15f * Mathf.PerlinNoise(t * 0.25f, 7.1f);
             return (sizzle + hush + tick * 0.35f) * swell;
         }, 0.6f);
+    }
+
+    static AudioClip MakePauseSong()
+    {
+        // The tune: A minor, slow 3/4, a note a beat (semitones from A4; 99 a rest), 16 bars.
+        int[] tune = { 0, 3, 7, 5, 3, 2, 0, 99, -2, 0, 2, 3, 2, 99, 99, 99,
+                       0, 3, 7, 8, 7, 5, 3, 99, 2, 3, 2, -2, 0, 99, 99, 99,
+                       7, 8, 7, 5, 3, 5, 3, 2, 0, 2, -2, -5, -4, 99, 99, 99 };
+        int[] bass = { -24, -19, -22, -17 }; // A, E, G(ish), D: a chord a bar, under the hum
+        const float beat = 0.62f;
+        float len = tune.Length * beat;
+        float boxPhase = 0f, humPhase = 0f, humPhase2 = 0f, lp = 0f, lp2 = 0f, hiss = 0f, sag = 0f;
+        int lastNote = -1;
+        float noteStart = 0f, skipUntil = -1f;
+        return Loop("Pause Song", len, t =>
+        {
+            // The record warps, sags now and then, and once in a while skips a beat back.
+            float wow = 1f + 0.012f * Mathf.Sin(TwoPi * 0.45f * t) + 0.004f * Mathf.Sin(TwoPi * 5.5f * t);
+            sag = Mathf.Max(0f, sag - 1f / Rate * 0.8f);
+            if (rng.NextDouble() < 0.06 / Rate) sag = 0.35f; // the motor drags
+            wow *= 1f - sag * 0.3f;
+            float tt = t;
+            if (t < skipUntil) tt = t - beat;
+            else if (rng.NextDouble() < 0.02 / Rate) skipUntil = t + beat * 0.5f;
+
+            int b = Mathf.FloorToInt(tt / beat) % tune.Length;
+            if (b < 0) b += tune.Length;
+            if (b != lastNote) { lastNote = b; noteStart = t; }
+            float inNote = t - noteStart;
+            int note = tune[b];
+            float sample = 0f;
+            if (note != 99)
+            {
+                // The music box: a bright pluck with a metallic overtone, ringing away.
+                float hz = 440f * Mathf.Pow(2f, (note + 12) / 12f) * wow;
+                boxPhase += TwoPi * hz / Rate;
+                float env = Mathf.Exp(-inNote * 3.2f) * Mathf.Clamp01(inNote / 0.004f);
+                sample += (Mathf.Sin(boxPhase) + 0.35f * Mathf.Sin(boxPhase * 4.03f) * Mathf.Exp(-inNote * 9f)) * env * 0.6f;
+            }
+            // A hollow voice humming the chords underneath, a long way off.
+            int bar = Mathf.FloorToInt(tt / (beat * 3f)) % bass.Length;
+            if (bar < 0) bar += bass.Length;
+            float humHz = 440f * Mathf.Pow(2f, bass[bar] / 12f) * wow;
+            humPhase += TwoPi * humHz / Rate;
+            humPhase2 += TwoPi * humHz * 1.498f / Rate;
+            float hum = (Mathf.Sin(humPhase) + 0.6f * Mathf.Sin(humPhase2) + 0.3f * Mathf.Sin(humPhase * 2f)) * (0.55f + 0.45f * Mathf.Sin(TwoPi * 0.2f * t));
+            sample += hum * 0.22f;
+
+            // Down a bad line: thin, overdriven, hissing and crackling.
+            lp += (sample - lp) * 0.3f;
+            lp2 += (lp - lp2) * 0.03f;
+            float line = (lp - lp2) * 1.8f;
+            line = (float)System.Math.Tanh(line * 2.2f) * 0.6f;
+            hiss += (White() - hiss) * 0.5f;
+            float crackle = rng.NextDouble() < 0.0005 ? White() * 1.5f : 0f;
+            float fadeIn = 0.6f + 0.4f * Mathf.PerlinNoise(t * 0.3f, 8.8f); // the signal drifts
+            return line * fadeIn + hiss * 0.07f + crackle;
+        }, 0.65f);
     }
 
     static AudioClip MakeTornadoRoar()

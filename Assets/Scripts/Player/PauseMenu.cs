@@ -63,6 +63,55 @@ public class PauseMenu : MonoBehaviour
     {
         // (Esc closes the inventory first, if it's open.)
         if (HorrorInput.ReleaseCursorPressed && !InventoryScreen.IsOpen && !InventoryScreen.ClosedThisFrame) SetPaused(!IsPaused);
+        UpdatePauseSong();
+    }
+
+    // ---------------------------------------------------------------- The pause song
+
+    AudioSource song;
+    AudioEchoFilter songEcho;
+    float songLevel, songEchoMix;
+
+    /// <summary>
+    /// While paused, a creepy, warped old song plays as if from a radio somewhere. Unpause and it doesn't
+    /// stop dead: it fades away into its own echo.
+    /// </summary>
+    void UpdatePauseSong()
+    {
+        if (song == null)
+        {
+            song = ProceduralAudio.AddSource(gameObject, ProceduralAudio.PauseSong, true, false, 0f);
+            song.ignoreListenerPause = true;  // it plays while everything else is paused
+            song.ignoreListenerVolume = true; // music: the music volume sets it
+            songEcho = gameObject.AddComponent<AudioEchoFilter>();
+            songEcho.delay = 420f;
+            songEcho.decayRatio = 0.6f;
+            songEcho.wetMix = 0f;
+            songEcho.dryMix = 1f;
+        }
+        float dt = Time.unscaledDeltaTime;
+        if (IsPaused)
+        {
+            if (!song.isPlaying)
+            {
+                song.time = Random.Range(0f, song.clip.length * 0.9f);
+                song.Play();
+            }
+            songLevel = Mathf.MoveTowards(songLevel, 1f, dt / 1.2f);
+            songEchoMix = Mathf.MoveTowards(songEchoMix, 0.15f, dt);
+        }
+        else
+        {
+            // Fading out, the dry sound going first and the echo lingering after it.
+            songLevel = Mathf.MoveTowards(songLevel, 0f, dt / 3f);
+            songEchoMix = Mathf.MoveTowards(songEchoMix, 1f, dt * 1.5f);
+            if (songLevel <= 0f && song.isPlaying) song.Stop();
+        }
+        var music = MusicManager.Instance;
+        float musicVolume = music != null ? music.Volume : 0.6f;
+        song.volume = MasterVolume * musicVolume * 0.9f * Mathf.SmoothStep(0f, 1f, songLevel);
+        songEcho.wetMix = songEchoMix * 0.8f;
+        songEcho.dryMix = Mathf.Lerp(1f, 0.25f, songEchoMix);
     }
 
     void SetPaused(bool paused)
