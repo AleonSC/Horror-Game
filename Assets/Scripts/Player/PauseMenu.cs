@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Esc pauses the game: time and sound stop, the mouse is freed, and a menu offers Resume,
-/// Restart (start the run over), mouse sensitivity and volume sliders, and Quit.
+/// Restart (start the run over), Lighting (a live lighting test panel), mouse sensitivity and
+/// volume sliders, and Quit.
 /// Settings are remembered between sessions. DarkForestGenerator adds this automatically.
 /// </summary>
 public class PauseMenu : MonoBehaviour
@@ -16,6 +17,8 @@ public class PauseMenu : MonoBehaviour
     float sensitivity = 2f;
     float volume = 1f;
     GUIStyle titleStyle, buttonStyle, labelStyle;
+    LightingSettings lighting;
+    bool showLighting;
 
     void Start()
     {
@@ -24,6 +27,7 @@ public class PauseMenu : MonoBehaviour
         sensitivity = PlayerPrefs.GetFloat(SensitivityKey, sensitivity);
         volume = PlayerPrefs.GetFloat(VolumeKey, 1f);
         ApplySettings();
+        lighting = gameObject.AddComponent<LightingSettings>();
     }
 
     void OnDestroy()
@@ -39,6 +43,7 @@ public class PauseMenu : MonoBehaviour
     void SetPaused(bool paused)
     {
         IsPaused = paused;
+        showLighting = false;
         Time.timeScale = paused ? 0f : 1f;
         AudioListener.pause = paused;
         Cursor.lockState = paused ? CursorLockMode.None : CursorLockMode.Locked;
@@ -84,6 +89,16 @@ public class PauseMenu : MonoBehaviour
         float x = (Screen.width - w) * 0.5f;
         float y = Screen.height * 0.5f - 230f * unit;
 
+        if (showLighting)
+        {
+            float panelWidth = Mathf.Min(Screen.width - 40f * unit, 760f * unit);
+            var panel = new Rect((Screen.width - panelWidth) * 0.5f, 40f * unit, panelWidth, Screen.height - 140f * unit);
+            lighting.DrawPanel(panel, unit);
+            if (GUI.Button(new Rect((Screen.width - w) * 0.5f, Screen.height - 85f * unit, w, h), "Back", buttonStyle))
+                showLighting = false;
+            return;
+        }
+
         GUI.Label(new Rect(0f, y, Screen.width, 70f * unit), "PAUSED", titleStyle);
         y += 100f * unit;
 
@@ -95,6 +110,9 @@ public class PauseMenu : MonoBehaviour
             SetPaused(false);
             GameOverScreen.RestartRun();
         }
+        y += h + gap;
+
+        if (GUI.Button(new Rect(x, y, w, h), "Lighting", buttonStyle)) showLighting = true;
         y += h + gap * 2f;
 
         GUI.Label(new Rect(x, y, w, 26f * unit), $"Mouse sensitivity: {sensitivity:0.0}", labelStyle);
