@@ -43,6 +43,12 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     [Range(0f, 1f), Tooltip("How much the haze dulls its eyes, relative to its body.")]
     public float eyeHaze = 0.55f;
 
+    [Header("Chains")]
+    [Tooltip("Empty chains hanging out of the sky round the horizon, with nothing on them. He's the only one.")]
+    public int emptyChains = 4;
+    [Tooltip("How high the chains rise before they've faded completely into the sky, beyond the giant's neck (metres).")]
+    public float chainFadeLength = 1400f;
+
     [Header("Hanging")]
     [Tooltip("While it hangs, how high its neck is, in degrees above the horizon...")]
     public float hangNeckElevation = 38f;
@@ -219,6 +225,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         }
 
         UpdateSearchlights(dt);
+        UpdateEmptyChains();
         UpdateHaze();
         audioSource.volume = 1f - PortalDoor.RoomQuiet; // the giant's booms don't reach the dark room
 
@@ -338,7 +345,22 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     void EnsureGiant()
     {
         if (giant == null) BuildGiant();
-        if (chain == null) BuildChain();
+        if (chain == null) chain = BuildChain("Chain");
+        if (emptyChainList.Count == 0)
+        {
+            // Spread round the horizon, away from the giant's own bearing.
+            for (int i = 0; i < emptyChains; i++)
+            {
+                emptyChainList.Add(new EmptyChain
+                {
+                    root = BuildChain("Empty Chain", true),
+                    bearing = (i + 1) * 360f / (emptyChains + 1) + Random.Range(-20f, 20f),
+                    distance = giantStartDistance * Random.Range(0.85f, 1.25f),
+                    bottomElevation = Random.Range(14f, 32f),
+                    phase = Random.Range(0f, 10f),
+                });
+            }
+        }
         if (hangBearingAngle < 0f) hangBearingAngle = Random.Range(0f, 360f);
         giantBearing = Quaternion.Euler(0f, hangBearingAngle, 0f) * Vector3.forward;
         giant.gameObject.SetActive(true);
@@ -469,13 +491,48 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     const int ChainLinks = 48;
 
-    /// <summary>A chain of iron links, ChainLinks long, along local +y, each link one unit long.</summary>
-    void BuildChain()
+    /// <summary>An empty chain hanging out of the sky somewhere round the horizon.</summary>
+    class EmptyChain
     {
-        chain = new GameObject("Chain").transform;
+        public Transform root;
+        public float bearing, distance, bottomElevation, phase; // bearing is relative to the giant's
+    }
+    readonly System.Collections.Generic.List<EmptyChain> emptyChainList = new System.Collections.Generic.List<EmptyChain>();
+
+    /// <summary>
+    /// Empty chains hang straight down out of the sky round the horizon, turning and swaying slowly, each ending
+    /// in an open collar with nothing in it. Like the giant, they stay put on the horizon however far you walk.
+    /// </summary>
+    void UpdateEmptyChains()
+    {
+        if (player == null) return;
+        float t = Time.time;
+        foreach (var c in emptyChainList)
+        {
+            if (c.root == null) continue;
+            Vector3 dir = Quaternion.Euler(0f, hangBearingAngle + c.bearing, 0f) * Vector3.forward;
+            Vector3 bottom = player.transform.position + dir * c.distance
+                             + Vector3.up * Mathf.Tan(c.bottomElevation * Mathf.Deg2Rad) * c.distance
+                             + new Vector3(Mathf.Sin(t * 0.13f + c.phase), 0f, Mathf.Cos(t * 0.11f + c.phase)) * giantHeight * 0.04f;
+            float top = player.transform.position.y + HangingNeckHeight() + giantStartDistance * 1.6f;
+            Vector3 along = new Vector3(bottom.x, top, bottom.z) - bottom;
+            c.root.position = bottom;
+            c.root.rotation = Quaternion.FromToRotation(Vector3.up, along.normalized) * Quaternion.Euler(0f, t * 3f + c.phase * 30f, 0f);
+            c.root.localScale = Vector3.one * (along.magnitude / ChainLinks);
+        }
+    }
+
+    /// <summary>
+    /// A chain of iron links, ChainLinks long, along local +y, each link one unit long, optionally ending at
+    /// the bottom in an open, empty collar.
+    /// </summary>
+    Transform BuildChain(string name, bool collar = false)
+    {
+        var chain = new GameObject(name).transform;
         chain.SetParent(transform, false);
         // Drawn before the sky, so the clouds veil it as it rises into them.
-        var iron = chainMaterial = HazeMaterial(new Color(0.03f, 0.028f, 0.028f), 2000);
+        if (chainMaterial == null) chainMaterial = HazeMaterial(new Color(0.03f, 0.028f, 0.028f), 2000);
+        var iron = chainMaterial;
         const float width = 0.5f, bar = 0.09f;
         for (int i = 0; i < ChainLinks; i++)
         {
@@ -490,6 +547,28 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
                 end.localRotation = Quaternion.Euler(0f, 0f, 90f);
             }
         }
+
+        if (collar)
+        {
+            // A big iron ring hanging off the last link, broken open at the bottom. Nothing in it.
+            var ring = new GameObject("Collar").transform;
+            ring.SetParent(chain, false);
+            ring.localPosition = new Vector3(0f, -1.1f, 0f);
+            ring.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            const int segments = 14;
+            const float radius = 1.1f, thick = 0.16f;
+            float step = 360f / segments;
+            for (int i = 0; i < segments; i++)
+            {
+                float a = (i + 0.5f) * step;
+                if (Mathf.Abs(Mathf.DeltaAngle(a, 180f)) < step) continue; // the gap at the bottom
+                float rad = a * Mathf.Deg2Rad;
+                var seg = Part(ring, iron, PrimitiveType.Cylinder, new Vector3(Mathf.Sin(rad), Mathf.Cos(rad), 0f) * radius,
+                    new Vector3(thick, radius * Mathf.PI / segments * 1.08f, thick));
+                seg.localRotation = Quaternion.Euler(0f, 0f, -a + 90f);
+            }
+        }
+        return chain;
     }
 
     /// <summary>Drives the giant back to where it started (the watchtower floodlights do this).</summary>
@@ -820,6 +899,14 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             mat.SetFloat("_HazeHeight", giantHeight * scale * 0.7f);
             mat.SetFloat("_WispScale", 6f / Mathf.Max(giantHeight * scale * 0.1f, 1f));
         }
+
+        // The chains melt into the sky as they rise above where the giant hangs.
+        if (chainMaterial != null && player != null)
+        {
+            chainMaterial.SetFloat("_SkyFade", 1f);
+            chainMaterial.SetFloat("_SkyFadeStart", player.transform.position.y + HangingNeckHeight() + giantHeight * 0.3f);
+            chainMaterial.SetFloat("_SkyFadeLength", chainFadeLength);
+        }
     }
 
     void ApplyAtmosphere()
@@ -852,6 +939,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         searchPausing = false;
         // It's back up on its chain, somewhere new.
         hangBearingAngle = Random.Range(0f, 360f);
+        foreach (var c in emptyChainList) c.bottomElevation = Random.Range(14f, 32f); // and so are the empty ones
 
         redness = 0f;
         if (savedAtmosphere)

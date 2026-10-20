@@ -14,6 +14,9 @@ Shader "Horror/Haze"
         _HazeBase ("Haze Base (world y)", Float) = 0
         _HazeHeight ("Haze Height", Float) = 100
         _WispScale ("Wisp Scale", Float) = 0.01
+        _SkyFade ("Sky Fade", Range(0, 1)) = 0
+        _SkyFadeStart ("Sky Fade Start (world y)", Float) = 1000
+        _SkyFadeLength ("Sky Fade Length", Float) = 1000
     }
     SubShader
     {
@@ -27,6 +30,7 @@ Shader "Horror/Haze"
 
             float4 _Color, _HazeColor;
             float _Haze, _GroundHaze, _HazeBase, _HazeHeight, _WispScale;
+            float _SkyFade, _SkyFadeStart, _SkyFadeLength;
 
             struct v2f
             {
@@ -66,7 +70,10 @@ Shader "Horror/Haze"
                 float2 p = float2(i.world.x + i.world.z, i.world.y) * _WispScale + float2(_Time.y * 0.03, _Time.y * 0.01);
                 float wisps = noise(p) * 0.6 + noise(p * 2.7 + 5.3) * 0.4;
 
-                float h = saturate(_Haze + ground + (wisps - 0.5) * 0.35);
+                // Things reaching up into the sky (the chains) melt into it as they rise.
+                float sky = smoothstep(0, 1, saturate((i.world.y - _SkyFadeStart) / max(_SkyFadeLength, 0.001))) * _SkyFade;
+
+                float h = saturate(_Haze + ground + (wisps - 0.5) * 0.35 + sky);
                 return float4(lerp(_Color.rgb, _HazeColor.rgb, h), 1);
             }
             ENDCG
