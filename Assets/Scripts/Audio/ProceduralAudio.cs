@@ -528,33 +528,95 @@ public static class ProceduralAudio
 
     static AudioClip MakeScream()
     {
-        const float len = 2.8f;
-        float phase = 0f;
-        float a1 = 0f, a2 = 0f, b1 = 0f, b2 = 0f, c1 = 0f, c2 = 0f;
-        // Vocal tract resonances for an open "ah" (roughly 800, 1200 and 2800 Hz).
-        float r = 0.985f;
-        float k1 = 2f * r * Mathf.Cos(TwoPi * 800f / Rate);
-        float k2 = 2f * r * Mathf.Cos(TwoPi * 1200f / Rate);
-        float k3 = 2f * r * Mathf.Cos(TwoPi * 2800f / Rate);
-        return Shot("Scream", len, t =>
+        // A deep, drawn-out howl: it swells, holds and wavers, cracks, then sinks away into a long
+        // moan, ringing on through the trees afterwards (the reverb is built into the clip).
+        const float voiceLen = 6f, tail = 4.5f;
+        int n = (int)((voiceLen + tail) * Rate);
+        var dry = new float[n];
+
+        float phase = 0f, subPhase = 0f;
+        float a1 = 0f, a2 = 0f, b1 = 0f, b2 = 0f, c1 = 0f, c2 = 0f, lp = 0f;
+        // Vocal tract resonances for a hollow "aw" (roughly 520, 880 and 2300 Hz): darker than an "ah".
+        float r = 0.988f;
+        float k1 = 2f * r * Mathf.Cos(TwoPi * 520f / Rate);
+        float k2 = 2f * r * Mathf.Cos(TwoPi * 880f / Rate);
+        float k3 = 2f * r * Mathf.Cos(TwoPi * 2300f / Rate);
+        for (int i = 0; i < (int)(voiceLen * Rate); i++)
         {
-            float p = t / len;
-            // Pitch leaps up, holds with a shaky vibrato, then cracks and falls away.
-            float pitch = 320f + 380f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(p * 5f)) - 260f * Mathf.Pow(Mathf.Clamp01((p - 0.65f) / 0.35f), 1.5f);
-            pitch *= 1f + 0.035f * Mathf.Sin(TwoPi * 6.5f * t) + 0.02f * White();
+            float t = i / (float)Rate;
+            float p = t / voiceLen;
+            // Low: swells up to ~230Hz, holds, wavers and cracks, then sinks to a ~85Hz moan.
+            float rise = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(p / 0.15f));
+            float fall = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((p - 0.45f) / 0.55f));
+            float crack = p > 0.42f && p < 0.47f ? 0.85f : 1f;
+            float pitch = (120f + 110f * rise - 145f * fall) * crack;
+            pitch *= 1f + 0.03f * Mathf.Sin(TwoPi * 4.5f * t) + 0.015f * Mathf.Sin(TwoPi * 0.7f * t) + 0.01f * White();
             phase += pitch / Rate;
-            float voice = 2f * (phase % 1f) - 1f;                  // raw, buzzy vocal folds
-            float breath = White() * (0.25f + 0.4f * p);           // ragged, more breath as it gives out
+            subPhase += pitch * 0.5f / Rate;
+            float voice = 2f * (phase % 1f) - 1f;
+            float growl = Mathf.Sin(TwoPi * subPhase) * (0.5f + 0.5f * fall);   // an octave down, more as it sinks
+            float breath = White() * (0.15f + 0.3f * fall);
             float x = voice + breath;
 
             float f1 = k1 * a1 - r * r * a2 + x; a2 = a1; a1 = f1;
             float f2 = k2 * b1 - r * r * b2 + x; b2 = b1; b1 = f2;
             float f3 = k3 * c1 - r * r * c2 + x; c2 = c1; c1 = f3;
-            float sound = f1 + f2 * 0.8f + f3 * 0.35f;
+            float sound = f1 + f2 * 0.6f + f3 * 0.12f;          // little of the top resonance: not shrill
 
-            float env = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.12f)) * Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((p - 0.75f) / 0.25f));
-            return Tanh(sound * 0.08f) * env;                      // pushed hard: strained and harsh
-        }, 1f);
+            float env = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.5f)) * Mathf.Pow(1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((p - 0.6f) / 0.4f)), 1.3f);
+            float v = Tanh(sound * 0.04f) + growl * 0.35f;      // driven gently: raw, but not harsh
+            lp += (v - lp) * 0.35f;                             // take the edge off the very top
+            dry[i] = lp * env;
+        }
+
+        float[] wet = Reverb(dry, 0.88f, 0.35f);
+        var mixed = new float[n];
+        for (int i = 0; i < n; i++) mixed[i] = dry[i] * 0.55f + wet[i] * 0.75f;
+        return Create("Scream", mixed, 1f);
+    }
+
+    /// <summary>
+    /// A big, dark Schroeder/Freeverb-style reverb: parallel damped combs into series allpasses.
+    /// feedback sets how long it rings (0.88 = several seconds); damping darkens the tail.
+    /// </summary>
+    static float[] Reverb(float[] input, float feedback, float damping)
+    {
+        int[] combDelays = { 1557, 1617, 1491, 1422, 1277, 1356, 1188, 1116 };
+        int[] allpassDelays = { 556, 441, 341, 225 };
+        int preDelay = Rate * 35 / 1000;
+        var output = new float[input.Length];
+
+        foreach (int baseDelay in combDelays)
+        {
+            int delay = baseDelay * 2; // a larger space: double the classic room
+            var buffer = new float[delay];
+            int index = 0;
+            float store = 0f;
+            for (int i = 0; i < input.Length; i++)
+            {
+                float x = i >= preDelay ? input[i - preDelay] : 0f;
+                float y = buffer[index];
+                store = y * (1f - damping) + store * damping;
+                buffer[index] = x + store * feedback;
+                if (++index >= delay) index = 0;
+                output[i] += y / combDelays.Length;
+            }
+        }
+
+        foreach (int delay in allpassDelays)
+        {
+            var buffer = new float[delay];
+            int index = 0;
+            for (int i = 0; i < output.Length; i++)
+            {
+                float buffered = buffer[index];
+                float x = output[i];
+                output[i] = buffered - x;
+                buffer[index] = x + buffered * 0.5f;
+                if (++index >= delay) index = 0;
+            }
+        }
+        return output;
     }
 
     static AudioClip MakeEyeOpen()

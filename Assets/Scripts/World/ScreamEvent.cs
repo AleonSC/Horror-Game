@@ -24,6 +24,12 @@ public class ScreamEvent : MonoBehaviour
 
     void Awake() => Instance = this;
 
+    // Build the scream (with its reverb) up front, so it doesn't hitch the game the moment it's needed.
+    void Start()
+    {
+        if (screamClip == null) _ = ProceduralAudio.Scream;
+    }
+
     void OnDestroy()
     {
         if (Instance == this) Instance = null;
@@ -47,7 +53,7 @@ public class ScreamEvent : MonoBehaviour
         Vector2 dir = Random.insideUnitCircle.normalized;
         Vector3 from = player.position + new Vector3(dir.x, 0f, dir.y) * Random.Range(minDistance, maxDistance) + Vector3.up * 1.6f;
         // Distant and muffled by the trees rather than loud: it falls off with distance like any sound.
-        ProceduralAudio.PlayAt(screamClip != null ? screamClip : ProceduralAudio.Scream, from, volume, Random.Range(0.92f, 1.05f), 10f);
+        ProceduralAudio.PlayAt(screamClip != null ? screamClip : ProceduralAudio.Scream, from, volume, Random.Range(0.88f, 0.98f), 10f);
     }
 
     /// <summary>Lets the scream happen again in a new run.</summary>
