@@ -209,7 +209,7 @@ public class WatcherEvent : MonoBehaviour
 
         Shader shader = Shader.Find("Horror/Sky Eye");
         eyeMaterial = shader != null ? new Material(shader) : MaterialFactory.NoFog(new Color(1f, 0.1f, 0.05f), 1000, false);
-        eyeMaterial.mainTexture = ProceduralTextures.SkyEye;
+        if (eyeMaterial.HasProperty("_MainTex")) eyeMaterial.mainTexture = ProceduralTextures.SkyEye;
         if (eyeMaterial.HasProperty("_Color")) eyeMaterial.SetColor("_Color", new Color(2.2f, 1.6f, 1.6f, 1f)); // HDR: glows with Bloom
         eyeMaterial.renderQueue = 1000;
 
