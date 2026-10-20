@@ -262,6 +262,8 @@ public class ShadowEntity : MonoBehaviour
     Pose pose;
     Quaternion poseHead = Quaternion.identity, poseLeftArm = Quaternion.identity, poseRightArm = Quaternion.identity;
     bool peeking; // half hidden behind a trunk
+    Transform peekTree;
+    float peekTreeRadius;
     float eyeshine;
     float eyeBrightness;   // as shown, eyeshine included
     float crescendoStartBrightness, crescendoStartShine, crescendoStartLight;
@@ -430,6 +432,23 @@ public class ShadowEntity : MonoBehaviour
 
     void UpdateWatching()
     {
+        // Peeking: as you move, it slides round the trunk to keep the tree between you, never out from behind it.
+        if (peeking)
+        {
+            if (peekTree != null && peekTree.gameObject.activeInHierarchy)
+            {
+                Vector3 away = peekTree.position - target.position;
+                away.y = 0f;
+                if (away.sqrMagnitude > 0.01f)
+                {
+                    Vector3 spot = peekTree.position + away.normalized * (peekTreeRadius + BodyRadius + 0.12f);
+                    spot.y = GroundHeight(spot);
+                    transform.position = Vector3.MoveTowards(transform.position, spot, 6f * Time.deltaTime);
+                }
+            }
+            else peeking = false; // its tree fell: it's in the open now
+        }
+
         FacePlayer();
 
         float dist = HorizontalDistanceToTarget();
@@ -1008,7 +1027,12 @@ public class ShadowEntity : MonoBehaviour
             away.y = 0f;
             spot = tree.position + away.normalized * (radius + BodyRadius + 0.12f);
             spot.y = GroundHeight(spot);
-            if (!Blocked(spot)) return true; // not jammed against another tree
+            if (!Blocked(spot))
+            {
+                peekTree = tree;
+                peekTreeRadius = radius;
+                return true; // not jammed against another tree
+            }
         }
         return false;
     }

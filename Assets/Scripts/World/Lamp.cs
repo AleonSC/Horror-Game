@@ -44,6 +44,15 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     [Tooltip("Average sparks per second while recharging.")]
     public float sparksPerSecond = 1.2f;
 
+    [Header("Finding It (while unlit)")]
+    [Tooltip("A small red light on top blinks slowly, seen through the fog from far off, until the lamp is lit.")]
+    public Color markerColor = new Color(1f, 0.08f, 0.04f);
+    [Tooltip("Seconds between the marker's blinks.")]
+    public float markerPeriod = 2.4f;
+    [Tooltip("A faint electrical buzz you can follow to it, audible out to buzzRange metres.")]
+    [Range(0f, 1f)] public float buzzVolume = 0.2f;
+    public float buzzRange = 40f;
+
     [Header("Audio (optional)")]
     public AudioClip clickSound;
     public AudioClip igniteSound;
@@ -153,7 +162,10 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     Material sparkMat;
     float sparkTimer;
     Material bulbMat;
-    AudioSource hum, sfx;
+    AudioSource hum, sfx, buzz;
+    Transform marker;
+    Material markerMat;
+    float markerPhase, crackleTimer;
     float lastClickTime;
     float flash;
     float flickerTimer;
@@ -171,6 +183,57 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         hum = ProceduralAudio.AddSource(gameObject, humLoop != null ? humLoop : ProceduralAudio.LampHum, true, true, HumVolume, 2f, 20f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, 0.8f, 3f, 30f);
         SetBulb(0f);
+        BuildMarker();
+    }
+
+    /// <summary>The red marker on top and the buzz of a dark lamp, so they can be found in the woods.</summary>
+    void BuildMarker()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.name = "Marker";
+        go.transform.SetParent(transform, false);
+        go.transform.localPosition = Vector3.up * (PoleHeight + 0.2f);
+        Destroy(go.GetComponent<Collider>());
+        markerMat = MaterialFactory.NoFog(markerColor); // seen through the fog
+        var renderer = go.GetComponent<Renderer>();
+        renderer.sharedMaterial = markerMat;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        marker = go.transform;
+        markerPhase = Random.Range(0f, markerPeriod);
+
+        buzz = ProceduralAudio.AddSource(gameObject, ProceduralAudio.LampHum, true, true, buzzVolume, 2f, buzzRange);
+        buzz.rolloffMode = AudioRolloffMode.Linear; // carries evenly out to its range, then stops
+        buzz.pitch = 0.62f;
+        buzz.time = Random.Range(0f, buzz.clip.length * 0.9f);
+        buzz.Play();
+    }
+
+    void LateUpdate()
+    {
+        if (marker == null) return;
+        bool dark = !IsLit;
+        marker.gameObject.SetActive(dark);
+        if (buzz.isPlaying != dark) { if (dark) buzz.Play(); else buzz.Stop(); }
+        if (!dark) return;
+
+        // A slow blink, like a radio mast: a quick flare, fading away.
+        float t = Mathf.Repeat(Time.time + markerPhase, Mathf.Max(markerPeriod, 0.1f));
+        float glow = Mathf.Exp(-t * 3.5f);
+        MaterialFactory.SetColor(markerMat, markerColor * (0.25f + 4f * glow));
+
+        // Kept big enough to see from far off.
+        var cam = Camera.main;
+        float dist = cam != null ? Vector3.Distance(cam.transform.position, marker.position) : 10f;
+        marker.localScale = Vector3.one * Mathf.Max(0.12f, dist * 0.006f);
+
+        // Now and then the buzz crackles.
+        buzz.volume = buzzVolume;
+        crackleTimer -= Time.deltaTime;
+        if (crackleTimer <= 0f)
+        {
+            crackleTimer = Random.Range(4f, 9f);
+            if (dist < buzzRange) { sfx.pitch = Random.Range(0.7f, 0.9f); sfx.PlayOneShot(ProceduralAudio.LampSpark, 0.15f); }
+        }
     }
 
     bool SafeZones.ISource.IsActive => IsLit;
