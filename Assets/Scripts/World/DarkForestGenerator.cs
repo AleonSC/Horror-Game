@@ -45,6 +45,9 @@ public class DarkForestGenerator : MonoBehaviour
 
     [Header("Grass")]
     public int grassPatchCount = 9000;
+    [Tooltip("Grass clumps gathered round the base of each tree, over its roots (0 for none).")]
+    public int minTreeBaseClumps = 4;
+    public int maxTreeBaseClumps = 8;
     [Tooltip("Bushes you can push through (they rustle and shake).")]
     public int bushCount = 1400;
     public float minBushSize = 0.45f;
@@ -1175,6 +1178,55 @@ public class DarkForestGenerator : MonoBehaviour
             renderer.sharedMaterial = materials[rng.Next(materials.Length)];
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             GrassPivots.Add(patch.transform);
+        }
+
+        AddTreeBaseGrass(parent, variants, materials);
+    }
+
+    /// <summary>
+    /// Tufts of grass round the foot of every tree, nestled among the roots and against the trunk,
+    /// so the trunk grows up out of the undergrowth. One merged mesh per tree; these don't sway.
+    /// </summary>
+    void AddTreeBaseGrass(Transform parent, Mesh[] variants, Material[] materials)
+    {
+        if (maxTreeBaseClumps <= 0) return;
+        var combine = new List<CombineInstance>();
+        foreach (var pivot in SwayPivots)
+        {
+            if (pivot == null || pivot.parent == null) continue;
+            var trunk = pivot.parent.GetComponent<CapsuleCollider>();
+            if (trunk == null) continue; // prefab trees: leave them be
+            Vector3 center = pivot.parent.localPosition;
+            float baseY = GetGroundHeight(center.x, center.z);
+
+            combine.Clear();
+            int clumps = rng.Next(minTreeBaseClumps, maxTreeBaseClumps + 1);
+            float start = Range(0f, Mathf.PI * 2f);
+            for (int i = 0; i < clumps; i++)
+            {
+                // Spread round the trunk, most just outside it, a few further out over the roots.
+                float angle = start + (i + Range(-0.35f, 0.35f)) / clumps * Mathf.PI * 2f;
+                float dist = trunk.radius + Range(0.05f, 0.5f) + (Range(0f, 1f) < 0.35f ? Range(0.4f, 1.2f) : 0f);
+                float x = Mathf.Cos(angle) * dist, z = Mathf.Sin(angle) * dist;
+                float y = GetGroundHeight(center.x + x, center.z + z) - baseY - 0.03f;
+                float thickness = Range(0.8f, 1.6f);
+                var scale = new Vector3(thickness, Range(0.7f, 1.6f), thickness);
+                combine.Add(new CombineInstance
+                {
+                    mesh = variants[rng.Next(variants.Length)],
+                    transform = Matrix4x4.TRS(new Vector3(x, y, z), Quaternion.Euler(0f, Range(0f, 360f), 0f), scale),
+                });
+            }
+
+            var mesh = new Mesh { name = "Tree Base Grass" };
+            mesh.CombineMeshes(combine.ToArray(), true, true);
+            var go = new GameObject("Tree Base Grass");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(center.x, baseY, center.z);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = materials[rng.Next(materials.Length)];
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
         }
     }
 
