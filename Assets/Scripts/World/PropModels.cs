@@ -165,6 +165,58 @@ public static class PropModels
         return root;
     }
 
+    // ---------------------------------------------------------------- Camera
+
+    /// <summary>
+    /// An old film camera (origin at its base, lens facing +z): a leatherette body with metal top plates,
+    /// a big lens barrel, a viewfinder, the shutter button and wind lever, a strap, and a flash gun mounted
+    /// on top with a pale reflector. Flash marks the front of the flash, where the light comes from.
+    /// </summary>
+    public static Transform FilmCamera(Transform parent, bool castShadows, out Transform flash)
+    {
+        var root = new GameObject("Camera Model").transform;
+        root.SetParent(parent, false);
+        var leather = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, new Color(0.06f, 0.055f, 0.05f), 0.15f);
+        var metal = MaterialFactory.Lit(new Color(0.5f, 0.5f, 0.5f), 0.7f);
+        var black = MaterialFactory.Lit(new Color(0.03f, 0.03f, 0.03f), 0.4f);
+        var glassMat = MaterialFactory.Lit(new Color(0.05f, 0.08f, 0.12f), 0.95f);
+        var reflector = MaterialFactory.Lit(new Color(0.85f, 0.85f, 0.8f), 0.6f);
+        var parts = new List<Transform>();
+        Transform P(PrimitiveType type, Material mat, Transform under, Vector3 pos, Vector3 scale, Vector3 euler)
+        {
+            var t = Prim(type, mat, under, pos, scale, euler);
+            parts.Add(t);
+            return t;
+        }
+
+        P(PrimitiveType.Cube, leather, root, new Vector3(0f, 0.045f, 0f), new Vector3(0.14f, 0.075f, 0.05f), Vector3.zero);    // body
+        P(PrimitiveType.Cube, metal, root, new Vector3(0f, 0.088f, 0f), new Vector3(0.142f, 0.014f, 0.052f), Vector3.zero);    // top plate
+        P(PrimitiveType.Cube, metal, root, new Vector3(0f, 0.004f, 0f), new Vector3(0.142f, 0.008f, 0.052f), Vector3.zero);    // base plate
+        P(PrimitiveType.Cube, metal, root, new Vector3(0f, 0.1f, 0f), new Vector3(0.045f, 0.022f, 0.045f), Vector3.zero);      // viewfinder hump
+        P(PrimitiveType.Cylinder, metal, root, new Vector3(0f, 0.045f, 0.035f), new Vector3(0.056f, 0.012f, 0.056f), new Vector3(90f, 0f, 0f));  // lens mount
+        P(PrimitiveType.Cylinder, black, root, new Vector3(0f, 0.045f, 0.06f), new Vector3(0.05f, 0.02f, 0.05f), new Vector3(90f, 0f, 0f));      // lens barrel
+        P(PrimitiveType.Cylinder, metal, root, new Vector3(0f, 0.045f, 0.077f), new Vector3(0.052f, 0.004f, 0.052f), new Vector3(90f, 0f, 0f)); // front ring
+        P(PrimitiveType.Cylinder, glassMat, root, new Vector3(0f, 0.045f, 0.0795f), new Vector3(0.036f, 0.001f, 0.036f), new Vector3(90f, 0f, 0f)); // glass
+        P(PrimitiveType.Cylinder, metal, root, new Vector3(0.045f, 0.1f, 0f), new Vector3(0.012f, 0.006f, 0.012f), Vector3.zero);  // shutter button
+        P(PrimitiveType.Cube, metal, root, new Vector3(0.055f, 0.098f, -0.012f), new Vector3(0.03f, 0.004f, 0.008f), new Vector3(0f, 20f, 0f)); // wind lever
+        foreach (float x in new[] { -0.072f, 0.072f })
+            P(PrimitiveType.Cube, metal, root, new Vector3(x, 0.07f, 0f), new Vector3(0.006f, 0.012f, 0.006f), Vector3.zero); // strap lugs
+
+        // The flash gun on the hot shoe: a stem and a head with a pale reflector facing forward.
+        P(PrimitiveType.Cube, black, root, new Vector3(-0.035f, 0.105f, 0f), new Vector3(0.02f, 0.02f, 0.02f), Vector3.zero);
+        P(PrimitiveType.Cube, black, root, new Vector3(-0.035f, 0.14f, 0.005f), new Vector3(0.06f, 0.05f, 0.035f), Vector3.zero);
+        P(PrimitiveType.Cube, reflector, root, new Vector3(-0.035f, 0.14f, 0.0235f), new Vector3(0.052f, 0.04f, 0.002f), Vector3.zero);
+
+        foreach (var t in parts)
+            t.GetComponent<Renderer>().shadowCastingMode = castShadows
+                ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        flash = new GameObject("Flash").transform;
+        flash.SetParent(root, false);
+        flash.localPosition = new Vector3(-0.035f, 0.14f, 0.03f);
+        return root;
+    }
+
     // ---------------------------------------------------------------- Building blocks
 
     /// <summary>

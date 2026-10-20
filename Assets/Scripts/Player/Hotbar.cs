@@ -7,6 +7,9 @@ using UnityEngine;
 /// - Batteries: picked-up batteries pile up in slot 6. F puts one in the flashlight, topping it up by
 ///   batteryCharge, and goes back to the flashlight.
 ///
+/// - Camera (7): found in the broken car's trunk, three shots. F takes a flash photo: every entity caught in
+///   the frame (in range, nothing in the way) is driven off for banishTime seconds.
+///
 /// - Glowsticks: F cracks one and tosses it a few metres ahead, where it lies glowing yellow for minutes.
 ///   Only a light to find your way by (the entities ignore it). Ten in a bundle at each campsite.
 ///
@@ -23,8 +26,17 @@ using UnityEngine;
 /// </summary>
 public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
-    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery }
-    const int SlotCount = 6;
+    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera }
+    const int SlotCount = 7;
+    [Header("Camera")]
+    [Tooltip("Shots on the camera when it's found.")]
+    public int cameraShots = 3;
+    [Tooltip("Seconds an entity caught in the flash stays gone.")]
+    public float banishTime = 30f;
+    [Tooltip("How far away the flash reaches things on the ground (the flier, up in the sky, a good deal further).")]
+    public float flashRange = 40f;
+    [Tooltip("Seconds for the flash to charge again between shots.")]
+    public float flashRecharge = 1.6f;
     [Range(0f, 1f), Tooltip("How much of the flashlight each battery refills.")]
     public float batteryCharge = 0.1f;
     [Tooltip("Glowsticks in each bundle found at a campsite.")]
@@ -62,6 +74,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public int FlareCount { get; private set; }
     public int GlowstickCount { get; private set; }
     public int BatteryCount { get; private set; }
+    public int CameraShots { get; private set; }
 
     bool SafeZones.ISource.IsActive => TorchLit || LighterLit;
     Vector3 SafeZones.ISource.Center => transform.position;
@@ -75,8 +88,10 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries" };
-    Transform flareGunModel, muzzle, glowstickModel, batteryModel;
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera" };
+    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint;
+    Light flashLight;
+    float flashGlow, flashReady;
 
     void OnEnable() => SafeZones.Register(this);
     void OnDisable() => SafeZones.Unregister(this);
@@ -97,6 +112,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         Glowstick.BuildModel(glowstickModel, false);
         glowstickModel.gameObject.SetActive(false);
         BuildBattery(hand);
+        BuildCamera(hand);
 
         fireLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FireLoop, true, false, 0f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.8f);
@@ -130,6 +146,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Item.FlareGun && FlareCount == 0) { Message("You don't have a flare gun"); return; }
         if (item == Item.Glowstick && GlowstickCount == 0) { Message("You don't have any glowsticks"); return; }
         if (item == Item.Battery && BatteryCount == 0) { Message("You don't have any batteries"); return; }
+        if (item == Item.Camera && CameraShots == 0) { Message("You don't have a camera"); return; }
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -159,7 +176,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         item == Item.Lighter ? LighterCount :
         item == Item.FlareGun ? FlareCount :
         item == Item.Glowstick ? GlowstickCount :
-        item == Item.Battery ? BatteryCount : 1;
+        item == Item.Battery ? BatteryCount :
+        item == Item.Camera ? CameraShots : 1;
 
     void Use()
     {
@@ -200,6 +218,57 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         {
             UseBattery();
         }
+        else if (Selected == Item.Camera)
+        {
+            TakePhoto();
+        }
+    }
+
+    /// <summary>
+    /// A flash photo: a blinding burst of light, and every entity caught in the frame (close enough, nothing
+    /// in the way) is driven off for a while. One of the camera's few shots, caught anything or not.
+    /// </summary>
+    void TakePhoto()
+    {
+        if (CameraShots <= 0 || Time.time < flashReady) return;
+        var cam = Camera.main;
+        if (cam == null) return;
+        CameraShots--;
+        flashReady = Time.time + flashRecharge;
+        flashGlow = 1f;
+        Play(ProceduralAudio.CameraFlash, 1f);
+        Noise.Emit(transform.position, 4f);
+
+        int caught = 0;
+        foreach (var e in new System.Collections.Generic.List<ShadowEntity>(ShadowEntity.All))
+            if (e.IsVisible && InShot(cam, e.transform.position + Vector3.up * 1.4f, flashRange)) { e.Banish(banishTime); caught++; }
+        foreach (var b in new System.Collections.Generic.List<BlindEntity>(BlindEntity.All))
+            if (b.IsPresent && (InShot(cam, b.transform.position + Vector3.up * b.height * 0.85f, flashRange)
+                                || InShot(cam, b.transform.position + Vector3.up * b.height * 0.45f, flashRange))) { b.Banish(banishTime); caught++; }
+        foreach (var f in new System.Collections.Generic.List<FlyingEntity>(FlyingEntity.All))
+            if (f.IsPresent && InShot(cam, f.transform.position, flashRange * 3f)) { f.Banish(banishTime); caught++; }
+
+        string left = CameraShots == 1 ? "1 shot left" : $"{CameraShots} shots left";
+        Message(caught > 0 ? $"Caught it in the flash. ({left})" : $"Nothing in the shot. ({left})");
+        if (CameraShots == 0)
+        {
+            Message(caught > 0 ? "Caught it in the flash. That was the last shot." : "That was the camera's last shot.");
+            Select(Item.Flashlight);
+        }
+    }
+
+    /// <summary>True if a point is in the camera's frame, within range, with nothing solid in the way.</summary>
+    static bool InShot(Camera cam, Vector3 point, float range)
+    {
+        Vector3 from = cam.transform.position;
+        Vector3 to = point - from;
+        float dist = to.magnitude;
+        if (dist > range || dist < 0.1f) return false;
+        Vector3 v = cam.WorldToViewportPoint(point);
+        if (v.z <= 0f || v.x < -0.05f || v.x > 1.05f || v.y < -0.05f || v.y > 1.05f) return false;
+        // Anything in the way? (Not counting what's right at the target: its own body, the ground it's on.)
+        return !Physics.Raycast(from, to / dist, dist - 1.5f, ~0, QueryTriggerInteraction.Ignore)
+               || !Physics.Raycast(from + cam.transform.up * 0.3f, (point + Vector3.up * 0.5f - from - cam.transform.up * 0.3f).normalized, dist - 1.5f, ~0, QueryTriggerInteraction.Ignore);
     }
 
     /// <summary>Puts a battery in the flashlight, then goes back to holding it.</summary>
@@ -328,6 +397,11 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             FlareCount++;
             Message("Picked up a flare gun. Press 4 to hold it, then aim up and press F to fire.");
         }
+        else if (item == Item.Camera)
+        {
+            CameraShots += cameraShots;
+            Message($"Picked up a camera ({cameraShots} shots). Press 7 to hold it, F to take a flash photo: it drives them off for a while.");
+        }
         else if (item == Item.Glowstick)
         {
             GlowstickCount += glowsticksPerBundle;
@@ -339,7 +413,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public void ResetInventory()
     {
         TorchLit = LighterLit = false;
-        TorchCount = LighterCount = FlareCount = GlowstickCount = BatteryCount = 0;
+        TorchCount = LighterCount = FlareCount = GlowstickCount = BatteryCount = CameraShots = 0;
+        flashGlow = 0f;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
         if (flashlight != null) flashlight.SetEquipped(true);
@@ -381,6 +456,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         flareGunModel.gameObject.SetActive(Selected == Item.FlareGun);
         glowstickModel.gameObject.SetActive(Selected == Item.Glowstick);
         batteryModel.gameObject.SetActive(Selected == Item.Battery);
+        cameraModel.gameObject.SetActive(Selected == Item.Camera);
+        // The flash: a blinding burst, gone in a moment.
+        flashGlow = Mathf.MoveTowards(flashGlow, 0f, Time.deltaTime * 4f);
+        flashLight.enabled = flashGlow > 0f;
+        flashLight.intensity = 60f * flashGlow * flashGlow;
+        if (cameraFlashPoint != null) flashLight.transform.position = cameraFlashPoint.position;
         lighterModel.gameObject.SetActive(Selected == Item.Lighter);
         lighterFlame.gameObject.SetActive(LighterLit);
         lighterLight.enabled = LighterLit;
@@ -458,6 +539,25 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         lighterModel.gameObject.SetActive(false);
     }
 
+    void BuildCamera(Transform hand)
+    {
+        cameraModel = new GameObject("Held Camera").transform;
+        cameraModel.SetParent(hand, false);
+        cameraModel.localPosition = new Vector3(0.18f, -0.2f, 0.4f);
+        cameraModel.localRotation = Quaternion.Euler(-3f, -6f, 0f);
+        var model = PropModels.FilmCamera(cameraModel, false, out cameraFlashPoint);
+        model.localScale = Vector3.one * 1.3f;
+        cameraModel.gameObject.SetActive(false);
+
+        flashLight = new GameObject("Camera Flash").AddComponent<Light>();
+        flashLight.transform.SetParent(hand, false);
+        flashLight.type = LightType.Point;
+        flashLight.color = new Color(0.95f, 0.97f, 1f);
+        flashLight.range = 45f;
+        flashLight.shadows = LightShadows.None;
+        flashLight.enabled = false;
+    }
+
     void BuildBattery(Transform hand)
     {
         var body = MaterialFactory.Lit(new Color(0.08f, 0.08f, 0.09f), 0.4f);
@@ -502,7 +602,9 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     void OnGUI()
     {
-        if (!showHotbar || GameOverScreen.IsActive) return;
+        if (GameOverScreen.IsActive) return;
+        if (flashGlow > 0f) DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(1f, 1f, 1f, flashGlow * flashGlow * 0.9f)); // the flash in your own eyes
+        if (!showHotbar) return;
 
         float unit = Mathf.Max(1f, Screen.height / 1080f);
         float size = 76f * unit, gap = 10f * unit, margin = 24f * unit;
@@ -546,7 +648,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
             if (owned)
             {
-                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.FlareGun || item == Item.Glowstick || item == Item.Battery ? 1f : (flashlight != null ? flashlight.Battery : 1f);
+                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.Camera ? CameraShots / (float)Mathf.Max(cameraShots, 1)
+                    : item == Item.FlareGun || item == Item.Glowstick || item == Item.Battery ? 1f : (flashlight != null ? flashlight.Battery : 1f);
                 var bar = new Rect(slot.x + 8f * unit, slot.yMax - 14f * unit, slot.width - 16f * unit, 5f * unit);
                 DrawRect(bar, new Color(0.15f, 0.15f, 0.15f, 0.9f));
                 Color barColor = fill < 0.2f ? new Color(0.9f, 0.3f, 0.2f) : item == Item.Flashlight ? new Color(0.95f, 0.9f, 0.7f)

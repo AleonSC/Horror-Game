@@ -609,8 +609,26 @@ public class ShadowEntity : MonoBehaviour
     }
 
     /// <summary>Called when the player grabs a watchtower ladder: if it's waiting to appear, it comes now.</summary>
+    float banishedUntil = -1f;
+
+    /// <summary>True while it's out where it can be seen (and flashed by the camera).</summary>
+    public bool IsVisible => CurrentState == State.Materializing || CurrentState == State.Watching
+                             || CurrentState == State.Crescendo || CurrentState == State.Charging;
+
+    /// <summary>Caught in the camera's flash: it bursts apart and stays gone for a while.</summary>
+    public void Banish(float seconds)
+    {
+        if (!IsVisible) return;
+        StartFragments(converge: false);
+        PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof);
+        ResetVisual();
+        Hide(seconds);
+        banishedUntil = Time.time + seconds;
+    }
+
     public void Summon()
     {
+        if (Time.time < banishedUntil) return; // it's been driven off: not even the watchtower brings it back early
         if (CurrentState == State.Hidden) timer = Mathf.Min(timer, Random.Range(0.5f, 2.5f));
     }
 

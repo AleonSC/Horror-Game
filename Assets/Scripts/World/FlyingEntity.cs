@@ -43,7 +43,7 @@ public class FlyingEntity : MonoBehaviour
     public float searchTime = 15f;
     [Range(0f, 1f)] public float volume = 1f;
 
-    enum State { Entering, Searching, Locking, Diving, Carrying }
+    enum State { Entering, Searching, Locking, Diving, Carrying, Banished }
     State state = State.Entering;
 
     FirstPersonController player;
@@ -243,6 +243,9 @@ public class FlyingEntity : MonoBehaviour
             case State.Carrying:
                 UpdateCarry(dt);
                 break;
+            case State.Banished:
+                UpdateBanished(dt, you);
+                break;
         }
 
         AnimateWings(dt);
@@ -354,6 +357,52 @@ public class FlyingEntity : MonoBehaviour
         foreach (var h in hits)
             if (h.collider.GetComponentInParent<FirstPersonController>() == null) return false;
         return true;
+    }
+
+    /// <summary>True while it's in the sky where it can be seen (and flashed).</summary>
+    public bool IsPresent => state == State.Searching || state == State.Locking || state == State.Entering;
+
+    /// <summary>
+    /// Caught in the camera's flash: its eye goes out, it screams and beats away up into the dark, and stays
+    /// away for a while before coming back to search again.
+    /// </summary>
+    public void Banish(float seconds)
+    {
+        if (state != State.Searching && state != State.Locking) return;
+        state = State.Banished;
+        banishTimer = seconds;
+        lockAmount = 0f;
+        hardSearch = 0f;
+        SetBeam(false);
+        voice.pitch = 0.6f;
+        voice.PlayOneShot(ProceduralAudio.Screech, 0.7f);
+        flapStrength = 1f;
+        if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
+        musicTaken = false;
+        Vector3 away = transform.position - player.transform.position;
+        away.y = 0f;
+        banishDir = away.sqrMagnitude > 0.01f ? away.normalized : transform.forward;
+    }
+
+    float banishTimer;
+    Vector3 banishDir;
+
+    void UpdateBanished(float dt, Vector3 you)
+    {
+        banishTimer -= dt;
+        if (banishTimer > 0f)
+        {
+            // Away and up, beating hard, until it's lost in the dark.
+            transform.position += (banishDir * flySpeed + Vector3.up * 4f) * dt;
+            flapStrength = Mathf.Max(flapStrength, 0.6f);
+            FaceAlong(dt, 3f);
+            return;
+        }
+        // Back to searching (it flies back in from wherever it got to), its eye lit again.
+        state = State.Searching;
+        center = you;
+        aim = you;
+        SetBeam(true);
     }
 
     /// <summary>Driven off (the watchtower floodlights): it loses any lock and its search moves well away.</summary>

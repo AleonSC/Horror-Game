@@ -36,6 +36,12 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
+    static AudioClip radioBroadcast, cameraFlash;
+    /// <summary>An old radio on a bad station: a scratchy minor waltz through hiss and crackle, drifting in and out. Loops.</summary>
+    public static AudioClip RadioBroadcast => radioBroadcast != null ? radioBroadcast : (radioBroadcast = MakeRadioBroadcast());
+    /// <summary>A film camera's flash: the shutter's clack, the pop of the bulb, and the whine of it charging again.</summary>
+    public static AudioClip CameraFlash => cameraFlash != null ? cameraFlash : (cameraFlash = MakeCameraFlash());
+
     const int WaterStepVariants = 6;
     static readonly AudioClip[] wades = new AudioClip[WaterStepVariants], puddleSteps = new AudioClip[WaterStepVariants];
 
@@ -1064,6 +1070,71 @@ public static class ProceduralAudio
         // Fade the very end so nothing clicks.
         for (int i = 0; i < n; i++) data[i] *= Mathf.Clamp01((n - i) / (0.02f * Rate));
         return Create(name, data, 0.8f);
+    }
+
+    static AudioClip MakeRadioBroadcast()
+    {
+        // A waltz in D minor, one note a beat (semitones from A4; 99 = rest), twelve bars of three.
+        int[] melody = { -7, -3, 0, 1, 0, -3, -2, -5, -2, -7, 99, 99,
+                         -7, -3, 0, 5, 3, 1, 0, -2, 1, 0, 99, 99,
+                         -2, 1, 5, 3, 1, -2, 0, -3, -7, -5, -7, 99 };
+        int[] bass = { -31, -24, -29, -26 }; // D, A, E, G, a note a bar (low)
+        const float beat = 16f / 36f;
+        float phase = 0f, bassPhase = 0f, bp1 = 0f, bp2 = 0f, hiss = 0f, crackleLp = 0f;
+        return Loop("Radio Broadcast", 16f, t =>
+        {
+            int b = Mathf.FloorToInt(t / beat) % melody.Length;
+            float inBeat = t - Mathf.Floor(t / beat) * beat;
+            int note = melody[b];
+            // Wow and flutter: the pitch wobbles like a worn record played down the line.
+            float wobble = 1f + 0.006f * Mathf.Sin(TwoPi * 0.5f * t) + 0.003f * Mathf.Sin(TwoPi * 6f * t);
+            float tone = 0f;
+            if (note != 99)
+            {
+                float hz = 440f * Mathf.Pow(2f, note / 12f) * wobble;
+                phase += TwoPi * hz / Rate;
+                float env = Mathf.Clamp01(inBeat / 0.02f) * Mathf.Exp(-inBeat * 3f);
+                tone = (Mathf.Sin(phase) + 0.5f * Mathf.Sin(phase * 2f) + 0.3f * Mathf.Sin(phase * 3f)) * env;
+            }
+            int bar = Mathf.FloorToInt(t / (beat * 3f)) % bass.Length;
+            bassPhase += TwoPi * 440f * Mathf.Pow(2f, (bass[bar] + 12) / 12f) * wobble / Rate;
+            float oompah = (inBeat < beat * 0.5f ? 1f : 0.4f) * Mathf.Exp(-inBeat * 4f);
+            tone += Mathf.Sin(bassPhase) * oompah * 0.5f;
+
+            // Through a tinny little speaker: only the middle of the sound comes through.
+            bp1 += (tone - bp1) * 0.25f;
+            bp2 += (bp1 - bp2) * 0.04f;
+            float music = (bp1 - bp2) * 1.6f;
+            music = Mathf.Clamp(music * 1.8f, -0.6f, 0.6f); // overdriven
+
+            // The station drifts in and out under the hiss, with crackles and pops.
+            float signal = 0.55f + 0.45f * Mathf.PerlinNoise(t * 0.35f, 4.2f);
+            hiss += (White() - hiss) * 0.6f;
+            crackleLp += (White() - crackleLp) * 0.3f;
+            float crackle = rng.NextDouble() < 0.0006 ? White() * 2.5f : 0f;
+            return music * signal + hiss * (0.12f + 0.25f * (1f - signal)) + crackle + crackleLp * 0.02f;
+        }, 0.7f);
+    }
+
+    static AudioClip MakeCameraFlash()
+    {
+        const float len = 1.6f;
+        float lp = 0f, whine = 0f;
+        return Shot("Camera Flash", len, t =>
+        {
+            float w = White();
+            // The shutter: two hard little clacks.
+            float clack = (t < 0.012f ? 1f : 0f) + (t > 0.045f && t < 0.055f ? 0.7f : 0f);
+            lp += (w - lp) * 0.5f;
+            float shutter = lp * clack;
+            // The flash going off: a sharp, bright pop.
+            float pop = w * Mathf.Exp(-Mathf.Max(0f, t - 0.02f) * 60f) * (t > 0.02f ? 0.9f : 0f);
+            // And the capacitor whining back up, rising and fading.
+            float u = Mathf.Clamp01((t - 0.25f) / (len - 0.25f));
+            whine += TwoPi * Mathf.Lerp(1800f, 7500f, Mathf.Sqrt(u)) / Rate;
+            float charge = t > 0.25f ? Mathf.Sin(whine) * 0.12f * Mathf.Sin(Mathf.PI * u) : 0f;
+            return shutter * 1.2f + pop + charge;
+        }, 0.9f);
     }
 
     static AudioClip MakeThunder()

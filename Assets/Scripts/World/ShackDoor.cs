@@ -10,6 +10,10 @@ public class ShackDoor : MonoBehaviour
     public float openAngle = -105f;
     [Tooltip("Degrees per second.")]
     public float swingSpeed = 120f;
+    [Tooltip("Local axis it swings about: up for a door, sideways for a lid or a flap.")]
+    public Vector3 axis = Vector3.up;
+    [Tooltip("What it's called in the prompt (\"Click to open the ...\").")]
+    public string noun = "door";
 
     public bool IsOpen { get; private set; }
 
@@ -68,6 +72,6 @@ public class ShackDoor : MonoBehaviour
         float target = IsOpen ? openAngle : 0f;
         if (Mathf.Approximately(angle, target)) return;
         angle = Mathf.MoveTowards(angle, target, swingSpeed * Time.deltaTime);
-        transform.localRotation = Quaternion.Euler(0f, angle, 0f);
+        transform.localRotation = Quaternion.AngleAxis(angle, axis);
     }
 }

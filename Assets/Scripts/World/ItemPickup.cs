@@ -17,7 +17,8 @@ public class ItemPickup : MonoBehaviour
         item == Hotbar.Item.Torch ? "torch" :
         item == Hotbar.Item.Lighter ? "lighter" :
         item == Hotbar.Item.FlareGun ? "flare gun" :
-        item == Hotbar.Item.Glowstick ? "glowsticks" : "item";
+        item == Hotbar.Item.Glowstick ? "glowsticks" :
+        item == Hotbar.Item.Camera ? "camera" : "item";
 
     /// <summary>Puts the item in the hotbar and removes it from the world.</summary>
     public void PickUp(Hotbar hotbar)
@@ -47,6 +48,14 @@ public class ItemPickup : MonoBehaviour
         // On its side: the gun's right flank up, the barrel resting on the ground.
         model.localRotation = Quaternion.Euler(0f, 0f, 90f);
         model.localPosition = new Vector3(0.05f, 0.022f, -0.04f);
+        return pickup;
+    }
+
+    /// <summary>Builds an old film camera with a flash gun (PropModels.FilmCamera), lying flat.</summary>
+    public static ItemPickup CreateCamera(Transform parent, Vector3 localPos, float yaw)
+    {
+        var pickup = Create("Camera Pickup", Hotbar.Item.Camera, parent, localPos, yaw);
+        PropModels.FilmCamera(pickup.transform, true, out _);
         return pickup;
     }
 

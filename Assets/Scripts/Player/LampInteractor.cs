@@ -23,6 +23,7 @@ public class LampInteractor : MonoBehaviour
     ItemPickup focusedItem;
     WatchtowerButton focusedButton;
     CarHeadlightSwitch focusedSwitch;
+    CarRadio focusedRadio;
     Flashlight flashlight;
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
@@ -40,6 +41,7 @@ public class LampInteractor : MonoBehaviour
         focusedItem = null;
         focusedButton = null;
         focusedSwitch = null;
+        focusedRadio = null;
         if (hotbar == null) hotbar = GetComponent<Hotbar>();
         var cam = Camera.main;
         if (cam == null) return;
@@ -54,12 +56,15 @@ public class LampInteractor : MonoBehaviour
             focusedItem = target.GetComponentInParent<ItemPickup>();
             focusedButton = target.GetComponentInParent<WatchtowerButton>();
             focusedSwitch = target.GetComponentInParent<CarHeadlightSwitch>();
+            focusedRadio = target.GetComponentInParent<CarRadio>();
         }
 
         if (!HorrorInput.ClickPressed || Cursor.lockState != CursorLockMode.Locked) return;
 
         if (focusedButton != null)
             focusedButton.Press();
+        else if (focusedRadio != null)
+            focusedRadio.Toggle();
         else if (focusedSwitch != null && focusedSwitch.car != null)
             focusedSwitch.car.ToggleLights();
         else if (focusedItem != null)
@@ -96,7 +101,7 @@ public class LampInteractor : MonoBehaviour
             if (ahead < 0f || (closest - eye).magnitude > reach) continue;
 
             float offAxis = Vector3.Distance(closest, eye + forward * ahead);
-            bool small = owner is ItemPickup || owner is BatteryPickup;
+            bool small = owner is ItemPickup || owner is BatteryPickup || owner is CarRadio;
             float allowed = (aimRadius + ahead * aimSpreadPerMetre) * (small ? smallItemLeeway : 1f);
             if (offAxis > allowed) continue;
             if (!Visible(eye, col, closest, owner)) continue;
@@ -116,6 +121,7 @@ public class LampInteractor : MonoBehaviour
     static Component Owner(Collider col)
     {
         Component c = col.GetComponentInParent<WatchtowerButton>();
+        if (c == null) c = col.GetComponentInParent<CarRadio>();
         if (c == null) c = col.GetComponentInParent<CarHeadlightSwitch>();
         if (c == null) c = col.GetComponentInParent<ItemPickup>();
         if (c == null) c = col.GetComponentInParent<ShackDoor>();
@@ -167,7 +173,10 @@ public class LampInteractor : MonoBehaviour
         float cy = Screen.height * 0.5f;
 
         // Crosshair
-        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null || focusedButton != null || focusedSwitch != null;
+        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null || focusedButton != null || focusedSwitch != null || focusedRadio != null;
+
+        if (focusedRadio != null)
+            GUI.Label(new Rect(cx - 250f, cy + 20f, 500f, 30f), focusedRadio.Prompt, labelStyle);
 
         if (focusedButton != null)
         {
@@ -190,7 +199,7 @@ public class LampInteractor : MonoBehaviour
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), $"Click to pick up the {focusedItem.DisplayName}", labelStyle);
         else if (focusedDoor != null)
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), focusedDoor.locked && !focusedDoor.IsOpen ? focusedDoor.lockedMessage
-                : focusedDoor.IsOpen ? "Click to close the door" : "Click to open the door", labelStyle);
+                : focusedDoor.IsOpen ? $"Click to close the {focusedDoor.noun}" : $"Click to open the {focusedDoor.noun}", labelStyle);
         DrawRect(new Rect(cx - 2f, cy - 2f, 4f, 4f), new Color(1f, 1f, 1f, hasFocus ? 0.9f : 0.4f));
 
         if (focusedBattery != null)

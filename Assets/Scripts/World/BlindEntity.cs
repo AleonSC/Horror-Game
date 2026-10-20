@@ -37,7 +37,7 @@ public class BlindEntity : MonoBehaviour
     [Tooltip("How far off it rises up out of the ground when it first comes, in front of the player.")]
     public float entranceDistance = 45f;
 
-    enum State { Appearing, Roaming, Listening, Rushing, Searching, Taking }
+    enum State { Appearing, Roaming, Listening, Rushing, Searching, Taking, Banished }
 
     State state = State.Appearing;
     Vector3 goal;
@@ -127,7 +127,7 @@ public class BlindEntity : MonoBehaviour
 
     void OnNoise(Vector3 at, float radius)
     {
-        if (state == State.Taking || state == State.Appearing) return;
+        if (state == State.Taking || state == State.Appearing || state == State.Banished) return;
         Vector3 d = at - transform.position;
         d.y = 0f;
         float dist = d.magnitude;
@@ -165,6 +165,16 @@ public class BlindEntity : MonoBehaviour
             case State.Appearing:
                 UpdateEntrance(dt);
                 return; // its entrance: nothing else yet
+
+            case State.Banished:
+                timer -= dt;
+                if (timer <= 0f)
+                {
+                    // Back, quietly this time: it just rises up out of the dark somewhere near.
+                    quietReturn = true;
+                    Place(player.transform.position);
+                }
+                return;
 
             case State.Roaming:
                 // Never strays far from where the player is; drifts after them.
@@ -268,6 +278,42 @@ public class BlindEntity : MonoBehaviour
         }
     }
 
+    // ---------------------------------------------------------------- Lured and banished
+
+    bool quietReturn;
+
+    /// <summary>
+    /// Something it can't resist (the car radio): it rushes there, from however far away, and keeps
+    /// coming as long as it's called.
+    /// </summary>
+    public void Lure(Vector3 at)
+    {
+        if (state == State.Taking || state == State.Appearing || state == State.Banished) return;
+        Vector3 g = Settle(at);
+        if (state == State.Rushing && (g - goal).sqrMagnitude < 1f) return;
+        goal = g;
+        state = State.Rushing;
+    }
+
+    /// <summary>
+    /// Caught in the camera's flash: it shrieks and is gone, and doesn't come back for a while (then it
+    /// rises up out of the ground near the player again, without the fanfare of its first entrance).
+    /// </summary>
+    public void Banish(float seconds)
+    {
+        if (state == State.Taking || state == State.Appearing || state == State.Banished) return;
+        Vector3 head = transform.position + Vector3.up * height * 0.8f;
+        ProceduralAudio.PlayAt(ProceduralAudio.Screech, head, 1f, 0.75f, 10f);
+        ProceduralAudio.PlayAt(ProceduralAudio.Poof, head, 1f, 0.6f, 10f);
+        SetAlpha(0f);
+        transform.position += Vector3.down * 100f; // out of the way of anything measuring how close it is
+        state = State.Banished;
+        timer = seconds;
+    }
+
+    /// <summary>True when it's out in the world, where it can be seen (and flashed).</summary>
+    public bool IsPresent => state != State.Banished && (state != State.Appearing || fadeIn > 0.3f);
+
     // ---------------------------------------------------------------- Entrance
 
     // The first time it comes: the ground rumbles and shakes, lightning cracks over where it is, and it
@@ -283,6 +329,18 @@ public class BlindEntity : MonoBehaviour
 
     void UpdateEntrance(float dt)
     {
+        if (quietReturn)
+        {
+            fadeIn = Mathf.MoveTowards(fadeIn, 1f, dt / 2.5f);
+            SetAlpha(fadeIn);
+            if (fadeIn >= 1f)
+            {
+                quietReturn = false;
+                state = State.Roaming;
+                PickRoamGoal();
+            }
+            return;
+        }
         entrance += dt;
         float t = entrance;
         float bearing = 0f;
