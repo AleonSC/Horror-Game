@@ -1,10 +1,13 @@
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Esc pauses the game: time and sound stop, the mouse is freed, and a cinematic menu appears: black
 /// letterbox bars slide in, the game stays visible behind, and plain left-aligned items (Return to Game,
 /// Restart, Options, Quit) light up under the pointer. Options has mouse sensitivity, master volume,
-/// sound effects, music and menu size sliders, and the Lighting test panel.
+/// sound effects, music, field of view and menu size sliders, motion blur (on/off and strength), and the
+/// Lighting test panel.
 /// Settings are remembered between sessions. DarkForestGenerator adds this automatically.
 /// </summary>
 public class PauseMenu : MonoBehaviour
@@ -19,6 +22,7 @@ public class PauseMenu : MonoBehaviour
     public static float MasterVolume { get; private set; } = 1f;
     const string MenuScaleKey = "Horror.MenuScale";
     const string FovKey = "Horror.FieldOfView";
+    const string MotionBlurKey = "Horror.MotionBlur", MotionBlurStrengthKey = "Horror.MotionBlurStrength";
 
     FirstPersonController player;
     float sensitivity = 2f;
@@ -26,6 +30,11 @@ public class PauseMenu : MonoBehaviour
     float effectsVolume = 1f;   // every sound but the music
     [Tooltip("Vertical field of view (degrees). Wide angles stretch the edges of the view: looking down a slope, trees there seem to lean outward.")]
     public float fieldOfView = 60f;
+    [Tooltip("Motion blur as the view turns and moves (off by default; players can turn it on in Options).")]
+    public bool motionBlur;
+    [Range(0f, 1f)] public float motionBlurStrength = 0.4f;
+    Volume motionBlurVolume;
+    MotionBlur motionBlurFx;
     [Tooltip("Size of the pause menu and lighting panel (1 = original size, up to 1.8). Players can change it in the menu.")]
     public float menuScale = 1.6f;
     LightingSettings lighting;
@@ -39,6 +48,8 @@ public class PauseMenu : MonoBehaviour
         effectsVolume = PlayerPrefs.GetFloat(EffectsKey, 1f);
         menuScale = PlayerPrefs.GetFloat(MenuScaleKey, menuScale);
         fieldOfView = PlayerPrefs.GetFloat(FovKey, fieldOfView);
+        motionBlur = PlayerPrefs.GetInt(MotionBlurKey, motionBlur ? 1 : 0) == 1;
+        motionBlurStrength = PlayerPrefs.GetFloat(MotionBlurStrengthKey, motionBlurStrength);
         ApplySettings();
         lighting = gameObject.AddComponent<LightingSettings>();
     }
@@ -70,6 +81,8 @@ public class PauseMenu : MonoBehaviour
             PlayerPrefs.SetFloat(EffectsKey, effectsVolume);
             PlayerPrefs.SetFloat(MenuScaleKey, menuScale);
             PlayerPrefs.SetFloat(FovKey, fieldOfView);
+            PlayerPrefs.SetInt(MotionBlurKey, motionBlur ? 1 : 0);
+            PlayerPrefs.SetFloat(MotionBlurStrengthKey, motionBlurStrength);
             PlayerPrefs.Save();
         }
     }
@@ -84,6 +97,32 @@ public class PauseMenu : MonoBehaviour
         // Not while the dream hallway has the view stretched: it picks this up when it lets go.
         var cam = player != null ? player.GetComponentInChildren<Camera>() : Camera.main;
         if (cam != null && (player == null || player.DreamStretch <= 0f)) cam.fieldOfView = fieldOfView;
+        ApplyMotionBlur(cam);
+    }
+
+    /// <summary>Motion blur on a global volume (camera motion: turning and moving), on or off and how strong.</summary>
+    void ApplyMotionBlur(Camera cam)
+    {
+        if (motionBlurVolume == null)
+        {
+            motionBlurVolume = new GameObject("Motion Blur").AddComponent<Volume>();
+            motionBlurVolume.transform.SetParent(transform, false);
+            motionBlurVolume.isGlobal = true;
+            motionBlurVolume.priority = 95f;
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            motionBlurVolume.profile = profile;
+            motionBlurFx = profile.Add<MotionBlur>(true);
+            motionBlurFx.mode.Override(MotionBlurMode.CameraOnly);
+            motionBlurFx.quality.Override(MotionBlurQuality.Medium);
+            motionBlurFx.clamp.Override(0.08f);
+        }
+        motionBlurFx.intensity.Override(motionBlur ? motionBlurStrength : 0f);
+        motionBlurVolume.enabled = motionBlur && motionBlurStrength > 0f;
+        if (motionBlur && cam != null)
+        {
+            var data = cam.GetUniversalAdditionalCameraData();
+            if (data != null) data.renderPostProcessing = true;
+        }
     }
 
     // ---------------------------------------------------------------- Drawing
@@ -196,6 +235,19 @@ public class PauseMenu : MonoBehaviour
         }
         float newFov = Mathf.Round(Slider(5, "FIELD OF VIEW", $"{Mathf.RoundToInt(fieldOfView)}°", x, y, width, fieldOfView, 50f, 90f)); y += step;
         menuScale = Slider(4, "MENU SIZE", $"{menuScale:0.0}x", x, y, width, menuScale, 1f, 1.8f); y += step;
+
+        if (Item(12, motionBlur ? "MOTION BLUR: ON" : "MOTION BLUR: OFF", x, y))
+        {
+            motionBlur = !motionBlur;
+            ApplySettings();
+        }
+        y += 46f;
+        if (motionBlur)
+        {
+            float newBlur = Slider(6, "MOTION BLUR STRENGTH", $"{Mathf.RoundToInt(motionBlurStrength * 100f)}%", x, y, width, motionBlurStrength, 0f, 1f);
+            if (!Mathf.Approximately(newBlur, motionBlurStrength)) { motionBlurStrength = newBlur; ApplySettings(); }
+            y += step;
+        }
 
         if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume) || !Mathf.Approximately(newEffects, effectsVolume)
             || !Mathf.Approximately(newFov, fieldOfView))
