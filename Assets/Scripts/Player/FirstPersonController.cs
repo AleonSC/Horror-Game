@@ -226,6 +226,39 @@ public class FirstPersonController : MonoBehaviour
 
         pitch += invertY ? look.y : -look.y;
         pitch = Mathf.Clamp(pitch, -maxLookAngle, maxLookAngle);
+
+        // Something big happening: the view is drawn toward it, gently (the mouse still works).
+        if (attractTimer > 0f && attractTarget != null)
+        {
+            attractTimer -= Time.deltaTime;
+            float elapsed = attractDuration - attractTimer;
+            float envelope = Mathf.SmoothStep(0f, 1f, elapsed / 0.6f) * Mathf.SmoothStep(0f, 1f, attractTimer / 1f);
+            Vector3 to = attractTarget() - (cameraRoot != null ? cameraRoot.position : transform.position);
+            if (to.sqrMagnitude > 0.01f)
+            {
+                float yawWanted = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
+                float pitchWanted = -Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg;
+                float k = (1f - Mathf.Exp(-2.2f * Time.deltaTime)) * envelope * attractStrength;
+                float yawStep = Mathf.DeltaAngle(transform.eulerAngles.y, yawWanted) * k;
+                transform.Rotate(Vector3.up, yawStep, Space.Self);
+                // Only part of the way up or down: a glance, not a stare.
+                pitch = Mathf.Clamp(Mathf.Lerp(pitch, Mathf.Clamp(pitchWanted, -45f, 45f), k), -maxLookAngle, maxLookAngle);
+            }
+        }
+    }
+
+    System.Func<Vector3> attractTarget;
+    float attractTimer, attractDuration, attractStrength;
+
+    /// <summary>
+    /// Draws the view gently toward something for a few seconds (a boss arriving), easing in and out. The
+    /// target is read every frame, so it can follow something moving. Strength 1 turns fully toward it.
+    /// </summary>
+    public void DrawAttention(System.Func<Vector3> target, float seconds, float strength = 0.6f)
+    {
+        attractTarget = target;
+        attractDuration = attractTimer = Mathf.Max(seconds, 0.1f);
+        attractStrength = Mathf.Clamp01(strength);
     }
 
     void HandleCrouch()

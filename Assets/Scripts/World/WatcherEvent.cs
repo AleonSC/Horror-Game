@@ -323,6 +323,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         SetEyeOpen(0f);
 
         audioSource.PlayOneShot(ProceduralAudio.EyeOpen, 1f);
+        // The view is drawn up toward it as it opens.
+        player.DrawAttention(() => player.transform.position + eyeDirection * 500f, 5f, 0.5f);
         phase = Phase.EyeOpening;
         timer = 0f;
     }

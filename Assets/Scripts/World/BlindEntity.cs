@@ -367,6 +367,7 @@ public class BlindEntity : MonoBehaviour
             omen.PlayOneShot(ProceduralAudio.DistantRumble, 1f);
             omen.PlayOneShot(ProceduralAudio.Tension, 0.5f);
             BlindEntityTheme.Play(); // its own music, scored to all this
+            if (player != null) player.DrawAttention(() => transform.position + Vector3.up * height * 0.6f, 9f, 0.55f); // look: over there
             storm = BlindStorm.Over(transform.position); // a black cloud rolls in over it, crackling red
         }
         if (Beat(1, OmenTime))

@@ -174,6 +174,7 @@ public class FlyingEntity : MonoBehaviour
             near.pitch = 0.42f;
             near.PlayOneShot(ProceduralAudio.Screech, 0.25f);
             FlierTheme.Play(); // its own music, scored to all this
+            player.DrawAttention(() => transform.position, 11f, 0.5f); // following it in as it comes
         }
         if (Beat(1, DiveTime - 1.8f))
         {
