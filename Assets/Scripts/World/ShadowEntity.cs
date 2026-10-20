@@ -611,14 +611,14 @@ public class ShadowEntity : MonoBehaviour
     /// <summary>Called when the player grabs a watchtower ladder: if it's waiting to appear, it comes now.</summary>
     float banishedUntil = -1f;
 
-    /// <summary>True while it's out where it can be seen (and flashed by the camera).</summary>
-    public bool IsVisible => CurrentState == State.Materializing || CurrentState == State.Watching
-                             || CurrentState == State.Crescendo || CurrentState == State.Charging;
+    /// <summary>True while it's out where it can be seen and caught in the camera's flash (not while it's taking you).</summary>
+    public bool CanBeFlashed => CurrentState == State.Materializing || CurrentState == State.Watching
+                                || CurrentState == State.Crescendo || CurrentState == State.Charging;
 
     /// <summary>Caught in the camera's flash: it bursts apart and stays gone for a while.</summary>
     public void Banish(float seconds)
     {
-        if (!IsVisible) return;
+        if (!CanBeFlashed) return;
         StartFragments(converge: false);
         PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof);
         ResetVisual();

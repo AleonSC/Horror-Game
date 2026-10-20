@@ -241,7 +241,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
         int caught = 0;
         foreach (var e in new System.Collections.Generic.List<ShadowEntity>(ShadowEntity.All))
-            if (e.IsVisible && InShot(cam, e.transform.position + Vector3.up * 1.4f, flashRange)) { e.Banish(banishTime); caught++; }
+            if (e.CanBeFlashed && InShot(cam, e.transform.position + Vector3.up * 1.4f, flashRange)) { e.Banish(banishTime); caught++; }
         foreach (var b in new System.Collections.Generic.List<BlindEntity>(BlindEntity.All))
             if (b.IsPresent && (InShot(cam, b.transform.position + Vector3.up * b.height * 0.85f, flashRange)
                                 || InShot(cam, b.transform.position + Vector3.up * b.height * 0.45f, flashRange))) { b.Banish(banishTime); caught++; }
