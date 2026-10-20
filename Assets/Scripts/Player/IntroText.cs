@@ -12,13 +12,14 @@ public class IntroText : MonoBehaviour
     [TextArea]
     public string[] lines =
     {
-        "You wake up with only a flashlight.",
-        "Your head is pounding, mouth parched. But you must move on.",
+        "Wake up.",
+        "There is no time.",
+        "You must move.",
         "Do not stop.",
         "They will find you.",
-        "But there's still a chance.",
-        "...maybe.",
-        "They do not like being seen.",
+        "They watch.",
+        "They hunt.",
+        "But they fear the light.",
     };
 
     [Header("Timing (seconds)")]
@@ -40,6 +41,9 @@ public class IntroText : MonoBehaviour
 
     public bool IsFinished => timer > startDelay + lines.Length * LineDuration;
 
+    /// <summary>True while an intro is still showing its lines (ScreamEvent waits for it to end).</summary>
+    public static bool Playing { get; private set; }
+
     float LineDuration => fadeInTime + holdTime + fadeOutTime + gapBetweenLines;
 
     float timer;
@@ -47,6 +51,7 @@ public class IntroText : MonoBehaviour
 
     void Awake()
     {
+        Playing = true;
         var file = Resources.Load<TextAsset>("IntroText");
         if (file == null) return;
 
@@ -59,9 +64,12 @@ public class IntroText : MonoBehaviour
         if (fromFile.Count > 0) lines = fromFile.ToArray();
     }
 
+    void OnDestroy() => Playing = false;
+
     void Update()
     {
         timer += Time.deltaTime;
+        if (IsFinished) Playing = false;
         if (IsFinished && timer > startDelay + blackScreenFadeTime) Destroy(this);
     }
 

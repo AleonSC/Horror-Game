@@ -33,7 +33,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/BrokenCar.cs` | A broken-down car parked somewhere at random. Open the driver's door and click the switch inside for headlights: standing in the beams is safe until the battery dies (about 2 minutes of light). |
 | `Assets/Scripts/World/Glowstick.cs` | Yellow glowsticks (10 per campsite). Hold with 5, F cracks one and tosses it ahead; it glows on the ground for minutes, marking your way. The entities ignore them. |
 | `Assets/Scripts/World/NightSky.cs` | Stars and drifting clouds on a dome around the camera (shader `Resources/HorrorNightSky.shader`). Purely visual: it adds no light. |
-| `Assets/Scripts/World/ScreamEvent.cs` | 50 seconds into each run, a loud scream rings out from a random direction in the trees. |
+| `Assets/Scripts/World/ScreamEvent.cs` | A distant scream from a random direction in the trees, right as the last intro line fades out (50 seconds in on runs without the intro). |
 | `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
 | `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, crows flying over high up, dark owls in the trees whose white eyes follow you, and black deer that graze and gallop off when you get close. |
