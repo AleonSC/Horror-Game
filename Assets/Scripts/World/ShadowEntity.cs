@@ -83,6 +83,10 @@ public class ShadowEntity : MonoBehaviour
     [Tooltip("If it gets this close while advancing, it takes the player.")]
     public float touchDistance = 1.5f;
 
+    [Header("Poses")]
+    [Tooltip("Chance it appears peeking out from behind a tree trunk instead of standing in the open.")]
+    [Range(0f, 1f)] public float peekChance = 0.35f;
+
     [Header("Watchtower")]
     [Tooltip("While the player is up the watchtower, it rushes to the tower's base at this speed when not looked at directly.")]
     public float poolSpeed = 3f;
@@ -170,7 +174,7 @@ public class ShadowEntity : MonoBehaviour
     float stepSoundTimer;
     float poolAngle = -1f;
 
-    Transform visual;
+    Transform visual, posture;
     Renderer[] bodyRenderers;
     Transform leftEye, rightEye;
     Transform headPivot, leftArm, rightArm;
@@ -182,6 +186,16 @@ public class ShadowEntity : MonoBehaviour
     Material eyeMat;
     Light eyeLight;
     float scale; // height / 2.4, proportions below are for a 2.4m figure
+
+    /// <summary>
+    /// Body poses. Every time it creeps closer unseen, it's in a new one when you look back: head lolled
+    /// sideways, an arm reaching for you, hunched low, turned away with its head twisted round to face you...
+    /// </summary>
+    enum Pose { Neutral, HeadTilt, Reach, Crouch, TurnedAway, ArmsUp, HangingHead, Peek }
+    static readonly Pose[] CreepPoses = { Pose.Neutral, Pose.HeadTilt, Pose.Reach, Pose.Crouch, Pose.TurnedAway, Pose.ArmsUp, Pose.HangingHead };
+    Pose pose;
+    Quaternion poseHead = Quaternion.identity, poseLeftArm = Quaternion.identity, poseRightArm = Quaternion.identity;
+    bool peeking; // half hidden behind a trunk
 
     float timer;
     float creepTimer;
@@ -285,15 +299,21 @@ public class ShadowEntity : MonoBehaviour
         advanceSource.Stop();
         SetGrowth(1f);
         ReleasePlayer();
+        peeking = false;
+        SetPose(Pose.Neutral, 1);
     }
 
     void StartMaterialize()
     {
         if (GameOverScreen.IsActive) { timer = 1f; return; }
 
-        transform.position = PickSpawnPoint();
+        int peekSide = Random.value < 0.5f ? -1 : 1;
+        Vector3 peekSpot = Vector3.zero;
+        peeking = Random.value < peekChance && TryPickPeekSpot(out peekSpot);
+        transform.position = peeking ? peekSpot : PickSpawnPoint();
         FacePlayer();
         ResetVisual();
+        SetPose(peeking ? Pose.Peek : RandomPose(), peekSide);
 
         CurrentState = State.Materializing;
         timer = materializeTime;
@@ -539,6 +559,9 @@ public class ShadowEntity : MonoBehaviour
 
         transform.position = next;
         FacePlayer();
+        // Stepped out from behind its tree, and into a new pose for when you look back.
+        peeking = false;
+        SetPose(RandomPose(), Random.value < 0.5f ? -1 : 1);
         PlaySound(creepSound != null ? creepSound : ProceduralAudio.Creep);
     }
 
@@ -654,6 +677,8 @@ public class ShadowEntity : MonoBehaviour
         Vector3 toHead = head - cam.position;
 
         if (Vector3.Angle(cam.forward, toHead) > withinDegrees) return false;
+        // Peeking round a trunk, its head is in plain view even though the tree is between you and its body.
+        if (peeking) return true;
 
         // A tree or rock in the way means the player can't actually see it.
         float dist = toHead.magnitude;
@@ -694,6 +719,91 @@ public class ShadowEntity : MonoBehaviour
 
         p.y = GroundHeight(p);
         return p;
+    }
+
+    /// <summary>
+    /// A spot just behind a tree trunk (from the player's point of view), in view and at spawn distance.
+    /// </summary>
+    bool TryPickPeekSpot(out Vector3 spot)
+    {
+        spot = Vector3.zero;
+        if (generator == null) return false;
+        Vector3 from = target.position;
+        Vector3 forward = target.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f) return false;
+
+        var candidates = new List<(Transform tree, float radius)>();
+        foreach (var pivot in generator.SwayPivots)
+        {
+            if (pivot == null || !pivot.gameObject.activeInHierarchy || pivot.parent == null) continue;
+            var trunk = pivot.parent.GetComponent<CapsuleCollider>();
+            if (trunk == null || !trunk.enabled) continue;
+            Vector3 to = pivot.position - from;
+            to.y = 0f;
+            float dist = to.magnitude;
+            if (dist < minSpawnDistance - 6f || dist > maxSpawnDistance) continue;
+            if (Vector3.Angle(forward, to) > spawnViewAngle) continue;
+            if (SafeZones.Contains(pivot.position)) continue;
+            candidates.Add((pivot, trunk.radius));
+        }
+        if (candidates.Count == 0) return false;
+
+        var (tree, radius) = candidates[Random.Range(0, candidates.Count)];
+        Vector3 away = tree.position - from;
+        away.y = 0f;
+        spot = tree.position + away.normalized * (radius + 0.45f);
+        spot.y = GroundHeight(spot);
+        return true;
+    }
+
+    Pose RandomPose()
+    {
+        Pose next = pose;
+        for (int i = 0; i < 4 && next == pose; i++) next = CreepPoses[Random.Range(0, CreepPoses.Length)];
+        return next;
+    }
+
+    /// <summary>Snaps the body into a pose. side (1 or -1) picks which way it leans or which arm it uses.</summary>
+    void SetPose(Pose newPose, int side)
+    {
+        pose = newPose;
+        posture.localPosition = Vector3.zero;
+        posture.localRotation = Quaternion.identity;
+        poseHead = poseLeftArm = poseRightArm = Quaternion.identity;
+        ref Quaternion arm = ref (side < 0 ? ref poseLeftArm : ref poseRightArm);
+
+        switch (newPose)
+        {
+            case Pose.HeadTilt:
+                poseHead = Quaternion.Euler(10f, 0f, side * 75f); // lolled right over onto its shoulder
+                break;
+            case Pose.Reach:
+                arm = Quaternion.Euler(-85f, 0f, side * -10f); // one long arm held out toward you
+                poseHead = Quaternion.Euler(-5f, 0f, side * 15f);
+                break;
+            case Pose.Crouch:
+                posture.localRotation = Quaternion.Euler(35f, 0f, 0f); // hunched low, head jutting at you
+                poseHead = Quaternion.Euler(-40f, 0f, 0f);
+                poseLeftArm = poseRightArm = Quaternion.Euler(-35f, 0f, 0f); // still dangling straight down
+                break;
+            case Pose.TurnedAway:
+                posture.localRotation = Quaternion.Euler(0f, 180f, 0f); // its back to you...
+                poseHead = Quaternion.Euler(0f, 180f, 0f);               // ...but its head turned all the way round
+                break;
+            case Pose.ArmsUp:
+                poseLeftArm = Quaternion.Euler(-170f, 0f, -12f);
+                poseRightArm = Quaternion.Euler(-170f, 0f, 12f);
+                break;
+            case Pose.HangingHead:
+                poseHead = Quaternion.Euler(55f, 0f, side * -35f);
+                break;
+            case Pose.Peek:
+                posture.localRotation = Quaternion.Euler(0f, 0f, -side * 28f); // leaning out from behind the trunk
+                poseHead = Quaternion.Euler(0f, 0f, side * 20f);
+                arm = Quaternion.Euler(-95f, 0f, side * -25f);                  // fingers curled round the bark
+                break;
+        }
     }
 
     float HorizontalDistanceToTarget()
@@ -856,8 +966,11 @@ public class ShadowEntity : MonoBehaviour
 
     void BuildSilhouette()
     {
+        // Posture holds the pose; the silhouette under it vibrates.
+        posture = new GameObject("Posture").transform;
+        posture.SetParent(transform, false);
         visual = new GameObject("Silhouette").transform;
-        visual.SetParent(transform, false);
+        visual.SetParent(posture, false);
 
         Material black = MaterialFactory.Unlit(Color.black);
 
@@ -976,11 +1089,11 @@ public class ShadowEntity : MonoBehaviour
             twitchTimer = Random.Range(0.4f, 2.5f);
             headTarget = Quaternion.Euler(Random.Range(-15f, 20f), Random.Range(-30f, 30f), Random.Range(-40f, 40f));
         }
-        headPivot.localRotation = Quaternion.Slerp(headPivot.localRotation, headTarget, 1f - Mathf.Exp(-25f * dt));
+        headPivot.localRotation = Quaternion.Slerp(headPivot.localRotation, poseHead * headTarget, 1f - Mathf.Exp(-25f * dt));
 
         float t = Time.time;
-        leftArm.localRotation = Quaternion.Euler(Mathf.Sin(t * 0.7f + 1f) * 6f, 0f, Mathf.Sin(t * 0.5f) * 4f);
-        rightArm.localRotation = Quaternion.Euler(Mathf.Sin(t * 0.6f + 2.5f) * 6f, 0f, Mathf.Sin(t * 0.45f + 1f) * 4f);
+        leftArm.localRotation = poseLeftArm * Quaternion.Euler(Mathf.Sin(t * 0.7f + 1f) * 6f, 0f, Mathf.Sin(t * 0.5f) * 4f);
+        rightArm.localRotation = poseRightArm * Quaternion.Euler(Mathf.Sin(t * 0.6f + 2.5f) * 6f, 0f, Mathf.Sin(t * 0.45f + 1f) * 4f);
         for (int i = 0; i < fingers.Count; i++)
         {
             float curl = 15f + 25f * Mathf.Sin(t * 1.3f + i * 0.9f);
