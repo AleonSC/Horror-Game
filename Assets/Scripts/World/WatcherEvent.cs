@@ -73,6 +73,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     public float shockwaveDelay = 2.5f;
     [Tooltip("How fast the shockwave travels (m/s).")]
     public float shockwaveSpeed = 220f;
+    [Range(0f, 1f), Tooltip("Each footstep sends out a smaller shockwave this strong (the landing's is 1).")]
+    public float stepShockwave = 0.3f;
+    [Tooltip("Seconds it takes to settle from landing into its walk.")]
+    public float landingSettleTime = 1.6f;
     [Tooltip("If it gets this close, it takes the player.")]
     public float giantCatchDistance = 135f;
     [Tooltip("However far off it is, it always stands at least this many degrees tall above the horizon, so it towers over the treeline (it's scaled up in the distance and shrinks back to its real size as it comes).")]
@@ -159,7 +163,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     Vector3 chainBottom;                // where the snapped chain ends, relative to the player
     float fallStartScale, fallStartNeckHeight;
     bool leftFootDown;
-    float stepDip, shockwaveTimer = -1f;
+    float stepDip, shockwaveTimer = -1f, settle = 1f;
+    readonly Quaternion[] landLegs = new Quaternion[2], landKnees = new Quaternion[2], landArms = new Quaternion[2];
+    Quaternion landBody;
+    Vector3 landBodyPos;
     Vector3 landedAt;
 
     AudioSource audioSource;
@@ -482,6 +489,18 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             phase = Phase.GiantWalking;
             landedAt = new Vector3(basePos.x, ground, basePos.z);
             shockwaveTimer = shockwaveDelay;
+            // Settle from however it landed into its walk, rather than snapping straight into it.
+            for (int i = 0; i < 2; i++)
+            {
+                landLegs[i] = giantLegs[i].localRotation;
+                landKnees[i] = giantKnees[i].localRotation;
+                landArms[i] = giantArms[i].localRotation;
+            }
+            landBody = giant.GetChild(0).localRotation;
+            landBodyPos = giant.GetChild(0).localPosition;
+            settle = 0f;
+            stepDip = 1.4f; // crouching into the landing
+            leftFootDown = Mathf.Cos(stridePhase) < 0f;
         }
     }
 
@@ -643,7 +662,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // then drives back under the body. The body rises over the planted leg and sinks between steps, rolls
         // over onto the standing leg, and jolts down as each foot hits. Arms swing against the legs, hanging
         // and lagging behind. Stopped to search, it freezes mid-step.
-        if (!searchPausing) stridePhase += dt * Mathf.PI * 2f / strideTime;
+        // Just landed: it straightens up out of the landing first, then sets off.
+        settle = Mathf.MoveTowards(settle, 1f, dt / Mathf.Max(landingSettleTime, 0.01f));
+        float blend = Mathf.SmoothStep(0f, 1f, settle);
+        if (!searchPausing && settle >= 1f) stridePhase += dt * Mathf.PI * 2f / strideTime;
         float scaleRig = giantHeight / 2.4f;
         for (int i = 0; i < 2; i++)
         {
@@ -652,16 +674,18 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             float swinging = Mathf.Max(0f, Mathf.Cos(legPhase));        // moving forward through the air
             float hip = -24f * swing - 6f * swinging;            // forward is negative
             float knee = 8f + 55f * Mathf.Pow(swinging, 1.5f);   // folds as it swings through, nearly straight planted
-            giantLegs[i].localRotation = Quaternion.Euler(hip, 0f, (i == 0 ? 1f : -1f) * 2f);
-            giantKnees[i].localRotation = Quaternion.Euler(knee, 0f, 0f);
+            giantLegs[i].localRotation = Quaternion.Slerp(landLegs[i], Quaternion.Euler(hip, 0f, (i == 0 ? 1f : -1f) * 2f), blend);
+            giantKnees[i].localRotation = Quaternion.Slerp(landKnees[i], Quaternion.Euler(knee, 0f, 0f), blend);
             // The arm goes back as the leg on its side goes forward, trailing a little behind it.
-            giantArms[i].localRotation = Quaternion.Euler(14f * Mathf.Sin(legPhase - 0.5f) + 4f, 0f, (i == 0 ? -1f : 1f) * 4f);
+            giantArms[i].localRotation = Quaternion.Slerp(landArms[i], Quaternion.Euler(14f * Mathf.Sin(legPhase - 0.5f) + 4f, 0f, (i == 0 ? -1f : 1f) * 4f), blend);
         }
         stepDip = Mathf.MoveTowards(stepDip, 0f, dt * 0.6f);
         float rise = Mathf.Cos(2f * stridePhase);               // highest as the legs pass, lowest at full stride
         var bodyPivot = giant.GetChild(0);
-        bodyPivot.localPosition = Vector3.up * ((rise * 0.025f - stepDip * 0.05f) * scaleRig);
-        bodyPivot.localRotation = Quaternion.Euler(6f + stepDip * 6f + Mathf.Sin(2f * stridePhase) * 1.5f, Mathf.Sin(stridePhase) * 4f, Mathf.Sin(stridePhase) * 3.5f);
+        Vector3 bodyPos = Vector3.up * ((rise * 0.025f * blend - stepDip * 0.05f) * scaleRig);
+        Quaternion bodyRot = Quaternion.Euler(6f + stepDip * 6f + Mathf.Sin(2f * stridePhase) * 1.5f, Mathf.Sin(stridePhase) * 4f, Mathf.Sin(stridePhase) * 3.5f);
+        bodyPivot.localPosition = Vector3.Lerp(landBodyPos, bodyPos, blend);
+        bodyPivot.localRotation = Quaternion.Slerp(landBody, bodyRot, blend);
 
         // Head turns to look down at the player.
         if (!searchlightsOn)
@@ -678,9 +702,11 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // A footfall each time a foot plants out in front: a boom, the body jolting down, the ground heaving.
         float closeness = Mathf.InverseLerp(giantStartDistance, giantCatchDistance, giantDistance);
         bool leftDown = Mathf.Cos(stridePhase) < 0f; // the left leg has finished swinging forward
-        if (leftDown != leftFootDown && !searchPausing)
+        if (leftDown != leftFootDown && !searchPausing && settle >= 1f)
         {
             leftFootDown = leftDown;
+            // Each step sends a smaller shockwave out through the forest from where the foot came down.
+            if (stepShockwave > 0f) Shockwave.Begin(new Vector3(p.x, p.y, p.z), shockwaveSpeed, stepShockwave);
             audioSource.pitch = Random.Range(0.9f, 1.05f);
             audioSource.PlayOneShot(ProceduralAudio.GiantStep, Mathf.Lerp(0.45f, 1f, closeness));
             shake = Mathf.Max(shake, Mathf.Lerp(farStepShake, nearStepShake, closeness));
@@ -1002,6 +1028,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         shake = 0f;
         dream = 0f;
         shockwaveTimer = -1f;
+        settle = 1f;
         Shockwave.Cancel();
         if (player != null) player.DreamStretch = 0f;
         if (eye != null) eye.gameObject.SetActive(false);
