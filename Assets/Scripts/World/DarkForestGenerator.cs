@@ -74,6 +74,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnWatchtower = true;
     [Tooltip("Park a broken-down car with working headlights somewhere at random.")]
     public bool spawnCar = true;
+    [Tooltip("Stand a lone open door somewhere, between two lamp posts, that leads to a vast dark room.")]
+    public bool spawnPortalDoor = true;
 
     [Header("Props")]
     public int rockCount = 480;
@@ -144,6 +146,9 @@ public class DarkForestGenerator : MonoBehaviour
     /// <summary>Spots kept clear for the broken-down car: where it's parked, and the ground its headlights light up.</summary>
     public readonly List<Vector2> CarClearings = new List<Vector2>();
 
+    /// <summary>Position (x, z) of the lone door to the dark room, if there is one.</summary>
+    public Vector2? PortalDoorPosition { get; private set; }
+
     /// <summary>Position (x, z) of the watchtower, if there is one.</summary>
     public Vector2? WatchtowerPosition { get; private set; }
 
@@ -157,6 +162,7 @@ public class DarkForestGenerator : MonoBehaviour
             if (Near(camp, flat, distance + 1f)) return true;
         foreach (var spot in CarClearings)
             if (Near(spot, flat, distance + 2f)) return true;
+        if (PortalDoorPosition.HasValue && Near(PortalDoorPosition.Value, flat, distance + 3f)) return true;
         return WatchtowerPosition.HasValue && Near(WatchtowerPosition.Value, flat, distance + 2f);
     }
 
@@ -243,10 +249,12 @@ public class DarkForestGenerator : MonoBehaviour
         if (!wrapWorld) BuildBoundary();
         CampsitePositions.Clear(); // before the others, so old camps don't count as obstacles
         CarClearings.Clear();
+        PortalDoorPosition = null;
         PlaceShacks();
         PlaceWatchtower();
         PlaceCampsites();
         PlaceCar();
+        PlacePortalDoor();
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
@@ -1010,6 +1018,33 @@ public class DarkForestGenerator : MonoBehaviour
 
             CarClearings.Add(p);
             CarClearings.Add(p + new Vector2(fwd.x, fwd.z) * 9f); // keep the headlight beams fairly open
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Stands the lone door somewhere at random, well inside the map (its room is built far below it and
+    /// mustn't reach past the edge where the map loops).
+    /// </summary>
+    void PlacePortalDoor()
+    {
+        if (!spawnPortalDoor) return;
+        var parent = new GameObject("Portal Door").transform;
+        parent.SetParent(root, false);
+
+        float half = Mathf.Max(10f, areaSize * 0.5f - 75f);
+        for (int attempt = 0; attempt < 500; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            if (p.magnitude < 30f) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 25f)) continue;
+
+            var go = new GameObject("Lone Door");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
+            go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+            go.AddComponent<PortalDoor>().Build(rng);
+            PortalDoorPosition = p;
             return;
         }
     }

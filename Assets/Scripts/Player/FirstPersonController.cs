@@ -119,6 +119,14 @@ public class FirstPersonController : MonoBehaviour
     }
 
     /// <summary>Moves the player back to where they started and clears any movement effects.</summary>
+    /// <summary>Moves the player by an offset, keeping their momentum and view (used by the door to the dark room).</summary>
+    public void TeleportBy(Vector3 offset)
+    {
+        controller.enabled = false; // CharacterController overrides teleports while enabled
+        transform.position += offset;
+        controller.enabled = true;
+    }
+
     public void ResetToSpawn()
     {
         controller.enabled = false; // CharacterController overrides teleports while enabled

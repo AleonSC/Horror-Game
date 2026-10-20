@@ -79,7 +79,7 @@ public class WorldWrap : MonoBehaviour
     {
         Transform root = generator.transform.Find(DarkForestGenerator.RootName);
         if (root == null) return;
-        foreach (string group in new[] { "Trees", "Rocks", "Fallen Logs", "Grass", "Bushes", "Shacks", "Watchtower", "Campsites", "Car" })
+        foreach (string group in new[] { "Trees", "Rocks", "Fallen Logs", "Grass", "Bushes", "Shacks", "Watchtower", "Campsites", "Car", "Portal Door" })
         {
             Transform parent = root.Find(group);
             if (parent == null) continue;

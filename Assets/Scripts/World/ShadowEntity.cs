@@ -307,6 +307,14 @@ public class ShadowEntity : MonoBehaviour
             player = target.GetComponent<FirstPersonController>();
         }
 
+        // Gone into the dark room: they can't follow. They wait, out of sight, until you come back out.
+        if (PortalDoor.PlayerInRoom && CurrentState != State.Killing)
+        {
+            if (CurrentState != State.Hidden) Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
+            UpdateFragments();
+            return;
+        }
+
         UpdateFragments();
         if (IsVisible) UpdateTwitch(Time.deltaTime);
 
