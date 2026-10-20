@@ -30,6 +30,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/Campsite.cs` / `Flare.cs` | Three abandoned campsites (tent, smoking burnt-out campfire seen from afar, backpack with a flare gun and 10 glowsticks). Fire a flare into the sky to wipe every entity's hunt progress. |
 | `Assets/Scripts/Resources/HorrorSmoke.shader` | Soft, fog-proof smoke puffs for the campfires. |
 | `Assets/Scripts/World/BushRustle.cs` | Bushes (small to medium) you can run straight through: they lean away, shake and rustle as you pass. |
+| `Assets/Scripts/World/BrokenCar.cs` | A broken-down car parked somewhere at random. Open the driver's door and click the switch inside for headlights: standing in the beams is safe until the battery dies (about 2 minutes of light). |
 | `Assets/Scripts/World/Glowstick.cs` | Yellow glowsticks (10 per campsite). Hold with 5, F cracks one and tosses it ahead; it glows on the ground for minutes, marking your way. The entities ignore them. |
 | `Assets/Scripts/World/NightSky.cs` | Stars and drifting clouds on a dome around the camera (shader `Resources/HorrorNightSky.shader`). Purely visual: it adds no light. |
 | `Assets/Scripts/World/ScreamEvent.cs` | 50 seconds into each run, a loud scream rings out from a random direction in the trees. |

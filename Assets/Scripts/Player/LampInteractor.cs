@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Lets the player click on lamps to charge them, batteries to refill the flashlight, shack doors to
-/// open them, and torches / lighters to pick them up,
+/// open them (and the car's door), torches / lighters to pick them up, the car's headlight switch,
 /// and draws a simple HUD: a crosshair, the lamp's charge / energy / cooldown bar, the energy of the
 /// lamp you're standing in, and a counter of how many times lamps have been lit (top right).
 /// LampSpawner adds this to the player automatically.
@@ -22,6 +22,7 @@ public class LampInteractor : MonoBehaviour
     ShackDoor focusedDoor;
     ItemPickup focusedItem;
     WatchtowerButton focusedButton;
+    CarHeadlightSwitch focusedSwitch;
     Flashlight flashlight;
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
@@ -34,6 +35,7 @@ public class LampInteractor : MonoBehaviour
         focusedDoor = null;
         focusedItem = null;
         focusedButton = null;
+        focusedSwitch = null;
         if (hotbar == null) hotbar = GetComponent<Hotbar>();
         var cam = Camera.main;
         if (cam == null) return;
@@ -47,12 +49,15 @@ public class LampInteractor : MonoBehaviour
             focusedDoor = target.GetComponentInParent<ShackDoor>();
             focusedItem = target.GetComponentInParent<ItemPickup>();
             focusedButton = target.GetComponentInParent<WatchtowerButton>();
+            focusedSwitch = target.GetComponentInParent<CarHeadlightSwitch>();
         }
 
         if (!HorrorInput.ClickPressed || Cursor.lockState != CursorLockMode.Locked) return;
 
         if (focusedButton != null)
             focusedButton.Press();
+        else if (focusedSwitch != null && focusedSwitch.car != null)
+            focusedSwitch.car.ToggleLights();
         else if (focusedItem != null)
             focusedItem.PickUp(hotbar);
         else if (focusedDoor != null)
@@ -105,6 +110,7 @@ public class LampInteractor : MonoBehaviour
     static Component Owner(Collider col)
     {
         Component c = col.GetComponentInParent<WatchtowerButton>();
+        if (c == null) c = col.GetComponentInParent<CarHeadlightSwitch>();
         if (c == null) c = col.GetComponentInParent<ItemPickup>();
         if (c == null) c = col.GetComponentInParent<ShackDoor>();
         if (c == null) c = col.GetComponentInParent<Lamp>();
@@ -150,7 +156,7 @@ public class LampInteractor : MonoBehaviour
         float cy = Screen.height * 0.5f;
 
         // Crosshair
-        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null || focusedButton != null;
+        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null || focusedButton != null || focusedSwitch != null;
 
         if (focusedButton != null)
         {
@@ -160,6 +166,14 @@ public class LampInteractor : MonoBehaviour
                 tower.IsRecharging ? $"The floodlights are recharging ({Mathf.CeilToInt(tower.RechargeLeft)}s)" :
                 "Click to turn on the floodlights";
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), text, labelStyle);
+        }
+        else if (focusedSwitch != null && focusedSwitch.car != null)
+        {
+            var car = focusedSwitch.car;
+            string text = car.IsDead ? "The battery's dead" :
+                car.LightsOn ? $"Click to turn off the headlights (battery {Mathf.CeilToInt(car.Battery * 100f)}%)" :
+                $"Click to turn on the headlights (battery {Mathf.CeilToInt(car.Battery * 100f)}%)";
+            GUI.Label(new Rect(cx - 250f, cy + 20f, 500f, 30f), text, labelStyle);
         }
         else if (focusedItem != null)
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), $"Click to pick up the {focusedItem.DisplayName}", labelStyle);

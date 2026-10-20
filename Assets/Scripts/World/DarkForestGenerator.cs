@@ -67,6 +67,8 @@ public class DarkForestGenerator : MonoBehaviour
     [Header("Watchtower")]
     [Tooltip("Place one tall watchtower with floodlights somewhere on the map.")]
     public bool spawnWatchtower = true;
+    [Tooltip("Park a broken-down car with working headlights somewhere at random.")]
+    public bool spawnCar = true;
 
     [Header("Props")]
     public int rockCount = 480;
@@ -123,6 +125,9 @@ public class DarkForestGenerator : MonoBehaviour
     /// <summary>Positions (x, z) of the campsites.</summary>
     public readonly List<Vector2> CampsitePositions = new List<Vector2>();
 
+    /// <summary>Spots kept clear for the broken-down car: where it's parked, and the ground its headlights light up.</summary>
+    public readonly List<Vector2> CarClearings = new List<Vector2>();
+
     /// <summary>Position (x, z) of the watchtower, if there is one.</summary>
     public Vector2? WatchtowerPosition { get; private set; }
 
@@ -134,6 +139,8 @@ public class DarkForestGenerator : MonoBehaviour
             if (Near(shack, flat, distance)) return true;
         foreach (var camp in CampsitePositions)
             if (Near(camp, flat, distance + 1f)) return true;
+        foreach (var spot in CarClearings)
+            if (Near(spot, flat, distance + 2f)) return true;
         return WatchtowerPosition.HasValue && Near(WatchtowerPosition.Value, flat, distance + 2f);
     }
 
@@ -219,9 +226,11 @@ public class DarkForestGenerator : MonoBehaviour
         BuildGround();
         if (!wrapWorld) BuildBoundary();
         CampsitePositions.Clear(); // before the others, so old camps don't count as obstacles
+        CarClearings.Clear();
         PlaceShacks();
         PlaceWatchtower();
         PlaceCampsites();
+        PlaceCar();
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
@@ -915,6 +924,39 @@ public class DarkForestGenerator : MonoBehaviour
             go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
             go.AddComponent<Campsite>().Build(this, rng);
             placed++;
+        }
+    }
+
+    /// <summary>Parks the broken-down car somewhere at random, settled onto the slope of the ground.</summary>
+    void PlaceCar()
+    {
+        if (!spawnCar) return;
+        var parent = new GameObject("Car").transform;
+        parent.SetParent(root, false);
+
+        float half = areaSize * 0.5f - 15f;
+        for (int attempt = 0; attempt < 500; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            if (p.magnitude < 30f) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 30f)) continue;
+
+            var yaw = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+            Vector3 fwd = yaw * Vector3.forward, right = yaw * Vector3.right;
+            float H(Vector3 offset) => GetGroundHeight(p.x + offset.x, p.y + offset.z);
+            float front = H(fwd * 1.4f), back = H(-fwd * 1.4f), left = H(-right * 0.85f), rightH = H(right * 0.85f);
+            float pitch = -Mathf.Atan2(front - back, 2.8f) * Mathf.Rad2Deg;
+            float roll = Mathf.Atan2(rightH - left, 1.7f) * Mathf.Rad2Deg;
+
+            var go = new GameObject("Broken Car");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.05f, p.y);
+            go.transform.localRotation = yaw * Quaternion.Euler(pitch, 0f, roll);
+            go.AddComponent<BrokenCar>().Build(rng);
+
+            CarClearings.Add(p);
+            CarClearings.Add(p + new Vector2(fwd.x, fwd.z) * 9f); // keep the headlight beams fairly open
+            return;
         }
     }
 
