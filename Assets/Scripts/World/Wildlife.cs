@@ -43,6 +43,8 @@ public class Wildlife : MonoBehaviour
     public float maxCrowInterval = 60f;
     public int minCrowsPerFlock = 3;
     public int maxCrowsPerFlock = 8;
+    [Tooltip("Size of the crows (1 = life size).")]
+    public float crowSize = 1.6f;
 
     [Header("Owls")]
     [Tooltip("How many trees get an owl on a branch.")]
@@ -874,6 +876,7 @@ public class Wildlife : MonoBehaviour
     Critter BuildCrow()
     {
         var c = NewCritter("Crow");
+        c.root.localScale = Vector3.one * crowSize;
         c.body = Part(PrimitiveType.Sphere, batMat, c.root, Vector3.zero, new Vector3(0.14f, 0.12f, 0.32f));
         Part(PrimitiveType.Sphere, batMat, c.root, new Vector3(0f, 0.03f, 0.19f), Vector3.one * 0.1f);       // head
         Part(PrimitiveType.Cube, batMat, c.root, new Vector3(0f, 0.02f, 0.27f), new Vector3(0.025f, 0.03f, 0.08f)); // beak
