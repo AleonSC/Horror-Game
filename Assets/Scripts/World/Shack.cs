@@ -47,8 +47,7 @@ public class Shack : MonoBehaviour
             float postHeight = floorY - lowest + 0.3f;
             Box(darkWood, new Vector3(cx * (Width * 0.5f - 0.1f), floorY - postHeight * 0.5f, cz * (Depth * 0.5f - 0.1f)), new Vector3(0.15f, postHeight, 0.15f), Vector3.zero, true);
         }
-        float stepHeight = floorY - lowest + 0.2f;
-        Box(darkWood, new Vector3(DoorX, floorY - stepHeight * 0.5f - 0.05f, Depth * 0.5f + 0.35f), new Vector3(DoorWidth, stepHeight, 0.6f), Vector3.zero, true);
+        BuildSteps(generator, wood, darkWood, rng);
 
         // Floor of planks, one plank missing.
         Box(darkWood, new Vector3(0f, floorY - 0.06f, 0f), new Vector3(Width, 0.06f, Depth), Vector3.zero, true);
@@ -140,6 +139,46 @@ public class Shack : MonoBehaviour
     }
 
     /// <summary>A wall of upright planks with gaps, uneven tops, and an optional doorway or window.</summary>
+    /// <summary>
+    /// Wooden steps from the doorway down to the ground: plank treads on two sloping stringers, as many as
+    /// the drop needs, open underneath. Each tread is solid to walk on.
+    /// </summary>
+    void BuildSteps(DarkForestGenerator generator, Material wood, Material darkWood, System.Random rng)
+    {
+        float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+        const float run = 0.3f, maxRise = 0.2f;
+        float front = Depth * 0.5f + 0.06f;
+
+        // How far down the ground is in front of the door (it can fall away on a slope).
+        float Ground(float z)
+        {
+            Vector3 w = transform.TransformPoint(new Vector3(DoorX, 0f, z));
+            return generator.GetGroundHeight(w.x, w.z) - transform.position.y;
+        }
+        float drop = floorY - Ground(front + run);
+        int steps = Mathf.Clamp(Mathf.CeilToInt(drop / maxRise), 1, 8);
+        float rise = drop / steps;
+        float width = DoorWidth + 0.2f;
+
+        for (int i = 1; i <= steps; i++)
+        {
+            float top = floorY - i * rise;
+            float z = front + (i - 0.5f) * run;
+            if (top < Ground(z) - 0.02f) break; // reached the ground
+            var tread = Box(wood, new Vector3(DoorX, top - 0.025f, z), new Vector3(width, 0.05f, run + 0.03f), new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)), true);
+            tread.name = "Step";
+        }
+
+        // Stringers: two boards sloping from the doorway down to the ground either side of the treads.
+        float length = Mathf.Sqrt(drop * drop + (steps * run) * (steps * run));
+        float angle = Mathf.Atan2(drop, steps * run) * Mathf.Rad2Deg;
+        for (int side = -1; side <= 1; side += 2)
+        {
+            Box(darkWood, new Vector3(DoorX + side * (width * 0.5f + 0.02f), floorY - drop * 0.5f - 0.08f, front + steps * run * 0.5f),
+                new Vector3(0.05f, 0.18f, length), new Vector3(angle, 0f, 0f), false);
+        }
+    }
+
     void PlankWall(Material mat, System.Random rng, Vector3 center, float length, float yaw, float doorX, float windowBottom, float windowTop)
     {
         float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
@@ -171,14 +210,28 @@ public class Shack : MonoBehaviour
             }
         }
 
-        // A couple of cross battens.
+        // A couple of cross battens, stopping either side of the doorway rather than boarding it up.
+        var spans = new List<Vector2>();
+        if (doorX > -1f)
+        {
+            spans.Add(new Vector2(-length * 0.5f, doorX - DoorWidth * 0.5f - 0.04f));
+            spans.Add(new Vector2(doorX + DoorWidth * 0.5f + 0.04f, length * 0.5f));
+        }
+        else spans.Add(new Vector2(-length * 0.5f, length * 0.5f));
+
         for (int b = 0; b < 2; b++)
         {
             float y = floorY + 0.5f + b * 1.3f;
-            var batten = Box(mat, center + Vector3.up * y, Vector3.one, Vector3.zero, false);
-            batten.localRotation = rot * Quaternion.Euler(0f, 0f, R(-3f, 3f));
-            batten.localScale = new Vector3(length, 0.1f, 0.03f);
-            batten.localPosition += center.normalized * 0.04f; // on the outside face of the planks
+            foreach (var span in spans)
+            {
+                float spanLength = span.y - span.x;
+                if (spanLength < 0.1f) continue;
+                float mid = (span.x + span.y) * 0.5f;
+                var batten = Box(mat, center + rot * new Vector3(mid, 0f, 0f) + Vector3.up * y, Vector3.one, Vector3.zero, false);
+                batten.localRotation = rot * Quaternion.Euler(0f, 0f, R(-3f, 3f));
+                batten.localScale = new Vector3(spanLength, 0.1f, 0.03f);
+                batten.localPosition += center.normalized * 0.04f; // on the outside face of the planks
+            }
         }
     }
 
