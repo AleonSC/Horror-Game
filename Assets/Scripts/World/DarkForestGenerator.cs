@@ -1792,12 +1792,38 @@ public class DarkForestGenerator : MonoBehaviour
             if (p.magnitude < clearingRadius) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 8f)) continue;
 
-            float length = Range(3f, 7f);
             float radius = Range(0.2f, 0.4f);
-            var log = CreatePrimitive(PrimitiveType.Cylinder, "Log", parent, deadBarkMat);
-            log.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y) + radius * 0.6f, p.y);
-            log.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 90f + Range(-6f, 6f));
-            log.transform.localScale = new Vector3(radius * 2f, length * 0.5f, radius * 2f);
+            // Try a few lengths and directions for one that lies along the ground: the ground under it has to
+            // be close to a straight line from end to end (no humps or dips for it to stick out over), and it
+            // mustn't run through a tree.
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                float length = Range(3f, 7f) * (1f - attempt * 0.08f);
+                float yaw = Range(0f, Mathf.PI * 2f);
+                var dir = new Vector2(Mathf.Cos(yaw), Mathf.Sin(yaw));
+                Vector2 a = p - dir * length * 0.5f, b = p + dir * length * 0.5f;
+                float ha = GetGroundHeight(a.x, a.y), hb = GetGroundHeight(b.x, b.y);
+
+                bool fits = true;
+                for (int k = 1; k < 8 && fits; k++)
+                {
+                    float t = k / 8f;
+                    Vector2 q = Vector2.Lerp(a, b, t);
+                    if (Mathf.Abs(GetGroundHeight(q.x, q.y) - Mathf.Lerp(ha, hb, t)) > 0.1f) fits = false;
+                    else if (NearAnyTree(q, radius + 0.45f)) fits = false;
+                }
+                if (!fits) continue;
+
+                // Lying along the slope, settled a little into the soil.
+                var axis = new Vector3(b.x - a.x, hb - ha, b.y - a.y).normalized;
+                Vector3 side = Vector3.Cross(Vector3.up, axis).normalized;
+                Vector3 up = Vector3.Cross(axis, side);
+                var log = CreatePrimitive(PrimitiveType.Cylinder, "Log", parent, deadBarkMat);
+                log.transform.localPosition = new Vector3(p.x, (ha + hb) * 0.5f, p.y) + up * radius * 0.65f;
+                log.transform.localRotation = Quaternion.AngleAxis(Range(0f, 360f), axis) * Quaternion.FromToRotation(Vector3.up, axis);
+                log.transform.localScale = new Vector3(radius * 2f, length * 0.5f, radius * 2f);
+                break;
+            }
         }
     }
 
