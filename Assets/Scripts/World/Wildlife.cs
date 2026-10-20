@@ -131,7 +131,6 @@ public class Wildlife : MonoBehaviour
         for (int i = 0; i < ratCount; i++) rats.Add(BuildRat());
         for (int i = 0; i < maxBatsPerFlock; i++) bats.Add(new Bat { critter = BuildBat() });
         for (int i = 0; i < deerCount; i++) deer.Add(BuildDeer());
-        PlaceOwls();
 
         batTimer = Random.Range(minBatInterval, maxBatInterval);
     }
@@ -146,6 +145,7 @@ public class Wildlife : MonoBehaviour
             foreach (var b in beetles) Place(b, Random.Range(2f, beetleRange));
             foreach (var r in rats) Place(r, Random.Range(6f, ratRange));
             for (int i = 0; i < deer.Count; i++) PlaceDeer(i);
+            PlaceOwls(); // the forest is definitely built by the time there's a player
         }
 
         float dt = Time.deltaTime;
