@@ -120,6 +120,7 @@ public class FirstPersonController : MonoBehaviour
 
     void Update()
     {
+        if (PauseMenu.IsPaused) return;
         HandleCursor();
         HandleLook();
         HandleCrouch();
@@ -129,9 +130,9 @@ public class FirstPersonController : MonoBehaviour
 
     void HandleCursor()
     {
+        // Esc opens the pause menu (which frees the mouse); clicking back into the game recaptures it.
         if (!lockCursor) return;
-        if (HorrorInput.ReleaseCursorPressed) SetCursorLocked(false);
-        else if (HorrorInput.ClickPressed && Cursor.lockState != CursorLockMode.Locked) SetCursorLocked(true);
+        if (HorrorInput.ClickPressed && Cursor.lockState != CursorLockMode.Locked) SetCursorLocked(true);
     }
 
     static void SetCursorLocked(bool locked)

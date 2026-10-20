@@ -81,6 +81,7 @@ public class Flashlight : MonoBehaviour
 
     void Update()
     {
+        if (PauseMenu.IsPaused) return;
         if (HorrorInput.FlashlightPressed && Equipped)
             Toggle();
 

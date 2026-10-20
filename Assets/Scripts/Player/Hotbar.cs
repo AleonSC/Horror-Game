@@ -77,6 +77,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     void Update()
     {
+        if (PauseMenu.IsPaused) return;
         int slot = HorrorInput.SlotPressed;
         if (slot > 0) Select((Item)(slot - 1));
 

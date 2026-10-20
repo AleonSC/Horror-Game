@@ -15,7 +15,7 @@ using UnityEngine.InputSystem;
 ///   Left Ctrl / C  - crouch
 ///   F              - use the item in hand (flashlight on/off, light torch, flick lighter)
 ///   1 / 2 / 3      - hotbar: flashlight / torch / lighter
-///   Esc            - release mouse cursor (click to re-capture)
+///   Esc            - pause menu
 /// </summary>
 public static class HorrorInput
 {

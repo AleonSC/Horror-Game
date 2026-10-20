@@ -17,6 +17,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
 | `Assets/Scripts/World/WeatherSystem.cs` | Wind that sways the trees in rolling gusts, with wind, leaf rustle and tree creak audio. |
 | `Assets/Scripts/World/Shack.cs` / `ShackDoor.cs` / `ItemPickup.cs` | Three abandoned shacks placed at random, each with a creaky door you can open and a torch and lighter on the table inside. |
+| `Assets/Scripts/Player/PauseMenu.cs` | Esc pauses: resume, restart the run, mouse sensitivity and volume (remembered), quit. |
 | `Assets/Scripts/Player/Footsteps.cs` | Very faint footsteps on the dirt (quieter crouching, a little louder running) and a thump on landing. |
 | `Assets/Scripts/Player/Hotbar.cs` | Hotbar: 1 flashlight, 2 torch, 3 lighter. Lit torches and lighters keep the entities away, but burn out for good. |
 | `Assets/Scripts/World/Watchtower.cs` / `WatchtowerButton.cs` / `Ladder.cs` | One very tall watchtower somewhere on the map. Climb the ladder and press the button: floodlights blaze for a minute, every entity's hunt is reset, and the lit area is safe. Then it recharges. |
@@ -74,7 +75,7 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
 | F | Use the item in hand: flashlight on/off, light / put out the torch, flick the lighter |
 | 1 / 2 / 3 | Hold the flashlight / torch / lighter |
 | Left click | Charge the lamp you're looking at (click repeatedly), use a battery, open a door, pick up an item |
-| Esc | Release the cursor (click to recapture) |
+| Esc | Pause menu (resume, restart, mouse sensitivity, volume, quit) |
 
 ## Using your own player
 

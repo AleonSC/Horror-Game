@@ -43,6 +43,13 @@ public class GameOverScreen : MonoBehaviour
         if (timer >= FadeOutTime + HoldTime + FadeInTime) Destroy(gameObject);
     }
 
+    /// <summary>Starts the run over straight away (the pause menu's Restart).</summary>
+    public static void RestartRun()
+    {
+        if (instance != null) Destroy(instance.gameObject);
+        ResetRun();
+    }
+
     static void ResetRun()
     {
         foreach (var entity in new List<ShadowEntity>(ShadowEntity.All))
