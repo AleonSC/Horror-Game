@@ -445,55 +445,107 @@ public class TreeFall : MonoBehaviour
     }
 
     /// <summary>
-    /// The stump: the bottom of the real trunk (its roots and flare) kept where it stood, cut off at
-    /// StumpHeight with a pale ring of fresh wood on top and a few splinters sticking up from the break.
-    /// The plain cylinder from AddStump stays only as its collider.
+    /// The stump, built to fit: a short bark-covered trunk flaring into the ground, its top torn off in a
+    /// jagged crown of splinters (taller on the side away from the fall, where the wood ripped), the broken
+    /// wood face inside following that ragged rim, and a few roots spreading out into the earth. The plain
+    /// cylinder from AddStump stays only as its collider.
     /// </summary>
     void BuildStumpBase(List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources)
     {
-        var stumpBase = new GameObject("Stump Base");
-        stumpBase.transform.SetParent(tree, true);
-        stumpBase.transform.SetPositionAndRotation(sway.position, sway.rotation);
-        bool any = false;
-        foreach (var (mesh, toSway, mat) in sources)
+        var standing = tree.GetComponent<CapsuleCollider>();
+        float r = standing != null ? standing.radius : 0.25f;
+        Material bark = barkMaterial != null ? barkMaterial
+            : MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.55f, 0.45f, 0.35f), 0.05f);
+
+        // Which way it fell, in the tree's own space: the torn splinters stand tallest on the far side.
+        Vector3 fellToward = Vector3.Cross(fallAxis, Vector3.up).normalized;
+
+        const int around = 12;
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var barkTris = new List<int>();
+        var woodTris = new List<int>();
+        float[] rimHeight = new float[around + 1];
+        float[] rimRadius = new float[around + 1];
+        for (int j = 0; j <= around; j++)
         {
-            if (mat != barkMaterial) continue;
-            Mesh part = Slice(mesh, toSway, -10f, StumpHeight);
-            if (part == null) continue;
-            var go = new GameObject("Bark");
-            go.transform.SetParent(stumpBase.transform, false);
-            go.AddComponent<MeshFilter>().sharedMesh = part;
-            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
-            any = true;
+            int k = j % around;
+            float a = k / (float)around * Mathf.PI * 2f;
+            Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            float back = Mathf.Clamp01(-Vector3.Dot(dir, fellToward)); // 1 on the side away from the fall
+            float jag = (k % 2 == 0 ? Random.Range(0.05f, 0.22f) : Random.Range(-0.06f, 0.04f)) * (0.4f + back);
+            rimHeight[j] = j == around ? rimHeight[0] : StumpHeight + jag + back * 0.12f;
+            rimRadius[j] = j == around ? rimRadius[0] : r * Random.Range(0.94f, 1.04f);
         }
-        if (!any) { Destroy(stumpBase); return; }
-        if (stumpCollider != null)
+        // The bark sides: into the ground, the flared foot, the rim.
+        float[] ringHeight = { -0.25f, 0.12f, 0f };
+        float[] ringScale = { 1.35f, 1.12f, 1f };
+        for (int ring = 0; ring < 3; ring++)
+            for (int j = 0; j <= around; j++)
+            {
+                float a = (j % around) / (float)around * Mathf.PI * 2f;
+                float h = ring == 2 ? rimHeight[j] : ringHeight[ring];
+                float rad = ring == 2 ? rimRadius[j] : r * ringScale[ring];
+                verts.Add(new Vector3(Mathf.Cos(a) * rad, h, Mathf.Sin(a) * rad));
+                uvs.Add(new Vector2(j / (float)around * 2f, h * 1.5f));
+            }
+        int row = around + 1;
+        for (int ring = 0; ring < 2; ring++)
+            for (int j = 0; j < around; j++)
+            {
+                int q = ring * row + j;
+                barkTris.AddRange(new[] { q, q + row, q + 1, q + 1, q + row, q + row + 1 });
+            }
+        // The broken face: from a little below the rim in the middle, up to the jagged edge.
+        int centre = verts.Count;
+        verts.Add(new Vector3(0f, StumpHeight - 0.03f, 0f));
+        uvs.Add(new Vector2(0.5f, 0.5f));
+        int rimStart = verts.Count;
+        for (int j = 0; j <= around; j++)
         {
-            var r = stumpCollider.GetComponent<Renderer>();
-            if (r != null) r.enabled = false;
+            float a = (j % around) / (float)around * Mathf.PI * 2f;
+            float rad = rimRadius[j] * 0.96f;
+            verts.Add(new Vector3(Mathf.Cos(a) * rad, rimHeight[j] - 0.01f, Mathf.Sin(a) * rad));
+            uvs.Add(new Vector2(0.5f + Mathf.Cos(a) * 0.5f * rad / r, 0.5f + Mathf.Sin(a) * 0.5f * rad / r));
+        }
+        for (int j = 0; j < around; j++)
+            woodTris.AddRange(new[] { centre, rimStart + j + 1, rimStart + j });
+
+        var mesh = new Mesh { name = "Stump" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.subMeshCount = 2;
+        mesh.SetTriangles(barkTris, 0);
+        mesh.SetTriangles(woodTris, 1);
+        mesh.RecalculateNormals();
+        mesh.RecalculateTangents();
+        mesh.RecalculateBounds();
+
+        var stumpBase = new GameObject("Stump Base");
+        stumpBase.transform.SetParent(tree, false);
+        stumpBase.AddComponent<MeshFilter>().sharedMesh = mesh;
+        stumpBase.AddComponent<MeshRenderer>().sharedMaterials = new[] { bark, StumpTopMaterial };
+
+        // Roots, spreading out and down into the earth.
+        int roots = Random.Range(4, 6);
+        for (int i = 0; i < roots; i++)
+        {
+            float a = (i + Random.Range(-0.25f, 0.25f)) / roots * 360f;
+            var root = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            root.name = "Root";
+            Destroy(root.GetComponent<Collider>());
+            root.transform.SetParent(stumpBase.transform, false);
+            Quaternion turn = Quaternion.Euler(0f, a, 0f);
+            root.transform.localPosition = turn * new Vector3(0f, 0.02f, r * 1.05f);
+            root.transform.localRotation = turn * Quaternion.Euler(12f, 0f, 0f);
+            root.transform.localScale = new Vector3(r * 0.75f, r * 0.5f, r * Random.Range(1.6f, 2.4f));
+            root.GetComponent<Renderer>().sharedMaterial = bark;
         }
 
-        var standing = tree.GetComponent<CapsuleCollider>();
-        float radius = standing != null ? standing.radius : 0.25f;
-        var cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        cap.name = "Stump Top";
-        Destroy(cap.GetComponent<Collider>());
-        cap.transform.SetParent(stumpBase.transform, false);
-        cap.transform.localPosition = new Vector3(0f, StumpHeight - 0.01f, 0f);
-        cap.transform.localScale = new Vector3(radius * 2f, 0.012f, radius * 2f);
-        cap.GetComponent<Renderer>().sharedMaterial = StumpTopMaterial;
-        for (int i = 0; i < 6; i++)
+        if (stumpCollider != null)
         {
-            float a = Random.Range(0f, Mathf.PI * 2f), d = Random.Range(0.3f, 0.9f) * radius;
-            var spike = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            spike.name = "Splinter";
-            Destroy(spike.GetComponent<Collider>());
-            spike.transform.SetParent(stumpBase.transform, false);
-            float h = Random.Range(0.06f, 0.22f);
-            spike.transform.localPosition = new Vector3(Mathf.Cos(a) * d, StumpHeight + h * 0.4f, Mathf.Sin(a) * d);
-            spike.transform.localRotation = Quaternion.Euler(Random.Range(-15f, 15f), Random.Range(0f, 360f), Random.Range(-15f, 15f));
-            spike.transform.localScale = new Vector3(Random.Range(0.03f, 0.07f), h, Random.Range(0.02f, 0.05f));
-            spike.GetComponent<Renderer>().sharedMaterial = SplinterMaterial;
+            var cylinder = stumpCollider.GetComponent<Renderer>();
+            if (cylinder != null) cylinder.enabled = false;
         }
     }
 
