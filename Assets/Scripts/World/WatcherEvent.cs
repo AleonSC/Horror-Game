@@ -2,7 +2,9 @@ using UnityEngine;
 
 /// <summary>
 /// "The Watcher": once the player has lit enough lamps, a giant red eye slowly opens in the sky,
-/// stares down at them, and closes. The world takes on a red haze. About ten seconds later there's
+/// stares down at them, and closes. While it's open the player is caught in a nightmare: the view
+/// stretches out into a long hallway and running gets them nowhere (FirstPersonController.DreamStretch).
+/// The world takes on a red haze. About ten seconds later there's
 /// rumbling in the distance, and a colossal version of the entity, legs like skyscrapers, starts
 /// walking toward the player, very slowly, each step a ground-shaking boom. If it reaches them, it's over.
 /// The watchtower floodlights drive it back to where it started.
@@ -113,6 +115,7 @@ public class WatcherEvent : MonoBehaviour
                 if (timer >= eyeCloseTime)
                 {
                     eye.gameObject.SetActive(false);
+                    if (player != null) player.DreamStretch = 0f; // free to move again
                     phase = Phase.Pause;
                     timer = 0f;
                 }
@@ -195,6 +198,8 @@ public class WatcherEvent : MonoBehaviour
 
     void SetEyeOpen(float open)
     {
+        // While it's open, the dream: the view stretches into a hallway and you can't get anywhere.
+        if (player != null) player.DreamStretch = Mathf.Clamp01(open);
         eyeMaterial.SetFloat("_Open", open);
     }
 
@@ -397,6 +402,7 @@ public class WatcherEvent : MonoBehaviour
         phase = Phase.Waiting;
         timer = 0f;
         shake = 0f;
+        if (player != null) player.DreamStretch = 0f;
         if (eye != null) eye.gameObject.SetActive(false);
         if (giant != null) giant.gameObject.SetActive(false);
 

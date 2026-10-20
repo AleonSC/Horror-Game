@@ -50,7 +50,8 @@ public class Footsteps : MonoBehaviour
         {
             if (!wasGrounded && airTime > 0.3f) Step(landVolume);
             airTime = 0f;
-            distance += delta.magnitude;
+            // In the dream hallway you run without getting anywhere, but the footsteps keep coming.
+            distance += Mathf.Lerp(delta.magnitude, controller.CurrentSpeed * Time.deltaTime, controller.DreamStretch);
         }
         else
         {

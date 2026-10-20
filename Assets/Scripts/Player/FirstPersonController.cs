@@ -57,6 +57,22 @@ public class FirstPersonController : MonoBehaviour
     public bool IsCrouching { get; private set; }
     public float CurrentSpeed => moveVelocity.magnitude;
 
+    [Header("Dream Hallway")]
+    [Tooltip("Field of view at the height of the dream effect (WatcherEvent drives it while the sky eye is open).")]
+    public float dreamWideFov = 125f;
+    [Tooltip("Extra field of view from trying to run while it holds you: the harder you go, the further everything stretches away.")]
+    public float dreamEffortFov = 35f;
+    [Tooltip("How much the view squeezes in from the sides at full strength, so it reads as a long corridor.")]
+    [Range(0f, 0.6f)] public float dreamSqueeze = 0.3f;
+
+    /// <summary>
+    /// 0 normally, 1 at full strength: like a nightmare, the view stretches out into a long hallway and
+    /// walking or running gets you nowhere. Set by WatcherEvent while the eye in the sky is open.
+    /// </summary>
+    public float DreamStretch { get; set; }
+    float dreamEffort, baseFov = -1f;
+    Camera viewCamera;
+
     struct ApproachLimit
     {
         public Vector3 point;
@@ -228,7 +244,9 @@ public class FirstPersonController : MonoBehaviour
             verticalVelocity += gravity * Time.deltaTime;
         }
 
-        Vector3 motion = (moveVelocity + Vector3.up * verticalVelocity) * Time.deltaTime;
+        // In the dream you run on the spot: legs moving, footsteps falling, never any closer.
+        float progress = ladder != null ? 1f : 1f - DreamStretch;
+        Vector3 motion = (moveVelocity * progress + Vector3.up * verticalVelocity) * Time.deltaTime;
         CollisionFlags flags = controller.Move(motion);
 
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)
@@ -345,5 +363,39 @@ public class FirstPersonController : MonoBehaviour
         Vector3 shake = pendingShake > 0f ? Random.insideUnitSphere * pendingShake : Vector3.zero;
         pendingShake = 0f;
         cameraRoot.localRotation = Quaternion.Euler(pitch + shake.x, shake.y, shake.z);
+        UpdateDreamView();
+    }
+
+    /// <summary>Widens and squeezes the view into a stretched-out hallway while DreamStretch is up.</summary>
+    void UpdateDreamView()
+    {
+        if (viewCamera == null) viewCamera = cameraRoot.GetComponentInChildren<Camera>();
+        if (viewCamera == null) return;
+
+        float dream = Mathf.Clamp01(DreamStretch);
+        if (dream <= 0f)
+        {
+            if (baseFov > 0f)
+            {
+                // Back to normal.
+                viewCamera.fieldOfView = baseFov;
+                viewCamera.ResetProjectionMatrix();
+                baseFov = -1f;
+                dreamEffort = 0f;
+            }
+            return;
+        }
+        if (baseFov < 0f) baseFov = viewCamera.fieldOfView;
+
+        // Straining to get away stretches it further; giving up lets it ease back a little.
+        float dt = Time.deltaTime;
+        if (CurrentSpeed > 0.1f) dreamEffort = Mathf.Min(1f, dreamEffort + dt * 0.35f * CurrentSpeed / Mathf.Max(walkSpeed, 0.1f));
+        else dreamEffort = Mathf.MoveTowards(dreamEffort, 0f, dt * 0.15f);
+
+        float fov = Mathf.Lerp(baseFov, dreamWideFov, dream) + dreamEffortFov * dreamEffort * dream + Mathf.Sin(Time.time * 0.8f) * 4f * dream;
+        fov = Mathf.Clamp(fov, 1f, 170f);
+        viewCamera.fieldOfView = fov;
+        float aspect = viewCamera.aspect * (1f - dreamSqueeze * dream);
+        viewCamera.projectionMatrix = Matrix4x4.Perspective(fov, aspect, viewCamera.nearClipPlane, viewCamera.farClipPlane);
     }
 }
