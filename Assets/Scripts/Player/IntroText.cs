@@ -23,9 +23,9 @@ public class IntroText : MonoBehaviour
 
     [Header("Timing (seconds)")]
     public float startDelay = 1f;
-    public float fadeInTime = 2.5f;
+    public float fadeInTime = 2f;
     public float holdTime = 2.5f;
-    public float fadeOutTime = 2.5f;
+    public float fadeOutTime = 2f;
     public float gapBetweenLines = 0.4f;
     [Tooltip("How long the opening black screen takes to fade away (starts with the first line).")]
     public float blackScreenFadeTime = 6f;
