@@ -423,7 +423,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         hum.volume = HumVolume;
         hum.Play();
 
-        if (spawnEntityWhenLit) ShadowEntity.Spawn();
+        if (spawnEntityWhenLit) ShadowEntity.TopUp(); // more of them, as the pacing calls for (ShadowEntity.HuntersByLamps)
     }
 
     void TurnOff()
