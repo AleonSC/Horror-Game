@@ -29,6 +29,11 @@ public class BatteryPickup : MonoBehaviour
     void OnEnable() => All.Add(this);
     void OnDisable() => All.Remove(this);
 
+    void Start()
+    {
+        if (GetComponent<PickupGlow>() == null) gameObject.AddComponent<PickupGlow>();
+    }
+
     void Update()
     {
         // Slow pulse, like a standby LED.

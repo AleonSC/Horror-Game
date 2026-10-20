@@ -13,6 +13,12 @@ public class ItemPickup : MonoBehaviour
     void OnEnable() => All.Add(this);
     void OnDisable() => All.Remove(this);
 
+    // (By Start the model's been built, so the glow can fit itself round it.)
+    void Start()
+    {
+        if (GetComponent<PickupGlow>() == null) gameObject.AddComponent<PickupGlow>();
+    }
+
     public string DisplayName =>
         item == Hotbar.Item.Torch ? "torch" :
         item == Hotbar.Item.Lighter ? "lighter" :
