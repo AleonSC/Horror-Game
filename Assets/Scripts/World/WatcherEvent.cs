@@ -29,8 +29,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     [Tooltip("...and how long it takes to take hold fully.")]
     public float dreamRampTime = 2.5f;
     public float eyeCloseTime = 3f;
-    [Tooltip("How high in the sky the eye is, in degrees above the horizon.")]
-    public float eyeElevation = 50f;
+    [Tooltip("How high in the sky the eye is, in degrees above the horizon (it opens in the hanging giant's direction, above it).")]
+    public float eyeElevation = 68f;
     [Tooltip("Apparent width of the eye.")]
     public float eyeSize = 14f;
     [Header("Hanging")]
@@ -259,7 +259,9 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     void OpenEye()
     {
-        Vector3 forward = Camera.main != null ? Camera.main.transform.forward : player.transform.forward;
+        // It opens high in the sky straight above the hanging giant, its chain rising up toward it.
+        EnsureGiant();
+        Vector3 forward = giantBearing;
         forward.y = 0f;
         forward = forward.sqrMagnitude > 0.001f ? forward.normalized : Vector3.forward;
         Vector3 axis = Vector3.Cross(Vector3.up, forward);
