@@ -3,8 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Shown when an entity catches the player: fades to black, shows a message, then resets
-/// the run (all lamps off, all entities removed, a single new entity, player back at spawn)
-/// and fades back in.
+/// the run (all lamps off, fresh batteries, full flashlight, all entities removed, a single new
+/// entity, player back at spawn) and fades back in.
 /// </summary>
 public class GameOverScreen : MonoBehaviour
 {
@@ -51,6 +51,12 @@ public class GameOverScreen : MonoBehaviour
         foreach (var lamp in Lamp.All)
             lamp.ResetLamp();
         Lamp.ResetTimesLit();
+
+        var batteries = FindAnyObjectByType<BatterySpawner>();
+        if (batteries != null) batteries.SpawnBatteries();
+
+        var flashlight = FindAnyObjectByType<Flashlight>();
+        if (flashlight != null) flashlight.ResetBattery();
 
         var player = FindAnyObjectByType<FirstPersonController>();
         if (player != null)

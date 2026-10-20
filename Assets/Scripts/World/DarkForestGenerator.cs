@@ -65,7 +65,9 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnLamps = true;
     [Tooltip("Add AmbienceAudio (background drone, wind and random forest noises).")]
     public bool spawnAmbience = true;
-    [Tooltip("Add a WeatherSystem (rain, and wind that sways the trees).")]
+    [Tooltip("Add a BatterySpawner that scatters flashlight batteries around the forest.")]
+    public bool spawnBatteries = true;
+    [Tooltip("Add a WeatherSystem (wind that sways the trees).")]
     public bool spawnWeather = true;
     [Tooltip("Add IntroText (opening narration that fades in and out).")]
     public bool spawnIntro = true;
@@ -135,6 +137,8 @@ public class DarkForestGenerator : MonoBehaviour
             ShadowEntity.Spawn();
         if (spawnLamps && FindAnyObjectByType<LampSpawner>() == null)
             new GameObject("Lamp Spawner").AddComponent<LampSpawner>();
+        if (spawnBatteries && FindAnyObjectByType<BatterySpawner>() == null)
+            new GameObject("Battery Spawner").AddComponent<BatterySpawner>();
         if (spawnAmbience && FindAnyObjectByType<AmbienceAudio>() == null)
             new GameObject("Ambience").AddComponent<AmbienceAudio>();
         if (spawnWeather && FindAnyObjectByType<WeatherSystem>() == null)

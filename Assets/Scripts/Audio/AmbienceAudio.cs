@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Background audio for the forest: a dull droning bed, a dissonant tension layer
 /// that swells when an entity is close, and random noises (twig snaps, distant moans, rustling)
-/// from somewhere out in the dark. Wind and rain sounds live in WeatherSystem.
+/// from somewhere out in the dark. Wind sounds live in WeatherSystem.
 /// DarkForestGenerator adds this automatically.
 /// Leave the clip slots empty to use the built-in synthesized sounds.
 /// </summary>

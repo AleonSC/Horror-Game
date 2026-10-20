@@ -107,7 +107,7 @@ public class IntroText : MonoBehaviour
         float height = style.fontSize * 3f;
         var rect = new Rect((Screen.width - width) * 0.5f, Screen.height * verticalPosition - height * 0.5f, width, height);
 
-        // Soft shadow so it reads over bright lamps and rain.
+        // Soft shadow so it reads over bright lamps.
         GUI.color = new Color(0f, 0f, 0f, alpha * 0.8f);
         GUI.Label(new Rect(rect.x + 2f, rect.y + 2f, rect.width, rect.height), line, style);
 

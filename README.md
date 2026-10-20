@@ -7,14 +7,15 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | Script | What it does |
 | --- | --- |
 | `Assets/Scripts/Player/FirstPersonController.cs` | Walk, run, jump and crouch (CharacterController based), mouse look, head bob. |
-| `Assets/Scripts/Player/Flashlight.cs` | Spot light on the camera, toggled with **F**. Slight sway, optional click sound. |
+| `Assets/Scripts/Player/Flashlight.cs` | Spot light on the camera, toggled with **F**. Runs on a battery (bar in the bottom left) that dims and flickers when low. |
+| `Assets/Scripts/World/BatteryPickup.cs` / `BatterySpawner.cs` | Batteries scattered around the map each run. Click one to refill the flashlight by 25%. |
 | `Assets/Scripts/World/DarkForestGenerator.cs` | Procedurally builds a dark wooded area: bumpy ground, pines, dead trees, rocks, logs, fog, moonlight and boundary walls. Can spawn the player too. |
 | `Assets/Scripts/World/ShadowEntity.cs` | A pitch-black silhouette that watches you from the dark. It creeps closer when you're not looking, grows and advances if you get near it in the dark, circles lamps you're sheltering in, and poofs if you face it down with the flashlight. |
 | `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | Unlit lamps scattered around the map. Click one repeatedly to light it, making a safe zone the entities can't enter. Lamps run out of energy (flickering as they fade), then need to cool down. Every lamp lit summons another entity. |
-| `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps, plus the HUD (crosshair, lamp meter, tiny lit-lamp counter top right). |
+| `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps and batteries, plus the HUD (crosshair, lamp bars, lamp counter top right). |
 | `Assets/Scripts/Player/IntroText.cs` | Opening narration: lines fade in and out one by one over a black screen that slowly reveals the forest. Edit the lines in the inspector. |
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
-| `Assets/Scripts/World/WeatherSystem.cs` | Rain that slants with the wind and splashes where it lands, and wind that sways the trees in rolling gusts. Includes rain, wind, leaf rustle and tree creak audio. |
+| `Assets/Scripts/World/WeatherSystem.cs` | Wind that sways the trees in rolling gusts, with wind, leaf rustle and tree creak audio. |
 | `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |
 | `Assets/Scripts/Audio/ProceduralAudio.cs` | Synthesizes every sound in code, so no audio files are needed. Each script has clip slots to swap in real sounds. |
 | `Assets/Scripts/World/MaterialFactory.cs` | Placeholder materials for Built-in and URP. |
@@ -25,7 +26,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 1. Create a new 3D project (Built-in or URP), Unity 2022.3 or newer.
 2. Copy the `Assets/Scripts` folder into your project.
 3. Open any scene that has no player in it (the default SampleScene is fine) and press Play.
-   The forest, player, entity, lamps, weather and audio are all created automatically.
+   The forest, player, entity, lamps, batteries, wind and audio are all created automatically.
    To tweak settings, add **DarkForestGenerator** to a GameObject yourself; auto-creation can be
    switched off with `DarkForestGenerator.autoCreateInEmptyScenes`.
 
@@ -41,6 +42,8 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
   means it's coming. If it reaches you, you die.
 - Find the lamps and click them repeatedly to light them. In the light they can't hurt you, but when
   you aren't watching they gather and circle just outside it. Every lamp you light summons another one.
+- Your flashlight drains while it's on. Look for batteries (a faint pulsing green light) and click them
+  to top it up by 25%.
 - Lamps burn out. They flicker as their energy runs low, go dark, and need time to cool down before
   they can be lit again.
 
@@ -54,7 +57,7 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
 | Space | Jump |
 | Left Ctrl / C | Crouch (hold, or toggle via `toggleCrouch`) |
 | F | Flashlight on/off |
-| Left click | Charge the lamp you're looking at (click repeatedly) |
+| Left click | Charge the lamp you're looking at (click repeatedly), or use a battery |
 | Esc | Release the cursor (click to recapture) |
 
 ## Using your own player

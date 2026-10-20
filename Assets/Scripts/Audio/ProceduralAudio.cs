@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, rain, rainHeavy, leaves, treeCreak, advance, lampSpark, lampPowerDown;
+        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -27,12 +27,15 @@ public static class ProceduralAudio
     public static AudioClip TwigSnap => twigSnap != null ? twigSnap : (twigSnap = MakeTwigSnap());
     public static AudioClip Moan => moan != null ? moan : (moan = MakeMoan());
 
+    // ---------------------------------------------------------------- Flashlight
+
+    /// <summary>Plasticky switch click.</summary>
+    public static AudioClip FlashlightClick => flashlightClick != null ? flashlightClick : (flashlightClick = MakeFlashlightClick());
+    /// <summary>Battery sliding in and snapping into place, with a little charge-up whine.</summary>
+    public static AudioClip BatteryInsert => batteryInsert != null ? batteryInsert : (batteryInsert = MakeBatteryInsert());
+
     // ---------------------------------------------------------------- Weather
 
-    /// <summary>Light rain: a soft hiss full of tiny droplet ticks. Loops seamlessly.</summary>
-    public static AudioClip Rain => rain != null ? rain : (rain = MakeRain());
-    /// <summary>Low roar of heavy rain hitting the canopy. Loops seamlessly.</summary>
-    public static AudioClip RainHeavy => rainHeavy != null ? rainHeavy : (rainHeavy = MakeRainHeavy());
     /// <summary>Leaves and needles rustling in the wind. Loops seamlessly.</summary>
     public static AudioClip Leaves => leaves != null ? leaves : (leaves = MakeLeaves());
     /// <summary>A trunk groaning as it bends.</summary>
@@ -173,40 +176,32 @@ public static class ProceduralAudio
         }, 0.7f);
     }
 
-    static AudioClip MakeRain()
+    static AudioClip MakeFlashlightClick()
     {
-        float lp = 0f, hp = 0f, drop = 0f, dropPhase = 0f, dropHz = 3000f;
-        return Loop("Rain", 8f, t =>
-        {
-            // Hiss: band-passed noise.
-            lp += (White() - lp) * 0.6f;
-            hp += (lp - hp) * 0.15f;
-            float hiss = (lp - hp) * 0.35f;
-
-            // Droplets: short pings at random pitches, a few hundred per second.
-            if (rng.NextDouble() < 0.008)
-            {
-                drop = (float)(rng.NextDouble() * 0.7 + 0.3);
-                dropHz = 1800f + (float)rng.NextDouble() * 4000f;
-            }
-            dropPhase += TwoPi * dropHz / Rate;
-            drop *= 0.993f;
-            return hiss + Mathf.Sin(dropPhase) * drop * 0.5f;
-        }, 0.7f);
-    }
-
-    static AudioClip MakeRainHeavy()
-    {
-        float lp1 = 0f, lp2 = 0f;
-        return Loop("Rain Heavy", 10f, t =>
+        float lp = 0f;
+        return Shot("Flashlight Click", 0.08f, t =>
         {
             float w = White();
-            lp1 += (w - lp1) * 0.12f;
-            lp2 += (lp1 - lp2) * 0.03f;
-            float roar = lp1 - lp2;
-            float surge = 0.8f + 0.2f * Sin(0.3f, t) * Sin(0.7f, t);
-            return roar * surge + w * 0.04f;
-        }, 0.7f);
+            lp += (w - lp) * 0.4f;
+            float click = Burst(t, 0f) + Burst(t, 0.035f) * 0.6f; // press and release
+            return ((w - lp) * 0.7f + Sin(3200f, t) * 0.3f) * click;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeBatteryInsert()
+    {
+        const float len = 0.7f;
+        float lp = 0f, phase = 0f;
+        return Shot("Battery Insert", len, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.15f;
+            float slide = t < 0.18f ? lp * Mathf.Sin(Mathf.PI * t / 0.18f) * 0.5f : 0f;
+            float snap = (w * 0.8f + Sin(1800f, t) * 0.5f) * Burst(t, 0.2f) * 2f;
+            phase += TwoPi * Mathf.Lerp(600f, 2400f, Mathf.Clamp01((t - 0.25f) / 0.4f)) / Rate;
+            float whine = t > 0.25f ? Mathf.Sin(phase) * 0.15f * Mathf.Sin(Mathf.PI * (t - 0.25f) / (len - 0.25f)) : 0f;
+            return slide + snap + whine;
+        }, 0.8f);
     }
 
     static AudioClip MakeLeaves()

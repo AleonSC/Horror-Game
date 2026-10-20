@@ -4,6 +4,10 @@ using UnityEngine;
 /// Toggleable flashlight (press F). Put this on the player's camera.
 /// If no Light is assigned, a spot light is created as a child automatically.
 /// The light lags slightly behind the camera for a hand-held feel.
+///
+/// It runs on a battery that drains while it's on. When the battery gets low the beam dims and
+/// flickers; when it's empty the flashlight won't turn on. Batteries found around the map refill it.
+/// The battery bar is drawn in the bottom left of the screen.
 /// </summary>
 public class Flashlight : MonoBehaviour
 {
@@ -24,13 +28,27 @@ public class Flashlight : MonoBehaviour
     [Tooltip("How quickly the beam catches up with where the camera is looking. 0 = no lag.")]
     public float swaySpeed = 12f;
 
+    [Header("Battery")]
+    [Tooltip("Seconds a full battery lasts with the light on.")]
+    public float batteryLife = 150f;
+    [Range(0f, 1f), Tooltip("Below this charge the beam dims and starts flickering.")]
+    public float lowBattery = 0.2f;
+    public bool showBatteryBar = true;
+
     [Header("Audio")]
+    [Tooltip("Leave empty to use the built-in click.")]
     public AudioClip toggleSound;
     [Range(0f, 1f)] public float toggleVolume = 0.6f;
 
     public bool IsOn => flashlight != null && flashlight.enabled;
+    /// <summary>Battery charge from 0 (empty) to 1 (full).</summary>
+    public float Battery { get; private set; } = 1f;
+    public bool IsFull => Battery >= 0.999f;
 
     AudioSource audioSource;
+    float flickerTimer;
+    float flickerLevel = 1f;
+    GUIStyle percentStyle;
 
     void Awake()
     {
@@ -52,18 +70,44 @@ public class Flashlight : MonoBehaviour
         flashlight.shadows = shadows;
         flashlight.enabled = startOn;
 
-        if (toggleSound != null)
-        {
-            audioSource = gameObject.AddComponent<AudioSource>();
-            audioSource.playOnAwake = false;
-            audioSource.spatialBlend = 0f;
-        }
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 0f;
     }
 
     void Update()
     {
         if (HorrorInput.FlashlightPressed)
             Toggle();
+
+        if (IsOn) UpdateBattery();
+    }
+
+    void UpdateBattery()
+    {
+        Battery = Mathf.Max(0f, Battery - Time.deltaTime / Mathf.Max(batteryLife, 0.01f));
+        if (Battery <= 0f)
+        {
+            flashlight.enabled = false;
+            PlayClick(0.7f);
+            return;
+        }
+
+        // 0 while healthy, rising to 1 as the battery dies.
+        float low = lowBattery > 0f ? Mathf.Clamp01(1f - Battery / lowBattery) : 0f;
+
+        if (flickerTimer > 0f)
+        {
+            flickerTimer -= Time.deltaTime;
+            if (flickerTimer <= 0f) flickerLevel = 1f;
+        }
+        else if (low > 0f && Random.value < Mathf.Lerp(0.5f, 6f, low) * Time.deltaTime)
+        {
+            flickerTimer = Random.Range(0.03f, Mathf.Lerp(0.08f, 0.3f, low));
+            flickerLevel = Random.Range(0f, 0.5f);
+        }
+
+        flashlight.intensity = intensity * Mathf.Lerp(1f, 0.45f, low) * flickerLevel;
     }
 
     void LateUpdate()
@@ -81,7 +125,90 @@ public class Flashlight : MonoBehaviour
     public void SetOn(bool on)
     {
         if (flashlight == null) return;
+
+        if (on && Battery <= 0f)
+        {
+            PlayClick(0.7f); // dead: just a click in the dark
+            return;
+        }
+
         flashlight.enabled = on;
-        if (audioSource != null) audioSource.PlayOneShot(toggleSound, toggleVolume);
+        flickerTimer = 0f;
+        flickerLevel = 1f;
+        PlayClick(1f);
+    }
+
+    /// <summary>Adds charge (0-1). Returns false if the battery was already full.</summary>
+    public bool AddBattery(float amount)
+    {
+        if (IsFull) return false;
+        Battery = Mathf.Clamp01(Battery + amount);
+        return true;
+    }
+
+    /// <summary>Full battery and back to the starting on/off state (used when the run resets).</summary>
+    public void ResetBattery()
+    {
+        Battery = 1f;
+        flickerTimer = 0f;
+        flickerLevel = 1f;
+        if (flashlight != null)
+        {
+            flashlight.intensity = intensity;
+            flashlight.enabled = startOn;
+        }
+    }
+
+    void PlayClick(float pitch)
+    {
+        audioSource.pitch = pitch;
+        audioSource.PlayOneShot(toggleSound != null ? toggleSound : ProceduralAudio.FlashlightClick, toggleVolume);
+    }
+
+    // ---------------------------------------------------------------- Battery bar
+
+    void OnGUI()
+    {
+        if (!showBatteryBar || GameOverScreen.IsActive) return;
+
+        float unit = Mathf.Max(1f, Screen.height / 1080f);
+        float w = 150f * unit, h = 34f * unit, margin = 24f * unit;
+        var body = new Rect(margin, Screen.height - margin - h, w, h);
+        var tip = new Rect(body.xMax, body.y + h * 0.3f, 6f * unit, h * 0.4f);
+
+        bool low = Battery < lowBattery;
+        bool blinkOff = Battery < lowBattery * 0.5f && Mathf.Repeat(Time.time, 0.8f) < 0.3f;
+        Color frame = low ? new Color(0.9f, 0.3f, 0.2f, 0.9f) : new Color(0.9f, 0.88f, 0.8f, 0.85f);
+        Color fill = low ? new Color(0.9f, 0.25f, 0.15f) : new Color(0.95f, 0.9f, 0.7f);
+        float border = 2f * unit, pad = 3f * unit;
+
+        // Battery outline
+        DrawRect(new Rect(body.x, body.y, body.width, border), frame);
+        DrawRect(new Rect(body.x, body.yMax - border, body.width, border), frame);
+        DrawRect(new Rect(body.x, body.y, border, body.height), frame);
+        DrawRect(new Rect(body.xMax - border, body.y, border, body.height), frame);
+        DrawRect(tip, frame);
+
+        // Charge
+        var inner = new Rect(body.x + border + pad, body.y + border + pad,
+            body.width - 2f * (border + pad), body.height - 2f * (border + pad));
+        DrawRect(inner, new Color(0f, 0f, 0f, 0.5f));
+        if (!blinkOff)
+            DrawRect(new Rect(inner.x, inner.y, inner.width * Battery, inner.height), fill);
+
+        if (percentStyle == null)
+            percentStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold };
+        percentStyle.fontSize = Mathf.RoundToInt(18f * unit);
+        percentStyle.normal.textColor = frame;
+        GUI.Label(new Rect(tip.xMax + 10f * unit, body.y, 80f * unit, body.height),
+            Mathf.CeilToInt(Battery * 100f) + "%", percentStyle);
+    }
+
+    static void DrawRect(Rect r, Color c)
+    {
+        Color old = GUI.color;
+        GUI.color = c;
+        GUI.DrawTexture(r, Texture2D.whiteTexture);
+        GUI.color = old;
     }
 }
