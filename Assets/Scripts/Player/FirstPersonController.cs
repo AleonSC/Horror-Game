@@ -56,6 +56,14 @@ public class FirstPersonController : MonoBehaviour
     public bool IsCrouching { get; private set; }
     public float CurrentSpeed => horizontalVelocity.magnitude;
 
+    /// <summary>Degrees of random camera shake, set each frame by other scripts (e.g. ShadowEntity).</summary>
+    [HideInInspector] public float cameraShake;
+
+    bool hasApproachLimit;
+    Vector3 approachPoint;
+    float approachSlowStart;
+    float approachStop;
+
     CharacterController controller;
     Vector3 horizontalVelocity;
     float verticalVelocity;
@@ -172,6 +180,7 @@ public class FirstPersonController : MonoBehaviour
 
         float accel = grounded ? acceleration : acceleration * airControl;
         horizontalVelocity = Vector3.Lerp(horizontalVelocity, desired, 1f - Mathf.Exp(-accel * Time.deltaTime));
+        if (hasApproachLimit) horizontalVelocity = ApplyApproachLimit(horizontalVelocity);
 
         if (grounded && verticalVelocity < 0f)
             verticalVelocity = -2f; // keep the controller snapped to the ground
@@ -186,6 +195,44 @@ public class FirstPersonController : MonoBehaviour
 
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)
             verticalVelocity = 0f; // bonked head
+    }
+
+    /// <summary>
+    /// Makes the player slow down as they near a point, starting at slowStartDistance.
+    /// At stopDistance they can't move any closer (sideways and backwards still work).
+    /// </summary>
+    public void SetApproachLimit(Vector3 point, float slowStartDistance, float stopDistance)
+    {
+        hasApproachLimit = true;
+        approachPoint = point;
+        approachSlowStart = slowStartDistance;
+        approachStop = stopDistance;
+    }
+
+    public void ClearApproachLimit() => hasApproachLimit = false;
+
+    Vector3 ApplyApproachLimit(Vector3 velocity)
+    {
+        Vector3 toPoint = approachPoint - transform.position;
+        toPoint.y = 0f;
+        float dist = toPoint.magnitude;
+        if (dist < 0.001f) return velocity;
+
+        Vector3 dir = toPoint / dist;
+        float toward = Vector3.Dot(velocity, dir);
+        Vector3 other = velocity - dir * toward;
+
+        // 0 when far away, 1 at the stop distance.
+        float t = Mathf.Clamp01(Mathf.InverseLerp(approachSlowStart, approachStop, dist));
+
+        if (toward > 0f)
+        {
+            // Square root so the player still reaches the stop distance instead of crawling forever.
+            toward *= Mathf.Sqrt(1f - t);
+            toward = Mathf.Min(toward, Mathf.Max(0f, dist - approachStop) / Mathf.Max(Time.deltaTime, 0.0001f));
+        }
+
+        return dir * toward + other * Mathf.Lerp(1f, 0.35f, t);
     }
 
     void UpdateCamera()
@@ -208,6 +255,7 @@ public class FirstPersonController : MonoBehaviour
 
         Vector3 target = new Vector3(0f, eyeHeight, 0f) + bobOffset;
         cameraRoot.localPosition = Vector3.Lerp(cameraRoot.localPosition, target, 1f - Mathf.Exp(-15f * Time.deltaTime));
-        cameraRoot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        Vector3 shake = cameraShake > 0f ? Random.insideUnitSphere * cameraShake : Vector3.zero;
+        cameraRoot.localRotation = Quaternion.Euler(pitch + shake.x, shake.y, shake.z);
     }
 }
