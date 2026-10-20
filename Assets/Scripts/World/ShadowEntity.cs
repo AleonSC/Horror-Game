@@ -182,15 +182,19 @@ public class ShadowEntity : MonoBehaviour
     public float poofTime = 1.2f;
     public float materializeTime = 1.2f;
 
-    [Header("Catching The Player")]
-    [Tooltip("Seconds of jumpscare before the screen fades out.")]
-    public float killTime = 1.6f;
     [Header("Taking the Player")]
-    [Tooltip("After the stare, it grabs the player and lifts them off the ground over this many seconds...")]
-    public float liftTime = 3f;
-    [Tooltip("...this high...")]
-    public float liftHeight = 3f;
-    [Tooltip("...then flies them toward the giant, the screen fading to black over this many seconds.")]
+    [Tooltip("Once it has you, you can't move: your eyes are dragged to it and it walks up to you this slowly (metres a second)...")]
+    public float approachSpeed = 1.1f;
+    [Tooltip("...starting at least this far off...")]
+    public float approachMinDistance = 3.5f;
+    [Tooltip("...then takes hold of you over this many seconds...")]
+    public float graspTime = 1.4f;
+    [Tooltip("...wings split out of its back over this many seconds...")]
+    public float wingTime = 2.2f;
+    [Tooltip("...it turns you round to face the giant over this many seconds, lifting you off the ground...")]
+    public float turnTime = 1.8f;
+    public float liftHeight = 1.2f;
+    [Tooltip("...then flies you toward the giant, the screen fading to black over this many seconds.")]
     public float flightTime = 6f;
     [Tooltip("Top speed of the flight, metres per second.")]
     public float flightSpeed = 35f;
@@ -315,6 +319,7 @@ public class ShadowEntity : MonoBehaviour
     {
         All.Remove(this);
         ReleasePlayer();
+        if (Capturing == this) Capturing = null;
     }
 
     void OnDestroy()
@@ -397,6 +402,8 @@ public class ShadowEntity : MonoBehaviour
         ReleasePlayer();
         peeking = false;
         SetPose(Pose.Neutral, 1);
+        if (wingRoot != null) wingRoot.gameObject.SetActive(false);
+        if (Capturing == this) Capturing = null;
     }
 
     void StartMaterialize()
@@ -861,116 +868,281 @@ public class ShadowEntity : MonoBehaviour
         Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
     }
 
+    /// <summary>The one taking the player right now, if any: only one at a time.</summary>
+    public static ShadowEntity Capturing { get; private set; }
+
+    // The taking, in stages (seconds since it caught you): it walks up to you, takes hold, grows wings,
+    // turns you round to face the giant, and flies you to it.
+    float approachTime;
+    Vector3 approachFrom, takeStart, takeForward, flightDir, flightVelocity;
+    bool turnStarted;
+
     void StartKill()
     {
-        if (GameOverScreen.IsActive) return;
+        if (GameOverScreen.IsActive || (Capturing != null && Capturing != this)) return;
+        Capturing = this;
 
         CurrentState = State.Killing;
         timer = 0f;
         gameOverStarted = false;
-        taking = false;
+        turnStarted = false;
         ReleasePlayer();
-        if (player != null) player.enabled = false;
+        if (player != null) player.enabled = false; // held in place: no moving, no looking away
+        var body = target.GetComponent<CharacterController>();
+        if (body != null) body.enabled = false;     // it moves the player from here on
 
-        // Snap right in front of the player's face.
-        Transform cam = Camera.main != null ? Camera.main.transform : target;
-        Vector3 forward = cam.forward;
-        forward.y = 0f;
-        forward = forward.sqrMagnitude > 0.001f ? forward.normalized : target.forward;
-        Vector3 p = cam.position + forward * 1.3f;
-        p.y = GroundHeight(p);
-        transform.position = p;
+        // Where it stands now (pushed back a little if it's right on top of you, so you see it come).
+        takeStart = target.position;
+        Vector3 away = transform.position - target.position;
+        away.y = 0f;
+        if (away.sqrMagnitude < 0.01f)
+        {
+            Transform cam = Camera.main != null ? Camera.main.transform : target;
+            away = Vector3.ProjectOnPlane(cam.forward, Vector3.up);
+            if (away.sqrMagnitude < 0.001f) away = target.forward;
+        }
+        takeForward = away.normalized;
+        float dist = Mathf.Max(away.magnitude, approachMinDistance);
+        approachFrom = target.position + takeForward * dist;
+        approachFrom.y = GroundHeight(approachFrom);
+        transform.position = approachFrom;
+        approachTime = Mathf.Clamp((dist - 0.9f) / Mathf.Max(approachSpeed, 0.1f), 2f, 6f);
+        if (growth < 1f) SetGrowth(1f);
         FacePlayer();
 
         SetVisible(true);
+        ResetVisual();
+        SetPose(Pose.Neutral, 1);
+        if (wingRoot != null) wingRoot.gameObject.SetActive(false);
         advanceSource.Stop();
-        PlaySound(killSound != null ? killSound : ProceduralAudio.Screech, 1f, killVolume);
+        PlaySound(killSound != null ? killSound : ProceduralAudio.Screech, 0.7f, killVolume * 0.6f); // a low, quiet shriek: it has you
+        PlaySound(ProceduralAudio.Breath, 0.8f, 0.9f);
     }
 
     void UpdateKilling()
     {
         timer += Time.deltaTime;
-
-        Vibrate(crescendoVibration * 0.6f);
-        visual.localScale = new Vector3(0.85f, 1.2f, 0.85f);
-        SetEyes(maxEyeWiden * 2f, spawnEyeIntensity * 2f * Random.Range(0.7f, 1.3f));
-        mouthTarget = 1.6f;
-        whisper.volume = volume * killVolume;
-
-        // Force the camera to stare into its face (until it takes them).
+        float dt = Time.deltaTime;
         Transform cam = Camera.main != null ? Camera.main.transform : null;
-        if (cam != null && timer < killTime + liftTime)
-        {
-            Vector3 head = transform.position + Vector3.up * (2.2f * scale * growth);
-            Quaternion look = Quaternion.LookRotation(head - cam.position);
-            cam.rotation = Quaternion.Slerp(cam.rotation, look, 1f - Mathf.Exp(-12f * Time.deltaTime));
-            cam.rotation *= Quaternion.Euler(Random.insideUnitSphere * 1.5f);
-        }
-
-        if (timer >= killTime) UpdateTaking(Time.deltaTime);
-    }
-
-    Vector3 takeStart, takeForward, flightVelocity;
-    bool taking;
-
-    /// <summary>
-    /// The end, drawn out: it takes hold, slowly lifts the player off the ground, then carries them up and away
-    /// toward the giant, faster and faster, as the screen fades to black.
-    /// </summary>
-    void UpdateTaking(float dt)
-    {
-        if (target == null) return;
-        Transform cam = Camera.main != null ? Camera.main.transform : null;
-        if (!taking)
-        {
-            taking = true;
-            takeStart = target.position;
-            takeForward = transform.position - target.position;
-            takeForward.y = 0f;
-            takeForward = takeForward.sqrMagnitude > 0.001f ? takeForward.normalized : target.forward;
-            flightVelocity = Vector3.zero;
-            var body = target.GetComponent<CharacterController>();
-            if (body != null) body.enabled = false; // it moves the player now
-            SetPose(Pose.Lunge, 1);                 // both hands on you
-            PlaySound(ProceduralAudio.Moan, 0.6f, 0.8f);
-        }
-
-        float t = timer - killTime;
         float eye = 2.2f * scale * growth;
-        if (t < liftTime)
+        float t = timer;
+        float tGrasp = approachTime, tWings = tGrasp + graspTime, tTurn = tWings + wingTime, tFly = tTurn + turnTime;
+
+        SetEyes(Mathf.Lerp(1.2f, maxEyeWiden * 2f, Mathf.Clamp01(t / tWings)), spawnEyeIntensity * 2f * Random.Range(0.85f, 1.15f));
+        whisper.volume = volume * killVolume;
+        visual.localScale = Vector3.one;
+
+        if (t < tGrasp)
         {
-            // Held at arm's length, rising slowly off the ground, feet dangling.
-            float u = Mathf.SmoothStep(0f, 1f, t / liftTime);
-            target.position = takeStart + Vector3.up * liftHeight * u + Random.insideUnitSphere * 0.015f;
-            Vector3 camPos = cam != null ? cam.position : target.position + Vector3.up * 1.6f;
-            transform.position = camPos + takeForward * 1.0f - Vector3.up * (eye - 0.05f);
-            transform.rotation = Quaternion.LookRotation(-takeForward);
+            // It walks up to you: slowly, lurching, its eyes on yours. You can't move; your gaze is dragged to it.
+            float u = t / approachTime;
+            float steps = Mathf.Max(2f, approachTime * 1.3f);
+            float stepPhase = u * steps;
+            float lurch = Mathf.SmoothStep(0f, 1f, Mathf.Floor(stepPhase) / steps + Mathf.SmoothStep(0f, 1f, stepPhase - Mathf.Floor(stepPhase)) / steps);
+            Vector3 stopAt = takeStart + takeForward * 0.9f;
+            Vector3 p = Vector3.Lerp(approachFrom, stopAt, lurch);
+            p.y = GroundHeight(p) + Mathf.Abs(Mathf.Sin(stepPhase * Mathf.PI)) * 0.06f;
+            transform.position = p;
+            FacePlayer();
+            Vibrate(crescendoVibration * 0.15f);
+            mouthTarget = Mathf.Lerp(0.3f, 1.2f, u);
+            if (u > 0.75f && pose != Pose.Reach) SetPose(Pose.Reach, Random.value < 0.5f ? -1 : 1); // a hand coming up for you
+            LookAtIt(cam, eye, 2.2f, Mathf.Lerp(0.3f, 2.2f, u * u), dt);
             return;
         }
 
-        // Away, toward the giant.
+        if (t < tWings)
+        {
+            // It takes hold of you: both hands, its face right up to yours.
+            if (pose != Pose.Lunge) { SetPose(Pose.Lunge, 1); PlaySound(ProceduralAudio.Moan, 0.6f, 0.8f); }
+            float u = (t - tGrasp) / graspTime;
+            Vector3 p = takeStart + takeForward * Mathf.Lerp(0.9f, 0.75f, u);
+            p.y = GroundHeight(p);
+            transform.position = p;
+            FacePlayer();
+            Vibrate(crescendoVibration * 0.25f);
+            mouthTarget = 1.6f;
+            LookAtIt(cam, eye, 6f, 2.6f, dt);
+            return;
+        }
+
+        if (t < tTurn)
+        {
+            // Wings split out of its back and unfold, black and huge.
+            BuildWings();
+            if (!wingRoot.gameObject.activeSelf)
+            {
+                wingRoot.gameObject.SetActive(true);
+                PlaySound(ProceduralAudio.TreeCreak, 1.9f, 0.9f);   // bone creaking open
+                PlaySound(ProceduralAudio.WingFlaps, 0.55f, 0.8f);
+            }
+            float u = (t - tWings) / wingTime;
+            float spread = EaseOutBack(Mathf.Clamp01(u * 1.2f));
+            float beat = u > 0.6f ? Mathf.Sin((u - 0.6f) / 0.4f * Mathf.PI * 2f) * 25f : 0f; // a first slow beat
+            PoseWings(spread, beat);
+            Vibrate(crescendoVibration * 0.2f);
+            LookAtIt(cam, eye + 0.4f * scale * u, 6f, Mathf.Lerp(2.6f, 1.6f, u), dt); // your eyes drawn up to them
+            return;
+        }
+
+        // Where it's taking you: the giant's head, or (if there's no giant) up and away into the dark behind you.
+        if (!turnStarted)
+        {
+            turnStarted = true;
+            Vector3 destination;
+            var watcher = WatcherEvent.Instance;
+            if (watcher == null || !watcher.TryGetGiantHead(out destination))
+                destination = target.position - takeForward * 500f + Vector3.up * 300f;
+            flightDir = (destination - target.position).normalized;
+            flightVelocity = Vector3.zero;
+            PlaySound(ProceduralAudio.WingFlaps, 0.6f, 1f);
+        }
+        visual.localPosition = Vector3.zero; // steady now: it's flying
+        visual.localRotation = Quaternion.identity;
+        Vector3 flatDir = Vector3.ProjectOnPlane(flightDir, Vector3.up);
+        flatDir = flatDir.sqrMagnitude > 0.001f ? flatDir.normalized : -takeForward;
+
+        if (t < tFly)
+        {
+            // It swings you round to face the giant, rising off the ground, wings beating.
+            float u = Mathf.SmoothStep(0f, 1f, (t - tTurn) / turnTime);
+            target.position = takeStart + Vector3.up * liftHeight * u + Random.insideUnitSphere * 0.01f;
+            Vector3 side = Vector3.Slerp(takeForward, -flatDir, u);
+            if (Vector3.Dot(takeForward, -flatDir) < -0.95f) side = Quaternion.AngleAxis(180f * u, Vector3.up) * takeForward; // straight round
+            float camY = cam != null ? cam.position.y : target.position.y + 1.6f;
+            transform.position = new Vector3(target.position.x, camY - eye + 0.1f, target.position.z) + side * Mathf.Lerp(0.75f, 0.6f, u);
+            transform.rotation = Quaternion.LookRotation(-side);
+            PoseWings(1f, Mathf.Sin((t - tTurn) * 7f) * 40f);
+            if (cam != null)
+            {
+                cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(Vector3.Slerp(flatDir, flightDir, 0.5f)), 1f - Mathf.Exp(-3f * dt));
+                cam.rotation *= Quaternion.Euler(Random.insideUnitSphere * 1.3f);
+            }
+            return;
+        }
+
+        // Away, toward the giant, faster and faster, as the screen fades out.
         if (!gameOverStarted)
         {
             gameOverStarted = true;
             GameOverScreen.Show(flightTime);
             PlaySound(ProceduralAudio.DistantRumble, 0.7f, 1f);
         }
-        Vector3 destination;
-        var watcher = WatcherEvent.Instance;
-        if (watcher == null || !watcher.TryGetGiantHead(out destination))
-            destination = target.position - takeForward * 500f + Vector3.up * 300f; // up and away into the dark
-        Vector3 dir = (destination - target.position).normalized;
-        float f = Mathf.Clamp01((t - liftTime) / 2.5f);
-        flightVelocity = Vector3.MoveTowards(flightVelocity, dir * flightSpeed * f * f, flightSpeed * dt);
+        float f = Mathf.Clamp01((t - tFly) / 2.5f);
+        flightVelocity = Vector3.MoveTowards(flightVelocity, flightDir * flightSpeed * f * f, flightSpeed * dt);
         target.position += flightVelocity * dt;
-
-        // It carries you from behind; you're turned to face where you're being taken.
-        transform.position = target.position - dir * 0.9f + Vector3.up * (1.6f - eye + 0.3f);
-        transform.rotation = Quaternion.LookRotation(dir);
+        // It carries you from behind; you're held facing where you're being taken.
+        transform.position = target.position - flatDir * 0.6f + Vector3.up * (1.7f - eye);
+        transform.rotation = Quaternion.LookRotation(flightDir);
+        PoseWings(1f, Mathf.Sin((t - tFly) * 9f) * 50f);
         if (cam != null)
         {
-            cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(dir), 1f - Mathf.Exp(-1.2f * dt));
-            cam.rotation *= Quaternion.Euler(Random.insideUnitSphere * Mathf.Lerp(0.3f, 1.2f, f)); // buffeted
+            cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(flightDir), 1f - Mathf.Exp(-1.5f * dt));
+            cam.rotation *= Quaternion.Euler(Random.insideUnitSphere * Mathf.Lerp(0.4f, 1.2f, f)); // buffeted
+        }
+    }
+
+    /// <summary>Drags the held player's gaze onto its face (pull: how fast) and shakes it with fear (degrees).</summary>
+    void LookAtIt(Transform cam, float eyeHeight, float pull, float fear, float dt)
+    {
+        if (cam == null) return;
+        Vector3 head = transform.position + Vector3.up * eyeHeight;
+        Quaternion look = Quaternion.LookRotation(head - cam.position);
+        cam.rotation = Quaternion.Slerp(cam.rotation, look, 1f - Mathf.Exp(-pull * dt));
+        // Trembling: a fast shiver on top of a slower, ragged unsteadiness.
+        float tt = Time.time;
+        Vector3 shake = Random.insideUnitSphere * fear * 0.35f
+                        + new Vector3(Mathf.PerlinNoise(tt * 6f, 1.3f) - 0.5f, Mathf.PerlinNoise(2.7f, tt * 6f) - 0.5f, 0f) * fear * 1.6f;
+        cam.rotation *= Quaternion.Euler(shake);
+    }
+
+    static float EaseOutBack(float x)
+    {
+        const float c1 = 1.70158f, c3 = c1 + 1f;
+        return 1f + c3 * Mathf.Pow(x - 1f, 3f) + c1 * Mathf.Pow(x - 1f, 2f);
+    }
+
+    // ---------------------------------------------------------------- Wings
+
+    Transform wingRoot;
+    readonly Transform[] wings = new Transform[2];
+
+    /// <summary>
+    /// Two great bat-like wings from its shoulder blades: bony arms and long finger spars with black
+    /// membrane stretched between them, scalloped at the edge. Built the first time it needs them.
+    /// </summary>
+    void BuildWings()
+    {
+        if (wingRoot != null) return;
+        Material black = MaterialFactory.Unlit(Color.black);
+        wingRoot = new GameObject("Wings").transform;
+        wingRoot.SetParent(visual, false);
+        // Wing shape, in 2.4m-figure units, for the right wing (x outward, +z forward, from the shoulder blade).
+        Vector3 shoulder = Vector3.zero, elbow = new Vector3(0.55f, 0.4f, -0.12f), wrist = new Vector3(1.15f, 0.2f, -0.18f);
+        Vector3[] tips = { new Vector3(2.0f, 0.55f, -0.22f), new Vector3(2.15f, -0.2f, -0.22f), new Vector3(1.75f, -0.8f, -0.18f), new Vector3(1.0f, -0.95f, -0.12f) };
+        Vector3 root = new Vector3(0.05f, -0.6f, 0f);
+        for (int w = 0; w < 2; w++)
+        {
+            float side = w == 0 ? -1f : 1f;
+            Vector3 M(Vector3 v) => new Vector3(v.x * side, v.y, v.z);
+            var pivot = Pivot(wingRoot, side < 0 ? "Left Wing" : "Right Wing", new Vector3(0.12f * side, 1.74f, -0.14f));
+            wings[w] = pivot;
+            Bone(pivot, black, M(shoulder), M(elbow), 0.05f);
+            Bone(pivot, black, M(elbow), M(wrist), 0.04f);
+            Knob(pivot, black, M(elbow), 0.06f);
+            Knob(pivot, black, M(wrist), 0.05f);
+            foreach (var tip in tips) Bone(pivot, black, M(wrist), M(tip), 0.022f);
+            var claw = CreatePart(PrimitiveType.Capsule, black, pivot).transform; // a hooked thumb claw
+            claw.localPosition = M(wrist + new Vector3(0.05f, 0.14f, 0f)) * scale;
+            claw.localRotation = Quaternion.Euler(0f, 0f, -side * 30f);
+            claw.localScale = new Vector3(0.03f, 0.08f, 0.03f) * scale;
+
+            // The membrane: a fan from the wrist round the edge, scalloped between the fingers, both sides.
+            var outline = new List<Vector3> { shoulder, elbow };
+            for (int k = 0; k < tips.Length; k++)
+            {
+                outline.Add(tips[k]);
+                Vector3 next = k + 1 < tips.Length ? tips[k + 1] : root;
+                outline.Add(Vector3.Lerp(Vector3.Lerp(tips[k], next, 0.5f), wrist, 0.28f)); // scallop
+            }
+            outline.Add(root);
+            var verts = new List<Vector3> { M(wrist) * scale };
+            foreach (var v in outline) verts.Add(M(v) * scale);
+            var tris = new List<int>();
+            for (int k = 1; k < verts.Count; k++)
+            {
+                int a = k, b = k + 1 < verts.Count ? k + 1 : 1;
+                tris.AddRange(new[] { 0, a, b, 0, b, a });
+            }
+            var mesh = new Mesh { name = "Wing Membrane" };
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            var membrane = new GameObject("Membrane");
+            membrane.transform.SetParent(pivot, false);
+            membrane.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var mr = membrane.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = black;
+            mr.shadowCastingMode = ShadowCastingMode.On;
+        }
+        wingRoot.gameObject.SetActive(false);
+    }
+
+    /// <summary>Spread 0 (folded flat to its back, tiny) to 1 (fully open); beat: degrees up (+) or down.</summary>
+    void PoseWings(float spread, float beat)
+    {
+        if (wingRoot == null) return;
+        for (int w = 0; w < 2; w++)
+        {
+            if (wings[w] == null) continue;
+            float side = w == 0 ? -1f : 1f;
+            float s = Mathf.Max(0.02f, spread);
+            wings[w].localScale = new Vector3(s, Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(spread)), s);
+            // Folded: swept back and down along its back. Open: out to the side, swept back a little.
+            Quaternion folded = Quaternion.Euler(0f, side * 70f, -side * 60f);
+            Quaternion open = Quaternion.Euler(0f, side * 15f, side * beat);
+            wings[w].localRotation = Quaternion.SlerpUnclamped(folded, open, spread);
         }
     }
 
