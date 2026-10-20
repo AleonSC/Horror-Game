@@ -795,8 +795,9 @@ public class DarkForestGenerator : MonoBehaviour
         RenderSettings.reflectionIntensity = 0.1f;
 
         // Replace any existing sun with dim moonlight.
-        foreach (var light in FindObjectsByType<Light>(FindObjectsSortMode.None))
-            if (light.type == LightType.Directional && light.transform.parent != root)
+        // (Resources.FindObjectsOfTypeAll also returns assets, so only take lights that are in a scene.)
+        foreach (var light in Resources.FindObjectsOfTypeAll<Light>())
+            if (light.gameObject.scene.IsValid() && light.type == LightType.Directional && light.transform.parent != root)
                 light.enabled = false;
 
         var moon = new GameObject("Moonlight").AddComponent<Light>();
@@ -808,7 +809,7 @@ public class DarkForestGenerator : MonoBehaviour
         moon.transform.rotation = Quaternion.Euler(35f, Range(0f, 360f), 0f);
         RenderSettings.sun = moon;
 
-        foreach (var cam in FindObjectsByType<Camera>(FindObjectsSortMode.None))
+        foreach (var cam in Camera.allCameras)
             ConfigureCamera(cam);
     }
 

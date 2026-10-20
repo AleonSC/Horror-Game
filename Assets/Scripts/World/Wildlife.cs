@@ -69,6 +69,7 @@ public class Wildlife : MonoBehaviour
         public float speed;
         public float timer;
         public float phase;
+        public float seed; // per-creature randomness
         public int mode; // creature-specific state
     }
 
@@ -172,7 +173,7 @@ public class Wildlife : MonoBehaviour
         {
             // Wander: slowly curve left and right.
             c.phase += dt;
-            c.heading = Quaternion.Euler(0f, (Mathf.PerlinNoise(c.phase * 0.7f, c.root.GetInstanceID() * 0.01f) - 0.5f) * 180f * dt, 0f) * c.heading;
+            c.heading = Quaternion.Euler(0f, (Mathf.PerlinNoise(c.phase * 0.7f, c.seed) - 0.5f) * 180f * dt, 0f) * c.heading;
             pos += c.heading * (c.speed * dt);
             c.body.localPosition = new Vector3(0f, 0.012f + Mathf.Abs(Mathf.Sin(c.phase * 40f)) * 0.002f, 0f);
         }
@@ -783,7 +784,7 @@ public class Wildlife : MonoBehaviour
         var root = new GameObject(name).transform;
         root.SetParent(transform, false);
         WorldWrap.RegisterDynamic(root);
-        return new Critter { root = root };
+        return new Critter { root = root, seed = Random.Range(0f, 1000f) };
     }
 
     static Transform Part(PrimitiveType type, Material mat, Transform parent, Vector3 pos, Vector3 scale)
