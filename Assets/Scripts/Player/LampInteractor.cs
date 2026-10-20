@@ -252,6 +252,13 @@ public class LampInteractor : MonoBehaviour
             Caption("the light keeps them away", cx, y, unit, 0.85f);
             DrawGiltBar(new Rect(cx - 90f * unit, y + 20f * unit, 180f * unit, 4f * unit), safeLamp.Energy, EnergyColor(safeLamp), unit);
         }
+        // Or in a burning torch's circle (at a camp or by a shack): how long it has left.
+        else if (SafeZones.Contains(transform.position, out SafeZones.ISource safeSource) && safeSource is LightableTorch torch)
+        {
+            float y = Screen.height - 178f * unit;
+            Caption("the fire keeps them away", cx, y, unit, 0.85f);
+            DrawGiltBar(new Rect(cx - 90f * unit, y + 20f * unit, 180f * unit, 4f * unit), torch.Fuel, new Color(1f, 0.6f, 0.25f), unit);
+        }
     }
 
     static float Ease(float x) => Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(x));

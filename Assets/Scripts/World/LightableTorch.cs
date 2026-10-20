@@ -19,6 +19,8 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
 
     public bool IsLit { get; private set; }
     public bool BurntOut { get; private set; }
+    /// <summary>How much it has left to burn, 1 (just lit) to 0.</summary>
+    public float Fuel => fuel;
     float fuel = 1f;
 
     Fire fire;
