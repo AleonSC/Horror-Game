@@ -1419,9 +1419,10 @@ public class DarkForestGenerator : MonoBehaviour
         for (int i = 0; i < variants.Length; i++) variants[i] = BushBuilder.Build(shapes[i % shapes.Length], rng);
         var materials = new[]
         {
-            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.85f, 0.95f, 0.8f), 0.5f, 0.15f),
-            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.7f, 0.82f, 0.65f), 0.5f, 0.15f),
-            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.95f, 0.9f, 0.65f), 0.5f, 0.15f),
+            // (Tints over the leaf texture's own greens: darker, deep forest greens.)
+            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.5f, 0.62f, 0.45f), 0.5f, 0.15f),
+            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.4f, 0.52f, 0.38f), 0.5f, 0.15f),
+            MaterialFactory.LitCutout(ProceduralTextures.LeafCluster, new Color(0.55f, 0.58f, 0.4f), 0.5f, 0.15f),
         };
         var stemMat = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.6f, 0.58f, 0.52f), 0.05f);
 
