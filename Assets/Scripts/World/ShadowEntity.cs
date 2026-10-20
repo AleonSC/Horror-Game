@@ -112,6 +112,8 @@ public class ShadowEntity : MonoBehaviour
 
     [Header("Look")]
     public float height = 2.4f;
+    [Tooltip("How thick its limbs and body are (1 = rail thin).")]
+    public float bulk = 1.3f;
 
     [Header("Audio")]
     [Range(0f, 1f)] public float volume = 0.9f;
@@ -863,11 +865,11 @@ public class ShadowEntity : MonoBehaviour
         }
         var pelvis = CreatePart(PrimitiveType.Sphere, black, visual).transform;
         pelvis.localPosition = new Vector3(0f, 1.12f, -0.02f) * scale;
-        pelvis.localScale = new Vector3(0.24f, 0.13f, 0.15f) * scale;
+        pelvis.localScale = new Vector3(0.24f * bulk, 0.13f, 0.15f * bulk) * scale;
         var chest = CreatePart(PrimitiveType.Capsule, black, visual).transform;
         chest.localPosition = new Vector3(0f, 1.66f, -0.02f) * scale;
         chest.localRotation = Quaternion.Euler(18f, 0f, 0f);
-        chest.localScale = new Vector3(0.24f, 0.22f, 0.13f) * scale;
+        chest.localScale = new Vector3(0.24f * bulk, 0.22f, 0.13f * bulk) * scale;
 
         // A long neck jutting forward, and a small, too-tall head.
         Vector3 neckTop = new Vector3(0f, 2.12f, 0.24f);
@@ -930,7 +932,7 @@ public class ShadowEntity : MonoBehaviour
         var bone = CreatePart(PrimitiveType.Cylinder, mat, parent).transform;
         bone.localPosition = (a + b) * 0.5f;
         bone.localRotation = Quaternion.FromToRotation(Vector3.up, d);
-        bone.localScale = new Vector3(thickness * scale, d.magnitude * 0.5f, thickness * scale);
+        bone.localScale = new Vector3(thickness * bulk * scale, d.magnitude * 0.5f, thickness * bulk * scale);
         return bone;
     }
 
@@ -939,7 +941,7 @@ public class ShadowEntity : MonoBehaviour
     {
         var knob = CreatePart(PrimitiveType.Sphere, mat, parent).transform;
         knob.localPosition = at * scale;
-        knob.localScale = Vector3.one * (size * scale);
+        knob.localScale = Vector3.one * (size * Mathf.Lerp(1f, bulk, 0.6f) * scale);
     }
 
     Transform Pivot(Transform parent, string name, Vector3 at)
