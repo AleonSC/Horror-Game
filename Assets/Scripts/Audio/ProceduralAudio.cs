@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop,
+        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -80,6 +80,8 @@ public static class ProceduralAudio
     public static AudioClip Skitter => skitter != null ? skitter : (skitter = MakeSkitter());
     /// <summary>Leathery wing beats passing overhead.</summary>
     public static AudioClip WingFlaps => wingFlaps != null ? wingFlaps : (wingFlaps = MakeWingFlaps());
+    /// <summary>A crow's harsh, rasping caw.</summary>
+    public static AudioClip Caw => caw != null ? caw : (caw = MakeCaw());
     /// <summary>A deer's sharp alarm snort.</summary>
     public static AudioClip DeerAlarm => deerAlarm != null ? deerAlarm : (deerAlarm = MakeDeerAlarm());
     /// <summary>Hooves drumming the ground at a gallop. Loops seamlessly.</summary>
@@ -327,6 +329,26 @@ public static class ProceduralAudio
             lp += (White() - lp) * 0.08f;               // soft, papery whoosh
             return lp * flap * Mathf.Sin(Mathf.PI * t / len);
         }, 0.7f);
+    }
+
+    static AudioClip MakeCaw()
+    {
+        const float len = 0.42f;
+        float phase = 0f, y1 = 0f, y2 = 0f, z1 = 0f, z2 = 0f;
+        float r = 0.97f;
+        float c1 = 2f * r * Mathf.Cos(TwoPi * 1200f / Rate);
+        float c2 = 2f * r * Mathf.Cos(TwoPi * 2600f / Rate);
+        return Shot("Caw", len, t =>
+        {
+            float p = t / len;
+            // A buzzy, rough source, pitch sagging, through two nasal resonances.
+            phase += (520f - 120f * p + 25f * White()) / Rate;
+            float source = (2f * (phase % 1f) - 1f) + White() * 0.4f;
+            float a = c1 * y1 - r * r * y2 + source; y2 = y1; y1 = a;
+            float b = c2 * z1 - r * r * z2 + source; z2 = z1; z1 = b;
+            float env = Mathf.Sin(Mathf.PI * Mathf.Clamp01(p * 1.2f)) * (p < 0.08f ? p / 0.08f : 1f);
+            return (a + b * 0.7f) * env;
+        }, 0.8f);
     }
 
     static AudioClip MakeDeerAlarm()

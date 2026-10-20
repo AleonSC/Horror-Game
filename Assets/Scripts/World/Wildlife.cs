@@ -7,6 +7,7 @@ using UnityEngine;
 /// - Rats: sniff around, dart between spots, and scatter, squeaking, if you get close.
 /// - Moths: flutter around the bulbs of lit lamps.
 /// - Bats: every so often a few swoop overhead with a flurry of wing beats.
+/// - Crows: flocks that fly over high in the sky now and then, gliding between wingbeats and cawing.
 /// - Owls: dark owls perched on branches of some trees, white eyes, heads turning to stare at you.
 /// - Deer: pitch-black deer that wander and graze, look up when you come near, and gallop off,
 ///   snorting, if you get too close. A spooked deer sets off the rest of its herd.
@@ -37,6 +38,12 @@ public class Wildlife : MonoBehaviour
     public float maxBatInterval = 45f;
     public int maxBatsPerFlock = 3;
 
+    [Header("Crows")]
+    public float minCrowInterval = 20f;
+    public float maxCrowInterval = 60f;
+    public int minCrowsPerFlock = 3;
+    public int maxCrowsPerFlock = 8;
+
     [Header("Owls")]
     [Tooltip("How many trees get an owl on a branch.")]
     public int owlCount = 45;
@@ -62,6 +69,7 @@ public class Wildlife : MonoBehaviour
     public AudioClip skitterSound;
     public AudioClip wingSound;
     public AudioClip deerAlarmSound;
+    public AudioClip cawSound;
     public AudioClip gallopLoop;
 
     class Critter
@@ -93,6 +101,8 @@ public class Wildlife : MonoBehaviour
     readonly List<Critter> rats = new List<Critter>();
     readonly List<Critter> moths = new List<Critter>();
     readonly List<Bat> bats = new List<Bat>();
+    readonly List<Bat> crows = new List<Bat>(); // same flight data as bats
+    float crowTimer;
     readonly List<Critter> deer = new List<Critter>();
 
     class Owl
@@ -130,6 +140,8 @@ public class Wildlife : MonoBehaviour
         for (int i = 0; i < beetleCount; i++) beetles.Add(BuildBeetle());
         for (int i = 0; i < ratCount; i++) rats.Add(BuildRat());
         for (int i = 0; i < maxBatsPerFlock; i++) bats.Add(new Bat { critter = BuildBat() });
+        for (int i = 0; i < maxCrowsPerFlock; i++) crows.Add(new Bat { critter = BuildCrow() });
+        crowTimer = Random.Range(minCrowInterval * 0.5f, maxCrowInterval);
         for (int i = 0; i < deerCount; i++) deer.Add(BuildDeer());
 
         batTimer = Random.Range(minBatInterval, maxBatInterval);
@@ -153,6 +165,7 @@ public class Wildlife : MonoBehaviour
         foreach (var r in rats) UpdateRat(r, dt);
         UpdateMoths();
         UpdateBats(dt);
+        UpdateCrows(dt);
         for (int i = 0; i < deer.Count; i++) UpdateDeer(i, dt);
         UpdateOwls(dt);
     }
@@ -771,6 +784,116 @@ public class Wildlife : MonoBehaviour
                 t.localPosition += t.localRotation * Vector3.up * 0.06f; // base of the tine sits on the beam
             }
         }
+    }
+
+    // ---------------------------------------------------------------- Crows
+
+    void UpdateCrows(float dt)
+    {
+        crowTimer -= dt;
+        if (crowTimer <= 0f)
+        {
+            crowTimer = Random.Range(minCrowInterval, maxCrowInterval);
+            LaunchCrows();
+        }
+
+        foreach (var crow in crows)
+        {
+            if (!crow.active) continue;
+            Critter c = crow.critter;
+
+            crow.progress += dt / crow.duration;
+            if (crow.progress >= 1f)
+            {
+                crow.active = false;
+                c.root.gameObject.SetActive(false);
+                continue;
+            }
+
+            float t = Mathf.Max(0f, crow.progress) * crow.duration;
+            Vector3 dir = (crow.end - crow.start).normalized;
+            Vector3 side = Vector3.Cross(Vector3.up, dir);
+            Vector3 p = Vector3.Lerp(crow.start, crow.end, crow.progress)
+                + Vector3.up * Mathf.Sin(t * 0.8f + crow.wobble) * 1.2f
+                + side * Mathf.Sin(t * 0.5f + crow.wobble) * 3f;
+
+            Vector3 velocity = p - c.root.position;
+            c.root.position = p;
+            if (velocity.sqrMagnitude > 0.0001f)
+                c.root.rotation = Quaternion.LookRotation(velocity) * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.5f + crow.wobble) * -15f);
+
+            // Bursts of wingbeats, then glides with wings held out.
+            bool gliding = Mathf.Sin(t * 0.9f + crow.wobble * 3f) > 0.3f;
+            float flap = gliding ? 8f : Mathf.Sin(t * 22f + crow.wobble) * 45f;
+            c.parts[0].localRotation = Quaternion.Euler(0f, 0f, flap);
+            c.parts[1].localRotation = Quaternion.Euler(0f, 0f, -flap);
+
+            if (!crow.heard && (p - player.position).sqrMagnitude < 50f * 50f)
+            {
+                crow.heard = true;
+                if (Random.value < 0.6f) StartCoroutine(Caws(c.audio, Random.Range(1, 4)));
+            }
+        }
+    }
+
+    System.Collections.IEnumerator Caws(AudioSource source, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            Play(source, cawSound != null ? cawSound : ProceduralAudio.Caw, Random.Range(0.85f, 1.1f));
+            yield return new WaitForSeconds(Random.Range(0.45f, 0.9f));
+        }
+    }
+
+    void LaunchCrows()
+    {
+        Vector3 dir = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
+        Vector3 side = Vector3.Cross(Vector3.up, dir);
+        int count = Random.Range(minCrowsPerFlock, maxCrowsPerFlock + 1);
+        float height = Random.Range(18f, 32f);
+        float speed = Random.Range(9f, 12f);
+        Vector3 basePos = player.position + Vector3.up * height + side * Random.Range(-25f, 25f);
+
+        for (int i = 0; i < count && i < crows.Count; i++)
+        {
+            var crow = crows[i];
+            // A loose, straggling flock.
+            Vector3 offset = side * Random.Range(-8f, 8f) + Vector3.up * Random.Range(-3f, 3f) - dir * Random.Range(0f, 12f);
+            crow.start = basePos - dir * 70f + offset;
+            crow.end = basePos + dir * 70f + offset;
+            crow.duration = 140f / speed;
+            crow.progress = -Random.Range(0f, 0.05f);
+            crow.wobble = Random.Range(0f, 10f);
+            crow.active = true;
+            crow.heard = false;
+            crow.critter.root.position = crow.start;
+            crow.critter.root.gameObject.SetActive(true);
+        }
+    }
+
+    Critter BuildCrow()
+    {
+        var c = NewCritter("Crow");
+        c.body = Part(PrimitiveType.Sphere, batMat, c.root, Vector3.zero, new Vector3(0.14f, 0.12f, 0.32f));
+        Part(PrimitiveType.Sphere, batMat, c.root, new Vector3(0f, 0.03f, 0.19f), Vector3.one * 0.1f);       // head
+        Part(PrimitiveType.Cube, batMat, c.root, new Vector3(0f, 0.02f, 0.27f), new Vector3(0.025f, 0.03f, 0.08f)); // beak
+        Part(PrimitiveType.Cube, batMat, c.root, new Vector3(0f, 0f, -0.24f), new Vector3(0.14f, 0.01f, 0.16f));     // tail fan
+
+        var wings = new Transform[2];
+        for (int i = 0; i < 2; i++)
+        {
+            float s = i == 0 ? -1f : 1f;
+            var pivot = new GameObject("Wing").transform;
+            pivot.SetParent(c.root, false);
+            pivot.localPosition = new Vector3(s * 0.05f, 0.02f, 0.02f);
+            Part(PrimitiveType.Cube, batMat, pivot, new Vector3(s * 0.28f, 0f, -0.02f), new Vector3(0.52f, 0.01f, 0.2f));
+            Part(PrimitiveType.Cube, batMat, pivot, new Vector3(s * 0.5f, 0f, -0.07f), new Vector3(0.12f, 0.008f, 0.12f)); // splayed tip feathers
+            wings[i] = pivot;
+        }
+        c.parts = wings;
+        c.audio = ProceduralAudio.AddSource(c.root.gameObject, null, false, true, volume, 8f, 90f);
+        c.root.gameObject.SetActive(false);
+        return c;
     }
 
     // ---------------------------------------------------------------- Owls

@@ -27,7 +27,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Resources/HorrorUnlitNoFog.shader` | Flat colour that ignores fog, for the eye and the giant. |
 | `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
-| `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, dark owls in the trees whose white eyes follow you, and black deer that graze and gallop off when you get close. |
+| `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, crows flying over high up, dark owls in the trees whose white eyes follow you, and black deer that graze and gallop off when you get close. |
 | `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |
 | `Assets/Scripts/Audio/ProceduralAudio.cs` | Synthesizes every sound in code, so no audio files are needed. Each script has clip slots to swap in real sounds. |
 | `Assets/Scripts/World/MaterialFactory.cs` | Placeholder materials for Built-in and URP. |
