@@ -99,6 +99,12 @@ public class ShadowEntity : MonoBehaviour
     public int maxAggression = 4;
     public float chargeVolume = 0.6f;
 
+    [Header("Extra Arms")]
+    [Tooltip("Chance it has extra arms growing from lower down its torso.")]
+    [Range(0f, 1f)] public float extraArmsChance = 0.25f;
+    [Tooltip("Most extra pairs it can have.")]
+    public int maxExtraArmPairs = 2;
+
     [Header("Poses")]
     [Tooltip("Chance it appears peeking out from behind a tree trunk instead of standing in the open.")]
     [Range(0f, 1f)] public float peekChance = 0.35f;
@@ -208,6 +214,8 @@ public class ShadowEntity : MonoBehaviour
     Transform leftEye, rightEye;
     Transform headPivot, leftArm, rightArm;
     readonly List<Transform> fingers = new List<Transform>();
+    readonly List<Transform> extraArms = new List<Transform>();
+    readonly List<Quaternion> extraArmRest = new List<Quaternion>();
     readonly List<Quaternion> fingerRest = new List<Quaternion>();
     Quaternion headTarget = Quaternion.identity;
     float twitchTimer;
@@ -1174,6 +1182,15 @@ public class ShadowEntity : MonoBehaviour
             if (side < 0) leftArm = arm; else rightArm = arm;
         }
 
+        // Some have more arms than they should, sprouting from the ribs below the real ones.
+        if (Random.value < extraArmsChance)
+        {
+            int pairs = Random.Range(1, Mathf.Max(1, maxExtraArmPairs) + 1);
+            for (int pair = 0; pair < pairs; pair++)
+                for (int side = -1; side <= 1; side += 2)
+                    BuildExtraArm(black, side, 1.68f - pair * 0.2f, pair);
+        }
+
         // Hunched spine with knobbly vertebrae, a narrow pelvis and caved-in chest.
         Vector3[] spine =
         {
@@ -1228,6 +1245,41 @@ public class ShadowEntity : MonoBehaviour
     }
 
     /// <summary>
+    /// An extra arm growing out of the side of the ribcage at a height: thinner and longer than the real
+    /// ones, splayed out, with its own curling fingers. It moves out of step with everything else.
+    /// </summary>
+    void BuildExtraArm(Material black, int side, float y, int pair)
+    {
+        Vector3 root = new Vector3(side * 0.15f, y, -0.02f);
+        Knob(visual, black, root, 0.045f);
+
+        var arm = Pivot(visual, "Extra Arm", root);
+        arm.localRotation = Quaternion.Euler(Random.Range(-25f, 15f), 0f, side * Random.Range(18f, 40f));
+        float length = 1.15f + pair * 0.1f;
+        Vector3 elbow = new Vector3(side * 0.08f, -0.55f * length, 0.12f);
+        Vector3 wrist = new Vector3(side * 0.03f, -1.05f * length, -0.05f);
+        Bone(arm, black, Vector3.zero, elbow, 0.03f);
+        Bone(arm, black, elbow, wrist, 0.024f);
+        Knob(arm, black, elbow, 0.045f);
+
+        var hand = Pivot(arm, "Hand", wrist);
+        for (int f = 0; f < 3; f++)
+        {
+            float spread = (f - 1f) * 0.03f;
+            var finger = Pivot(hand, "Finger", new Vector3(spread, 0f, 0.01f));
+            Vector3 mid = new Vector3(spread * 0.6f, -0.15f, 0.03f);
+            Vector3 tip = new Vector3(spread * 1.2f, -0.28f, 0.1f);
+            Bone(finger, black, Vector3.zero, mid, 0.01f);
+            Bone(finger, black, mid, tip, 0.008f);
+            fingers.Add(finger);
+            fingerRest.Add(finger.localRotation);
+        }
+
+        extraArms.Add(arm);
+        extraArmRest.Add(arm.localRotation);
+    }
+
+    /// <summary>
     /// A thin, too-wide split across the lower face, dark red inside, lined with narrow teeth. Scaled
     /// vertically by how open it is; hidden when shut.
     /// </summary>
@@ -1275,6 +1327,11 @@ public class ShadowEntity : MonoBehaviour
         float t = Time.time;
         leftArm.localRotation = poseLeftArm * Quaternion.Euler(Mathf.Sin(t * 0.7f + 1f) * 6f, 0f, Mathf.Sin(t * 0.5f) * 4f);
         rightArm.localRotation = poseRightArm * Quaternion.Euler(Mathf.Sin(t * 0.6f + 2.5f) * 6f, 0f, Mathf.Sin(t * 0.45f + 1f) * 4f);
+        // Extra arms grope about on their own, out of time with the rest.
+        for (int i = 0; i < extraArms.Count; i++)
+            extraArms[i].localRotation = extraArmRest[i] * Quaternion.Euler(
+                Mathf.Sin(t * (0.9f + i * 0.23f) + i * 1.7f) * 16f, 0f, Mathf.Sin(t * (0.6f + i * 0.17f) + i) * 12f);
+
         for (int i = 0; i < fingers.Count; i++)
         {
             float curl = 15f + 25f * Mathf.Sin(t * 1.3f + i * 0.9f);
