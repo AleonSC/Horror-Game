@@ -42,7 +42,7 @@ public class DarkForestGenerator : MonoBehaviour
     public GameObject[] treePrefabs;
 
     [Header("Grass")]
-    public int grassPatchCount = 3500;
+    public int grassPatchCount = 9000;
     [Tooltip("Perlin scale for where grass grows (lower = bigger meadows).")]
     public float grassNoiseScale = 0.03f;
     public Color grassColor = new Color(0.07f, 0.09f, 0.05f);
@@ -970,9 +970,9 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
 
-            // Grass grows in meadows and drifts rather than evenly everywhere.
+            // Grass grows all over, thickest in meadows and drifts.
             float n = Mathf.PerlinNoise((p.x + noiseOffset.x) * grassNoiseScale, (p.y + noiseOffset.y) * grassNoiseScale);
-            if (Range(0f, 1f) > n * n * 2.2f) continue;
+            if (Range(0f, 1f) > 0.2f + n * n * 2f) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 3.5f)) continue;
 
             var patch = new GameObject("Grass Patch");
