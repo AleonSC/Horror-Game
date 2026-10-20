@@ -71,6 +71,9 @@ public class GameOverScreen : MonoBehaviour
         foreach (var shack in Shack.All)
             shack.ResetShack();
 
+        foreach (var camp in Campsite.All)
+            camp.ResetCampsite();
+
         foreach (var tower in Watchtower.All)
             tower.ResetTower();
 

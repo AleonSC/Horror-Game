@@ -54,6 +54,12 @@ public class DarkForestGenerator : MonoBehaviour
     [Tooltip("Keep shacks at least this far apart.")]
     public float minShackSpacing = 60f;
 
+    [Header("Campsites")]
+    [Tooltip("Abandoned campsites, each with a smoking campfire and a backpack with a flare gun.")]
+    public int campsiteCount = 3;
+    [Tooltip("Keep campsites at least this far apart.")]
+    public float minCampsiteSpacing = 50f;
+
     [Header("Watchtower")]
     [Tooltip("Place one tall watchtower with floodlights somewhere on the map.")]
     public bool spawnWatchtower = true;
@@ -110,6 +116,9 @@ public class DarkForestGenerator : MonoBehaviour
     /// <summary>Positions (x, z) of the shacks, so other things can keep clear of them.</summary>
     public readonly List<Vector2> ShackPositions = new List<Vector2>();
 
+    /// <summary>Positions (x, z) of the campsites.</summary>
+    public readonly List<Vector2> CampsitePositions = new List<Vector2>();
+
     /// <summary>Position (x, z) of the watchtower, if there is one.</summary>
     public Vector2? WatchtowerPosition { get; private set; }
 
@@ -119,6 +128,8 @@ public class DarkForestGenerator : MonoBehaviour
         var flat = new Vector2(p.x, p.z);
         foreach (var shack in ShackPositions)
             if (Near(shack, flat, distance)) return true;
+        foreach (var camp in CampsitePositions)
+            if (Near(camp, flat, distance + 1f)) return true;
         return WatchtowerPosition.HasValue && Near(WatchtowerPosition.Value, flat, distance + 2f);
     }
 
@@ -203,8 +214,10 @@ public class DarkForestGenerator : MonoBehaviour
 
         BuildGround();
         if (!wrapWorld) BuildBoundary();
+        CampsitePositions.Clear(); // before the others, so old camps don't count as obstacles
         PlaceShacks();
         PlaceWatchtower();
+        PlaceCampsites();
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
@@ -592,6 +605,33 @@ public class DarkForestGenerator : MonoBehaviour
             go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
             go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
             go.AddComponent<Shack>().Build(this, rng);
+        }
+    }
+
+    void PlaceCampsites()
+    {
+        var parent = new GameObject("Campsites").transform;
+        parent.SetParent(root, false);
+
+        float half = areaSize * 0.5f - 10f;
+        int placed = 0;
+        for (int attempt = 0; attempt < 500 && placed < campsiteCount; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            if (p.magnitude < 25f) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 30f)) continue;
+            bool tooClose = false;
+            foreach (var other in CampsitePositions)
+                if (Near(other, p, minCampsiteSpacing)) { tooClose = true; break; }
+            if (tooClose) continue;
+
+            CampsitePositions.Add(p);
+            var go = new GameObject("Campsite");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
+            go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+            go.AddComponent<Campsite>().Build(this, rng);
+            placed++;
         }
     }
 

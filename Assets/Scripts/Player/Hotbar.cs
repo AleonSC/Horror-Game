@@ -14,7 +14,7 @@ using UnityEngine;
 /// </summary>
 public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
-    public enum Item { Flashlight, Torch, Lighter }
+    public enum Item { Flashlight, Torch, Lighter, FlareGun }
 
     [Header("Torch")]
     [Tooltip("Seconds a torch burns before it's used up for good.")]

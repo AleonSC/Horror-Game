@@ -8,7 +8,10 @@ public class ItemPickup : MonoBehaviour
 {
     public Hotbar.Item item;
 
-    public string DisplayName => item == Hotbar.Item.Torch ? "torch" : item == Hotbar.Item.Lighter ? "lighter" : "item";
+    public string DisplayName =>
+        item == Hotbar.Item.Torch ? "torch" :
+        item == Hotbar.Item.Lighter ? "lighter" :
+        item == Hotbar.Item.FlareGun ? "flare gun" : "item";
 
     /// <summary>Puts the item in the hotbar and removes it from the world.</summary>
     public void PickUp(Hotbar hotbar)
@@ -27,6 +30,19 @@ public class ItemPickup : MonoBehaviour
         var cloth = MaterialFactory.Lit(new Color(0.12f, 0.1f, 0.07f), 0.05f);
         Visual(PrimitiveType.Cylinder, wood, pickup.transform, new Vector3(0f, 0.025f, 0f), new Vector3(0.035f, 0.25f, 0.035f), new Vector3(0f, 0f, 90f));
         Visual(PrimitiveType.Cylinder, cloth, pickup.transform, new Vector3(0.24f, 0.03f, 0f), new Vector3(0.06f, 0.07f, 0.06f), new Vector3(0f, 0f, 90f));
+        return pickup;
+    }
+
+    /// <summary>Builds a flare gun: a chunky orange pistol with a wide barrel, lying on its side.</summary>
+    public static ItemPickup CreateFlareGun(Transform parent, Vector3 localPos, float yaw)
+    {
+        var pickup = Create("Flare Gun Pickup", Hotbar.Item.FlareGun, parent, localPos, yaw);
+        var orange = MaterialFactory.Lit(new Color(0.85f, 0.3f, 0.05f), 0.4f);
+        var dark = MaterialFactory.Lit(new Color(0.05f, 0.05f, 0.05f), 0.3f);
+        Visual(PrimitiveType.Cube, orange, pickup.transform, new Vector3(0f, 0.025f, 0.02f), new Vector3(0.05f, 0.05f, 0.16f), Vector3.zero);       // body
+        Visual(PrimitiveType.Cylinder, orange, pickup.transform, new Vector3(0f, 0.03f, 0.14f), new Vector3(0.06f, 0.05f, 0.06f), new Vector3(90f, 0f, 0f)); // barrel
+        Visual(PrimitiveType.Cube, orange, pickup.transform, new Vector3(0f, 0.02f, -0.08f), new Vector3(0.045f, 0.04f, 0.1f), new Vector3(0f, 0f, 0f));   // grip, lying flat
+        Visual(PrimitiveType.Cube, dark, pickup.transform, new Vector3(0f, 0.005f, -0.02f), new Vector3(0.012f, 0.03f, 0.03f), Vector3.zero);           // trigger
         return pickup;
     }
 
