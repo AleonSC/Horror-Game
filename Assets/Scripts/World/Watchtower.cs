@@ -114,6 +114,7 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         foreach (var entity in new List<ShadowEntity>(ShadowEntity.All))
             entity.ResetHunt();
         if (WatcherEvent.Instance != null) WatcherEvent.Instance.PushBack(); // even the giant is driven back
+        foreach (var flier in new List<FlyingEntity>(FlyingEntity.All)) flier.Repel(transform.position);
     }
 
     /// <summary>Lights off and ready again (used when the run resets).</summary>

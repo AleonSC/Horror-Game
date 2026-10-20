@@ -61,6 +61,8 @@ public class SpawnDebugOverlay : MonoBehaviour
                 Add("Entity", entity.transform.position + Vector3.up * 1.6f, EntityColor, true);
         foreach (var blind in BlindEntity.All)
             Add("Blind Entity", blind.transform.position + Vector3.up * 3f, EntityColor, true);
+        foreach (var flier in FlyingEntity.All)
+            Add("Flier", flier.transform.position, EntityColor, true);
         if (WatcherEvent.Instance != null && WatcherEvent.Instance.TryGetGiantHead(out var head))
             Add("The Watcher", head, EntityColor, true);
     }

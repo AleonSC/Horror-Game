@@ -61,6 +61,8 @@ public class GameOverScreen : MonoBehaviour
             Destroy(entity.gameObject);
         foreach (var blind in new List<BlindEntity>(BlindEntity.All))
             Destroy(blind.gameObject);
+        foreach (var flier in new List<FlyingEntity>(FlyingEntity.All))
+            Destroy(flier.gameObject);
 
         foreach (var lamp in Lamp.All)
             lamp.ResetLamp();
@@ -121,7 +123,7 @@ public class GameOverScreen : MonoBehaviour
             }
             float textAlpha = Mathf.Clamp01((timer - FadeOutTime * 0.6f) / 1.5f);
             GUI.color = new Color(0.7f, 0.05f, 0.05f, textAlpha);
-            GUI.Label(new Rect(0f, 0f, Screen.width, Screen.height), "IT FOUND YOU", style);
+            GUI.Label(new Rect(0f, 0f, Screen.width, Screen.height), "YOU'VE BEEN FOUND", style);
         }
 
         GUI.color = Color.white;

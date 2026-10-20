@@ -310,6 +310,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Ground Leaves").AddComponent<GroundLeaves>();
         if (spawnEntity && Application.isPlaying && FindAnyObjectByType<BlindEntitySpawner>() == null)
             new GameObject("Blind Entity Spawner").AddComponent<BlindEntitySpawner>();
+        if (spawnEntity && Application.isPlaying && FindAnyObjectByType<FlyingEntitySpawner>() == null)
+            new GameObject("Flying Entity Spawner").AddComponent<FlyingEntitySpawner>();
         if (Application.isPlaying && FindAnyObjectByType<SpawnDebugOverlay>() == null)
             new GameObject("Spawn Debug Overlay").AddComponent<SpawnDebugOverlay>();
         if (Application.isPlaying && FindAnyObjectByType<MusicManager>() == null)
