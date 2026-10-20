@@ -441,10 +441,6 @@ public class DarkForestGenerator : MonoBehaviour
     {
         if (FindAnyObjectByType<FirstPersonController>() != null) return;
 
-        // Disable the default scene camera; the player brings its own.
-        var oldCam = Camera.main;
-        if (oldCam != null) oldCam.gameObject.SetActive(false);
-
         var player = new GameObject("Player");
         player.transform.position = new Vector3(0f, GetGroundHeight(0f, 0f) + 0.1f, 0f);
 
@@ -453,13 +449,23 @@ public class DarkForestGenerator : MonoBehaviour
         cc.stepOffset = 0.4f;
         cc.slopeLimit = 50f;
 
-        var camGo = new GameObject("Player Camera");
-        camGo.tag = "MainCamera";
+        // Reuse the scene's Main Camera if there is one, so its post-processing (e.g. URP Bloom) carries over.
+        var cam = Camera.main;
+        if (cam == null)
+        {
+            cam = new GameObject("Player Camera").AddComponent<Camera>();
+            cam.tag = "MainCamera";
+            cam.gameObject.AddComponent<AudioListener>();
+        }
+        else if (cam.GetComponent<AudioListener>() == null)
+        {
+            cam.gameObject.AddComponent<AudioListener>();
+        }
+        var camGo = cam.gameObject;
         camGo.transform.SetParent(player.transform, false);
-        var cam = camGo.AddComponent<Camera>();
+        camGo.transform.localRotation = Quaternion.identity;
         cam.nearClipPlane = 0.05f;
         cam.fieldOfView = 70f;
-        camGo.AddComponent<AudioListener>();
         if (applyLighting) ConfigureCamera(cam);
 
         var controller = player.AddComponent<FirstPersonController>();
