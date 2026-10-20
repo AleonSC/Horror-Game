@@ -44,10 +44,10 @@ public class DarkForestGenerator : MonoBehaviour
     public GameObject[] treePrefabs;
 
     [Header("Grass")]
-    public int grassPatchCount = 9000;
-    [Tooltip("Grass clumps gathered round the base of each tree, over its roots (0 for none).")]
+    public int grassPatchCount = 16000;
+    [Tooltip("Grass clumps gathered round the base of each tree (0 for none).")]
     public int minTreeBaseClumps = 4;
-    public int maxTreeBaseClumps = 8;
+    public int maxTreeBaseClumps = 10;
     [Tooltip("Bushes you can push through (they rustle and shake).")]
     public int bushCount = 1400;
     public float minBushSize = 0.45f;
@@ -644,7 +644,7 @@ public class DarkForestGenerator : MonoBehaviour
 
     /// <summary>
     /// The outline of one tree's trunk: tapering, lumpy and slightly bent, with a flared base that
-    /// swells out into buttresses where the roots leave it. Heights are measured up from the ground.
+    /// swells out into buttresses at the foot. Heights are measured up from the ground.
     /// </summary>
     class TrunkShape
     {
@@ -701,10 +701,9 @@ public class DarkForestGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds a fixed trunk collider to the tree, roots spreading over the ground and diving into it, and a
-    /// "Sway" pivot at its base holding the visible trunk (a mesh called meshName, with anything addParts adds).
-    /// Foliage and branches go under the pivot, so the wind can bend the whole tree without moving the collider;
-    /// the roots stay put.
+    /// Adds a fixed trunk collider to the tree, and a "Sway" pivot at its base holding the visible trunk
+    /// (a mesh called meshName, with anything addParts adds). Foliage and branches go under the pivot, so
+    /// the wind can bend the whole tree without moving the collider.
     /// </summary>
     Transform AddTrunk(Transform tree, TrunkShape shape, Material mat, string meshName, System.Action<MeshBuilder> addParts)
     {
@@ -735,45 +734,9 @@ public class DarkForestGenerator : MonoBehaviour
         trunk.AddComponent<MeshFilter>().sharedMesh = bark.ToMesh(meshName, true);
         trunk.AddComponent<MeshRenderer>().sharedMaterial = mat;
 
-        // Roots, following the lie of the ground.
-        var roots = new MeshBuilder();
-        foreach (float angle in shape.rootAngles)
-        {
-            var dir = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-            var side = new Vector3(-dir.z, 0f, dir.x);
-            float length = shape.radius * Range(3f, 6f) + Range(0.2f, 0.6f);
-            float thickness = shape.radius * Range(0.35f, 0.5f);
-            float wiggle = Range(-0.15f, 0.15f) * length, wigglePhase = Range(0f, 6f);
-
-            const int steps = 8;
-            var path = new Vector3[steps];
-            var widths = new float[steps];
-            for (int i = 0; i < steps; i++)
-            {
-                float t = i / (float)(steps - 1);
-                Vector3 p = dir * (shape.radius * 0.4f + length * t) + side * wiggle * Mathf.Sin(t * 2.5f + wigglePhase) * t;
-                widths[i] = thickness * Mathf.Pow(1f - t, 1.1f) + 0.015f;
-                // Starts high on the flare, arches along just above the ground, then dives in.
-                p.y = LocalGround(tree, p) + widths[i] * 0.35f + shape.radius * 0.6f * (1f - t) * (1f - t) - 0.3f * t * t * t;
-                path[i] = p;
-            }
-            roots.AddTube(path, (i, a) => widths[i], 7, 1, 1.2f, 0.65f);
-        }
-        var rootObject = new GameObject("Roots");
-        rootObject.transform.SetParent(tree, false);
-        rootObject.AddComponent<MeshFilter>().sharedMesh = roots.ToMesh("Roots", true);
-        rootObject.AddComponent<MeshRenderer>().sharedMaterial = mat;
-
         return sway;
     }
 
-    /// <summary>Height of the ground under a point in the tree's own space.</summary>
-    float LocalGround(Transform tree, Vector3 local)
-    {
-        Vector3 w = tree.TransformPoint(new Vector3(local.x, 0f, local.z));
-        w.y = GetGroundHeight(w.x, w.z);
-        return tree.InverseTransformPoint(w).y;
-    }
 
     /// <summary>How many times the bark texture wraps around a trunk, so it isn't stretched on thick ones.</summary>
     static int TileCount(float radius) => Mathf.Max(1, Mathf.RoundToInt(radius * Mathf.PI * 2f / 0.7f));
@@ -888,7 +851,7 @@ public class DarkForestGenerator : MonoBehaviour
 
         /// <summary>
         /// A tube along a path. radius(ring, angle) gives its outline; it wraps the texture `wraps` times around,
-        /// one texture height per metresPerV along its length. flatten squashes it top to bottom (for roots).
+        /// one texture height per metresPerV along its length. flatten squashes it top to bottom.
         /// </summary>
         public void AddTube(IList<Vector3> path, System.Func<int, float, float> radius, int segments, int wraps, float metresPerV, float flatten = 1f)
         {
@@ -1214,7 +1177,7 @@ public class DarkForestGenerator : MonoBehaviour
 
             // Grass grows all over, thickest in meadows and drifts.
             float n = Mathf.PerlinNoise((p.x + noiseOffset.x) * grassNoiseScale, (p.y + noiseOffset.y) * grassNoiseScale);
-            if (Range(0f, 1f) > 0.2f + n * n * 2f) continue;
+            if (Range(0f, 1f) > 0.4f + n * n * 2f) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 3.5f)) continue;
 
             var patch = new GameObject("Grass Patch");
@@ -1235,7 +1198,7 @@ public class DarkForestGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Tufts of grass round the foot of every tree, nestled among the roots and against the trunk,
+    /// Tufts of grass round the foot of every tree, nestled against the trunk,
     /// so the trunk grows up out of the undergrowth. One merged mesh per tree; these don't sway.
     /// </summary>
     void AddTreeBaseGrass(Transform parent, Mesh[] variants, Material[] materials)
@@ -1255,7 +1218,7 @@ public class DarkForestGenerator : MonoBehaviour
             float start = Range(0f, Mathf.PI * 2f);
             for (int i = 0; i < clumps; i++)
             {
-                // Spread round the trunk, most just outside it, a few further out over the roots.
+                // Spread round the trunk, most just outside it, a few further out.
                 float angle = start + (i + Range(-0.35f, 0.35f)) / clumps * Mathf.PI * 2f;
                 float dist = trunk.radius + Range(0.05f, 0.5f) + (Range(0f, 1f) < 0.35f ? Range(0.4f, 1.2f) : 0f);
                 float x = Mathf.Cos(angle) * dist, z = Mathf.Sin(angle) * dist;
