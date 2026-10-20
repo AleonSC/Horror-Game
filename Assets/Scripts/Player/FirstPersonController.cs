@@ -54,7 +54,7 @@ public class FirstPersonController : MonoBehaviour
     public bool IsGrounded => controller.isGrounded;
     public bool IsRunning { get; private set; }
     public bool IsCrouching { get; private set; }
-    public float CurrentSpeed => horizontalVelocity.magnitude;
+    public float CurrentSpeed => moveVelocity.magnitude;
 
     /// <summary>Degrees of random camera shake, set each frame by other scripts (e.g. ShadowEntity).</summary>
     [HideInInspector] public float cameraShake;
@@ -66,6 +66,7 @@ public class FirstPersonController : MonoBehaviour
 
     CharacterController controller;
     Vector3 horizontalVelocity;
+    Vector3 moveVelocity; // horizontalVelocity after the approach limit
     float verticalVelocity;
     float pitch;
     float currentHeight;
@@ -180,7 +181,8 @@ public class FirstPersonController : MonoBehaviour
 
         float accel = grounded ? acceleration : acceleration * airControl;
         horizontalVelocity = Vector3.Lerp(horizontalVelocity, desired, 1f - Mathf.Exp(-accel * Time.deltaTime));
-        if (hasApproachLimit) horizontalVelocity = ApplyApproachLimit(horizontalVelocity);
+        // Applied to this frame's movement only, so the slowdown doesn't compound frame to frame.
+        moveVelocity = hasApproachLimit ? ApplyApproachLimit(horizontalVelocity) : horizontalVelocity;
 
         if (grounded && verticalVelocity < 0f)
             verticalVelocity = -2f; // keep the controller snapped to the ground
@@ -190,7 +192,7 @@ public class FirstPersonController : MonoBehaviour
 
         verticalVelocity += gravity * Time.deltaTime;
 
-        Vector3 motion = (horizontalVelocity + Vector3.up * verticalVelocity) * Time.deltaTime;
+        Vector3 motion = (moveVelocity + Vector3.up * verticalVelocity) * Time.deltaTime;
         CollisionFlags flags = controller.Move(motion);
 
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)

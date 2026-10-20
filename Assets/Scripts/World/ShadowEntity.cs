@@ -35,6 +35,8 @@ public class ShadowEntity : MonoBehaviour
     public float reactDistance = 14f;
     [Tooltip("The player can't get closer than this. Reaching it triggers the crescendo.")]
     public float stopDistance = 2.5f;
+    [Tooltip("The crescendo starts once the player is within this much of the stop distance.")]
+    public float triggerMargin = 0.4f;
 
     [Header("Vibration")]
     public float maxVibration = 0.04f;
@@ -212,7 +214,7 @@ public class ShadowEntity : MonoBehaviour
         float brightness = Mathf.Lerp(eyeIntensity, spawnEyeIntensity, eyeFlare) + closeness * eyeIntensity * 2f;
         SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), brightness);
 
-        if (dist <= stopDistance + 0.15f)
+        if (dist <= stopDistance + triggerMargin)
         {
             CurrentState = State.Crescendo;
             timer = 0f;
