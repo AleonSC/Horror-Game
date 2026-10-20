@@ -89,6 +89,7 @@ public class LampSpawner : MonoBehaviour
             lamp.transform.SetPositionAndRotation(p, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
             ApplySettings(lamp);
             LampPaths.Build(lamp.transform, generator);
+            LampGarden.Build(lamp, generator);
             lamps.Add(lamp);
             WorldWrap.RegisterStatic(lamp.transform);
         }

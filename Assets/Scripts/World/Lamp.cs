@@ -193,7 +193,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "Marker";
         go.transform.SetParent(transform, false);
-        go.transform.localPosition = Vector3.up * (PoleHeight + 0.2f);
+        go.transform.localPosition = Vector3.up * (PoleHeight + 0.72f); // just above the finial
         Destroy(go.GetComponent<Collider>());
         markerMat = MaterialFactory.NoFog(markerColor); // seen through the fog
         var renderer = go.GetComponent<Renderer>();
@@ -429,15 +429,64 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
     void Build()
     {
-        Material metal = MaterialFactory.Lit(new Color(0.12f, 0.12f, 0.13f), 0.3f);
+        // An old Victorian street lamp: black cast iron with brass trim, a stepped plinth and fluted base, a
+        // slim pole ringed with collars, a ladder bar with ball finials, and a four-sided glass lantern under
+        // a pyramid roof with a finial on top.
+        Material metal = MaterialFactory.Lit(new Color(0.045f, 0.05f, 0.05f), 0.55f);
+        Material brass = MaterialFactory.Lit(new Color(0.5f, 0.38f, 0.16f), 0.75f);
+        Material glass = MaterialFactory.LitTransparent(Texture2D.whiteTexture, new Color(1f, 0.92f, 0.75f, 0.22f), 0.95f);
         bulbMat = MaterialFactory.Unlit(Color.black);
 
-        var pole = Part(PrimitiveType.Cylinder, metal, new Vector3(0f, PoleHeight * 0.5f, 0f), new Vector3(0.12f, PoleHeight * 0.5f, 0.12f), keepCollider: true);
-        Part(PrimitiveType.Cylinder, metal, new Vector3(0f, 0.1f, 0f), new Vector3(0.45f, 0.1f, 0.45f));
-        Part(PrimitiveType.Cube, metal, new Vector3(0f, PoleHeight + 0.15f, 0f), new Vector3(0.5f, 0.12f, 0.5f));
-        Part(PrimitiveType.Cube, metal, new Vector3(0f, PoleHeight - 0.25f, 0f), new Vector3(0.35f, 0.06f, 0.35f));
-        Part(PrimitiveType.Sphere, bulbMat, new Vector3(0f, PoleHeight - 0.05f, 0f), Vector3.one * 0.28f);
+        // Plinth and base.
+        Part(PrimitiveType.Cylinder, metal, new Vector3(0f, 0.05f, 0f), new Vector3(0.62f, 0.05f, 0.62f));
+        Part(PrimitiveType.Cylinder, metal, new Vector3(0f, 0.14f, 0f), new Vector3(0.5f, 0.05f, 0.5f));
+        Part(PrimitiveType.Cylinder, metal, new Vector3(0f, 0.42f, 0f), new Vector3(0.3f, 0.24f, 0.3f));
+        for (int i = 0; i < 8; i++) // flutes round the base
+        {
+            float a = i * Mathf.PI / 4f;
+            Part(PrimitiveType.Cylinder, metal, new Vector3(Mathf.Cos(a) * 0.15f, 0.42f, Mathf.Sin(a) * 0.15f), new Vector3(0.05f, 0.22f, 0.05f));
+        }
+        Part(PrimitiveType.Cylinder, brass, new Vector3(0f, 0.68f, 0f), new Vector3(0.34f, 0.025f, 0.34f));
+        Part(PrimitiveType.Cylinder, metal, new Vector3(0f, 0.76f, 0f), new Vector3(0.2f, 0.06f, 0.2f));
+
+        // The pole, with collars up it.
+        var pole = Part(PrimitiveType.Cylinder, metal, new Vector3(0f, PoleHeight * 0.5f, 0f), new Vector3(0.1f, PoleHeight * 0.5f, 0.1f), keepCollider: true);
         pole.name = "Pole";
+        foreach (float y in new[] { 1.3f, 2.1f })
+            Part(PrimitiveType.Cylinder, brass, new Vector3(0f, y, 0f), new Vector3(0.15f, 0.02f, 0.15f));
+        // Ladder bar, with ball finials.
+        Part(PrimitiveType.Cube, metal, new Vector3(0f, PoleHeight - 0.55f, 0f), new Vector3(0.7f, 0.035f, 0.035f));
+        foreach (float x in new[] { -0.36f, 0.36f })
+            Part(PrimitiveType.Sphere, brass, new Vector3(x, PoleHeight - 0.55f, 0f), Vector3.one * 0.07f);
+        // Scrolled brackets up to the lantern.
+        for (int i = 0; i < 4; i++)
+        {
+            float a = i * 90f + 45f;
+            var bracket = Part(PrimitiveType.Cube, metal, Quaternion.Euler(0f, a, 0f) * new Vector3(0f, PoleHeight - 0.42f, 0.09f), new Vector3(0.025f, 0.2f, 0.025f));
+            bracket.transform.localRotation = Quaternion.Euler(0f, a, 0f) * Quaternion.Euler(35f, 0f, 0f);
+        }
+        Part(PrimitiveType.Cylinder, brass, new Vector3(0f, PoleHeight - 0.33f, 0f), new Vector3(0.18f, 0.02f, 0.18f));
+
+        // The lantern: a tray, corner posts, glass panes, a cap ring, and a pyramid roof with a finial.
+        const float half = 0.2f, bottom = PoleHeight - 0.32f, top = PoleHeight + 0.2f;
+        Part(PrimitiveType.Cube, metal, new Vector3(0f, bottom, 0f), new Vector3(half * 2f + 0.06f, 0.04f, half * 2f + 0.06f));
+        Part(PrimitiveType.Cube, metal, new Vector3(0f, top, 0f), new Vector3(half * 2f + 0.08f, 0.05f, half * 2f + 0.08f));
+        for (int i = 0; i < 4; i++)
+        {
+            float sx = i < 2 ? -1f : 1f, sz = i % 2 == 0 ? -1f : 1f;
+            Part(PrimitiveType.Cube, metal, new Vector3(sx * half, (bottom + top) * 0.5f, sz * half), new Vector3(0.025f, top - bottom, 0.025f));
+            var pane = Part(PrimitiveType.Cube, glass, Quaternion.Euler(0f, i * 90f, 0f) * new Vector3(0f, (bottom + top) * 0.5f, half), new Vector3(half * 2f - 0.02f, top - bottom - 0.04f, 0.005f));
+            pane.transform.localRotation = Quaternion.Euler(0f, i * 90f, 0f);
+            pane.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+        var roof = new GameObject("Roof");
+        roof.transform.SetParent(transform, false);
+        roof.transform.localPosition = new Vector3(0f, top + 0.025f, 0f);
+        roof.AddComponent<MeshFilter>().sharedMesh = Pyramid(half + 0.08f, 0.32f);
+        roof.AddComponent<MeshRenderer>().sharedMaterial = metal;
+        Part(PrimitiveType.Sphere, brass, new Vector3(0f, top + 0.37f, 0f), Vector3.one * 0.07f);
+        Part(PrimitiveType.Cylinder, brass, new Vector3(0f, top + 0.45f, 0f), new Vector3(0.015f, 0.06f, 0.015f));
+        Part(PrimitiveType.Sphere, bulbMat, new Vector3(0f, PoleHeight - 0.05f, 0f), Vector3.one * 0.2f);
 
         // Generous invisible box so the lamp is easy to click on.
         var aim = gameObject.AddComponent<BoxCollider>();
@@ -474,6 +523,32 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         sparkLight.shadows = LightShadows.None;
         sparkLight.enabled = false;
         sparkRoot.gameObject.SetActive(false);
+    }
+
+    /// <summary>A four-sided pyramid (a lantern roof), its base centred at the origin, flat-shaded.</summary>
+    static Mesh Pyramid(float half, float height)
+    {
+        var apex = new Vector3(0f, height, 0f);
+        var corners = new[] { new Vector3(-half, 0f, -half), new Vector3(-half, 0f, half), new Vector3(half, 0f, half), new Vector3(half, 0f, -half) };
+        var verts = new List<Vector3>();
+        var tris = new List<int>();
+        for (int i = 0; i < 4; i++)
+        {
+            int b = verts.Count;
+            verts.Add(corners[i]);
+            verts.Add(apex);
+            verts.Add(corners[(i + 1) % 4]);
+            tris.AddRange(new[] { b, b + 2, b + 1 }); // wound so the outside faces out
+        }
+        int u = verts.Count;
+        verts.AddRange(corners);
+        tris.AddRange(new[] { u, u + 2, u + 1, u, u + 3, u + 2 });
+        var mesh = new Mesh { name = "Lantern Roof" };
+        mesh.SetVertices(verts);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
     }
 
     GameObject Part(PrimitiveType type, Material mat, Vector3 pos, Vector3 scale, bool keepCollider = false)

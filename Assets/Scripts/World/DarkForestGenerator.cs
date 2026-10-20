@@ -305,6 +305,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Weather").AddComponent<WeatherSystem>();
         if (spawnIntro && Application.isPlaying && FindAnyObjectByType<IntroText>() == null)
             new GameObject("Intro Text").AddComponent<IntroText>();
+        if (spawnIntro && Application.isPlaying && FindAnyObjectByType<LampNarration>() == null)
+            new GameObject("Lamp Narration").AddComponent<LampNarration>();
         if (Application.isPlaying && FindAnyObjectByType<PauseMenu>() == null)
             new GameObject("Pause Menu").AddComponent<PauseMenu>();
         if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<FallingLeaves>() == null)
