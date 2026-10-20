@@ -46,44 +46,6 @@ public static class MaterialFactory
         return mat;
     }
 
-    /// <summary>
-    /// An unlit, see-through textured material, either alpha-blended or additive (glows, light beams).
-    /// Double-sided, doesn't write depth. renderQueue lets things like the moon draw behind everything.
-    /// </summary>
-    public static Material Transparent(Texture texture, Color color, bool additive, int renderQueue = (int)RenderQueue.Transparent)
-    {
-        Material mat;
-        if (UsingSrp)
-        {
-            mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            float src = (float)BlendMode.SrcAlpha;
-            float dst = additive ? (float)BlendMode.One : (float)BlendMode.OneMinusSrcAlpha;
-            mat.SetFloat("_Surface", 1f);
-            mat.SetFloat("_Blend", additive ? 2f : 0f);
-            mat.SetFloat("_SrcBlend", src);
-            mat.SetFloat("_DstBlend", dst);
-            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", src);
-            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", dst);
-            mat.SetFloat("_ZWrite", 0f);
-            if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", 0f);
-            mat.SetOverrideTag("RenderType", "Transparent");
-            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        }
-        else
-        {
-            Shader shader = Shader.Find(additive ? "Legacy Shaders/Particles/Additive" : "Legacy Shaders/Particles/Alpha Blended");
-            if (shader == null) shader = Shader.Find("Unlit/Transparent");
-            mat = new Material(shader);
-            color *= 0.5f; // these shaders double the tint
-        }
-
-        mat.mainTexture = texture;
-        SetColor(mat, color);
-        if (mat.HasProperty("_TintColor")) mat.SetColor("_TintColor", color);
-        mat.renderQueue = renderQueue;
-        return mat;
-    }
-
     /// <summary>Sets the main color on either pipeline's shader.</summary>
     public static void SetColor(Material mat, Color color)
     {
