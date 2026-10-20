@@ -65,6 +65,7 @@ public class BlindEntity : MonoBehaviour
         Noise.Heard -= OnNoise;
         if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
         musicTaken = false;
+        BlindEntityTheme.FadeOut();
     }
 
     /// <summary>Brings one in, somewhere out in the dark near the player.</summary>
@@ -297,7 +298,7 @@ public class BlindEntity : MonoBehaviour
             omen.pitch = 0.6f;
             omen.PlayOneShot(ProceduralAudio.DistantRumble, 1f);
             omen.PlayOneShot(ProceduralAudio.Tension, 0.5f);
-            if (MusicManager.Instance != null) { MusicManager.Instance.SetOverride(MusicManager.Mood.Danger); musicTaken = true; }
+            BlindEntityTheme.Play(); // its own music, scored to all this
         }
         if (Beat(1, OmenTime))
         {
@@ -317,7 +318,6 @@ public class BlindEntity : MonoBehaviour
             roar.PlayOneShot(ProceduralAudio.Scream, 1f);
             omen.pitch = 0.45f;
             omen.PlayOneShot(ProceduralAudio.DistantRumble, 0.8f);
-            if (MusicManager.Instance != null) MusicManager.Instance.PlayStinger();
             shake = 3f;
         }
         if (Beat(4, RoarStart + 0.5f) && Lightning.Instance != null) Lightning.Instance.StrikeAt(bearing + Random.Range(-15f, 15f), 1f);
@@ -702,6 +702,8 @@ public class BlindEntitySpawner : MonoBehaviour
 {
     [Tooltip("Lamps lit before the blind one comes.")]
     public int lampsToSpawn = 3;
+
+    void Start() => BlindEntityTheme.Prepare(); // its music takes a moment to make: start now, in the background
 
     void Update()
     {
