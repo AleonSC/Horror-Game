@@ -45,57 +45,93 @@ public class Campsite : MonoBehaviour
             return generator.GetGroundHeight(w.x, w.z) - transform.position.y;
         }
 
-        var canvas = MaterialFactory.Lit(new Color(0.12f, 0.13f, 0.08f), 0.05f);
+        var canvas = MaterialFactory.Lit(new Color(0.13f, 0.14f, 0.085f), 0.05f);
         var pole = MaterialFactory.Lit(new Color(0.15f, 0.15f, 0.16f), 0.4f);
-        var stone = MaterialFactory.Lit(new Color(0.16f, 0.16f, 0.16f), 0.2f);
-        var charred = MaterialFactory.Lit(new Color(0.03f, 0.025f, 0.02f), 0.05f);
+        var rope = MaterialFactory.Lit(new Color(0.2f, 0.18f, 0.14f), 0.05f);
         var ash = MaterialFactory.Lit(new Color(0.12f, 0.115f, 0.11f), 0f);
-        var wood = MaterialFactory.Lit(new Color(0.14f, 0.1f, 0.07f), 0.05f);
         var pack = MaterialFactory.Lit(new Color(0.18f, 0.06f, 0.04f), 0.15f);
+        var bark = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.85f, 0.78f, 0.7f), 0.05f);
+        var charred = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.18f, 0.16f, 0.15f), 0.1f);
+        var endGrain = MaterialFactory.LitTextured(ProceduralTextures.EndGrain, null, Color.white, 0.05f);
+        var sooty = generator.RockMaterial != null ? new Material(generator.RockMaterial) : MaterialFactory.Lit(new Color(0.15f, 0.15f, 0.15f));
+        MaterialFactory.SetColor(sooty, new Color(0.45f, 0.43f, 0.42f)); // blackened by the fire
 
-        // A-frame tent, one side sagging.
-        var tent = Anchor("Tent", new Vector3(-1.6f, 0f, 0.6f), R(-20f, 20f), Ground);
-        for (int side = -1; side <= 1; side += 2)
-        {
-            var slab = Box(canvas, tent, new Vector3(side * 0.45f, 0.6f, 0f), new Vector3(0.04f, 1.45f, 2.2f), false);
-            slab.localRotation = Quaternion.Euler(0f, 0f, side * (40f + (side > 0 ? R(0f, 8f) : 0f)));
-        }
-        Box(canvas, tent, new Vector3(0.25f, 0.45f, 1.12f), new Vector3(0.55f, 0.9f, 0.03f), false).localRotation = Quaternion.Euler(0f, 35f, -12f); // door flap, half open
-        Box(pole, tent, new Vector3(0f, 1.18f, 0f), new Vector3(0.03f, 0.03f, 2.3f), false);
+        // ---- The tent: a proper canvas A-frame, sides sagging between the poles, back closed, one door flap
+        // tied open, guy ropes out to pegs. Tilted to sit on the slope.
+        var tent = AnchorOnGround("Tent", new Vector3(-1.7f, 0f, 0.6f), R(-25f, 25f), 1f, 1.4f, Ground);
+        const float tentWidth = 0.95f, tentHeight = 1.15f, tentLength = 2.2f;
+        MeshPart(tent, "Canvas", BuildTentMesh(tentWidth, tentHeight, tentLength, R(0.08f, 0.16f)), canvas);
+        // Door: the left flap hangs closed, the right one is pulled back and tied open.
+        MeshPart(tent, "Door Flap", Triangle(new Vector3(-tentWidth, 0f, tentLength * 0.5f), new Vector3(0f, 0f, tentLength * 0.5f + 0.05f), new Vector3(0f, tentHeight, tentLength * 0.5f)), canvas);
+        var flapHinge = new GameObject("Open Flap").transform;
+        flapHinge.SetParent(tent, false);
+        flapHinge.localPosition = new Vector3(tentWidth, 0f, tentLength * 0.5f);
+        flapHinge.localRotation = Quaternion.AngleAxis(-R(55f, 80f), new Vector3(-tentWidth, tentHeight, 0f).normalized);
+        MeshPart(flapHinge, "Flap", Triangle(Vector3.zero, new Vector3(-tentWidth, tentHeight, 0f), new Vector3(-tentWidth, 0f, 0.03f)), canvas);
+        // Poles at each end and the ridge.
         for (int end = -1; end <= 1; end += 2)
-            Box(pole, tent, new Vector3(0f, 0.6f, end * 1.1f), new Vector3(0.03f, 1.2f, 0.03f), false);
-        var tentCollider = tent.gameObject.AddComponent<BoxCollider>();
-        tentCollider.center = new Vector3(0f, 0.6f, 0f);
-        tentCollider.size = new Vector3(1.8f, 1.2f, 2.2f);
-
-        // Burnt-out campfire: a ring of stones, charred logs, ash, a few embers still glowing.
-        fire = Anchor("Campfire", new Vector3(1.2f, 0f, -0.4f), 0f, Ground);
-        for (int i = 0; i < 9; i++)
+            Part(PrimitiveType.Cylinder, pole, tent, new Vector3(0f, tentHeight * 0.5f, end * tentLength * 0.5f), new Vector3(0.025f, tentHeight * 0.5f, 0.025f));
+        Part(PrimitiveType.Cylinder, pole, tent, new Vector3(0f, tentHeight, 0f), new Vector3(0.02f, tentLength * 0.5f + 0.05f, 0.02f)).localRotation = Quaternion.Euler(90f, 0f, 0f);
+        // Guy ropes from each end of the ridge, and from the sides, down to pegs in the ground.
+        foreach (var (from, to) in new[]
         {
-            float a = i / 9f * Mathf.PI * 2f;
-            var rock = Part(PrimitiveType.Sphere, stone, fire, new Vector3(Mathf.Cos(a) * 0.55f, 0.06f, Mathf.Sin(a) * 0.55f), new Vector3(R(0.18f, 0.26f), R(0.12f, 0.18f), R(0.16f, 0.22f)));
-            rock.localRotation = Quaternion.Euler(0f, R(0f, 360f), 0f);
+            (new Vector3(0f, tentHeight, tentLength * 0.5f), new Vector3(0f, 0f, tentLength * 0.5f + 0.9f)),
+            (new Vector3(0f, tentHeight, -tentLength * 0.5f), new Vector3(0f, 0f, -tentLength * 0.5f - 0.9f)),
+            (new Vector3(-tentWidth * 0.5f, tentHeight * 0.5f, 0f), new Vector3(-tentWidth - 0.7f, 0f, 0f)),
+            (new Vector3(tentWidth * 0.5f, tentHeight * 0.5f, 0f), new Vector3(tentWidth + 0.7f, 0f, 0f)),
+        })
+        {
+            Vector3 d = to - from;
+            Part(PrimitiveType.Cylinder, rope, tent, (from + to) * 0.5f, new Vector3(0.008f, d.magnitude * 0.5f, 0.008f)).localRotation = Quaternion.FromToRotation(Vector3.up, d);
+            Part(PrimitiveType.Cylinder, pole, tent, to + Vector3.up * 0.04f, new Vector3(0.015f, 0.06f, 0.015f)); // peg
         }
-        Part(PrimitiveType.Cylinder, ash, fire, new Vector3(0f, 0.01f, 0f), new Vector3(0.85f, 0.01f, 0.85f));
-        for (int i = 0; i < 4; i++)
+        var tentCollider = tent.gameObject.AddComponent<BoxCollider>();
+        tentCollider.center = new Vector3(0f, 0.55f, 0f);
+        tentCollider.size = new Vector3(1.7f, 1.1f, 2.2f);
+
+        // ---- The burnt-out campfire: a ring of soot-blackened stones (real rock shapes), each sitting on
+        // the ground under it, ash, the charred stubs of logs, a few embers still glowing.
+        fire = Anchor("Campfire", new Vector3(1.2f, 0f, -0.4f), 0f, Ground);
+        for (int i = 0; i < 10; i++)
         {
-            var log = Part(PrimitiveType.Cylinder, charred, fire, new Vector3(0f, 0.08f, 0f), new Vector3(0.08f, 0.3f, 0.08f));
-            log.localRotation = Quaternion.Euler(0f, i * 45f + R(-10f, 10f), 70f + R(-10f, 10f));
+            float a = i / 10f * Mathf.PI * 2f + R(-0.12f, 0.12f);
+            var local = new Vector3(Mathf.Cos(a) * 0.58f, 0f, Mathf.Sin(a) * 0.58f);
+            float size = R(0.22f, 0.32f);
+            local.y = GroundUnder(fire, local, Ground) - size * 0.2f; // bedded into the dirt
+            var stone = MeshPart(fire, "Stone", generator.MakeRockMesh(size), sooty);
+            stone.localPosition = local;
+            stone.localRotation = Quaternion.Euler(R(-10f, 10f), R(0f, 360f), R(-10f, 10f));
+            stone.localScale = new Vector3(size * R(0.9f, 1.2f), size * R(0.6f, 0.85f), size * R(0.85f, 1.1f));
+        }
+        Part(PrimitiveType.Cylinder, ash, fire, new Vector3(0f, GroundUnder(fire, Vector3.zero, Ground) + 0.01f, 0f), new Vector3(0.9f, 0.012f, 0.9f));
+        for (int i = 0; i < 5; i++)
+        {
+            // Logs that burned down where they fell: short, blackened, angled into the middle.
+            float a = i / 5f * Mathf.PI * 2f + R(-0.3f, 0.3f);
+            float len = R(0.35f, 0.55f);
+            var log = Part(PrimitiveType.Cylinder, charred, fire, new Vector3(Mathf.Cos(a) * 0.18f, GroundUnder(fire, Vector3.zero, Ground) + 0.06f, Mathf.Sin(a) * 0.18f), new Vector3(0.07f, len * 0.5f, 0.07f));
+            log.localRotation = Quaternion.Euler(0f, -a * Mathf.Rad2Deg, 0f) * Quaternion.Euler(0f, 0f, 90f - R(5f, 18f));
         }
         var emberMat = MaterialFactory.Unlit(new Color(0.9f, 0.2f, 0.03f));
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)
         {
-            var ember = Part(PrimitiveType.Sphere, emberMat, fire, new Vector3(R(-0.2f, 0.2f), 0.04f, R(-0.2f, 0.2f)), Vector3.one * R(0.03f, 0.06f));
+            var ember = Part(PrimitiveType.Sphere, emberMat, fire, new Vector3(R(-0.22f, 0.22f), GroundUnder(fire, Vector3.zero, Ground) + 0.05f, R(-0.22f, 0.22f)), Vector3.one * R(0.03f, 0.06f));
             embers.Add(ember.GetComponent<Renderer>());
         }
 
-        // A log seat by the fire.
-        var seat = Anchor("Log Seat", new Vector3(1.4f, 0f, 1.1f), R(-30f, 30f), Ground);
-        var seatLog = Part(PrimitiveType.Cylinder, wood, seat, new Vector3(0f, 0.18f, 0f), new Vector3(0.36f, 0.75f, 0.36f), true);
-        seatLog.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        // ---- A log to sit on: bark all round, sawn ends showing their rings, lying along the ground.
+        var seat = AnchorOnGround("Log Seat", new Vector3(1.4f, 0f, 1.2f), R(-30f, 30f), 0.85f, 0.25f, Ground);
+        const float seatLength = 1.7f, seatRadius = 0.2f;
+        var seatLog = Part(PrimitiveType.Cylinder, bark, seat, new Vector3(0f, seatRadius * 0.85f, 0f), new Vector3(seatRadius * 2f, seatLength * 0.5f, seatRadius * 2f), true);
+        seatLog.localRotation = Quaternion.Euler(0f, 0f, 90f) * Quaternion.Euler(0f, R(0f, 360f), 0f);
+        for (int end = -1; end <= 1; end += 2)
+        {
+            var cap = Part(PrimitiveType.Cylinder, endGrain, seat, new Vector3(end * (seatLength * 0.5f + 0.004f), seatRadius * 0.85f, 0f), new Vector3(seatRadius * 1.98f, 0.004f, seatRadius * 1.98f));
+            cap.localRotation = Quaternion.Euler(0f, 0f, 90f) * Quaternion.Euler(0f, R(0f, 360f), 0f);
+        }
 
         // The backpack, slumped over, with the flare gun beside it.
-        backpack = Anchor("Backpack", new Vector3(-0.2f, 0f, -1.4f), R(0f, 360f), Ground);
+        backpack = AnchorOnGround("Backpack", new Vector3(-0.2f, 0f, -1.4f), R(0f, 360f), 0.25f, 0.2f, Ground);
         var body = Box(pack, backpack, new Vector3(0f, 0.25f, 0f), new Vector3(0.36f, 0.5f, 0.24f), true);
         body.localRotation = Quaternion.Euler(-18f, 0f, 6f);
         Part(PrimitiveType.Sphere, pack, body, new Vector3(0f, 0.5f, 0f), new Vector3(1f, 0.35f, 1f));
@@ -206,6 +242,102 @@ public class Campsite : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- Building helpers
+
+    /// <summary>
+    /// A spot for something with a footprint (halfX by halfZ): tilted to match the ground under its corners
+    /// and set at their average height, so it sits on a slope instead of floating off or sinking into it.
+    /// </summary>
+    Transform AnchorOnGround(string name, Vector3 local, float yaw, float halfX, float halfZ, System.Func<Vector3, float> ground)
+    {
+        var t = new GameObject(name).transform;
+        t.SetParent(transform, false);
+        Quaternion turn = Quaternion.Euler(0f, yaw, 0f);
+        float H(float x, float z) => ground(local + turn * new Vector3(x, 0f, z));
+        float front = H(0f, halfZ), back = H(0f, -halfZ), left = H(-halfX, 0f), right = H(halfX, 0f);
+        float pitch = -Mathf.Atan2(front - back, halfZ * 2f) * Mathf.Rad2Deg;
+        float roll = Mathf.Atan2(right - left, halfX * 2f) * Mathf.Rad2Deg;
+        t.localPosition = new Vector3(local.x, (front + back + left + right) * 0.25f - 0.02f, local.z);
+        t.localRotation = turn * Quaternion.Euler(pitch, 0f, roll);
+        return t;
+    }
+
+    /// <summary>Height of the ground under a point given in a child anchor's own space, in that space.</summary>
+    float GroundUnder(Transform anchor, Vector3 local, System.Func<Vector3, float> ground)
+    {
+        Vector3 inCamp = transform.InverseTransformPoint(anchor.TransformPoint(new Vector3(local.x, 0f, local.z)));
+        float h = ground(inCamp);
+        return h - anchor.localPosition.y;
+    }
+
+    Transform MeshPart(Transform parent, string name, Mesh mesh, Material mat)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        return go.transform;
+    }
+
+    /// <summary>A two-sided triangle.</summary>
+    static Mesh Triangle(Vector3 a, Vector3 b, Vector3 c)
+    {
+        var mesh = new Mesh { name = "Canvas Panel" };
+        mesh.vertices = new[] { a, b, c, a, c, b };
+        mesh.triangles = new[] { 0, 1, 2, 3, 4, 5 };
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>
+    /// A ridge tent, two-sided: two sloping sides that sag between the end poles, and a closed back gable.
+    /// The front is left open for the door flaps. Ridge along z, base half-width `width`.
+    /// </summary>
+    static Mesh BuildTentMesh(float width, float height, float length, float sag)
+    {
+        var verts = new List<Vector3>();
+        var tris = new List<int>();
+        const int along = 8, up = 5;
+        for (int side = -1; side <= 1; side += 2)
+        {
+            int first = verts.Count;
+            for (int i = 0; i <= along; i++)
+            {
+                float u = i / (float)along;
+                for (int j = 0; j <= up; j++)
+                {
+                    float v = j / (float)up;
+                    float droop = sag * Mathf.Sin(Mathf.PI * u) * Mathf.Sin(Mathf.PI * v); // slack canvas between the poles
+                    verts.Add(new Vector3(side * (width * (1f - v) - droop * 0.6f), height * v - droop, (u - 0.5f) * length));
+                }
+            }
+            for (int i = 0; i < along; i++)
+                for (int j = 0; j < up; j++)
+                {
+                    int a = first + i * (up + 1) + j, b = a + up + 1, c = a + 1, d = b + 1;
+                    if (side < 0) tris.AddRange(new[] { a, b, c, c, b, d });
+                    else tris.AddRange(new[] { a, c, b, c, d, b });
+                }
+        }
+        int g = verts.Count;
+        verts.Add(new Vector3(-width, 0f, -length * 0.5f));
+        verts.Add(new Vector3(width, 0f, -length * 0.5f));
+        verts.Add(new Vector3(0f, height, -length * 0.5f));
+        tris.AddRange(new[] { g, g + 1, g + 2 });
+
+        // The inside faces: a second copy of every vertex wound the other way, so each face has its own normal
+        // (shared vertices would average the two sides' normals to nothing and light it wrong).
+        int count = verts.Count, triCount = tris.Count;
+        for (int i = 0; i < count; i++) verts.Add(verts[i]);
+        for (int t = 0; t < triCount; t += 3) tris.AddRange(new[] { tris[t] + count, tris[t + 2] + count, tris[t + 1] + count });
+
+        var mesh = new Mesh { name = "Tent" };
+        mesh.SetVertices(verts);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
 
     Transform Anchor(string name, Vector3 local, float yaw, System.Func<Vector3, float> ground)
     {

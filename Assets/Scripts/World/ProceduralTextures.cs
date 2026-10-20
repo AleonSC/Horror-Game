@@ -11,7 +11,7 @@ public static class ProceduralTextures
 {
     const int Size = 512;
 
-    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath, rock, rockNormal, waterNormal;
+    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath, rock, rockNormal, waterNormal, endGrain;
 
     /// <summary>Tiling forest-floor dirt.</summary>
     public static Texture2D Dirt { get { if (dirt == null) MakeDirt(); return dirt; } }
@@ -34,6 +34,8 @@ public static class ProceduralTextures
     public static Texture2D RockNormal { get { if (rockNormal == null) MakeRock(); return rockNormal; } }
     /// <summary>Gentle overlapping ripples, as a tiling normal map, for still water.</summary>
     public static Texture2D WaterNormal => waterNormal != null ? waterNormal : (waterNormal = MakeWaterNormal());
+    /// <summary>The sawn end of a log: growth rings, darker heartwood, a few radial cracks, a rim of bark.</summary>
+    public static Texture2D EndGrain => endGrain != null ? endGrain : (endGrain = MakeEndGrain());
     /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
     public static Texture2D SkyEye => skyEye != null ? skyEye : (skyEye = MakeSkyEye());
 
@@ -173,6 +175,38 @@ public static class ProceduralTextures
         var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
         {
             name = "Needles", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
+
+    // ---------------------------------------------------------------- End grain
+
+    static Texture2D MakeEndGrain()
+    {
+        const int n = 256;
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                float a = Mathf.Atan2(dy, dx);
+                // Rings, a little wobbly.
+                float wobble = 0.02f * Mathf.Sin(a * 5f) + 0.015f * Mathf.Sin(a * 11f + 2f);
+                float rings = 0.5f + 0.5f * Mathf.Sin((r + wobble) * 70f);
+                Color c = Color.Lerp(new Color(0.32f, 0.24f, 0.16f), new Color(0.42f, 0.33f, 0.23f), rings * 0.6f + Hash(x, y, 91) * 0.15f);
+                c = Color.Lerp(new Color(0.22f, 0.15f, 0.1f), c, Mathf.Clamp01(r * 3f));          // darker heartwood
+                float crack = Mathf.Pow(Mathf.Abs(Mathf.Sin(a * 3.5f + 0.7f)), 60f) * Mathf.Clamp01(r * 1.5f - 0.1f);
+                c = Color.Lerp(c, new Color(0.08f, 0.06f, 0.04f), crack);                            // radial checks
+                if (r > 0.88f) c = new Color(0.1f, 0.08f, 0.06f);                                   // the bark rim
+                c.a = 1f;
+                px[y * n + x] = c;
+            }
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
+        {
+            name = "End Grain", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear,
         };
         tex.SetPixels32(px);
         tex.Apply(true);

@@ -1060,6 +1060,16 @@ public class DarkForestGenerator : MonoBehaviour
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < 25f) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 30f)) continue;
+            // Camps need fairly level ground: the tent, fire and seat sit within ~3.5m of the middle.
+            float lo = float.MaxValue, hi = float.MinValue;
+            for (int k = 0; k < 12; k++)
+            {
+                float a = k / 12f * Mathf.PI * 2f;
+                float h = GetGroundHeight(p.x + Mathf.Cos(a) * 3.5f, p.y + Mathf.Sin(a) * 3.5f);
+                lo = Mathf.Min(lo, h);
+                hi = Mathf.Max(hi, h);
+            }
+            if (hi - lo > 0.6f && attempt < 400) continue;
             bool tooClose = false;
             foreach (var other in CampsitePositions)
                 if (Near(other, p, minCampsiteSpacing)) { tooClose = true; break; }
@@ -1717,6 +1727,11 @@ public class DarkForestGenerator : MonoBehaviour
     /// split stone) and a flattened base, flat-shaded so the facets catch the light. Texture mapped per face,
     /// repeating about once a metre at the given size.
     /// </summary>
+    /// <summary>A rough rock mesh about 1 unit across (for campfire stones and the like).</summary>
+    public Mesh MakeRockMesh(float size) => BuildRockMesh(size);
+    /// <summary>The forest's granite rock material.</summary>
+    public Material RockMaterial => rockMat;
+
     Mesh BuildRockMesh(float size)
     {
         if (sphereMesh == null)
