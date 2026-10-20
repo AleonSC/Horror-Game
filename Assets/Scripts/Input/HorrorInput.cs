@@ -60,6 +60,7 @@ public static class HorrorInput
         Kb.digit7Key.wasPressedThisFrame || Kb.numpad7Key.wasPressedThisFrame ? 7 :
         Kb.digit8Key.wasPressedThisFrame || Kb.numpad8Key.wasPressedThisFrame ? 8 : 0;
     public static bool ReleaseCursorPressed => Kb != null && Kb.escapeKey.wasPressedThisFrame;
+    public static bool InventoryPressed => Kb != null && Kb.tabKey.wasPressedThisFrame;
     public static bool ClickPressed => Ms != null && Ms.leftButton.wasPressedThisFrame;
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
     public static float Scroll => Ms != null ? Ms.scroll.ReadValue().y : 0f;
@@ -85,6 +86,7 @@ public static class HorrorInput
         Input.GetKeyDown(KeyCode.Alpha7) || Input.GetKeyDown(KeyCode.Keypad7) ? 7 :
         Input.GetKeyDown(KeyCode.Alpha8) || Input.GetKeyDown(KeyCode.Keypad8) ? 8 : 0;
     public static bool ReleaseCursorPressed => Input.GetKeyDown(KeyCode.Escape);
+    public static bool InventoryPressed => Input.GetKeyDown(KeyCode.Tab);
     public static bool ClickPressed => Input.GetMouseButtonDown(0);
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
     public static float Scroll => Input.mouseScrollDelta.y;

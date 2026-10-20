@@ -164,95 +164,253 @@ public class LampInteractor : MonoBehaviour
         return (hit.point - to).magnitude < 0.6f;
     }
 
+    // ---------------------------------------------------------------- HUD
+
+    string promptText;
+    float promptAge, lastCharge, clickPulse;
+    Lamp lastLamp;
+    GUIStyle promptStyle, captionStyle;
+
+    static readonly Color Cream = new Color(0.93f, 0.87f, 0.74f);
+    static readonly Color Ember = new Color(1f, 0.72f, 0.36f);
+
     void OnGUI()
     {
-        if (!showHud || GameOverScreen.IsActive) return;
+        if (!showHud || GameOverScreen.IsActive || InventoryScreen.IsOpen) return;
 
         if (labelStyle == null)
         {
             labelStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 };
             labelStyle.normal.textColor = new Color(0.9f, 0.85f, 0.75f);
             smallStyle = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold };
+            promptStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, richText = true };
+            captionStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic };
         }
 
+        float unit = Mathf.Max(1f, Screen.height / 1080f);
         float cx = Screen.width * 0.5f;
         float cy = Screen.height * 0.5f;
 
-        // Crosshair
-        bool hasFocus = focused != null || focusedBattery != null || focusedDoor != null || focusedItem != null || focusedButton != null || focusedSwitch != null || focusedRadio != null;
-
-        if (focusedRadio != null)
-            GUI.Label(new Rect(cx - 250f, cy + 20f, 500f, 30f), focusedRadio.Prompt, labelStyle);
-
-        if (focusedButton != null)
+        // What the crosshair's on, and what clicking will do.
+        string prompt = null;
+        if (focusedRadio != null) prompt = focusedRadio.Prompt;
+        else if (focusedButton != null)
         {
             var tower = focusedButton.tower;
-            string text = tower == null ? "" :
+            prompt = tower == null ? null :
                 tower.LightsOn ? $"The floodlights are on ({Mathf.CeilToInt(tower.TimeLeft)}s)" :
                 tower.IsRecharging ? $"The floodlights are recharging ({Mathf.CeilToInt(tower.RechargeLeft)}s)" :
-                "Click to turn on the floodlights";
-            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), text, labelStyle);
+                "Turn on the floodlights";
         }
         else if (focusedSwitch != null && focusedSwitch.car != null)
         {
             var car = focusedSwitch.car;
-            string text = car.IsDead ? "The battery's dead" :
-                car.LightsOn ? $"Click to turn off the headlights (battery {Mathf.CeilToInt(car.Battery * 100f)}%)" :
-                $"Click to turn on the headlights (battery {Mathf.CeilToInt(car.Battery * 100f)}%)";
-            GUI.Label(new Rect(cx - 250f, cy + 20f, 500f, 30f), text, labelStyle);
+            prompt = car.IsDead ? "The battery's dead" :
+                car.LightsOn ? $"Turn off the headlights · battery {Mathf.CeilToInt(car.Battery * 100f)}%" :
+                $"Turn on the headlights · battery {Mathf.CeilToInt(car.Battery * 100f)}%";
         }
-        else if (focusedItem != null)
-            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), $"Click to pick up the {focusedItem.DisplayName}", labelStyle);
+        else if (focusedItem != null) prompt = $"Take the {focusedItem.DisplayName}";
         else if (focusedDoor != null)
-            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), focusedDoor.locked && !focusedDoor.IsOpen ? focusedDoor.lockedMessage
-                : focusedDoor.IsOpen ? $"Click to close the {focusedDoor.noun}" : $"Click to open the {focusedDoor.noun}", labelStyle);
-        DrawRect(new Rect(cx - 2f, cy - 2f, 4f, 4f), new Color(1f, 1f, 1f, hasFocus ? 0.9f : 0.4f));
+            prompt = focusedDoor.locked && !focusedDoor.IsOpen ? focusedDoor.lockedMessage
+                : focusedDoor.IsOpen ? $"Close the {focusedDoor.noun}" : $"Open the {focusedDoor.noun}";
+        else if (focusedBattery != null) prompt = "Take the battery";
+        else if (focused != null)
+            prompt = focused.IsLit ? "The lamp is lit" : focused.IsCoolingDown ? "The lamp is cooling down" : "Light the lamp";
 
-        if (focusedBattery != null)
+        bool hasFocus = prompt != null;
+        if (prompt != promptText) { promptText = prompt; promptAge = 0f; }
+        promptAge += Time.unscaledDeltaTime;
+
+        // The crosshair: a small dot, ringed when it's on something.
+        DrawRect(new Rect(cx - 2f * unit, cy - 2f * unit, 4f * unit, 4f * unit), new Color(1f, 1f, 1f, hasFocus ? 0.95f : 0.4f));
+        if (hasFocus && focused == null) DrawRing(cx, cy, 9f * unit, 16, 1f, new Color(Cream.r, Cream.g, Cream.b, 0.5f * Ease(promptAge / 0.2f)), 2f * unit, 4f * unit);
+
+        // The lamp's meter: a ring of segments round the crosshair, filling as you crank it.
+        if (focused != null) DrawLampRing(focused, cx, cy, unit);
+        else lastLamp = null;
+
+        if (prompt != null)
         {
-            string text = "Click to pick up the battery";
-            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), text, labelStyle);
-        }
-
-        if (focused != null)
-        {
-            string label;
-            float fill;
-            Color barColor;
-            if (focused.IsLit)
-            {
-                label = "The lamp is lit";
-                fill = focused.Energy;
-                barColor = EnergyColor(focused);
-            }
-            else if (focused.IsCoolingDown)
-            {
-                label = "The lamp is cooling down...";
-                fill = focused.CooldownProgress;
-                barColor = new Color(0.45f, 0.45f, 0.5f);
-            }
-            else
-            {
-                label = "Click repeatedly to light the lamp";
-                fill = focused.Charge;
-                barColor = new Color(1f, 0.75f, 0.4f);
-            }
-
-            GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), label, labelStyle);
-            DrawBar(new Rect(cx - 100f, cy + 52f, 200f, 10f), fill, barColor);
+            bool clickable = focused == null ? !(focusedRadio != null && (focusedRadio.IsBroken || focusedRadio.Charge <= 0f))
+                : !focused.IsLit && !focused.IsCoolingDown;
+            DrawPrompt(prompt, cx, cy + (focused != null ? 62f : 34f) * unit, unit, Ease(promptAge / 0.25f), clickable);
         }
 
         DrawLampCounter();
 
-        // While standing in a lamp's light, show how much it has left.
+        // While standing in a lamp's light, how much it has left: a thin gilt bar with a caption above the hotbar.
         if (Lamp.IsInSafeZone(transform.position, out Lamp safeLamp))
         {
-            // Sits above the hotbar.
-            float unit = Mathf.Max(1f, Screen.height / 1080f);
-            float y = Screen.height - 175f * unit;
-            GUI.Label(new Rect(cx - 200f, y, 400f, 30f), "The light keeps them away", labelStyle);
-            DrawBar(new Rect(cx - 80f, y + 30f, 160f, 6f), safeLamp.Energy, EnergyColor(safeLamp));
+            float y = Screen.height - 178f * unit;
+            Caption("the light keeps them away", cx, y, unit, 0.85f);
+            DrawGiltBar(new Rect(cx - 90f * unit, y + 20f * unit, 180f * unit, 4f * unit), safeLamp.Energy, EnergyColor(safeLamp), unit);
         }
+    }
+
+    static float Ease(float x) => Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(x));
+
+    /// <summary>Spaced-out capitals: "OPEN  THE  DOOR".</summary>
+    static string Spaced(string text)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (char ch in text.ToUpperInvariant())
+        {
+            if (sb.Length > 0) sb.Append(ch == ' ' ? "  " : " ");
+            if (ch != ' ') sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// A prompt: spaced small capitals between little diamonds, on a soft dark band that fades out at the
+    /// ends, a fine rule underneath drawing out from the middle as it appears, and a mouse-button mark when
+    /// clicking will do something.
+    /// </summary>
+    void DrawPrompt(string text, float cx, float y, float unit, float a, bool clickable)
+    {
+        promptStyle.fontSize = Mathf.RoundToInt(15f * unit);
+        string spaced = Spaced(text);
+        float w = promptStyle.CalcSize(new GUIContent(spaced)).x;
+        float h = 30f * unit;
+
+        // The band.
+        float bandW = w + 160f * unit;
+        for (int i = 0; i < 12; i++)
+        {
+            float f = i / 12f;
+            float edge = Mathf.SmoothStep(0f, 1f, Mathf.Min(f, 1f - f) * 4f);
+            DrawRect(new Rect(cx - bandW * 0.5f + bandW * f, y - h * 0.5f, bandW / 12f + 1f, h), new Color(0f, 0f, 0f, 0.45f * edge * a));
+        }
+
+        // Diamonds either side, the click mark on the left.
+        float side = w * 0.5f + 18f * unit;
+        Diamond(cx - side, y, 3.5f * unit, new Color(Ember.r, Ember.g, Ember.b, a));
+        Diamond(cx + side, y, 3.5f * unit, new Color(Ember.r, Ember.g, Ember.b, a));
+        if (clickable) MouseMark(cx - side - 22f * unit, y, unit, a);
+
+        // The text, with a shadow.
+        var r = new Rect(cx - w * 0.5f - 10f, y - h * 0.5f, w + 20f, h);
+        promptStyle.normal.textColor = new Color(0f, 0f, 0f, 0.8f * a);
+        GUI.Label(new Rect(r.x + 1.5f, r.y + 1.5f, r.width, r.height), spaced, promptStyle);
+        promptStyle.normal.textColor = new Color(Cream.r, Cream.g, Cream.b, a);
+        GUI.Label(r, spaced, promptStyle);
+
+        // The rule underneath, drawing out from the middle, fading at its ends.
+        float ruleW = (w + 40f * unit) * Ease(promptAge / 0.4f);
+        for (int i = 0; i < 16; i++)
+        {
+            float f = i / 16f;
+            float edge = 1f - Mathf.Abs(f - 0.5f) * 2f;
+            DrawRect(new Rect(cx - ruleW * 0.5f + ruleW * f, y + h * 0.42f, ruleW / 16f + 0.5f, Mathf.Max(1f, unit)), new Color(Ember.r, Ember.g, Ember.b, 0.7f * edge * a));
+        }
+    }
+
+    /// <summary>A little mouse with its left button lit: "click".</summary>
+    static void MouseMark(float x, float y, float unit, float a)
+    {
+        float w = 10f * unit, h = 15f * unit, t = Mathf.Max(1f, unit);
+        var body = new Rect(x - w * 0.5f, y - h * 0.5f, w, h);
+        Color line = new Color(Cream.r, Cream.g, Cream.b, 0.8f * a);
+        DrawRect(new Rect(body.x, body.y, body.width, t), line);
+        DrawRect(new Rect(body.x, body.yMax - t, body.width, t), line);
+        DrawRect(new Rect(body.x, body.y, t, body.height), line);
+        DrawRect(new Rect(body.xMax - t, body.y, t, body.height), line);
+        DrawRect(new Rect(body.center.x - t * 0.5f, body.y, t, h * 0.4f), line);
+        DrawRect(new Rect(body.x + t, body.y + t, w * 0.5f - t * 1.5f, h * 0.4f - t), new Color(Ember.r, Ember.g, Ember.b, a));
+    }
+
+    /// <summary>
+    /// The lamp's meter round the crosshair: a ring of segments that fill clockwise with warm light as you
+    /// crank it, flaring with each click and dimming as it drains; full and slowly pulsing once it's lit,
+    /// with its remaining energy; cold blue-grey, refilling, while it cools down.
+    /// </summary>
+    void DrawLampRing(Lamp lamp, float cx, float cy, float unit)
+    {
+        if (lamp != lastLamp) { lastLamp = lamp; lastCharge = lamp.Charge; clickPulse = 0f; }
+        if (lamp.Charge > lastCharge + 0.001f) clickPulse = 1f; // a click
+        lastCharge = lamp.Charge;
+        clickPulse = Mathf.MoveTowards(clickPulse, 0f, Time.unscaledDeltaTime * 4f);
+
+        float fill;
+        Color color;
+        float pulse = 0f;
+        if (lamp.IsLit)
+        {
+            fill = lamp.Energy;
+            color = EnergyColor(lamp);
+            pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 2.2f);
+        }
+        else if (lamp.IsCoolingDown)
+        {
+            fill = lamp.CooldownProgress;
+            color = new Color(0.5f, 0.6f, 0.75f);
+        }
+        else
+        {
+            fill = lamp.Charge;
+            color = Ember;
+        }
+
+        float a = Ease(promptAge / 0.25f);
+        float radius = (30f + 3f * clickPulse) * unit;
+        // The unlit track, then the filled part, with a glow behind it.
+        DrawRing(cx, cy, radius, 36, 1f, new Color(0f, 0f, 0f, 0.55f * a), 3.5f * unit, 9f * unit);
+        DrawRing(cx, cy, radius, 36, 1f, new Color(1f, 1f, 1f, 0.08f * a), 2f * unit, 7f * unit);
+        Color glow = new Color(color.r, color.g, color.b, (0.18f + 0.25f * clickPulse + 0.12f * pulse) * a);
+        DrawRing(cx, cy, radius, 36, fill, glow, 6f * unit, 14f * unit);
+        DrawRing(cx, cy, radius, 36, fill, new Color(Mathf.Lerp(color.r, 1f, clickPulse * 0.5f), Mathf.Lerp(color.g, 1f, clickPulse * 0.5f), color.b, a), 2.5f * unit, 8f * unit);
+
+        // Its percentage under the crosshair, small.
+        captionStyle.fontSize = Mathf.RoundToInt(12f * unit);
+        captionStyle.normal.textColor = new Color(Cream.r, Cream.g, Cream.b, 0.75f * a);
+        GUI.Label(new Rect(cx - 60f * unit, cy + radius + 2f * unit, 120f * unit, 18f * unit), $"{Mathf.RoundToInt(fill * 100f)}%", captionStyle);
+    }
+
+    /// <summary>A ring of short radial ticks (the first fill fraction of them), clockwise from the top.</summary>
+    static void DrawRing(float cx, float cy, float radius, int ticks, float fill, Color color, float thickness, float length)
+    {
+        if (color.a <= 0.003f) return;
+        int count = Mathf.RoundToInt(ticks * Mathf.Clamp01(fill));
+        Matrix4x4 saved = GUI.matrix;
+        Color old = GUI.color;
+        GUI.color = color;
+        for (int i = 0; i < count; i++)
+        {
+            float angle = i * 360f / ticks;
+            GUIUtility.RotateAroundPivot(angle, new Vector2(cx, cy));
+            GUI.DrawTexture(new Rect(cx - thickness * 0.5f, cy - radius - length * 0.5f, thickness, length), Texture2D.whiteTexture);
+            GUI.matrix = saved;
+        }
+        GUI.color = old;
+    }
+
+    static void Diamond(float x, float y, float r, Color c)
+    {
+        Matrix4x4 saved = GUI.matrix;
+        GUIUtility.RotateAroundPivot(45f, new Vector2(x, y));
+        DrawRect(new Rect(x - r, y - r, r * 2f, r * 2f), c);
+        GUI.matrix = saved;
+    }
+
+    void Caption(string text, float cx, float y, float unit, float a)
+    {
+        captionStyle.fontSize = Mathf.RoundToInt(14f * unit);
+        string spaced = Spaced(text);
+        captionStyle.normal.textColor = new Color(0f, 0f, 0f, 0.7f * a);
+        GUI.Label(new Rect(cx - 300f + 1.5f, y - 10f * unit + 1.5f, 600f, 20f * unit), spaced, captionStyle);
+        captionStyle.normal.textColor = new Color(Cream.r, Cream.g, Cream.b, a);
+        GUI.Label(new Rect(cx - 300f, y - 10f * unit, 600f, 20f * unit), spaced, captionStyle);
+    }
+
+    /// <summary>A thin bar with diamond end caps and a soft glow along the filled part.</summary>
+    static void DrawGiltBar(Rect bar, float fill, Color color, float unit)
+    {
+        DrawRect(new Rect(bar.x, bar.y - unit, bar.width, bar.height + 2f * unit), new Color(0f, 0f, 0f, 0.55f));
+        float w = bar.width * Mathf.Clamp01(fill);
+        DrawRect(new Rect(bar.x, bar.y - 2f * unit, w, bar.height + 4f * unit), new Color(color.r, color.g, color.b, 0.2f));
+        DrawRect(new Rect(bar.x, bar.y, w, bar.height), color);
+        Diamond(bar.x - 6f * unit, bar.center.y, 3f * unit, Ember);
+        Diamond(bar.xMax + 6f * unit, bar.center.y, 3f * unit, Ember);
     }
 
     /// <summary>How many times lamps have been turned on, in the top right: a glowing dot and a big number.</summary>
@@ -279,12 +437,6 @@ public class LampInteractor : MonoBehaviour
 
     static Color EnergyColor(Lamp lamp) =>
         lamp.Energy < lamp.flickerBelow ? new Color(0.9f, 0.25f, 0.15f) : new Color(1f, 0.75f, 0.4f);
-
-    static void DrawBar(Rect bar, float fill, Color color)
-    {
-        DrawRect(bar, new Color(0f, 0f, 0f, 0.6f));
-        DrawRect(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(fill), bar.height), color);
-    }
 
     static void DrawRect(Rect r, Color c)
     {

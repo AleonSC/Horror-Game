@@ -61,7 +61,8 @@ public class PauseMenu : MonoBehaviour
 
     void Update()
     {
-        if (HorrorInput.ReleaseCursorPressed) SetPaused(!IsPaused);
+        // (Esc closes the inventory first, if it's open.)
+        if (HorrorInput.ReleaseCursorPressed && !InventoryScreen.IsOpen && !InventoryScreen.ClosedThisFrame) SetPaused(!IsPaused);
     }
 
     void SetPaused(bool paused)

@@ -192,7 +192,7 @@ public class FirstPersonController : MonoBehaviour
 
     void Update()
     {
-        if (PauseMenu.IsPaused) return;
+        if (PauseMenu.IsPaused || InventoryScreen.IsOpen) return;
         HandleCursor();
         UpdateWaking();
         HandleLook();

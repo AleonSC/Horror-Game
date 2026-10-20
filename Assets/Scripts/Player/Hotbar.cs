@@ -104,6 +104,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     void Start()
     {
+        if (GetComponent<InventoryScreen>() == null) gameObject.AddComponent<InventoryScreen>();
         flashlight = GetComponentInChildren<Flashlight>();
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
 
@@ -132,7 +133,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     void Update()
     {
-        if (PauseMenu.IsPaused) return;
+        if (PauseMenu.IsPaused || InventoryScreen.IsOpen) return;
         int slot = HorrorInput.SlotPressed;
         if (slot > 0) Select((Item)(slot - 1));
 
@@ -183,6 +184,9 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             }
         }
     }
+
+    /// <summary>How many of an item you have (1 for the flashlight, 0 or 1 for the key fob).</summary>
+    public int CountOf(Item item) => Count(item);
 
     int Count(Item item) =>
         item == Item.Torch ? TorchCount :
