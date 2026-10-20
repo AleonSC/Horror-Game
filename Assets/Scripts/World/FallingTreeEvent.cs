@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>
 /// A random event: a tree near the player snaps at the base and comes crashing down (TreeFall does the
 /// falling and splintering). The first falls about firstFallTime seconds into play, then another every
-/// minInterval to maxInterval seconds, roughly away from the player and preferably in view. Call
+/// minInterval to maxInterval seconds, roughly away from the player, and only a tree in plain view (in
+/// front of them, nothing in the way): if there isn't one it waits and tries again shortly. Call
 /// Trigger() to set one off any time. Trees with an owl perched in them are left standing.
 /// DarkForestGenerator adds this automatically.
 /// </summary>
@@ -80,9 +81,11 @@ public class FallingTreeEvent : MonoBehaviour
             float dist = to.magnitude;
             if (dist < minDistance || dist > maxDistance) continue;
 
-            // Prefer trees in view, then a bit of randomness.
+            // Only trees in plain view: in front of the player, with nothing in the way. (Out of sight, all
+            // they'd get is the crack, with nothing to see.) Then the most central, with a bit of randomness.
             float offView = Vector3.Angle(look, to);
-            float score = (offView > viewAngle ? 1000f : offView) + Random.Range(0f, 20f);
+            if (offView > viewAngle || !InSight(eye, pivot)) continue;
+            float score = offView + Random.Range(0f, 20f);
             if (score < bestScore)
             {
                 bestScore = score;
@@ -90,6 +93,17 @@ public class FallingTreeEvent : MonoBehaviour
             }
         }
         return best;
+    }
+
+    /// <summary>True if the player can see the trunk: a clear line to it, part way up.</summary>
+    static bool InSight(Vector3 eye, Transform pivot)
+    {
+        Vector3 from = eye + Vector3.up * 1.6f;
+        Vector3 to = pivot.position + Vector3.up * 2.5f;
+        Vector3 d = to - from;
+        float dist = d.magnitude;
+        if (!Physics.Raycast(from, d / dist, out var hit, dist, ~0, QueryTriggerInteraction.Ignore)) return true;
+        return hit.collider.transform == pivot.parent; // the first thing in the way is the tree itself
     }
 
 }

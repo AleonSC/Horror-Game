@@ -55,6 +55,8 @@ public class WeatherSystem : MonoBehaviour
         public readonly List<Transform> pivots = new List<Transform>();
         public readonly List<Quaternion> baseRotations = new List<Quaternion>();
 
+        readonly Dictionary<Transform, Quaternion> rest = new Dictionary<Transform, Quaternion>();
+
         public void Refresh(List<Transform> source)
         {
             bool stale = source.Count != pivots.Count || (pivots.Count > 0 && pivots[0] != source[0]);
@@ -64,7 +66,10 @@ public class WeatherSystem : MonoBehaviour
             foreach (var t in source)
             {
                 pivots.Add(t);
-                baseRotations.Add(t != null ? t.localRotation : Quaternion.identity);
+                // Keep each one's original rest pose: re-reading it now (when a felled tree drops out of the
+                // list) would pick up whatever the wind or a shockwave had it leaning at, and leave it tilted.
+                if (t != null && !rest.ContainsKey(t)) rest[t] = t.localRotation;
+                baseRotations.Add(t != null ? rest[t] : Quaternion.identity);
             }
         }
     }
