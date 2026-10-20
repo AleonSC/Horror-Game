@@ -59,11 +59,11 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Dream Hallway")]
     [Tooltip("Field of view at the height of the dream effect (WatcherEvent drives it while the sky eye is open).")]
-    public float dreamWideFov = 125f;
+    public float dreamWideFov = 100f;
     [Tooltip("Extra field of view from trying to run while it holds you: the harder you go, the further everything stretches away.")]
-    public float dreamEffortFov = 35f;
+    public float dreamEffortFov = 15f;
     [Tooltip("How much the view squeezes in from the sides at full strength, so it reads as a long corridor.")]
-    [Range(0f, 0.6f)] public float dreamSqueeze = 0.3f;
+    [Range(0f, 0.6f)] public float dreamSqueeze = 0.12f;
 
     /// <summary>
     /// 0 normally, 1 at full strength: like a nightmare, the view stretches out into a long hallway and
@@ -400,7 +400,7 @@ public class FirstPersonController : MonoBehaviour
         if (CurrentSpeed > 0.1f) dreamEffort = Mathf.Min(1f, dreamEffort + dt * 0.35f * CurrentSpeed / Mathf.Max(walkSpeed, 0.1f));
         else dreamEffort = Mathf.MoveTowards(dreamEffort, 0f, dt * 0.15f);
 
-        float fov = Mathf.Lerp(baseFov, dreamWideFov, dream) + dreamEffortFov * dreamEffort * dream + Mathf.Sin(Time.time * 0.8f) * 4f * dream;
+        float fov = Mathf.Lerp(baseFov, dreamWideFov, dream) + dreamEffortFov * dreamEffort * dream + Mathf.Sin(Time.time * 0.8f) * 2f * dream;
         fov = Mathf.Clamp(fov, 1f, 170f);
         viewCamera.fieldOfView = fov;
         float aspect = viewCamera.aspect * (1f - dreamSqueeze * dream);

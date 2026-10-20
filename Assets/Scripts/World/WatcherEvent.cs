@@ -1,11 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// "The Watcher": once the player has lit enough lamps, a giant red eye slowly opens in the sky,
-/// stares down at them, and closes. While it's open the player is caught in a nightmare: the view
-/// stretches out into a long hallway and running gets them nowhere (FirstPersonController.DreamStretch).
-/// The world takes on a red haze. About ten seconds later there's
-/// rumbling in the distance, and a colossal version of the entity, legs like skyscrapers, starts
+/// "The Watcher": from the start, far off on the horizon, a colossal version of the entity hangs dead in
+/// the sky by its neck from a chain that rises up into the clouds, turning slowly, head lolled. Once the
+/// player has lit enough lamps, a giant red eye slowly opens in the sky, stares down at them, and closes.
+/// While it's open the player is caught in a nightmare: the view stretches out into a long hallway and
+/// running gets them nowhere (FirstPersonController.DreamStretch). The world takes on a red haze.
+/// As the dream ends, the chain snaps: the giant drops out of the sky, lands with a boom, and starts
 /// walking toward the player, very slowly, each step a ground-shaking boom. If it reaches them, it's over.
 /// The watchtower floodlights drive it back to where it started.
 ///
@@ -32,8 +33,15 @@ public class WatcherEvent : MonoBehaviour
     public float eyeElevation = 50f;
     [Tooltip("Apparent width of the eye.")]
     public float eyeSize = 14f;
-    [Tooltip("Seconds between the eye closing and the giant appearing.")]
-    public float giantDelay = 10f;
+    [Header("Hanging")]
+    [Tooltip("While it hangs, how high its neck is, in degrees above the horizon...")]
+    public float hangNeckElevation = 38f;
+    [Tooltip("...and its feet.")]
+    public float hangFeetElevation = 10f;
+    [Tooltip("Seconds per slow turn on the chain.")]
+    public float hangTurnTime = 45f;
+    [Tooltip("Seconds it takes to fall when the chain snaps.")]
+    public float fallTime = 4f;
 
     [Header("Giant")]
     public float giantHeight = 660f;
@@ -52,7 +60,7 @@ public class WatcherEvent : MonoBehaviour
     public Color redFog = new Color(0.11f, 0.015f, 0.015f);
     public Color redAmbient = new Color(0.12f, 0.03f, 0.03f);
 
-    enum Phase { Waiting, EyeOpening, EyeWatching, EyeClosing, Pause, GiantWalking, Done }
+    enum Phase { Waiting, EyeOpening, EyeWatching, EyeClosing, Falling, GiantWalking, Done }
 
     Phase phase = Phase.Waiting;
 
@@ -76,6 +84,10 @@ public class WatcherEvent : MonoBehaviour
     Vector3 giantBearing;    // direction from the player to the giant
     float giantDistance, stridePhase, shake;
     float dream; // how strongly the dream hallway has taken hold
+    float hangBearingAngle = -1f;       // compass direction it hangs in, from the player
+    Transform chain;
+    Vector3 chainBottom;                // where the snapped chain ends, relative to the player
+    float fallStartScale, fallStartNeckHeight;
     bool leftFootDown;
 
     AudioSource audioSource;
@@ -104,16 +116,19 @@ public class WatcherEvent : MonoBehaviour
         switch (phase)
         {
             case Phase.Waiting:
+                UpdateHanging(dt);
                 if (Lamp.TimesLit >= lampsToTrigger && !GameOverScreen.IsActive) OpenEye();
                 break;
 
             case Phase.EyeOpening:
+                UpdateHanging(dt);
                 timer += dt;
                 SetEyeOpen(Mathf.SmoothStep(0f, 1f, timer / eyeOpenTime));
                 if (timer >= eyeOpenTime) { phase = Phase.EyeWatching; timer = 0f; }
                 break;
 
             case Phase.EyeWatching:
+                UpdateHanging(dt);
                 timer += dt;
                 SetEyeOpen(1f);
                 // It stares a while before the dream takes hold.
@@ -123,6 +138,7 @@ public class WatcherEvent : MonoBehaviour
                 break;
 
             case Phase.EyeClosing:
+                UpdateHanging(dt);
                 timer += dt;
                 SetEyeOpen(1f - Mathf.SmoothStep(0f, 1f, timer / eyeCloseTime));
                 // The dream lets go as the eye closes.
@@ -131,14 +147,12 @@ public class WatcherEvent : MonoBehaviour
                 {
                     eye.gameObject.SetActive(false);
                     if (player != null) player.DreamStretch = 0f; // free to move again
-                    phase = Phase.Pause;
-                    timer = 0f;
+                    SnapChain();
                 }
                 break;
 
-            case Phase.Pause:
-                timer += dt;
-                if (timer >= giantDelay) SummonGiant();
+            case Phase.Falling:
+                UpdateFalling(dt);
                 break;
 
             case Phase.GiantWalking:
@@ -240,26 +254,178 @@ public class WatcherEvent : MonoBehaviour
 
     // ---------------------------------------------------------------- Giant
 
-    void SummonGiant()
+    // ---------------------------------------------------------------- Hanging & falling
+
+    /// <summary>Neck position in the giant's own (unscaled) space: where the chain is fastened.</summary>
+    Vector3 NeckLocal => new Vector3(0f, 2.05f, 0.15f) * (giantHeight / 2.4f);
+
+    /// <summary>Scale that makes it stand minApparentHeight degrees tall at a distance (never smaller than life).</summary>
+    float WalkingScale(float distance) =>
+        Mathf.Max(1f, Mathf.Tan(minApparentHeight * Mathf.Deg2Rad) * distance / Mathf.Max(giantHeight, 1f));
+
+    /// <summary>Scale while hanging: neck at hangNeckElevation, feet at hangFeetElevation.</summary>
+    float HangingScale() =>
+        (Mathf.Tan(hangNeckElevation * Mathf.Deg2Rad) - Mathf.Tan(hangFeetElevation * Mathf.Deg2Rad)) * giantStartDistance
+        / Mathf.Max(NeckLocal.y, 1f);
+
+    float HangingNeckHeight() => Mathf.Tan(hangNeckElevation * Mathf.Deg2Rad) * giantStartDistance;
+
+    /// <summary>Makes sure the giant and its chain exist and the cameras can see that far.</summary>
+    void EnsureGiant()
     {
         if (giant == null) BuildGiant();
+        if (chain == null) BuildChain();
+        if (hangBearingAngle < 0f) hangBearingAngle = Random.Range(0f, 360f);
+        giantBearing = Quaternion.Euler(0f, hangBearingAngle, 0f) * Vector3.forward;
         giant.gameObject.SetActive(true);
-
-        // It comes from where the eye was.
-        giantBearing = eyeDirection;
-        giantBearing.y = 0f;
-        giantBearing.Normalize();
-        giantDistance = giantStartDistance;
-        stridePhase = 0f;
+        chain.gameObject.SetActive(true);
 
         foreach (var cam in Camera.allCameras)
         {
+            if (cam.targetTexture != null) continue; // the door's view cameras copy the main one
             if (baseFarClip < 0f) baseFarClip = cam.farClipPlane;
             cam.farClipPlane = Mathf.Max(cam.farClipPlane, giantStartDistance * 2f);
         }
+    }
 
+    /// <summary>Hanging dead by the neck, far off: turning slowly on the chain, swaying a little, limbs limp.</summary>
+    void UpdateHanging(float dt)
+    {
+        EnsureGiant();
+        float t = Time.time;
+        float scale = HangingScale();
+        Vector3 anchor = player.transform.position + giantBearing * giantStartDistance + Vector3.up * HangingNeckHeight();
+
+        Quaternion facing = Quaternion.LookRotation(-giantBearing);
+        float turn = Mathf.Sin(t * Mathf.PI * 2f / Mathf.Max(hangTurnTime, 1f)) * 35f;
+        Quaternion swing = Quaternion.Euler(Mathf.Sin(t * 0.21f) * 2.5f, turn, Mathf.Sin(t * 0.17f + 1f) * 2f);
+        PlaceByNeck(anchor, facing * swing, scale);
+
+        // Limp: legs dangle, arms hang, the head lolls on a broken neck. While the eye is open, it twitches.
+        float twitch = phase == Phase.EyeOpening || phase == Phase.EyeWatching ? (Random.value < 0.02f ? Random.Range(-12f, 12f) : 0f) : 0f;
+        for (int i = 0; i < 2; i++)
+        {
+            float side = i == 0 ? -1f : 1f;
+            giantLegs[i].localRotation = Quaternion.Euler(-8f + Mathf.Sin(t * 0.3f + i) * 3f + twitch, 0f, side * 2f);
+            giantKnees[i].localRotation = Quaternion.Euler(10f, 0f, 0f);
+            giantArms[i].localRotation = Quaternion.Euler(Mathf.Sin(t * 0.25f + i * 2f) * 2f + twitch, 0f, side * 3f);
+        }
+        giantHead.localRotation = Quaternion.Euler(28f, 0f, 55f + twitch);
+        giant.GetChild(0).localPosition = Vector3.zero;
+
+        UpdateChain(anchor, scale, false);
+    }
+
+    /// <summary>Puts the giant so its neck is at a point.</summary>
+    void PlaceByNeck(Vector3 neck, Quaternion rotation, float scale)
+    {
+        giant.localScale = Vector3.one * scale;
+        giant.rotation = rotation;
+        giant.position = neck - rotation * (NeckLocal * scale);
+    }
+
+    /// <summary>The chain gives way: a crack like thunder, and it drops.</summary>
+    void SnapChain()
+    {
+        EnsureGiant();
+        chainBottom = giantBearing * giantStartDistance + Vector3.up * HangingNeckHeight() * 1.08f;
+        fallStartScale = HangingScale();
+        fallStartNeckHeight = HangingNeckHeight();
+        audioSource.pitch = 0.35f;
+        audioSource.PlayOneShot(ProceduralAudio.TreeSnap, 1f);
         audioSource.PlayOneShot(ProceduralAudio.DistantRumble, 1f);
-        phase = Phase.GiantWalking;
+        giantDistance = giantStartDistance;
+        stridePhase = 0f;
+        phase = Phase.Falling;
+        timer = 0f;
+    }
+
+    void UpdateFalling(float dt)
+    {
+        timer += dt;
+        float u = Mathf.Clamp01(timer / Mathf.Max(fallTime, 0.1f));
+        float drop = u * u; // accelerating
+
+        float scale = Mathf.Lerp(fallStartScale, WalkingScale(giantDistance), drop);
+        float groundNeck = NeckLocal.y * scale;
+        Vector3 basePos = player.transform.position + giantBearing * giantDistance;
+        float ground = Ground(basePos);
+        Vector3 neck = new Vector3(basePos.x, Mathf.Lerp(player.transform.position.y + fallStartNeckHeight, ground + groundNeck, drop), basePos.z);
+        PlaceByNeck(neck, Quaternion.LookRotation(-giantBearing), scale);
+
+        // Limbs fling up as it falls; the head stays wrong.
+        float flail = Mathf.Sin(u * Mathf.PI);
+        for (int i = 0; i < 2; i++)
+        {
+            float side = i == 0 ? -1f : 1f;
+            giantArms[i].localRotation = Quaternion.Euler(-70f * flail, 0f, side * 25f * flail);
+            giantLegs[i].localRotation = Quaternion.Euler(-15f * flail, 0f, side * 8f * flail);
+        }
+        giantHead.localRotation = Quaternion.Slerp(Quaternion.Euler(28f, 0f, 55f), Quaternion.Euler(10f, 0f, 20f), u);
+
+        UpdateChain(Vector3.zero, fallStartScale, true);
+
+        if (u >= 1f)
+        {
+            // It lands. The ground shakes. Then it gets up and walks.
+            audioSource.pitch = 0.7f;
+            audioSource.PlayOneShot(ProceduralAudio.GiantStep, 1f);
+            audioSource.PlayOneShot(ProceduralAudio.TreeImpact, 1f);
+            shake = 2.5f;
+            phase = Phase.GiantWalking;
+        }
+    }
+
+    float Ground(Vector3 p)
+    {
+        var generator = FindAnyObjectByType<DarkForestGenerator>();
+        return generator != null ? generator.GetGroundHeight(p.x, p.z) : player.transform.position.y;
+    }
+
+    /// <summary>
+    /// The chain hangs straight down out of the sky (into the clouds) to the giant's neck, or, once snapped,
+    /// to a broken end that swings slowly. It's always placed relative to the player, like the giant.
+    /// </summary>
+    void UpdateChain(Vector3 neck, float scale, bool snapped)
+    {
+        Vector3 bottom = snapped ? player.transform.position + chainBottom : neck;
+        if (snapped)
+        {
+            // The broken end swings, and draws up a little.
+            float t = Time.time;
+            bottom += new Vector3(Mathf.Sin(t * 0.4f), 0f, Mathf.Cos(t * 0.33f)) * giantHeight * 0.05f;
+        }
+        float length = giantStartDistance * 1.6f;
+        Vector3 top = new Vector3(bottom.x, player.transform.position.y + HangingNeckHeight() + length, bottom.z);
+        Vector3 along = top - bottom;
+        chain.position = bottom;
+        chain.rotation = Quaternion.FromToRotation(Vector3.up, along.normalized);
+        chain.localScale = Vector3.one * (along.magnitude / ChainLinks);
+    }
+
+    const int ChainLinks = 48;
+
+    /// <summary>A chain of iron links, ChainLinks long, along local +y, each link one unit long.</summary>
+    void BuildChain()
+    {
+        chain = new GameObject("Chain").transform;
+        chain.SetParent(transform, false);
+        // Drawn before the sky, so the clouds veil it as it rises into them.
+        var iron = MaterialFactory.NoFog(new Color(0.03f, 0.028f, 0.028f));
+        const float width = 0.5f, bar = 0.09f;
+        for (int i = 0; i < ChainLinks; i++)
+        {
+            var link = new GameObject("Link").transform;
+            link.SetParent(chain, false);
+            link.localPosition = new Vector3(0f, i + 0.5f, 0f);
+            link.localRotation = Quaternion.Euler(0f, i % 2 == 0 ? 0f : 90f, 0f); // each turned against the last
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Part(link, iron, PrimitiveType.Cylinder, new Vector3(side * width * 0.5f, 0f, 0f), new Vector3(bar, 0.5f, bar));
+                var end = Part(link, iron, PrimitiveType.Cylinder, new Vector3(0f, side * 0.5f, 0f), new Vector3(bar, width * 0.5f + bar * 0.5f, bar));
+                end.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            }
+        }
     }
 
     /// <summary>Drives the giant back to where it started (the watchtower floodlights do this).</summary>
@@ -273,12 +439,11 @@ public class WatcherEvent : MonoBehaviour
         giantDistance = Mathf.Max(0f, giantDistance - giantSpeed * dt);
 
         Vector3 p = player.transform.position + giantBearing * giantDistance;
-        var generator = FindAnyObjectByType<DarkForestGenerator>();
-        p.y = generator != null ? generator.GetGroundHeight(p.x, p.z) : player.transform.position.y;
+        p.y = Ground(p);
         giant.SetPositionAndRotation(p, Quaternion.LookRotation(-giantBearing));
         // Far off, it's scaled up so it always looms over the treeline; it shrinks to its true size as it nears.
-        float apparent = Mathf.Tan(minApparentHeight * Mathf.Deg2Rad) * giantDistance / Mathf.Max(giantHeight, 1f);
-        giant.localScale = Vector3.one * Mathf.Max(1f, apparent);
+        giant.localScale = Vector3.one * WalkingScale(giantDistance);
+        UpdateChain(Vector3.zero, 1f, true);
 
         // Slow, heavy stride: legs swing in opposite directions, knees bend on the forward swing.
         stridePhase += dt * Mathf.PI * 2f / strideTime;
@@ -323,8 +488,9 @@ public class WatcherEvent : MonoBehaviour
         body.SetParent(giant, false);
 
         float s = giantHeight / 2.4f; // proportions are for a 2.4m figure, like the entities
-        var black = MaterialFactory.NoFog(new Color(0.01f, 0.005f, 0.005f));
-        var eyes = MaterialFactory.NoFog(new Color(4f, 0.2f, 0.05f));
+        // Drawn after the night sky, so passing clouds don't wash over its body.
+        var black = MaterialFactory.NoFog(new Color(0.01f, 0.005f, 0.005f), 2460);
+        var eyes = MaterialFactory.NoFog(new Color(4f, 0.2f, 0.05f), 2461);
 
         for (int i = 0; i < 2; i++)
         {
@@ -363,7 +529,6 @@ public class WatcherEvent : MonoBehaviour
         for (int e = -1; e <= 1; e += 2)
             Part(giantHead, eyes, PrimitiveType.Sphere, new Vector3(e * 0.05f, 0.12f, 0.125f) * s, new Vector3(0.04f, 0.03f, 0.02f) * s);
 
-        giant.gameObject.SetActive(false);
     }
 
     Transform Pivot(Transform parent, Vector3 localPos)
@@ -421,7 +586,8 @@ public class WatcherEvent : MonoBehaviour
         dream = 0f;
         if (player != null) player.DreamStretch = 0f;
         if (eye != null) eye.gameObject.SetActive(false);
-        if (giant != null) giant.gameObject.SetActive(false);
+        // It's back up on its chain, somewhere new.
+        hangBearingAngle = Random.Range(0f, 360f);
 
         redness = 0f;
         if (savedAtmosphere)
@@ -431,7 +597,6 @@ public class WatcherEvent : MonoBehaviour
             foreach (var cam in Camera.allCameras)
             {
                 cam.backgroundColor = baseFog;
-                if (baseFarClip > 0f) cam.farClipPlane = baseFarClip;
             }
         }
     }
