@@ -15,7 +15,8 @@ using UnityEngine;
 /// </summary>
 public class LampSpawner : MonoBehaviour
 {
-    public int lampCount = 24;
+    [Tooltip("How many lamps there are in the forest.")]
+    public int lampCount = 10;
     [Tooltip("Keep lamps at least this far from the middle of the map (where the player spawns).")]
     public float minDistanceFromCenter = 15f;
     public float minLampSpacing = 25f;
@@ -34,13 +35,15 @@ public class LampSpawner : MonoBehaviour
 
     [Header("Lamp Settings: When Lit")]
     [Tooltip("Radius of the safe zone (the light reaches a bit further).")]
-    public float safeRadius = 10f;
+    public float safeRadius = 13f;
     public float lightIntensity = 4f;
     public Color lightColor = new Color(1f, 0.75f, 0.45f);
     [Tooltip("Summon another entity each time a lamp is lit.")]
     public bool spawnEntityWhenLit = true;
 
     [Header("Lamp Settings: Energy")]
+    [Tooltip("Once lit, lamps stay on for good. Untick for the old behaviour: they run down, flicker, go out and cool down.")]
+    public bool stayLit = true;
     [Tooltip("Seconds a lit lamp lasts before going out.")]
     public float energyDuration = 90f;
     [Range(0f, 1f), Tooltip("Below this much energy the light starts flickering.")]
@@ -101,6 +104,7 @@ public class LampSpawner : MonoBehaviour
         lamp.lightIntensity = lightIntensity;
         lamp.lightColor = lightColor;
         lamp.spawnEntityWhenLit = spawnEntityWhenLit;
+        lamp.stayLit = stayLit;
         lamp.energyDuration = energyDuration;
         lamp.flickerBelow = flickerBelow;
         lamp.cooldownTime = cooldownTime;

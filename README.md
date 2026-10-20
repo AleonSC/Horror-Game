@@ -11,7 +11,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/BatteryPickup.cs` / `BatterySpawner.cs` | Batteries scattered around the map each run. Click one to refill the flashlight by 25%. |
 | `Assets/Scripts/World/DarkForestGenerator.cs` | Procedurally builds a 320m x 320m dark forest: rolling ground, granite rocks and big half-buried boulders, pines (bark-textured, root-flared trunks and drooping needle boughs), dead trees with forked twigs, swaying grass, rocks, logs, fog and moonlight. Spawns the player and the other systems too. |
 | `Assets/Scripts/World/ShadowEntity.cs` | A pitch-black silhouette that watches you from the dark. It creeps closer when you're not looking, grows and advances if you get near it in the dark, circles lamps you're sheltering in, and poofs if you face it down with the flashlight. A quarter of them have one or two extra pairs of arms. Flash the light on and off at it rapidly and it shrieks and charges at your face, vanishes, and comes back sooner and angrier. |
-| `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | Unlit lamps scattered around the map. Click one repeatedly to light it, making a safe zone the entities can't enter. Lamps run out of energy (flickering as they fade), then need to cool down. Every lamp lit summons another entity. |
+| `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | 10 unlit lamps scattered around the map (`lampCount` on the Lamp Spawner). Click one repeatedly to light it, making a 13m safe zone the entities can't enter; once lit it stays on (untick `stayLit` to make lamps run down, flicker out and cool down). Every lamp lit summons another entity. All lamp settings are on the Lamp Spawner. |
 | `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps and batteries, plus the HUD (crosshair, lamp bars, lamp counter top right). |
 | `Assets/Scripts/Player/IntroText.cs` | Opening narration: lines fade in and out one by one over a black screen that slowly reveals the forest. The lines live in `Assets/Scripts/Resources/IntroText.txt`, one per line. |
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
@@ -76,8 +76,7 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
   (press 4, aim up, F) and every one of them has to start its hunt over. Fired low, it's wasted.
 - Somewhere there's a tall watchtower. Climb the ladder (W, or look down and W / S to go down) and press
   the button at the top: floodlights drive every one of them away and light up the area for a minute.
-- Lamps burn out. They flicker as their energy runs low, go dark, and need time to cool down before
-  they can be lit again.
+- Once lit, a lamp stays on. But every lamp you light summons another entity.
 
 ## Controls
 

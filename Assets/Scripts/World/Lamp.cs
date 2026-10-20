@@ -24,14 +24,16 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
     [Header("When Lit")]
     [Tooltip("Radius of the safe zone.")]
-    public float safeRadius = 10f;
+    public float safeRadius = 13f;
     public float lightIntensity = 4f;
     public Color lightColor = new Color(1f, 0.75f, 0.45f);
     [Tooltip("Summon another entity each time a lamp is lit.")]
     public bool spawnEntityWhenLit = true;
 
     [Header("Energy")]
-    [Tooltip("Seconds a lit lamp lasts before going out.")]
+    [Tooltip("Once lit, a lamp stays on for good (energy doesn't run down).")]
+    public bool stayLit = true;
+    [Tooltip("Seconds a lit lamp lasts before going out (when it doesn't stay lit).")]
     public float energyDuration = 90f;
     [Range(0f, 1f), Tooltip("Below this much energy the light starts flickering, more as it gets lower.")]
     public float flickerBelow = 0.35f;
@@ -196,7 +198,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
     void UpdateLit()
     {
-        Energy = Mathf.Max(0f, Energy - Time.deltaTime / Mathf.Max(energyDuration, 0.01f));
+        if (!stayLit) Energy = Mathf.Max(0f, Energy - Time.deltaTime / Mathf.Max(energyDuration, 0.01f));
         if (Energy <= 0f)
         {
             TurnOff();

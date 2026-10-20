@@ -14,9 +14,20 @@ public class Flare : MonoBehaviour
     [Tooltip("It has to burst at least this high above the ground to count as 'in the sky'.")]
     public float skyHeight = 12f;
     public Color color = new Color(1f, 0.15f, 0.08f);
+    [Header("Light")]
+    [Tooltip("Brightness and reach as it leaves the gun...")]
+    public float launchIntensity = 6f;
+    public float launchRange = 35f;
+    [Tooltip("...growing to this as it climbs (reached at climbFullHeight metres up)...")]
+    public float climbIntensity = 22f;
+    public float climbRange = 110f;
+    public float climbFullHeight = 30f;
+    [Tooltip("...and this once it bursts in the sky, lighting up the whole forest around.")]
+    public float burstIntensity = 40f;
+    public float burstRange = 180f;
 
     Vector3 velocity;
-    bool burst, landed;
+    bool burst, landed, burstDone; // burstDone: it really burst in the sky (not a low fizzle)
     float burnLeft;
     Light glow;
     Transform core;
@@ -57,8 +68,8 @@ public class Flare : MonoBehaviour
         glow = gameObject.AddComponent<Light>();
         glow.type = LightType.Point;
         glow.color = color;
-        glow.range = 25f;
-        glow.intensity = 3f;
+        glow.range = launchRange;
+        glow.intensity = launchIntensity;
         glow.shadows = LightShadows.None;
 
         hiss = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FlareBurn, true, true, 0.6f, 6f, 120f);
@@ -86,7 +97,6 @@ public class Flare : MonoBehaviour
                 transform.position = Physics.Raycast(pos, velocity.normalized, out hit, (next - pos).magnitude, ~0, QueryTriggerInteraction.Ignore)
                     ? hit.point : new Vector3(next.x, ground + 0.05f, next.z);
                 burnLeft = burnTime * 0.6f;
-                glow.range = 15f;
                 return;
             }
             transform.position = next;
@@ -106,7 +116,15 @@ public class Flare : MonoBehaviour
         burnLeft -= dt;
         float flicker = 0.85f + 0.3f * Mathf.PerlinNoise(Time.time * 12f, 0.5f);
         float fade = Mathf.Clamp01(burnLeft / 1.5f);
-        glow.intensity = (burst ? 9f : 3f) * flicker * fade;
+
+        // Brighter and further-reaching the higher it climbs; brightest of all once it bursts.
+        float up = Mathf.Clamp01((transform.position.y - ground) / Mathf.Max(climbFullHeight, 0.01f));
+        float intensity, range;
+        if (landed) { intensity = launchIntensity * 0.7f; range = launchRange * 0.5f; }
+        else if (burst && burstDone) { intensity = burstIntensity; range = burstRange; }
+        else { intensity = Mathf.Lerp(launchIntensity, climbIntensity, up); range = Mathf.Lerp(launchRange, climbRange, up); }
+        glow.range = Mathf.MoveTowards(glow.range, range, dt * 150f);
+        glow.intensity = intensity * flicker * fade;
         core.localScale = Vector3.one * (burst ? 0.5f : 0.25f) * flicker * Mathf.Max(fade, 0.2f);
         hiss.volume = 0.6f * fade;
 
@@ -116,8 +134,8 @@ public class Flare : MonoBehaviour
     void Burst()
     {
         burst = true;
+        burstDone = true;
         burnLeft = burnTime;
-        glow.range = 70f;
 
         // The whole forest lights up red: every entity's hunt starts over.
         foreach (var entity in new System.Collections.Generic.List<ShadowEntity>(ShadowEntity.All))
