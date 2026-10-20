@@ -4,12 +4,17 @@ using UnityEngine;
 /// A very light rain: a sparse scattering of drops falling around the player, slanted by the wind. They're
 /// lit like everything else, so they mostly show up as glints crossing the flashlight beam or a lamp's
 /// light, and vanish into the dark outside it. They stop at roofs (shacks, the car, the watchtower deck).
-/// No sound. Drawn with GPU instancing. DarkForestGenerator adds this.
+/// No sound. It picks up slowly as lamps are lit: twice as heavy by the 5th, twice that by the 7th.
+/// Drawn with GPU instancing. DarkForestGenerator adds this.
 /// </summary>
 public class RainDrops : MonoBehaviour
 {
-    [Tooltip("How many drops are falling around the player at once. Keep it low: it's barely raining.")]
+    [Tooltip("How many drops are falling around the player at once before any lamps are lit. Keep it low: it's barely raining.")]
     public int dropCount = 140;
+    [Tooltip("How heavy the rain gets (times dropCount) by the 5th lamp, and by the 7th.")]
+    public float atLamp5 = 2f, atLamp7 = 4f;
+    [Tooltip("Seconds for the rain to pick up to a new level.")]
+    public float rampTime = 25f;
     [Tooltip("Drops fall within this distance of the player.")]
     public float radius = 14f;
     public float fallSpeed = 9f;
@@ -22,6 +27,8 @@ public class RainDrops : MonoBehaviour
     float[] floors;   // where each drop stops: the ground, or a roof
     float[] speeds;
     Matrix4x4[] matrices;
+    float heaviness = 1f;
+    int active;
     Mesh mesh;
     Material material;
     DarkForestGenerator generator;
@@ -35,7 +42,7 @@ public class RainDrops : MonoBehaviour
         material = MaterialFactory.LitTransparent(MakeStreakTexture(), tint, 0.9f);
         material.enableInstancing = true;
 
-        int n = Mathf.Clamp(dropCount, 0, 1023);
+        int n = Mathf.Clamp(Mathf.CeilToInt(dropCount * Mathf.Max(atLamp5, atLamp7)), 0, 1023); // room for the heaviest
         positions = new Vector3[n];
         floors = new float[n];
         speeds = new float[n];
@@ -43,6 +50,15 @@ public class RainDrops : MonoBehaviour
         var cam = Camera.main;
         Vector3 c = cam != null ? cam.transform.position : transform.position;
         for (int i = 0; i < n; i++) Respawn(i, c, Random.Range(-2f, 12f)); // already falling, at all heights
+        active = Mathf.Min(dropCount, n);
+    }
+
+    /// <summary>How heavy the rain should be for the lamps lit so far (1 to start).</summary>
+    float TargetHeaviness()
+    {
+        float lit = Lamp.TimesLit;
+        if (lit <= 5f) return Mathf.Lerp(1f, atLamp5, lit / 5f);
+        return Mathf.Lerp(atLamp5, atLamp7, Mathf.Clamp01((lit - 5f) / 2f));
     }
 
     void Update()
@@ -53,7 +69,14 @@ public class RainDrops : MonoBehaviour
         float dt = Time.deltaTime;
         Vector3 wind = weather != null ? weather.WindVector * (windSlant * (0.5f + weather.CurrentWind)) : Vector3.zero;
 
-        for (int i = 0; i < positions.Length; i++)
+        // Picking up (or easing off, when the run resets) slowly.
+        float target = TargetHeaviness();
+        heaviness = Mathf.MoveTowards(heaviness, target, Mathf.Max(Mathf.Abs(target - 1f), 1f) * dt / Mathf.Max(rampTime, 0.1f));
+        int want = Mathf.Clamp(Mathf.RoundToInt(dropCount * heaviness), 0, positions.Length);
+        while (active < want) { Respawn(active, c, Random.Range(6f, 12f)); active++; } // new drops start up high
+        active = want;
+
+        for (int i = 0; i < active; i++)
         {
             Vector3 velocity = (Vector3.down + wind) * speeds[i];
             Vector3 p = positions[i] + velocity * dt;
@@ -73,7 +96,8 @@ public class RainDrops : MonoBehaviour
             if (facing.sqrMagnitude < 0.0001f) facing = Vector3.forward;
             matrices[i] = Matrix4x4.TRS(p, Quaternion.LookRotation(facing, along), new Vector3(dropSize.x, dropSize.y, 1f));
         }
-        Graphics.DrawMeshInstanced(mesh, 0, material, matrices, matrices.Length, null,
+        if (active == 0) return;
+        Graphics.DrawMeshInstanced(mesh, 0, material, matrices, active, null,
             UnityEngine.Rendering.ShadowCastingMode.Off, false);
     }
 
