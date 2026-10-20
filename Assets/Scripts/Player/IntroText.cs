@@ -450,13 +450,14 @@ public class LampNarration : MonoBehaviour
             "\"FIND THE DOOR!!!\"",
             "\"IT IS YOUR ONLY HOPE!!!\"",
         }),
-        (7, "LampText7", false, new[]
+        (7, "LampText7", true, new[]
         {
-            "\"Dear god help you.\"",
-            "\"I have never witnessed this entity.\"",
-            "\"I must leave you, for my own safety.\"",
-            "\"please understand.\"",
-            "\"remember, the door.\"",
+            "\"...\"",
+            "\"I do not know of this entity.\"",
+            "\"I have never witnessed it.\"",
+            "\"I must go, for my own safety.\"",
+            "\"Please understand.\"",
+            "\"Remember, the door.\"",
         }),
     };
 
