@@ -435,37 +435,103 @@ public class BlindEntity : MonoBehaviour
 
     // ---------------------------------------------------------------- Taking the player
 
-    float takeTimer;
+    float takeTimer, headRoll;
+    int takeBeat;
+    bool takeEnded;
+    Vector3 camOffset, heldAt;
+    CharacterController playerBody;
 
     void StartTaking()
     {
         state = State.Taking;
         takeTimer = 0f;
+        takeBeat = 0;
+        takeEnded = false;
+        headRoll = 0f;
         player.enabled = false;
+        playerBody = player.GetComponent<CharacterController>();
+        if (playerBody != null) playerBody.enabled = false; // it moves the player now (ResetToSpawn turns it back on)
+        var cam = Camera.main;
+        camOffset = cam != null ? cam.transform.position - player.transform.position : Vector3.up * 1.6f;
+        heldAt = player.transform.position + camOffset;
         Vector3 to = player.transform.position - transform.position;
         to.y = 0f;
-        transform.rotation = Quaternion.LookRotation(to);
-        PlaySound(ProceduralAudio.Screech, 0.6f, 1f);
+        if (to.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(to);
+        // No scream: a lunge, a heavy foot planted, and its hand closing round you.
+        Footfall(1.3f);
+        PlaySound(ProceduralAudio.TwigSnap, 0.55f, 1f);
     }
 
+    /// <summary>
+    /// It snatches you up in one long hand and lifts you to its face. Then it does nothing: it holds you
+    /// there, breathing, head slowly tilting as it listens to you, a few quiet clicks. It goes still. Its
+    /// mouth begins to open as it draws you in, and it cuts to black.
+    /// </summary>
     void UpdateTaking(float dt)
     {
         takeTimer += dt;
-        // It bends right down to your face, mouth splitting open, and holds you there.
+        float t = takeTimer;
         var cam = Camera.main != null ? Camera.main.transform : null;
-        Vector3 dir = player.transform.position - transform.position;
-        dir.y = 0f;
-        dir = dir.sqrMagnitude > 0.001f ? dir.normalized : transform.forward;
-        transform.position = Vector3.Lerp(transform.position, player.transform.position - dir * 1.1f, 1f - Mathf.Exp(-6f * dt));
-        body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.Euler(55f, 0f, 0f), 1f - Mathf.Exp(-4f * dt));
-        mouth.localScale = new Vector3(1f, Mathf.MoveTowards(mouth.localScale.y, 1f, dt * 1.5f), 1f);
+
+        if (TakeBeat(0, 0.9f)) PlaySound(ProceduralAudio.Breath, 0.5f, 1f);          // it breathes you in
+        if (TakeBeat(1, 1.9f)) for (int i = 0; i < 3; i++) Invoke(nameof(Click), i * 0.14f);
+        if (TakeBeat(2, 3.3f)) PlaySound(ProceduralAudio.Creep, 0.45f, 0.9f);        // the mouth parting
+        if (TakeBeat(3, 4.1f) && !takeEnded)
+        {
+            takeEnded = true;
+            GameOverScreen.Show(0.15f); // a hard cut, not a fade
+        }
+
+        // Leaning in over you to bring its face down to yours.
+        float k = 1f - Mathf.Exp(-5f * dt);
+        body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.Euler(38f, 0f, 0f), k);
+        body.localPosition = Vector3.Lerp(body.localPosition, Vector3.zero, k);
+
+        // The head: listening. It tilts slowly over, twitches once or twice, then goes completely still.
+        if (t < 2.7f)
+        {
+            headRoll = Mathf.MoveTowards(headRoll, 28f, dt * 14f);
+            if (Random.value < dt * 0.8f) headRoll += Random.Range(-6f, 6f);
+        }
+        head.localRotation = Quaternion.Slerp(head.localRotation, Quaternion.Euler(-12f, 0f, headRoll), 1f - Mathf.Exp(-8f * dt));
+
+        // One arm out holding you, the other hanging.
+        for (int i = 0; i < 2; i++)
+        {
+            Quaternion goal = i == 1 ? Quaternion.Euler(-70f, 0f, -12f) : Quaternion.Euler(8f, 0f, -6f);
+            arms[i].localRotation = Quaternion.Slerp(arms[i].localRotation, goal, 1f - Mathf.Exp(-12f * dt));
+            legs[i].localRotation = Quaternion.Slerp(legs[i].localRotation, Quaternion.identity, k);
+        }
+
+        // The mouth splits slowly open at the end.
+        float open = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(3.2f, 4.1f, t));
+        mouth.localScale = new Vector3(Mathf.Lerp(1f, 1.5f, open), Mathf.Lerp(0.25f, 1.4f, open), 1f);
         mouth.gameObject.SetActive(true);
+
+        // You: snatched up off the ground to hang in front of its face, then drawn slowly closer at the end.
+        float faceGap = Mathf.Lerp(1.3f * scale / 2.7f, 0.45f * scale / 2.7f, open);
+        Vector3 hold = head.position + transform.forward * faceGap - Vector3.up * 0.15f * scale;
+        float snatch = t < 0.6f ? 1f - Mathf.Exp(-9f * dt) : 1f - Mathf.Exp(-3f * dt);
+        heldAt = Vector3.Lerp(heldAt, hold, snatch);
+        // Struggling in its grip: a slow, heavy sway, not a jitter.
+        float struggle = Mathf.Lerp(0.05f, 0.015f, Mathf.InverseLerp(0.5f, 3f, t));
+        Vector3 sway = new Vector3(Mathf.PerlinNoise(t * 1.3f, 0.1f) - 0.5f, Mathf.PerlinNoise(0.4f, t * 1.1f) - 0.5f, 0f) * struggle * scale;
+        player.transform.position = heldAt - camOffset + transform.rotation * sway;
+
         if (cam != null)
         {
-            Quaternion look = Quaternion.LookRotation(head.position - cam.position);
-            cam.rotation = Quaternion.Slerp(cam.rotation, look, 1f - Mathf.Exp(-10f * dt)) * Quaternion.Euler(Random.insideUnitSphere * 1.2f);
+            // Your head is pulled round to face it, slowly, and you hang a little askew in its hand.
+            Quaternion look = Quaternion.LookRotation(head.position + Vector3.up * 0.1f * scale - cam.position);
+            look *= Quaternion.Euler(0f, 0f, -9f + (Mathf.PerlinNoise(t * 0.7f, 5f) - 0.5f) * 6f);
+            cam.rotation = Quaternion.Slerp(cam.rotation, look, 1f - Mathf.Exp((t < 0.6f ? -6f : -2.5f) * dt));
         }
-        if (takeTimer > 1.8f) GameOverScreen.Show(2.5f);
+    }
+
+    bool TakeBeat(int index, float at)
+    {
+        if (takeBeat != index || takeTimer < at) return false;
+        takeBeat++;
+        return true;
     }
 
     // ---------------------------------------------------------------- Body
