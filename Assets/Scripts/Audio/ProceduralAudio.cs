@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, bushRustle, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
+        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -115,6 +115,8 @@ public static class ProceduralAudio
     public static AudioClip Poof => poof != null ? poof : (poof = MakePoof());
     /// <summary>Rustle and crackle of something moving through the undergrowth.</summary>
     public static AudioClip Creep => creep != null ? creep : (creep = MakeCreep());
+    /// <summary>Slow, heavy breathing with a rasp: a long inhale, a pause, a ragged exhale. Loops seamlessly.</summary>
+    public static AudioClip Breath => breath != null ? breath : (breath = MakeBreath());
     public static AudioClip Screech => screech != null ? screech : (screech = MakeScreech());
     /// <summary>Pounding heartbeat under a deep, swelling groan: something is coming. Loops seamlessly.</summary>
     public static AudioClip Advance => advance != null ? advance : (advance = MakeAdvance());
@@ -767,6 +769,24 @@ public static class ProceduralAudio
             float swish = Mathf.Pow(Mathf.Abs(Mathf.Sin(Mathf.PI * p * swishes + Mathf.Sin(p * 9f) * 0.6f)), 1.5f);
             float rustle = (lp - hp) * swish * Mathf.Sin(Mathf.PI * p) * 0.9f;
             return crackle * 0.6f + rustle;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeBreath()
+    {
+        const float len = 5f;
+        float lp = 0f, lp2 = 0f;
+        return Shot("Breath", len, t =>
+        {
+            // In for 1.7s, hold, out for 2s, silence. Silent at both ends, so it loops without a seam.
+            float inhale = t < 1.7f ? Mathf.Sin(Mathf.PI * t / 1.7f) : 0f;
+            float exhale = t > 2.1f && t < 4.1f ? Mathf.Pow(Mathf.Sin(Mathf.PI * (t - 2.1f) / 2f), 0.7f) : 0f;
+            float w = White();
+            lp += (w - lp) * Mathf.Lerp(0.08f, 0.25f, inhale);   // airy, brighter as it draws in
+            lp2 += (w - lp2) * 0.05f;                           // darker exhale
+            float rasp = 1f + 0.6f * Mathf.Sin(t * 2f * Mathf.PI * 38f) * Mathf.Sin(t * 2f * Mathf.PI * 3f); // a wet rattle
+            float growl = Mathf.Sin(t * 2f * Mathf.PI * 62f) * 0.12f * exhale;
+            return lp * inhale * 0.7f + (lp2 * 1.4f * rasp + growl) * exhale;
         }, 0.8f);
     }
 

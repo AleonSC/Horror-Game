@@ -159,9 +159,11 @@ public class WeatherSystem : MonoBehaviour
     void UpdateAudio(Vector3 listener)
     {
         float smoothing = Time.deltaTime * 0.8f;
-        windSource.volume = Mathf.MoveTowards(windSource.volume, windVolume * Mathf.Clamp01(0.3f + CurrentWind * 0.8f), smoothing);
+        float quiet = 1f - 0.9f * EntityDread.Silence; // hushed while an entity is close
+        if (EntityDread.Silence > 0f) smoothing = Mathf.Max(smoothing, Time.deltaTime * 1.5f);
+        windSource.volume = Mathf.MoveTowards(windSource.volume, windVolume * Mathf.Clamp01(0.3f + CurrentWind * 0.8f) * quiet, smoothing);
         windSource.pitch = Mathf.Lerp(0.85f, 1.15f, Mathf.Clamp01(CurrentWind));
-        leavesSource.volume = Mathf.MoveTowards(leavesSource.volume, leavesVolume * Mathf.Clamp01(CurrentWind * CurrentWind), smoothing);
+        leavesSource.volume = Mathf.MoveTowards(leavesSource.volume, leavesVolume * Mathf.Clamp01(CurrentWind * CurrentWind) * quiet, smoothing);
 
         // Strong gusts make nearby trunks groan.
         creakCooldown -= Time.deltaTime;

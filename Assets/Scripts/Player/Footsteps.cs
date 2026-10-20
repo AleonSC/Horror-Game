@@ -83,6 +83,6 @@ public class Footsteps : MonoBehaviour
         }
 
         source.pitch = Random.Range(0.9f, 1.1f);
-        source.PlayOneShot(clip, volume);
+        source.PlayOneShot(clip, volume * (1f - 0.85f * EntityDread.Silence)); // even your steps go quiet near it
     }
 }

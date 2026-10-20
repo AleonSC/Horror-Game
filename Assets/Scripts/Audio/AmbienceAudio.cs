@@ -72,11 +72,14 @@ public class AmbienceAudio : MonoBehaviour
                 nearest = Mathf.Min(nearest, Vector3.Distance(entity.transform.position, listener));
 
         float closeness = Mathf.Clamp01(Mathf.InverseLerp(tensionDistance, 3f, nearest));
-        tension.volume = Mathf.MoveTowards(tension.volume, closeness * tensionVolume, Time.deltaTime * 0.5f);
+        // Right up close it all drops away (EntityDread): the silence is the warning.
+        float quiet = 1f - 0.9f * EntityDread.Silence;
+        tension.volume = Mathf.MoveTowards(tension.volume, closeness * tensionVolume * quiet, Time.deltaTime * 0.5f);
         drone.pitch = Mathf.Lerp(1f, 0.92f, closeness);
-        drone.volume = droneVolume;
+        drone.volume = droneVolume * quiet;
 
         noiseTimer -= Time.deltaTime;
+        if (noiseTimer <= 0f && EntityDread.Silence > 0.3f) noiseTimer = 2f; // nothing stirs while it's close
         if (noiseTimer <= 0f)
         {
             noiseTimer = Random.Range(minNoiseInterval, maxNoiseInterval);
