@@ -29,32 +29,7 @@ public class ShadowEntity : MonoBehaviour
     static void ResetStatics() { All.Clear(); Capturing = null; }
 
     /// <summary>Seconds before the first entity of a run appears.</summary>
-    public const float FirstEntityDelay = 35f;
-
-    // Pacing. How many scours hunt you, by how many lamps you've lit (the last number holds from there
-    // on): front-loaded, so the early and middle game has company, without the late game (bosses, storms,
-    // the searchlight's crowd) burying you under one more for every lamp.
-    static readonly int[] HuntersByLamps = { 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5 };
-
-    public static int TargetHunters => HuntersByLamps[Mathf.Clamp(Lamp.TimesLit, 0, HuntersByLamps.Length - 1)];
-
-    /// <summary>
-    /// Brings in more scours if there are fewer than the pacing calls for now (a lamp was just lit). They
-    /// come in a few seconds apart, not all at once. The searchlight's crowd doesn't count.
-    /// </summary>
-    public static void TopUp()
-    {
-        int hunters = 0;
-        foreach (var e in All) if (e != null && !e.crowdMember) hunters++;
-        for (int i = hunters, n = 0; i < TargetHunters; i++, n++)
-            Spawn(Random.Range(4f, 10f) + n * Random.Range(6f, 12f));
-    }
-
-    /// <summary>
-    /// How long it stays gone after it's driven off or relocates: quicker early on, when there are fewer of
-    /// them (so each one keeps coming back), longer late, when there are plenty.
-    /// </summary>
-    float RespawnDelay() => Random.Range(minRespawnDelay, maxRespawnDelay) * Mathf.Lerp(0.55f, 1.15f, Mathf.InverseLerp(0f, 8f, Lamp.TimesLit));
+    public const float FirstEntityDelay = 60f;
 
     public static ShadowEntity Spawn() => new GameObject("Shadow Entity").AddComponent<ShadowEntity>();
 
@@ -375,7 +350,7 @@ public class ShadowEntity : MonoBehaviour
         // Gone into the dark room: they can't follow. They wait, out of sight, until you come back out.
         if (PortalDoor.PlayerInRoom && CurrentState != State.Killing)
         {
-            if (CurrentState != State.Hidden) Hide(RespawnDelay());
+            if (CurrentState != State.Hidden) Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
             UpdateFragments();
             return;
         }
@@ -495,7 +470,7 @@ public class ShadowEntity : MonoBehaviour
         float dist = HorizontalDistanceToTarget();
         if (dist > relocateDistance)
         {
-            Hide(RespawnDelay());
+            Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
             return;
         }
 
@@ -969,7 +944,7 @@ public class ShadowEntity : MonoBehaviour
         dissolveTimer = -1f;
         ResetVisual();
         whisper.pitch = Random.Range(0.85f, 1.1f);
-        Hide(RespawnDelay());
+        Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
     }
 
     void Poof()
@@ -978,7 +953,7 @@ public class ShadowEntity : MonoBehaviour
         PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof);
         ResetVisual();
         whisper.pitch = Random.Range(0.85f, 1.1f);
-        Hide(RespawnDelay());
+        Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
     }
 
     /// <summary>The one taking the player right now, if any: only one at a time.</summary>
