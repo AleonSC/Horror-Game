@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The ground round a lamp: tall, thick grass grown up round the foot of the post, a few round shrubs,
-/// brighter grass out past the worn path. When the lamp's lit, fireflies come out and drift round the light.
+/// The ground round a lamp: tall, thick grass grown up round the foot of the post, brighter grass out past
+/// the worn path. (The proper garden is round the lone door: DoorGarden.) When the lamp's lit, fireflies come out and drift round the light.
 /// LampSpawner builds one round each lamp (after it's placed).
 /// </summary>
 public class LampGarden : MonoBehaviour
@@ -44,21 +44,6 @@ public class LampGarden : MonoBehaviour
         tall.transform.SetParent(root, false);
         tall.AddComponent<MeshFilter>().sharedMesh = blades.Build();
         tall.AddComponent<MeshRenderer>().sharedMaterial = tallGrass;
-
-        // Neat, round little shrubs.
-        var bushes = new List<CombineInstance>();
-        for (int i = 0; i < 3; i++)
-        {
-            float a = (i + Random.Range(0f, 0.6f)) / 3f * Mathf.PI * 2f, r = Random.Range(0.75f, 1.0f);
-            float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-            for (int b = 0; b < 4; b++)
-            {
-                float s = Random.Range(0.22f, 0.32f);
-                var off = new Vector3(Random.Range(-0.1f, 0.1f), 0f, Random.Range(-0.1f, 0.1f));
-                bushes.Add(new CombineInstance { mesh = sphereMesh, transform = Matrix4x4.TRS(new Vector3(x, Ground(x, z) + s * 0.4f, z) + off, Quaternion.identity, new Vector3(s, s * 0.85f, s)) });
-            }
-        }
-        Combined(root, "Shrubs", bushes, shrub);
 
         // Bright, healthy grass tufts round the bed and the path.
         var tufts = new List<CombineInstance>();

@@ -1170,6 +1170,7 @@ public class DarkForestGenerator : MonoBehaviour
             Vector3 w = child.position;
             child.position = new Vector3(w.x, GetGroundHeight(w.x, w.z) - 0.05f, w.z);
         }
+        door.BuildGarden(this);
         PortalDoorPosition = best;
     }
 
