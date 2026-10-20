@@ -46,8 +46,8 @@ public class ShadowEntity : MonoBehaviour
     public float maxSpawnDistance = 32f;
     [Tooltip("Spawns within this many degrees of where the player is facing, so it's likely to be seen.")]
     public float spawnViewAngle = 70f;
-    public float minRespawnDelay = 4f;
-    public float maxRespawnDelay = 9f;
+    public float minRespawnDelay = 10f;
+    public float maxRespawnDelay = 18f;
     [Tooltip("If the player gets this far away, it silently vanishes and rematerializes closer.")]
     public float relocateDistance = 50f;
 
@@ -82,6 +82,12 @@ public class ShadowEntity : MonoBehaviour
     public float maxGrowth = 1.8f;
     [Tooltip("If it gets this close while advancing, it takes the player.")]
     public float touchDistance = 1.5f;
+
+    [Header("Watchtower")]
+    [Tooltip("While the player is up the watchtower, it rushes to the tower's base at this speed when not looked at directly.")]
+    public float poolSpeed = 3f;
+    [Tooltip("Only looking within this many degrees of it counts as looking 'directly' (freezes it at the tower).")]
+    public float directLookAngle = 25f;
 
     [Header("Circling Lamps")]
     [Tooltip("How far outside a lamp's light it circles.")]
@@ -158,6 +164,7 @@ public class ShadowEntity : MonoBehaviour
     float growth = 1f;
     float circleDirection = 1f;
     float stepSoundTimer;
+    float poolAngle = -1f;
 
     Transform visual;
     Renderer[] bodyRenderers;
@@ -326,9 +333,17 @@ public class ShadowEntity : MonoBehaviour
         float closeness = Mathf.Clamp01(Mathf.InverseLerp(reactDistance, stopDistance, dist));
 
         bool playerSafe = SafeZones.Contains(target.position, out SafeZones.ISource safeLight);
+        Watchtower tower = Watchtower.TowerPlayerIsOn(target.position, player);
         bool advancing = false;
 
-        if (playerSafe)
+        if (tower != null)
+        {
+            // Up the tower (or on its ladder) the player can't be caught. It gathers at the foot of the tower
+            // instead, freezing only while stared at directly.
+            ReleasePlayer();
+            if (!IsPlayerLooking(directLookAngle)) PoolAtTower(tower);
+        }
+        else if (playerSafe)
         {
             // Can't touch them in the light. Close in and prowl around its edge while unwatched.
             ReleasePlayer();
@@ -389,7 +404,7 @@ public class ShadowEntity : MonoBehaviour
         advanceSource.volume = Mathf.MoveTowards(advanceSource.volume, advanceTarget, Time.deltaTime * 1.5f);
         advanceSource.pitch = Mathf.Lerp(0.9f, 1.3f, Mathf.InverseLerp(1f, maxGrowth, growth));
 
-        if (!playerSafe)
+        if (!playerSafe && tower == null)
         {
             creepTimer -= Time.deltaTime;
             if (creepTimer <= 0f) TryCreep();
@@ -425,6 +440,34 @@ public class ShadowEntity : MonoBehaviour
             stepSoundTimer = Random.Range(1.5f, 3.5f);
             PlaySound(creepSound != null ? creepSound : ProceduralAudio.Creep);
         }
+    }
+
+    /// <summary>Rushes to its own spot in a ring around the foot of the tower.</summary>
+    void PoolAtTower(Watchtower tower)
+    {
+        if (poolAngle < 0f) poolAngle = Random.Range(0f, Mathf.PI * 2f);
+        float r = 3.5f + (poolAngle % 1f) * 2.5f; // 3.5 - 6 m out, different for each entity
+        Vector3 spot = tower.transform.position + new Vector3(Mathf.Sin(poolAngle), 0f, Mathf.Cos(poolAngle)) * r;
+
+        Vector3 to = spot - transform.position;
+        to.y = 0f;
+        if (to.magnitude < 0.1f) return;
+        Vector3 next = transform.position + Vector3.ClampMagnitude(to, poolSpeed * Time.deltaTime);
+        next.y = GroundHeight(next);
+        transform.position = next;
+
+        stepSoundTimer -= Time.deltaTime;
+        if (stepSoundTimer <= 0f)
+        {
+            stepSoundTimer = Random.Range(0.8f, 2f);
+            PlaySound(creepSound != null ? creepSound : ProceduralAudio.Creep);
+        }
+    }
+
+    /// <summary>Called when the player grabs a watchtower ladder: if it's waiting to appear, it comes now.</summary>
+    public void Summon()
+    {
+        if (CurrentState == State.Hidden) timer = Mathf.Min(timer, Random.Range(0.5f, 2.5f));
     }
 
     void StartCrescendo()
@@ -593,13 +636,15 @@ public class ShadowEntity : MonoBehaviour
 
     // ---------------------------------------------------------------- Helpers
 
-    bool IsPlayerLooking()
+    bool IsPlayerLooking() => IsPlayerLooking(lookAngle);
+
+    bool IsPlayerLooking(float withinDegrees)
     {
         Transform cam = Camera.main != null ? Camera.main.transform : target;
         Vector3 head = transform.position + Vector3.up * (2f * scale * growth);
         Vector3 toHead = head - cam.position;
 
-        if (Vector3.Angle(cam.forward, toHead) > lookAngle) return false;
+        if (Vector3.Angle(cam.forward, toHead) > withinDegrees) return false;
 
         // A tree or rock in the way means the player can't actually see it.
         float dist = toHead.magnitude;

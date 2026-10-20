@@ -68,6 +68,26 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         ApplyVisuals();
     }
 
+    /// <summary>The tower the player is up (on its ladder, or above the ground within its footprint), if any.</summary>
+    public static Watchtower TowerPlayerIsOn(Vector3 playerPosition, FirstPersonController player)
+    {
+        foreach (var tower in All)
+        {
+            if (player != null && player.CurrentLadder != null && player.CurrentLadder.transform.IsChildOf(tower.transform))
+                return tower;
+            Vector3 local = tower.transform.InverseTransformPoint(playerPosition);
+            if (Mathf.Abs(local.x) < DeckHalf + 1.2f && Mathf.Abs(local.z) < DeckHalf + 1.2f && local.y > 2.5f)
+                return tower;
+        }
+        return null;
+    }
+
+    /// <summary>Grabbing the ladder calls every entity: the waiting ones appear right away.</summary>
+    public void OnLadderTouched()
+    {
+        foreach (var entity in ShadowEntity.All) entity.Summon();
+    }
+
     /// <summary>Turns the floodlights on (if they're ready) and resets every entity's hunt.</summary>
     public void Activate()
     {

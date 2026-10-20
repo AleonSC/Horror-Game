@@ -257,10 +257,18 @@ public class FirstPersonController : MonoBehaviour
         }
     }
 
+    /// <summary>The ladder the player is on, if any.</summary>
+    public Ladder CurrentLadder => ladder;
+
     void OnTriggerEnter(Collider other)
     {
         var l = other.GetComponent<Ladder>();
         if (l == null) return;
+        if (ladderContacts == 0)
+        {
+            var tower = l.GetComponentInParent<Watchtower>();
+            if (tower != null) tower.OnLadderTouched();
+        }
         ladder = l;
         ladderContacts++;
     }
