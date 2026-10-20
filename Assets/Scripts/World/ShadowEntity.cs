@@ -459,8 +459,11 @@ public class ShadowEntity : MonoBehaviour
             return;
         }
 
-        // A lamp was lit right next to it: it's driven off.
-        if (SafeZones.Contains(transform.position))
+        // A lamp was lit right next to it: it's driven off. (Not the crowd round the giant's searchlight:
+        // they're past caring about lamps.)
+        var watcherNow = WatcherEvent.Instance;
+        bool withCrowd = crowdMember && watcherNow != null && watcherNow.SearchlightsOn;
+        if (!withCrowd && SafeZones.Contains(transform.position))
         {
             Poof();
             return;
@@ -486,7 +489,7 @@ public class ShadowEntity : MonoBehaviour
         {
             // Can't touch them in the light. Close in and prowl around its edge while unwatched.
             ReleasePlayer();
-            if (!IsPlayerLooking()) CircleLight(safeLight);
+            if (!IsPlayerLooking()) CircleLight(withCrowd ? watcherNow : safeLight);
         }
         else if (IsLitByFlashlight())
         {
@@ -653,6 +656,12 @@ public class ShadowEntity : MonoBehaviour
         }
         Hide(seconds);
         creepTimer = NextCreepDelay();
+    }
+
+    /// <summary>Back now, after Retreat (the giant's searchlight has found the player again).</summary>
+    public void Recall()
+    {
+        if (CurrentState == State.Hidden) timer = Random.Range(0.3f, 4f);
     }
 
     public void Summon()

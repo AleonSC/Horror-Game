@@ -95,12 +95,14 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     public int searchlightLamps = 10;
     [Tooltip("Radius of the pool of light round the player. The entities can't come into it.")]
     public float searchlightRadius = 9f;
-    [Tooltip("Metres per second the light follows the player: faster than walking, slower than running.")]
-    public float searchlightTrackSpeed = 4.5f;
+    [Tooltip("How fast the light follows the player, against their walking speed: just quicker than walking, so walking keeps you in it and running leaves it behind.")]
+    public float searchlightTrackFactor = 1.05f;
+    [Tooltip("Seconds out of cover (out of a shack) before it finds you again.")]
+    public float reacquireTime = 12f;
     public Color searchlightColor = new Color(1f, 0.85f, 0.8f);
     public float searchlightIntensity = 12f;
-    [Tooltip("How many entities come out of the dark to crowd round the light.")]
-    public int crowdSize = 16;
+    [Tooltip("How many scours come out of the dark to crowd round the light.")]
+    public int crowdSize = 20;
 
     [Header("Atmosphere")]
     public Color redFog = new Color(0.11f, 0.015f, 0.015f);
@@ -134,7 +136,9 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     bool searchlightsOn;
     Vector3 searchlightTarget;
     Light searchlight;
-    readonly Transform[] beams = new Transform[2];
+    readonly Transform[] beams = new Transform[3]; // a thin shaft from each eye, and the cone down onto the pool
+    bool searchlightLost;
+    float reacquireTimer;
 
     /// <summary>Where the giant's head is, if it's in the world (hanging or walking).</summary>
     public bool TryGetGiantHead(out Vector3 head)
@@ -146,10 +150,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     }
 
     /// <summary>True once the giant's searchlights are on and tracking the player.</summary>
-    public bool SearchlightsOn => searchlightsOn;
+    public bool SearchlightsOn => searchlightsOn && !searchlightLost;
 
     // The pool of light the searchlights throw round the player is a safe zone the crowd circles.
-    bool SafeZones.ISource.IsActive => searchlightsOn;
+    bool SafeZones.ISource.IsActive => searchlightsOn && !searchlightLost;
     Vector3 SafeZones.ISource.Center => searchlightTarget;
     float SafeZones.ISource.Radius => searchlightRadius;
     void OnEnable() => SafeZones.Register(this);
@@ -840,8 +844,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     // ---------------------------------------------------------------- Searchlights
 
     /// <summary>
-    /// After searchlightLamps lamps, beams blaze from the giant's eyes down onto the player and follow them,
-    /// and a crowd of entities comes out of the dark to circle the edge of the light.
+    /// After searchlightLamps lamps, beams blaze from the giant's eyes down onto the player and follow them at
+    /// a walk: walk and you stay in the pool of light; run and you leave it behind. A crowd of scours comes
+    /// out of the dark and rings the edge of the pool, waiting. Get to the door, or into a shack, and it loses
+    /// you: the light wanders off and the crowd melts away, until you've been back out in the open a while.
     /// </summary>
     void UpdateSearchlights(float dt)
     {
@@ -851,9 +857,45 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         else if (!want && searchlightsOn) TurnOffSearchlights();
         if (!searchlightsOn) return;
 
-        // It follows the player: faster than walking, slower than running.
         Vector3 feet = player.transform.position;
-        searchlightTarget = Vector3.MoveTowards(searchlightTarget, feet, searchlightTrackSpeed * dt);
+
+        // Under cover (a shack, or through the door), it loses you.
+        bool covered = PortalDoor.PlayerInRoom;
+        foreach (var shack in Shack.All) if (shack.Contains(feet + Vector3.up)) covered = true;
+        if (covered && !searchlightLost)
+        {
+            searchlightLost = true;
+            foreach (var scour in new System.Collections.Generic.List<ShadowEntity>(ShadowEntity.All))
+                if (scour.crowdMember) scour.Retreat(9999f); // gone until it finds you again
+        }
+        if (searchlightLost)
+        {
+            reacquireTimer = covered ? 0f : reacquireTimer + dt;
+            if (reacquireTimer >= reacquireTime)
+            {
+                // Found you again, and they come back.
+                searchlightLost = false;
+                audioSource.pitch = 0.5f;
+                audioSource.PlayOneShot(ProceduralAudio.Floodlight, 0.8f);
+                foreach (var scour in ShadowEntity.All) if (scour.crowdMember) scour.Recall();
+            }
+        }
+
+        float walk = player.walkSpeed * searchlightTrackFactor;
+        if (searchlightLost)
+        {
+            // Hunting for you: the light wanders, sweeping the woods round where it lost you.
+            float t = Time.time;
+            Vector3 wander = feet + new Vector3(Mathf.Sin(t * 0.17f), 0f, Mathf.Cos(t * 0.13f)) * 35f;
+            searchlightTarget = Vector3.MoveTowards(searchlightTarget, wander, walk * 1.5f * dt);
+        }
+        else
+        {
+            // Following you, at just quicker than a walk. (Coming back to you after it lost you, it's quicker.)
+            float gap = Vector3.Distance(new Vector3(searchlightTarget.x, 0f, searchlightTarget.z), new Vector3(feet.x, 0f, feet.z));
+            float speed = gap > searchlightRadius * 2f ? walk * 3f : walk;
+            searchlightTarget = Vector3.MoveTowards(searchlightTarget, feet, speed * dt);
+        }
         searchlightTarget.y = Ground(searchlightTarget);
 
         // The real light sits a way up the beam, aimed down at the spot (a light 2km off would need absurd power).
@@ -866,21 +908,29 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // Its head turns to stare down along the beams.
         giantHead.rotation = Quaternion.Slerp(giantHead.rotation, Quaternion.LookRotation(searchlightTarget - giantHead.position), 1f - Mathf.Exp(-2f * dt));
 
-        // Visible beams from each eye to the pool of light.
+        // What you see: a faint thin shaft from each eye, and a cone of light coming down onto the pool from
+        // high above it, like the flier's beam (a cone kilometres long, seen from inside, looked bad).
+        const float coneLength = 70f;
+        Vector3 coneTop = searchlightTarget - fromGiant * coneLength;
         for (int i = 0; i < 2; i++)
         {
             Vector3 from = giantEyes[i].position;
-            Vector3 to = searchlightTarget + Vector3.up * 0.5f;
-            Vector3 d = to - from;
+            Vector3 d = coneTop - from;
             beams[i].position = from;
             beams[i].rotation = Quaternion.LookRotation(d);
-            beams[i].localScale = new Vector3(searchlightRadius * 0.7f, searchlightRadius * 0.7f, d.magnitude);
+            beams[i].localScale = new Vector3(2.5f, 2.5f, d.magnitude);
         }
+        Vector3 down = searchlightTarget + Vector3.up * 0.3f - coneTop;
+        beams[2].position = coneTop;
+        beams[2].rotation = Quaternion.LookRotation(down);
+        beams[2].localScale = new Vector3(searchlightRadius * 1.1f, searchlightRadius * 1.1f, down.magnitude);
     }
 
     void TurnOnSearchlights()
     {
         searchlightsOn = true;
+        searchlightLost = false;
+        reacquireTimer = 0f;
         searchlightTarget = player.transform.position;
         if (searchlight == null) BuildSearchlights();
         searchlight.enabled = true;
@@ -913,16 +963,21 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         searchlight.shadows = LightShadows.Soft; // the trees throw long shadows across the pool
 
         Shader shader = Shader.Find("Horror/Beam");
-        var mat = shader != null ? new Material(shader) : MaterialFactory.NoFog(searchlightColor, 3000, false);
-        mat.SetColor("_Color", new Color(searchlightColor.r, searchlightColor.g, searchlightColor.b, 0.35f));
-        Mesh cone = BuildBeamMesh();
-        for (int i = 0; i < 2; i++)
+        Material Beam(float alpha)
         {
-            var go = new GameObject("Eye Beam");
+            var m = shader != null ? new Material(shader) : MaterialFactory.NoFog(searchlightColor * alpha, 3000, false);
+            m.SetColor("_Color", new Color(searchlightColor.r, searchlightColor.g, searchlightColor.b, alpha));
+            return m;
+        }
+        Material shaft = Beam(0.05f), pool = Beam(0.12f);
+        Mesh cone = BuildBeamMesh();
+        for (int i = 0; i < 3; i++)
+        {
+            var go = new GameObject(i < 2 ? "Eye Shaft" : "Searchlight Cone");
             go.transform.SetParent(transform, false);
             go.AddComponent<MeshFilter>().sharedMesh = cone;
             var renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = mat;
+            renderer.sharedMaterial = i < 2 ? shaft : pool;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             beams[i] = go.transform;
