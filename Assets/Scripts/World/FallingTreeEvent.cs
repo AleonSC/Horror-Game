@@ -5,25 +5,29 @@ using UnityEngine;
 /// creaking topple that speeds up, a heavy impact that shakes the camera, a bounce, and a roll
 /// as it settles. It leaves a stump, and the fallen trunk blocks the way.
 ///
-/// Currently fires once, triggerTime seconds into play. Call Trigger() to set one off any time
-/// (e.g. from a future random-event system). DarkForestGenerator adds this automatically.
+/// A random event: the first tree falls about firstFallTime seconds into play, then another every
+/// minInterval to maxInterval seconds. Call Trigger() to set one off any time.
+/// Trees with an owl perched in them are left standing. DarkForestGenerator adds this automatically.
 /// </summary>
 public class FallingTreeEvent : MonoBehaviour
 {
-    [Tooltip("Seconds into play before the tree falls. Set below 0 to only fall when Trigger() is called.")]
-    public float triggerTime = 30f;
+    [Tooltip("Seconds into play before the first tree falls. Set below 0 to only fall when Trigger() is called.")]
+    public float firstFallTime = 30f;
+    [Tooltip("After that, another tree falls every this many seconds (picked at random between the two).")]
+    public float minInterval = 45f;
+    public float maxInterval = 90f;
     public float minDistance = 12f;
     public float maxDistance = 25f;
     [Tooltip("Prefer trees within this many degrees of where the player is looking, so they see it.")]
     public float viewAngle = 60f;
     [Range(0f, 1f)] public float volume = 1f;
 
-    enum Phase { Waiting, Cracking, Falling, Settling, Done }
+    enum Phase { Waiting, Cracking, Falling, Settling }
 
     Phase phase = Phase.Waiting;
     DarkForestGenerator generator;
     FirstPersonController player;
-    float clock, timer;
+    float clock, timer, nextFall = -1f;
 
     Transform tree, sway;
     Quaternion restRotation;
@@ -45,8 +49,15 @@ public class FallingTreeEvent : MonoBehaviour
         switch (phase)
         {
             case Phase.Waiting:
+                if (firstFallTime < 0f) break;
+                if (nextFall < 0f) nextFall = firstFallTime;
                 clock += dt;
-                if (triggerTime >= 0f && clock >= triggerTime) Trigger();
+                if (clock >= nextFall)
+                {
+                    clock = 0f;
+                    // No suitable tree right now: try again shortly. Otherwise wait for the next one.
+                    nextFall = Trigger() ? Random.Range(minInterval, maxInterval) : 10f;
+                }
                 break;
 
             case Phase.Cracking:
@@ -112,15 +123,11 @@ public class FallingTreeEvent : MonoBehaviour
     /// <summary>Makes a tree near the player fall now. Returns false if there's no suitable tree.</summary>
     public bool Trigger()
     {
-        if (phase != Phase.Waiting && phase != Phase.Done) return false;
+        if (phase != Phase.Waiting) return false;
         if (generator == null || player == null) return false;
 
         Transform pivot = PickTree();
-        if (pivot == null)
-        {
-            phase = Phase.Done;
-            return false;
-        }
+        if (pivot == null) return false;
 
         sway = pivot;
         tree = pivot.parent;
@@ -162,6 +169,7 @@ public class FallingTreeEvent : MonoBehaviour
         foreach (var pivot in generator.SwayPivots)
         {
             if (pivot == null || pivot.parent == null || pivot.parent.GetComponent<CapsuleCollider>() == null) continue;
+            if (pivot.Find("Owl Perch") != null) continue; // leave the owls be
 
             Vector3 to = pivot.position - eye;
             to.y = 0f;
@@ -198,7 +206,7 @@ public class FallingTreeEvent : MonoBehaviour
 
     void Finish()
     {
-        phase = Phase.Done;
+        phase = Phase.Waiting;
 
         // Swap the standing trunk collider for one that lies with the fallen tree.
         var standing = tree.GetComponent<CapsuleCollider>();

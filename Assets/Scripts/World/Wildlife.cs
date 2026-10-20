@@ -7,6 +7,7 @@ using UnityEngine;
 /// - Rats: sniff around, dart between spots, and scatter, squeaking, if you get close.
 /// - Moths: flutter around the bulbs of lit lamps.
 /// - Bats: every so often a few swoop overhead with a flurry of wing beats.
+/// - Owls: dark owls perched on branches of some trees, white eyes, heads turning to stare at you.
 /// - Deer: pitch-black deer that wander and graze, look up when you come near, and gallop off,
 ///   snorting, if you get too close. A spooked deer sets off the rest of its herd.
 ///
@@ -35,6 +36,13 @@ public class Wildlife : MonoBehaviour
     public float minBatInterval = 15f;
     public float maxBatInterval = 45f;
     public int maxBatsPerFlock = 3;
+
+    [Header("Owls")]
+    [Tooltip("How many trees get an owl on a branch.")]
+    public int owlCount = 45;
+    [Tooltip("Owls within this distance turn their heads to stare at the player.")]
+    public float owlStareDistance = 45f;
+    public Color owlEyeColor = new Color(1.6f, 1.6f, 1.5f);
 
     [Header("Deer")]
     public int deerCount = 6;
@@ -87,10 +95,17 @@ public class Wildlife : MonoBehaviour
     readonly List<Bat> bats = new List<Bat>();
     readonly List<Critter> deer = new List<Critter>();
 
+    class Owl
+    {
+        public Transform head;
+        public float tilt, tiltTimer;
+    }
+    readonly List<Owl> owls = new List<Owl>();
+
     DarkForestGenerator generator;
     Transform player;
     float batTimer;
-    Material beetleMat, ratMat, eyeMat, mothMat, batMat, deerMat, deerEyeMat;
+    Material beetleMat, ratMat, eyeMat, mothMat, batMat, deerMat, deerEyeMat, owlMat, owlEyeMat, pupilMat;
 
     const int RatIdle = 0, RatDash = 1, RatFlee = 2;
     const int DeerGraze = 0, DeerWalk = 1, DeerAlert = 2, DeerFlee = 3;
@@ -107,12 +122,16 @@ public class Wildlife : MonoBehaviour
         mothMat = MaterialFactory.Lit(new Color(0.12f, 0.1f, 0.08f), 0.05f);
         batMat = MaterialFactory.Lit(new Color(0.02f, 0.02f, 0.02f), 0.1f);
         deerMat = MaterialFactory.Lit(new Color(0.025f, 0.025f, 0.03f), 0.2f);
+        owlMat = MaterialFactory.Lit(new Color(0.035f, 0.03f, 0.028f), 0.1f);
+        owlEyeMat = MaterialFactory.Unlit(owlEyeColor);
+        pupilMat = MaterialFactory.Unlit(Color.black);
         deerEyeMat = MaterialFactory.Unlit(new Color(0.35f, 0.45f, 0.4f)); // eyeshine
 
         for (int i = 0; i < beetleCount; i++) beetles.Add(BuildBeetle());
         for (int i = 0; i < ratCount; i++) rats.Add(BuildRat());
         for (int i = 0; i < maxBatsPerFlock; i++) bats.Add(new Bat { critter = BuildBat() });
         for (int i = 0; i < deerCount; i++) deer.Add(BuildDeer());
+        PlaceOwls();
 
         batTimer = Random.Range(minBatInterval, maxBatInterval);
     }
@@ -135,6 +154,7 @@ public class Wildlife : MonoBehaviour
         UpdateMoths();
         UpdateBats(dt);
         for (int i = 0; i < deer.Count; i++) UpdateDeer(i, dt);
+        UpdateOwls(dt);
     }
 
     // ---------------------------------------------------------------- Beetles
@@ -751,6 +771,110 @@ public class Wildlife : MonoBehaviour
                 t.localPosition += t.localRotation * Vector3.up * 0.06f; // base of the tine sits on the beam
             }
         }
+    }
+
+    // ---------------------------------------------------------------- Owls
+
+    void PlaceOwls()
+    {
+        if (generator == null) return;
+
+        // Only the generated pines and dead trees (they have a known shape to perch on).
+        var trees = new List<Transform>();
+        foreach (var pivot in generator.SwayPivots)
+        {
+            if (pivot == null || pivot.parent == null) continue;
+            string kind = pivot.parent.name;
+            if ((kind == "Pine" || kind == "Dead Tree") && pivot.parent.GetComponent<CapsuleCollider>() != null)
+                trees.Add(pivot);
+        }
+
+        for (int i = 0; i < owlCount && trees.Count > 0; i++)
+        {
+            int pick = Random.Range(0, trees.Count);
+            owls.Add(BuildOwl(trees[pick]));
+            trees.RemoveAt(pick);
+        }
+    }
+
+    void UpdateOwls(float dt)
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+        Vector3 eye = cam.transform.position;
+        float rangeSq = owlStareDistance * owlStareDistance;
+
+        foreach (var owl in owls)
+        {
+            if (owl.head == null) continue;
+            Vector3 to = eye - owl.head.position;
+            if (to.sqrMagnitude > rangeSq) continue;
+
+            // Every so often the head cocks to a new angle, owl-like, while the stare never breaks.
+            owl.tiltTimer -= dt;
+            if (owl.tiltTimer <= 0f)
+            {
+                owl.tiltTimer = Random.Range(1.5f, 5f);
+                owl.tilt = Random.value < 0.4f ? 0f : Random.Range(-35f, 35f);
+            }
+            Quaternion look = Quaternion.LookRotation(to) * Quaternion.Euler(0f, 0f, owl.tilt);
+            owl.head.rotation = Quaternion.Slerp(owl.head.rotation, look, 1f - Mathf.Exp(-10f * dt));
+        }
+    }
+
+    Owl BuildOwl(Transform sway)
+    {
+        Transform tree = sway.parent;
+        var trunk = tree.GetComponent<CapsuleCollider>();
+        float height = trunk.height, radius = trunk.radius;
+
+        // Pines are only bare low down, below the foliage; dead trees are bare all the way up.
+        bool pine = tree.name == "Pine";
+        float perchHeight = height * (pine ? Random.Range(0.18f, 0.26f) : Random.Range(0.4f, 0.65f));
+
+        Material bark = owlMat;
+        foreach (var r in sway.GetComponentsInChildren<Renderer>())
+            if (r.name == "Trunk" || r.name == "Bark") { bark = r.sharedMaterial; break; }
+
+        var perch = new GameObject("Owl Perch").transform;
+        perch.SetParent(sway, false);
+        perch.localPosition = new Vector3(0f, perchHeight, 0f);
+        perch.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+
+        // A bare branch sticking out of the trunk, drooping slightly, with a twig.
+        float length = Random.Range(0.9f, 1.5f);
+        var branch = Part(PrimitiveType.Cylinder, bark, perch, new Vector3(0f, -0.04f, radius + length * 0.5f), new Vector3(0.07f, length * 0.5f, 0.07f));
+        branch.localRotation = Quaternion.Euler(93f, 0f, 0f);
+        var twig = Part(PrimitiveType.Cylinder, bark, perch, new Vector3(0.12f, 0.08f, radius + length * 0.85f), new Vector3(0.025f, 0.18f, 0.025f));
+        twig.localRotation = Quaternion.Euler(40f, 0f, -50f);
+
+        // The owl, near the end of the branch.
+        var body = new GameObject("Owl").transform;
+        body.SetParent(perch, false);
+        body.localPosition = new Vector3(0f, 0f, radius + length * 0.7f);
+        Part(PrimitiveType.Sphere, owlMat, body, new Vector3(0f, 0.16f, 0f), new Vector3(0.2f, 0.3f, 0.18f));
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var wing = Part(PrimitiveType.Sphere, owlMat, body, new Vector3(side * 0.09f, 0.15f, -0.01f), new Vector3(0.06f, 0.24f, 0.15f));
+            wing.localRotation = Quaternion.Euler(-8f, 0f, side * 6f);
+            Part(PrimitiveType.Cube, owlMat, body, new Vector3(side * 0.04f, 0.01f, 0.05f), new Vector3(0.03f, 0.02f, 0.05f)); // talons
+        }
+        Part(PrimitiveType.Sphere, owlMat, body, new Vector3(0f, 0.04f, -0.09f), new Vector3(0.08f, 0.12f, 0.03f)); // tail
+
+        var head = new GameObject("Head").transform;
+        head.SetParent(body, false);
+        head.localPosition = new Vector3(0f, 0.34f, 0f);
+        Part(PrimitiveType.Sphere, owlMat, head, Vector3.zero, new Vector3(0.18f, 0.16f, 0.16f));
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var tuft = Part(PrimitiveType.Sphere, owlMat, head, new Vector3(side * 0.055f, 0.085f, 0f), new Vector3(0.03f, 0.08f, 0.02f));
+            tuft.localRotation = Quaternion.Euler(0f, 0f, side * -22f);
+            Part(PrimitiveType.Sphere, owlEyeMat, head, new Vector3(side * 0.037f, 0.015f, 0.068f), Vector3.one * 0.042f);
+            Part(PrimitiveType.Sphere, pupilMat, head, new Vector3(side * 0.037f, 0.015f, 0.087f), Vector3.one * 0.016f);
+        }
+        Part(PrimitiveType.Sphere, owlMat, head, new Vector3(0f, -0.015f, 0.08f), new Vector3(0.015f, 0.03f, 0.02f)); // beak
+
+        return new Owl { head = head, tiltTimer = Random.Range(0f, 3f) };
     }
 
     // ---------------------------------------------------------------- Helpers

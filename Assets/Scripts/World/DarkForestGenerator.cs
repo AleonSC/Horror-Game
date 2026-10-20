@@ -90,9 +90,9 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnWeather = true;
     [Tooltip("Add IntroText (opening narration that fades in and out).")]
     public bool spawnIntro = true;
-    [Tooltip("Add Wildlife (beetles, rats, moths around lit lamps, bats overhead).")]
+    [Tooltip("Add Wildlife (beetles, rats, moths around lit lamps, bats overhead, owls in the trees, deer).")]
     public bool spawnWildlife = true;
-    [Tooltip("Add FallingTreeEvent (a nearby tree snaps and falls about 30 seconds in).")]
+    [Tooltip("Add FallingTreeEvent (every minute or so, a nearby tree snaps and falls).")]
     public bool spawnFallingTree = true;
 
     /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
