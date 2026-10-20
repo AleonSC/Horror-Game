@@ -52,8 +52,11 @@ public class WatcherEvent : MonoBehaviour
     Color baseFog, baseAmbient;
     float baseFarClip = -1f;
 
-    Transform eye, upperLid, lowerLid, pupil;
-    Material lidMaterial;
+    Transform eye;
+    Material eyeMaterial;
+    Vector2 gaze, gazeTarget;
+    float saccadeTimer;
+    Vector3 lastPlayerPosition;
     Vector3 eyeDirection;
 
     Transform giant, giantHead;
@@ -147,14 +150,25 @@ public class WatcherEvent : MonoBehaviour
             eye.position = cam.transform.position + eyeDirection * 25f;
             eye.rotation = Quaternion.LookRotation(eyeDirection);
 
-            // The pupil twitches and drifts as it studies the player.
-            float t = Time.time;
-            pupil.localPosition = new Vector3(Mathf.Sin(t * 0.7f) * 0.06f + (Mathf.PerlinNoise(t * 3f, 0f) - 0.5f) * 0.04f,
-                                              Mathf.Sin(t * 0.45f) * 0.03f, 0f);
-            pupil.localScale = new Vector3(0.07f + 0.02f * Mathf.Sin(t * 0.9f), 0.3f, 1f);
+            // It studies the player: quick darting glances, then it follows the way they move.
+            float dt = Time.deltaTime;
+            Vector3 moved = player.transform.position - lastPlayerPosition;
+            lastPlayerPosition = player.transform.position;
+            Vector3 right = Vector3.Cross(Vector3.up, eyeDirection).normalized;
+            float follow = Mathf.Clamp(Vector3.Dot(moved, right) / Mathf.Max(dt, 0.001f) * 0.02f, -0.06f, 0.06f);
 
-            // Lids are the colour of the sky, so they vanish once the eye is open.
-            lidMaterial.SetColor("_Color", RenderSettings.fogColor);
+            saccadeTimer -= dt;
+            if (saccadeTimer <= 0f)
+            {
+                saccadeTimer = Random.Range(0.4f, 1.8f);
+                gazeTarget = new Vector2(Random.Range(-0.07f, 0.07f), Random.Range(-0.04f, 0.04f));
+            }
+            gaze = Vector2.Lerp(gaze, gazeTarget + new Vector2(-follow, 0f), 1f - Mathf.Exp(-18f * dt)); // eyes jump, they don't glide
+            eyeMaterial.SetVector("_Look", new Vector4(gaze.x, gaze.y, 0f, 0f));
+
+            // The slit pupil narrows and widens.
+            float t = Time.time;
+            eyeMaterial.SetVector("_Pupil", new Vector4(0.06f + 0.04f * (0.5f + 0.5f * Mathf.Sin(t * 0.8f)), 0.32f, 0f, 0f));
         }
     }
 
@@ -170,6 +184,7 @@ public class WatcherEvent : MonoBehaviour
 
         if (eye == null) BuildEye();
         eye.gameObject.SetActive(true);
+        lastPlayerPosition = player.transform.position;
         SetEyeOpen(0f);
 
         audioSource.PlayOneShot(ProceduralAudio.EyeOpen, 1f);
@@ -179,53 +194,29 @@ public class WatcherEvent : MonoBehaviour
 
     void SetEyeOpen(float open)
     {
-        // The lids part from the middle.
-        upperLid.localPosition = new Vector3(0f, Mathf.Lerp(0f, 0.62f, open), 0f);
-        lowerLid.localPosition = new Vector3(0f, Mathf.Lerp(0f, -0.62f, open), 0f);
+        eyeMaterial.SetFloat("_Open", open);
     }
 
     void BuildEye()
     {
-        eye = new GameObject("Sky Eye").transform;
-        eye.SetParent(transform, false);
-        var shape = new GameObject("Shape").transform;
-        shape.SetParent(eye, false);
-        shape.localScale = Vector3.one * eyeSize;
-
-        // Layers draw in order (behind everything else in the world, so trees cover it).
-        EyePart(shape, new Vector3(0f, 0f, 0f), new Vector3(1f, 0.46f, 0.05f), new Color(0.35f, 0.03f, 0.02f), 1000);  // the white, bloodshot red
-        for (int i = 0; i < 10; i++)
-        {
-            float a = i * 36f + Random.Range(-10f, 10f);
-            var vein = EyePart(shape, Quaternion.Euler(0f, 0f, a) * new Vector3(0.3f, 0f, 0f), new Vector3(0.28f, 0.006f, 0.01f), new Color(0.6f, 0.02f, 0.02f), 1001);
-            vein.localRotation = Quaternion.Euler(0f, 0f, a + Random.Range(-15f, 15f));
-        }
-        EyePart(shape, Vector3.zero, new Vector3(0.36f, 0.36f, 0.05f), new Color(3f, 0.25f, 0.05f), 1002);    // glowing iris
-        EyePart(shape, Vector3.zero, new Vector3(0.24f, 0.24f, 0.05f), new Color(1.4f, 0.08f, 0.02f), 1003);  // inner iris
-        pupil = EyePart(shape, Vector3.zero, new Vector3(0.07f, 0.3f, 1f), Color.black, 1004);                 // slit pupil
-
-        // Lids: sky-coloured shapes that cover the eye and slide apart.
-        upperLid = new GameObject("Upper Lid").transform;
-        upperLid.SetParent(shape, false);
-        var upper = EyePart(upperLid, new Vector3(0f, 0.35f, 0f), new Vector3(1.5f, 0.75f, 0.05f), Color.black, 1005);
-        lidMaterial = upper.GetComponent<Renderer>().sharedMaterial;
-        lowerLid = new GameObject("Lower Lid").transform;
-        lowerLid.SetParent(shape, false);
-        var lower = EyePart(lowerLid, new Vector3(0f, -0.35f, 0f), new Vector3(1.5f, 0.75f, 0.05f), Color.black, 1005);
-        lower.GetComponent<Renderer>().sharedMaterial = lidMaterial;
-    }
-
-    Transform EyePart(Transform parent, Vector3 pos, Vector3 scale, Color color, int queue)
-    {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        go.transform.SetParent(parent, false);
-        go.transform.localPosition = pos;
-        go.transform.localScale = scale;
-        var renderer = go.GetComponent<Renderer>();
-        renderer.sharedMaterial = MaterialFactory.NoFog(color, queue, false);
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        // One quad, drawn behind the rest of the world, with the eye shader doing the lids, gaze and pupil.
+        var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        go.name = "Sky Eye";
+        go.transform.SetParent(transform, false);
         Destroy(go.GetComponent<Collider>());
-        return go.transform;
+        eye = go.transform;
+        eye.localScale = Vector3.one * eyeSize;
+
+        Shader shader = Shader.Find("Horror/Sky Eye");
+        eyeMaterial = shader != null ? new Material(shader) : MaterialFactory.NoFog(new Color(1f, 0.1f, 0.05f), 1000, false);
+        eyeMaterial.mainTexture = ProceduralTextures.SkyEye;
+        if (eyeMaterial.HasProperty("_Color")) eyeMaterial.SetColor("_Color", new Color(2.2f, 1.6f, 1.6f, 1f)); // HDR: glows with Bloom
+        eyeMaterial.renderQueue = 1000;
+
+        var renderer = go.GetComponent<Renderer>();
+        renderer.sharedMaterial = eyeMaterial;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
     }
 
     // ---------------------------------------------------------------- Giant

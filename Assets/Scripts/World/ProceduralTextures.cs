@@ -1,20 +1,23 @@
 using UnityEngine;
 
 /// <summary>
-/// Generates the forest-floor texture in code (no image files needed): dark, damp soil covered in
-/// rotting leaf litter, twigs and the odd stone, plus a matching normal map so the flashlight picks out
-/// every bump. Made once on first use and shared. The texture tiles seamlessly.
+/// Generates textures in code (no image files needed), each made once on first use and shared:
+/// - the forest floor: dark, damp soil covered in rotting leaf litter, twigs and the odd stone, plus a
+///   matching normal map so the flashlight picks out every bump (tiles seamlessly);
+/// - the eyeball of the giant eye in the sky.
 /// </summary>
 public static class ProceduralTextures
 {
     const int Size = 512;
 
-    static Texture2D dirt, dirtNormal;
+    static Texture2D dirt, dirtNormal, skyEye;
 
     /// <summary>Tiling forest-floor dirt.</summary>
     public static Texture2D Dirt { get { if (dirt == null) MakeDirt(); return dirt; } }
     /// <summary>Normal map matching Dirt.</summary>
     public static Texture2D DirtNormal { get { if (dirtNormal == null) MakeDirt(); return dirtNormal; } }
+    /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
+    public static Texture2D SkyEye => skyEye != null ? skyEye : (skyEye = MakeSkyEye());
 
     // ---------------------------------------------------------------- Tiling noise
 
@@ -106,6 +109,58 @@ public static class ProceduralTextures
         float thickness = d.length * d.width * (1f - 0.5f * Mathf.Abs(along) / d.length); // tapers
         return Mathf.Clamp01((1f - across / thickness) * 3f);
     }
+
+    // ---------------------------------------------------------------- Sky eye
+
+    static Texture2D MakeSkyEye()
+    {
+        var px = new Color32[Size * Size];
+        const float irisRadius = 0.4f; // in -1..1 space, matching the shader
+
+        for (int y = 0; y < Size; y++)
+        {
+            for (int x = 0; x < Size; x++)
+            {
+                float u = (x + 0.5f) / Size, v = (y + 0.5f) / Size;
+                float px2 = u * 2f - 1f, py2 = v * 2f - 1f;
+                float r = Mathf.Sqrt(px2 * px2 + py2 * py2);
+
+                // Sclera: deep crimson, darker toward the corners (it's a ball), threaded with veins.
+                float shade = Mathf.Lerp(1f, 0.3f, Ramp(0.45f, 1.1f, r));
+                Color color = new Color(0.32f, 0.05f, 0.04f) * shade;
+                float ridged = 1f - Mathf.Abs(Fbm(u, v, 5, 4, 13) * 2f - 1f);
+                float veins = Mathf.Pow(ridged, 14f) * Ramp(0.42f, 0.8f, r);
+                color = Color.Lerp(color, new Color(0.7f, 0.04f, 0.03f), veins);
+
+                if (r < irisRadius + 0.02f)
+                {
+                    // Iris: fibres radiating from the centre, hot near the pupil, dark at the rim.
+                    float angle = Mathf.Atan2(py2, px2) / (Mathf.PI * 2f) + 0.5f;
+                    float fibres = TileNoise(angle * 64f, r * 10f, 64, 77) * 0.6f + TileNoise(angle * 160f, r * 3f, 160, 31) * 0.4f;
+                    float t = r / irisRadius;
+                    Color iris = Color.Lerp(new Color(1f, 0.6f, 0.18f), new Color(0.55f, 0.04f, 0.02f), Mathf.Pow(t, 0.8f));
+                    iris *= 0.7f + 0.6f * fibres;
+                    iris = Color.Lerp(iris, new Color(1f, 0.85f, 0.45f), Ramp(0.3f, 0f, t) * 0.6f); // glow round the pupil
+                    iris *= Mathf.Lerp(1f, 0.12f, Ramp(0.8f, 1f, t));                             // dark limbal ring
+                    color = Color.Lerp(iris, color, Ramp(irisRadius - 0.01f, irisRadius + 0.02f, r));
+                }
+
+                color.a = 1f;
+                px[y * Size + x] = color;
+            }
+        }
+
+        var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, true, false)
+        {
+            name = "Sky Eye", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
+
+    // Smooth 0..1 ramp as x goes from edge0 to edge1 (works with edge0 > edge1 too).
+    static float Ramp(float edge0, float edge1, float x) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge0, edge1, x));
 
     // ---------------------------------------------------------------- Dirt
 
