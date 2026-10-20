@@ -33,6 +33,16 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     public float eyeElevation = 68f;
     [Tooltip("Apparent width of the eye.")]
     public float eyeSize = 14f;
+    [Header("Haze")]
+    [Range(0f, 1f), Tooltip("How far into the haze it fades when it's far off (hanging, or just landed)...")]
+    public float farHaze = 0.55f;
+    [Range(0f, 1f), Tooltip("...and when it's nearly on you.")]
+    public float nearHaze = 0.12f;
+    [Range(0f, 1f), Tooltip("Extra mist round its legs, thinning up its body.")]
+    public float groundHaze = 0.3f;
+    [Range(0f, 1f), Tooltip("How much the haze dulls its eyes, relative to its body.")]
+    public float eyeHaze = 0.55f;
+
     [Header("Hanging")]
     [Tooltip("While it hangs, how high its neck is, in degrees above the horizon...")]
     public float hangNeckElevation = 38f;
@@ -100,6 +110,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     Vector3 eyeDirection;
 
     Transform giant, giantHead;
+    Material bodyMaterial, giantEyeMaterial, chainMaterial;
     readonly Transform[] giantEyes = new Transform[2];
     float searchTimer = -1f;
     bool searchPausing;
@@ -208,6 +219,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         }
 
         UpdateSearchlights(dt);
+        UpdateHaze();
         audioSource.volume = 1f - PortalDoor.RoomQuiet; // the giant's booms don't reach the dark room
 
         // The sky turns red as the eye opens, and stays that way while the giant walks.
@@ -463,7 +475,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         chain = new GameObject("Chain").transform;
         chain.SetParent(transform, false);
         // Drawn before the sky, so the clouds veil it as it rises into them.
-        var iron = MaterialFactory.NoFog(new Color(0.03f, 0.028f, 0.028f));
+        var iron = chainMaterial = HazeMaterial(new Color(0.03f, 0.028f, 0.028f), 2000);
         const float width = 0.5f, bar = 0.09f;
         for (int i = 0; i < ChainLinks; i++)
         {
@@ -553,8 +565,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     void BuildGiant()
     {
         // Drawn after the night sky, so passing clouds don't wash over its body.
-        var rig = BuildRig("The Watcher", MaterialFactory.NoFog(new Color(0.01f, 0.005f, 0.005f), 2460),
-                           MaterialFactory.NoFog(new Color(4f, 0.2f, 0.05f), 2461));
+        // Seen through haze, so it isn't a clean cutout (UpdateHaze keeps it matched to the fog).
+        bodyMaterial = HazeMaterial(new Color(0.01f, 0.005f, 0.005f), 2460);
+        giantEyeMaterial = HazeMaterial(new Color(4f, 0.2f, 0.05f), 2461);
+        var rig = BuildRig("The Watcher", bodyMaterial, giantEyeMaterial);
         giant = rig.root;
         giantHead = rig.head;
         for (int i = 0; i < 2; i++)
@@ -775,6 +789,38 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     }
 
     // ---------------------------------------------------------------- Atmosphere & reset
+
+    static Material HazeMaterial(Color color, int queue)
+    {
+        Shader shader = Shader.Find("Horror/Haze");
+        if (shader == null) return MaterialFactory.NoFog(color, queue);
+        var mat = new Material(shader) { renderQueue = queue };
+        mat.SetColor("_Color", color);
+        return mat;
+    }
+
+    /// <summary>Keeps the giant (and its chain) veiled in haze the colour of the fog: thick far off, thinner up close.</summary>
+    void UpdateHaze()
+    {
+        if (giant == null || bodyMaterial == null || !bodyMaterial.HasProperty("_Haze")) return;
+        Color fog = RenderSettings.fogColor;
+        float distance = phase == Phase.GiantWalking || phase == Phase.Done ? giantDistance : giantStartDistance;
+        float t = Mathf.InverseLerp(giantCatchDistance, giantStartDistance, distance);
+        float haze = Mathf.Lerp(nearHaze, farHaze, t);
+        float scale = giant.localScale.y;
+        float baseY = player != null ? Ground(player.transform.position + giantBearing * distance) : giant.position.y;
+
+        foreach (var (mat, amount) in new[] { (bodyMaterial, haze), (giantEyeMaterial, haze * eyeHaze), (chainMaterial, Mathf.Min(1f, haze + 0.1f)) })
+        {
+            if (mat == null) continue;
+            mat.SetColor("_HazeColor", fog);
+            mat.SetFloat("_Haze", amount);
+            mat.SetFloat("_GroundHaze", groundHaze);
+            mat.SetFloat("_HazeBase", baseY);
+            mat.SetFloat("_HazeHeight", giantHeight * scale * 0.7f);
+            mat.SetFloat("_WispScale", 6f / Mathf.Max(giantHeight * scale * 0.1f, 1f));
+        }
+    }
 
     void ApplyAtmosphere()
     {
