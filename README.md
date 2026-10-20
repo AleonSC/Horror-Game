@@ -13,7 +13,8 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | Unlit lamps scattered around the map. Click one repeatedly to fill its meter and light it, making a safe zone the entities can't enter. Every lamp lit summons another entity. |
 | `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps, plus the HUD (crosshair, lamp meter, lamps lit). |
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
-| `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, wind, a tension layer that swells near entities, and random noises in the dark. |
+| `Assets/Scripts/World/WeatherSystem.cs` | Rain that slants with the wind and splashes where it lands, and wind that sways the trees in rolling gusts. Includes rain, wind, leaf rustle and tree creak audio. |
+| `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |
 | `Assets/Scripts/Audio/ProceduralAudio.cs` | Synthesizes every sound in code, so no audio files are needed. Each script has clip slots to swap in real sounds. |
 | `Assets/Scripts/World/MaterialFactory.cs` | Placeholder materials for Built-in and URP. |
 | `Assets/Scripts/Input/HorrorInput.cs` | Input wrapper that works with both the new Input System and the legacy Input Manager. |
@@ -23,7 +24,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 1. Create a new 3D project (Built-in or URP), Unity 2022.3 or newer.
 2. Copy the `Assets/Scripts` folder into your project.
 3. Open any scene that has no player in it (the default SampleScene is fine) and press Play.
-   The forest, player, entity, lamps and audio are all created automatically.
+   The forest, player, entity, lamps, weather and audio are all created automatically.
    To tweak settings, add **DarkForestGenerator** to a GameObject yourself; auto-creation can be
    switched off with `DarkForestGenerator.autoCreateInEmptyScenes`.
 

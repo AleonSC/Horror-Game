@@ -1,16 +1,16 @@
 using UnityEngine;
 
 /// <summary>
-/// Background audio for the forest: a dull droning bed, gusting wind, a dissonant tension layer
+/// Background audio for the forest: a dull droning bed, a dissonant tension layer
 /// that swells when an entity is close, and random noises (twig snaps, distant moans, rustling)
-/// from somewhere out in the dark. DarkForestGenerator adds this automatically.
+/// from somewhere out in the dark. Wind and rain sounds live in WeatherSystem.
+/// DarkForestGenerator adds this automatically.
 /// Leave the clip slots empty to use the built-in synthesized sounds.
 /// </summary>
 public class AmbienceAudio : MonoBehaviour
 {
     [Header("Volume")]
     [Range(0f, 1f)] public float droneVolume = 0.5f;
-    [Range(0f, 1f)] public float windVolume = 0.25f;
     [Range(0f, 1f)] public float tensionVolume = 0.35f;
     [Range(0f, 1f)] public float randomNoiseVolume = 0.7f;
 
@@ -29,17 +29,15 @@ public class AmbienceAudio : MonoBehaviour
 
     [Header("Clip Overrides (optional)")]
     public AudioClip droneClip;
-    public AudioClip windClip;
     public AudioClip tensionClip;
     public AudioClip[] randomNoiseClips;
 
-    AudioSource drone, wind, tension;
+    AudioSource drone, tension;
     float noiseTimer;
 
     void Start()
     {
         drone = StartLoop(droneClip != null ? droneClip : ProceduralAudio.Drone, droneVolume);
-        wind = StartLoop(windClip != null ? windClip : ProceduralAudio.Wind, windVolume);
         tension = StartLoop(tensionClip != null ? tensionClip : ProceduralAudio.Tension, 0f);
 
         if (forestReverb)
@@ -77,7 +75,6 @@ public class AmbienceAudio : MonoBehaviour
         tension.volume = Mathf.MoveTowards(tension.volume, closeness * tensionVolume, Time.deltaTime * 0.5f);
         drone.pitch = Mathf.Lerp(1f, 0.92f, closeness);
         drone.volume = droneVolume;
-        wind.volume = windVolume;
 
         noiseTimer -= Time.deltaTime;
         if (noiseTimer <= 0f)

@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum;
+        lampClick, lampIgnite, lampHum, rain, rainHeavy, leaves, treeCreak;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -26,6 +26,17 @@ public static class ProceduralAudio
     public static AudioClip Tension => tension != null ? tension : (tension = MakeTension());
     public static AudioClip TwigSnap => twigSnap != null ? twigSnap : (twigSnap = MakeTwigSnap());
     public static AudioClip Moan => moan != null ? moan : (moan = MakeMoan());
+
+    // ---------------------------------------------------------------- Weather
+
+    /// <summary>Light rain: a soft hiss full of tiny droplet ticks. Loops seamlessly.</summary>
+    public static AudioClip Rain => rain != null ? rain : (rain = MakeRain());
+    /// <summary>Low roar of heavy rain hitting the canopy. Loops seamlessly.</summary>
+    public static AudioClip RainHeavy => rainHeavy != null ? rainHeavy : (rainHeavy = MakeRainHeavy());
+    /// <summary>Leaves and needles rustling in the wind. Loops seamlessly.</summary>
+    public static AudioClip Leaves => leaves != null ? leaves : (leaves = MakeLeaves());
+    /// <summary>A trunk groaning as it bends.</summary>
+    public static AudioClip TreeCreak => treeCreak != null ? treeCreak : (treeCreak = MakeTreeCreak());
 
     // ---------------------------------------------------------------- Entity
 
@@ -154,6 +165,86 @@ public static class ProceduralAudio
             lp2 += (lp1 - lp2) * a;
             return (lp1 - lp2) * swell;
         }, 0.7f);
+    }
+
+    static AudioClip MakeRain()
+    {
+        float lp = 0f, hp = 0f, drop = 0f, dropPhase = 0f, dropHz = 3000f;
+        return Loop("Rain", 8f, t =>
+        {
+            // Hiss: band-passed noise.
+            lp += (White() - lp) * 0.6f;
+            hp += (lp - hp) * 0.15f;
+            float hiss = (lp - hp) * 0.35f;
+
+            // Droplets: short pings at random pitches, a few hundred per second.
+            if (rng.NextDouble() < 0.008)
+            {
+                drop = (float)(rng.NextDouble() * 0.7 + 0.3);
+                dropHz = 1800f + (float)rng.NextDouble() * 4000f;
+            }
+            dropPhase += TwoPi * dropHz / Rate;
+            drop *= 0.993f;
+            return hiss + Mathf.Sin(dropPhase) * drop * 0.5f;
+        }, 0.7f);
+    }
+
+    static AudioClip MakeRainHeavy()
+    {
+        float lp1 = 0f, lp2 = 0f;
+        return Loop("Rain Heavy", 10f, t =>
+        {
+            float w = White();
+            lp1 += (w - lp1) * 0.12f;
+            lp2 += (lp1 - lp2) * 0.03f;
+            float roar = lp1 - lp2;
+            float surge = 0.8f + 0.2f * Sin(0.3f, t) * Sin(0.7f, t);
+            return roar * surge + w * 0.04f;
+        }, 0.7f);
+    }
+
+    static AudioClip MakeLeaves()
+    {
+        float lp = 0f, hp = 0f, flutter = 0f;
+        return Loop("Leaves", 8f, t =>
+        {
+            lp += (White() - lp) * 0.7f;
+            hp += (lp - hp) * 0.3f;
+            // Rustles come in quick, uneven bursts.
+            flutter += ((float)rng.NextDouble() - flutter) * 0.0015f;
+            float bursts = Mathf.Clamp01(flutter * 2.2f - 0.4f);
+            float swell = 0.6f + 0.4f * Sin(0.25f, t);
+            return (lp - hp) * (0.2f + bursts) * swell;
+        }, 0.6f);
+    }
+
+    static AudioClip MakeTreeCreak()
+    {
+        const float len = 1.8f;
+        float y1 = 0f, y2 = 0f, z1 = 0f, z2 = 0f, pulsePhase = 0f;
+        // Two resonances, like a hollow trunk: y[n] = 2r cos(w) y[n-1] - r^2 y[n-2] + x[n]
+        float r = 0.996f;
+        float c1 = 2f * r * Mathf.Cos(TwoPi * 380f / Rate);
+        float c2 = 2f * r * Mathf.Cos(TwoPi * 910f / Rate);
+        return Shot("Tree Creak", len, t =>
+        {
+            float p = t / len;
+            // Stick-slip friction: a pulse train that slows as the creak drags on.
+            float rateHz = Mathf.Lerp(38f, 14f, p) * (1f + 0.15f * White());
+            pulsePhase += rateHz / Rate;
+            float x = 0f;
+            if (pulsePhase >= 1f)
+            {
+                pulsePhase -= 1f;
+                x = 1f;
+            }
+            float a = c1 * y1 - r * r * y2 + x;
+            y2 = y1; y1 = a;
+            float b = c2 * z1 - r * r * z2 + x;
+            z2 = z1; z1 = b;
+            float env = Mathf.Sin(Mathf.PI * p);
+            return (a + b * 0.5f) * env;
+        }, 0.8f);
     }
 
     static AudioClip MakeTension()

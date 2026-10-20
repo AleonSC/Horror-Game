@@ -65,9 +65,14 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnLamps = true;
     [Tooltip("Add AmbienceAudio (background drone, wind and random forest noises).")]
     public bool spawnAmbience = true;
+    [Tooltip("Add a WeatherSystem (rain, and wind that sways the trees).")]
+    public bool spawnWeather = true;
 
     /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
     public readonly List<Vector2> TreePositions = new List<Vector2>();
+
+    /// <summary>The moving part of each tree (pivot at its base), for WeatherSystem to sway in the wind.</summary>
+    public readonly List<Transform> SwayPivots = new List<Transform>();
 
     [Header("Material Overrides (optional)")]
     public Material groundMaterial;
@@ -130,8 +135,15 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Lamp Spawner").AddComponent<LampSpawner>();
         if (spawnAmbience && FindAnyObjectByType<AmbienceAudio>() == null)
             new GameObject("Ambience").AddComponent<AmbienceAudio>();
+        if (spawnWeather && FindAnyObjectByType<WeatherSystem>() == null)
+            new GameObject("Weather").AddComponent<WeatherSystem>();
 
-        if (Application.isPlaying) StaticBatchingUtility.Combine(root.gameObject);
+        // Batch the things that never move. Trees are left out so the wind can sway them.
+        if (Application.isPlaying)
+        {
+            StaticBatchingUtility.Combine(root.Find("Rocks").gameObject);
+            StaticBatchingUtility.Combine(root.Find("Fallen Logs").gameObject);
+        }
     }
 
     [ContextMenu("Clear")]
@@ -229,6 +241,7 @@ public class DarkForestGenerator : MonoBehaviour
         float half = areaSize * 0.5f - 1f;
         var placed = TreePositions;
         placed.Clear();
+        SwayPivots.Clear();
         var grid = new Dictionary<Vector2Int, List<Vector2>>();
         float cell = Mathf.Max(minTreeSpacing, 0.1f);
         int attempts = treeCount * 15;
@@ -257,6 +270,7 @@ public class DarkForestGenerator : MonoBehaviour
                 if (prefab == null) continue;
                 var t = Instantiate(prefab, pos, Quaternion.Euler(0f, Range(0f, 360f), 0f), parent);
                 t.transform.localScale *= Range(0.8f, 1.3f);
+                SwayPivots.Add(t.transform);
             }
             else if (Range(0f, 1f) < deadTreeRatio)
             {
@@ -299,10 +313,7 @@ public class DarkForestGenerator : MonoBehaviour
         tree.transform.SetParent(parent, false);
         tree.transform.localPosition = pos;
         tree.transform.localRotation = Quaternion.Euler(Range(-3f, 3f), Range(0f, 360f), Range(-3f, 3f));
-
-        var trunk = CreatePrimitive(PrimitiveType.Cylinder, "Trunk", tree.transform, barkMat);
-        trunk.transform.localPosition = new Vector3(0f, trunkHeight * 0.5f, 0f);
-        trunk.transform.localScale = new Vector3(trunkRadius * 2f, trunkHeight * 0.5f, trunkRadius * 2f);
+        Transform sway = AddTrunk(tree.transform, trunkHeight, trunkRadius, barkMat);
 
         // Stacked cones of foliage, starting high so the lower trunk is bare and creepy.
         int layers = rng.Next(3, 6);
@@ -317,7 +328,7 @@ public class DarkForestGenerator : MonoBehaviour
             float height = foliageSpan / layers * 1.8f;
 
             var cone = new GameObject("Foliage");
-            cone.transform.SetParent(tree.transform, false);
+            cone.transform.SetParent(sway, false);
             cone.transform.localPosition = new Vector3(0f, foliageStart + foliageSpan * t, 0f);
             cone.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
             cone.transform.localScale = new Vector3(radius, height, radius);
@@ -336,10 +347,7 @@ public class DarkForestGenerator : MonoBehaviour
         tree.transform.SetParent(parent, false);
         tree.transform.localPosition = pos;
         tree.transform.localRotation = Quaternion.Euler(Range(-8f, 8f), Range(0f, 360f), Range(-8f, 8f));
-
-        var trunk = CreatePrimitive(PrimitiveType.Cylinder, "Trunk", tree.transform, deadBarkMat);
-        trunk.transform.localPosition = new Vector3(0f, trunkHeight * 0.5f, 0f);
-        trunk.transform.localScale = new Vector3(trunkRadius * 2f, trunkHeight * 0.5f, trunkRadius * 2f);
+        Transform sway = AddTrunk(tree.transform, trunkHeight, trunkRadius, deadBarkMat);
 
         // Gnarled bare branches reaching outward and up.
         int branches = rng.Next(3, 7);
@@ -350,7 +358,7 @@ public class DarkForestGenerator : MonoBehaviour
             float radius = trunkRadius * Range(0.3f, 0.5f);
 
             var pivot = new GameObject("Branch");
-            pivot.transform.SetParent(tree.transform, false);
+            pivot.transform.SetParent(sway, false);
             pivot.transform.localPosition = new Vector3(0f, y, 0f);
             pivot.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Quaternion.Euler(Range(25f, 70f), 0f, 0f);
 
@@ -358,6 +366,27 @@ public class DarkForestGenerator : MonoBehaviour
             branch.transform.localPosition = new Vector3(0f, length * 0.5f, 0f);
             branch.transform.localScale = new Vector3(radius * 2f, length * 0.5f, radius * 2f);
         }
+    }
+
+    /// <summary>
+    /// Adds a fixed trunk collider to the tree, plus a "Sway" pivot at its base holding the visible trunk.
+    /// Foliage and branches go under the pivot, so the wind can bend the whole tree without moving the collider.
+    /// </summary>
+    Transform AddTrunk(Transform tree, float trunkHeight, float trunkRadius, Material mat)
+    {
+        var col = tree.gameObject.AddComponent<CapsuleCollider>();
+        col.radius = trunkRadius;
+        col.height = trunkHeight;
+        col.center = new Vector3(0f, trunkHeight * 0.5f, 0f);
+
+        var sway = new GameObject("Sway").transform;
+        sway.SetParent(tree, false);
+        SwayPivots.Add(sway);
+
+        var trunk = CreatePrimitive(PrimitiveType.Cylinder, "Trunk", sway, mat, withCollider: false);
+        trunk.transform.localPosition = new Vector3(0f, trunkHeight * 0.5f, 0f);
+        trunk.transform.localScale = new Vector3(trunkRadius * 2f, trunkHeight * 0.5f, trunkRadius * 2f);
+        return sway;
     }
 
     // ---------------------------------------------------------------- Props
