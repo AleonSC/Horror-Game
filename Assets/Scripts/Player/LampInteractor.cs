@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Lets the player click on lamps to charge them, and draws a simple HUD:
-/// a crosshair, the lamp meter, and how many lamps are lit.
+/// a crosshair, the lamp meter, and a tiny counter of lamps lit (top right).
 /// LampSpawner adds this to the player automatically.
 /// </summary>
 public class LampInteractor : MonoBehaviour
@@ -36,7 +36,7 @@ public class LampInteractor : MonoBehaviour
         {
             labelStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 18 };
             labelStyle.normal.textColor = new Color(0.9f, 0.85f, 0.75f);
-            smallStyle = new GUIStyle(labelStyle) { fontSize = 14, alignment = TextAnchor.UpperLeft };
+            smallStyle = new GUIStyle(labelStyle) { fontSize = 13, alignment = TextAnchor.MiddleRight };
         }
 
         float cx = Screen.width * 0.5f;
@@ -60,7 +60,10 @@ public class LampInteractor : MonoBehaviour
             }
         }
 
-        GUI.Label(new Rect(16f, 12f, 300f, 24f), $"Lamps lit: {Lamp.LitCount} / {Lamp.All.Count}", smallStyle);
+        // Tiny lit-lamp counter in the top right: a warm dot and a number.
+        var counter = new Rect(Screen.width - 66f, 12f, 50f, 16f);
+        DrawRect(new Rect(counter.xMax - 6f, counter.y + 5f, 6f, 6f), new Color(1f, 0.75f, 0.4f, 0.9f));
+        GUI.Label(new Rect(counter.x, counter.y, counter.width - 12f, counter.height), Lamp.LitCount.ToString(), smallStyle);
 
         if (Lamp.IsInSafeZone(transform.position))
             GUI.Label(new Rect(cx - 200f, Screen.height - 60f, 400f, 30f), "The light keeps them away", labelStyle);

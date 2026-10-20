@@ -11,7 +11,8 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/DarkForestGenerator.cs` | Procedurally builds a dark wooded area: bumpy ground, pines, dead trees, rocks, logs, fog, moonlight and boundary walls. Can spawn the player too. |
 | `Assets/Scripts/World/ShadowEntity.cs` | A pitch-black silhouette that watches you from the dark. When you're not looking it creeps a few metres closer; if it gets close enough, it takes you. Run at it to make it crescendo, poof and rematerialize far away. |
 | `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | Unlit lamps scattered around the map. Click one repeatedly to fill its meter and light it, making a safe zone the entities can't enter. Every lamp lit summons another entity. |
-| `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps, plus the HUD (crosshair, lamp meter, lamps lit). |
+| `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps, plus the HUD (crosshair, lamp meter, tiny lit-lamp counter top right). |
+| `Assets/Scripts/Player/IntroText.cs` | Opening narration: lines fade in and out one by one over a black screen that slowly reveals the forest. Edit the lines in the inspector. |
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
 | `Assets/Scripts/World/WeatherSystem.cs` | Rain that slants with the wind and splashes where it lands, and wind that sways the trees in rolling gusts. Includes rain, wind, leaf rustle and tree creak audio. |
 | `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |

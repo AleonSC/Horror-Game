@@ -67,6 +67,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnAmbience = true;
     [Tooltip("Add a WeatherSystem (rain, and wind that sways the trees).")]
     public bool spawnWeather = true;
+    [Tooltip("Add IntroText (opening narration that fades in and out).")]
+    public bool spawnIntro = true;
 
     /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
     public readonly List<Vector2> TreePositions = new List<Vector2>();
@@ -137,6 +139,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Ambience").AddComponent<AmbienceAudio>();
         if (spawnWeather && FindAnyObjectByType<WeatherSystem>() == null)
             new GameObject("Weather").AddComponent<WeatherSystem>();
+        if (spawnIntro && Application.isPlaying && FindAnyObjectByType<IntroText>() == null)
+            new GameObject("Intro Text").AddComponent<IntroText>();
 
         // Batch the things that never move. Trees are left out so the wind can sway them.
         if (Application.isPlaying)
