@@ -73,13 +73,21 @@ public class Footsteps : MonoBehaviour
         }
     }
 
+    int lastSplash = -1;
+
     void Step(float volume)
     {
         // In water: a splash, louder the deeper, and it carries.
         if (Water.InWater(transform.position, out float depth))
         {
-            source.pitch = Random.Range(0.85f, 1.15f);
-            source.PlayOneShot(ProceduralAudio.Splash, Mathf.Clamp01(volume * 2.5f + depth) * (1f - 0.85f * EntityDread.Silence));
+            // Never the same splash twice in a row; a puddle slaps, deeper water is waded through.
+            int splash = Random.Range(0, ProceduralAudio.WaterStepCount);
+            if (splash == lastSplash) splash = (splash + 1) % ProceduralAudio.WaterStepCount;
+            lastSplash = splash;
+            bool wading = depth > 0.12f;
+            source.pitch = Random.Range(0.93f, 1.07f);
+            source.PlayOneShot(wading ? ProceduralAudio.Wade(splash) : ProceduralAudio.PuddleStep(splash),
+                Mathf.Clamp01(volume * (wading ? 2.2f : 1.8f) + depth) * (1f - 0.85f * EntityDread.Silence));
             Noise.Emit(transform.position, depth > 0.1f ? 13f : 9f);
             return;
         }

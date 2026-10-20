@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, splash, deerGrunt, deerBleat, deerSnort, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
+        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, deerGrunt, deerBleat, deerSnort, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -34,7 +34,25 @@ public static class ProceduralAudio
 
     /// <summary>A soft footstep on dirt and leaves. There are a few variants (index wraps) so steps don't repeat.</summary>
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
-    public static AudioClip Splash => splash != null ? splash : (splash = MakeSplash());
+    public static AudioClip Splash => Wade(0);
+
+    const int WaterStepVariants = 6;
+    static readonly AudioClip[] wades = new AudioClip[WaterStepVariants], puddleSteps = new AudioClip[WaterStepVariants];
+
+    /// <summary>A step wading through deeper water: a full plunge, bubbles and a swirling slosh. Several variants.</summary>
+    public static AudioClip Wade(int variant)
+    {
+        int i = ((variant % WaterStepVariants) + WaterStepVariants) % WaterStepVariants;
+        return wades[i] != null ? wades[i] : (wades[i] = MakeWaterStep("Wade " + i, i, true));
+    }
+
+    /// <summary>A step in shallow water: a quick, bright slap and a few droplets. Several variants.</summary>
+    public static AudioClip PuddleStep(int variant)
+    {
+        int i = ((variant % WaterStepVariants) + WaterStepVariants) % WaterStepVariants;
+        return puddleSteps[i] != null ? puddleSteps[i] : (puddleSteps[i] = MakeWaterStep("Puddle Step " + i, i, false));
+    }
+    public static int WaterStepCount => WaterStepVariants;
 
     public static AudioClip Footstep(int variant)
     {
@@ -949,27 +967,103 @@ public static class ProceduralAudio
         }, 0.75f);
     }
 
-    static AudioClip MakeSplash()
+    /// <summary>
+    /// A step in water: a foot plunging in or slapping down. Built from the parts real splashes are made of:
+    /// the dull "plosh" of the impact, a scatter of droplets falling back, bubbles ringing as they're
+    /// trapped and pop (each a tiny rising whistle, low for big bubbles, high for small), and, wading, the
+    /// slosh of water swirling round the leg. Every variant is a different random splash.
+    /// </summary>
+    static AudioClip MakeWaterStep(string name, int seed, bool deep)
     {
-        const float len = 0.45f;
-        float lp = 0f, hp = 0f, bubble = 0f;
-        float[] bubbleAt = { 0.06f, 0.11f, 0.17f, 0.24f };
-        float[] bubbleHz = { 620f, 840f, 540f, 760f };
-        return Shot("Splash", len, t =>
+        var r = new System.Random(seed * 7919 + (deep ? 104729 : 0));
+        float R() => (float)r.NextDouble();
+        float N() => (float)(r.NextDouble() * 2.0 - 1.0);
+        float len = deep ? 0.95f : 0.42f;
+        int n = (int)(len * Rate);
+        var data = new float[n];
+
+        // The impact: a short burst of band-limited noise, low and full wading, a brighter slap in a puddle.
         {
-            float w = White();
-            lp += (w - lp) * 0.4f;
-            hp += (lp - hp) * 0.08f;
-            float slosh = (lp - hp) * Mathf.Exp(-t * 11f) * (0.8f + 0.2f * Mathf.Sin(t * 90f));
-            bubble = 0f;
-            for (int i = 0; i < bubbleAt.Length; i++)
+            float fc = deep ? Mathf.Lerp(320f, 520f, R()) : Mathf.Lerp(850f, 1400f, R());
+            float tau = deep ? Mathf.Lerp(0.05f, 0.09f, R()) : Mathf.Lerp(0.018f, 0.032f, R());
+            float f = 2f * Mathf.Sin(Mathf.PI * fc / Rate), q = 0.9f, low = 0f, band = 0f;
+            for (int i = 0; i < n; i++)
             {
-                float u = t - bubbleAt[i];
-                if (u < 0f || u > 0.05f) continue;
-                bubble += Mathf.Sin(TwoPi * bubbleHz[i] * (1f + u * 6f) * u) * Mathf.Exp(-u * 70f) * 0.35f; // rising plips
+                float t = i / (float)Rate;
+                float high = N() - low - q * band;
+                band += f * high;
+                low += f * band;
+                float env = Mathf.Clamp01(t / 0.003f) * Mathf.Exp(-t / tau);
+                data[i] += band * env * (deep ? 1.1f : 0.8f);
             }
-            return slosh + bubble;
-        }, 0.8f);
+        }
+
+        // Droplets falling back: lots of tiny, bright ticks, thickest just after the impact.
+        {
+            int count = deep ? 70 : 28;
+            float spread = deep ? 0.45f : 0.16f;
+            for (int g = 0; g < count; g++)
+            {
+                float t0 = 0.008f + Mathf.Pow(R(), 1.7f) * spread;
+                float hz = Mathf.Lerp(1800f, 6500f, R());
+                float tau = Mathf.Lerp(0.0008f, 0.0025f, R());
+                float amp = Mathf.Lerp(0.04f, 0.18f, R()) * Mathf.Exp(-t0 / (spread * 0.5f));
+                float ph = R() * TwoPi;
+                int i0 = (int)(t0 * Rate);
+                for (int i = i0; i < n && i < i0 + (int)(tau * 8f * Rate); i++)
+                {
+                    float u = (i - i0) / (float)Rate;
+                    data[i] += Mathf.Sin(ph + TwoPi * hz * u) * Mathf.Exp(-u / tau) * amp;
+                }
+            }
+        }
+
+        // Bubbles: each rings at its resonant pitch, dies away quickly and glides slightly up as it rises.
+        {
+            int count = deep ? 16 : 6;
+            float spread = deep ? 0.55f : 0.18f;
+            for (int b = 0; b < count; b++)
+            {
+                float t0 = 0.012f + Mathf.Pow(R(), 1.4f) * spread;
+                float f0 = deep ? Mathf.Lerp(300f, 1600f, R() * R()) : Mathf.Lerp(700f, 2600f, R());
+                float damping = 0.043f * f0 + 0.0014f * Mathf.Pow(f0, 1.5f);
+                float sweep = 0.1f * damping;
+                float amp = Mathf.Lerp(0.12f, 0.4f, R()) * Mathf.Exp(-t0 / spread);
+                int i0 = (int)(t0 * Rate);
+                int life = (int)(7f / damping * Rate);
+                float phase = 0f;
+                for (int i = i0; i < n && i < i0 + life; i++)
+                {
+                    float u = (i - i0) / (float)Rate;
+                    phase += TwoPi * f0 * (1f + sweep * u) / Rate;
+                    data[i] += Mathf.Sin(phase) * Mathf.Exp(-damping * u) * Mathf.Clamp01(u / 0.0006f) * amp;
+                }
+            }
+        }
+
+        // The slosh: water swirling and lapping round the leg as it pushes through.
+        {
+            float lp = 0f, lp2 = 0f, hp = 0f;
+            float body = deep ? 0.55f : 0.12f;
+            float wobble = R() * 10f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                float w = N();
+                lp += (w - lp) * 0.09f;
+                lp2 += (lp - lp2) * 0.09f;
+                hp += (lp2 - hp) * 0.01f;
+                float x = lp2 - hp; // roughly 150Hz to 600Hz
+                float p = Mathf.Clamp01((t - 0.03f) / (len - 0.03f));
+                float env = Mathf.Pow(Mathf.Sin(Mathf.PI * Mathf.Pow(p, 0.6f)), 1.5f);
+                float lap = 0.55f + 0.45f * Mathf.PerlinNoise(t * 14f, wobble);
+                data[i] += x * env * lap * body * 3f;
+            }
+        }
+
+        // Fade the very end so nothing clicks.
+        for (int i = 0; i < n; i++) data[i] *= Mathf.Clamp01((n - i) / (0.02f * Rate));
+        return Create(name, data, 0.8f);
     }
 
     static AudioClip MakeThunder()
