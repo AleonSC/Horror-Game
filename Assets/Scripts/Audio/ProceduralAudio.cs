@@ -36,7 +36,9 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar;
+    /// <summary>A tornado far off: a low, endless, rushing roar, swelling and fading. Loops.</summary>
+    public static AudioClip TornadoRoar => tornadoRoar != null ? tornadoRoar : (tornadoRoar = MakeTornadoRoar());
     /// <summary>A car answering its key fob: two sharp, bright chirps.</summary>
     public static AudioClip CarChirp => carChirp != null ? carChirp : (carChirp = MakeCarChirp());
     /// <summary>The little click of a key fob's button.</summary>
@@ -1124,33 +1126,61 @@ public static class ProceduralAudio
 
     static AudioClip MakeRainLoop()
     {
-        // A soft, airy hiss, and drops: little ticks at random, some sharp on leaves, some dull on earth.
-        float lp = 0f, lp2 = 0f, hp = 0f;
-        float dropT = 1f, dropHz = 3000f, dropAmp = 0f, dropDecay = 300f, dropPhase = 0f;
-        return Loop("Rain", 12f, t =>
+        // Rain, not running water: no pitched drops (those burble like a creek). A dense, airy sizzle of
+        // countless tiny impacts, a soft wash underneath, and a patter of individual drops on top: each
+        // just a tick of noise, bright on leaves, duller on the ground.
+        float lpA = 0f, lpB = 0f, hpA = 0f, wash = 0f, washHp = 0f;
+        float tickEnv = 0f, tickLp = 0f, tickBright = 0.5f, tickDecay = 0.99f;
+        float densityPhase = 0f;
+        return Loop("Rain", 14f, t =>
         {
             float w = White();
-            lp += (w - lp) * 0.35f;
-            lp2 += (lp - lp2) * 0.35f;
-            hp += (lp2 - hp) * 0.02f;
-            float swell = 0.8f + 0.2f * Mathf.PerlinNoise(t * 0.3f, 1.7f);
-            float hiss = (lp2 - hp) * 0.25f * swell;
+            // The sizzle: noise with the lows taken out and the very top softened.
+            lpA += (w - lpA) * 0.55f;
+            hpA += (lpA - hpA) * 0.12f;
+            float sizzle = (lpA - hpA) * 0.5f;
+            // Its grain: the sizzle comes in tiny random bursts, the way many small drops land.
+            lpB += ((rng.NextDouble() < 0.12 ? 1f : 0f) - lpB) * 0.02f;
+            sizzle *= 0.55f + 0.9f * lpB;
+            // The wash: a soft, low hush underneath.
+            wash += (w - wash) * 0.04f;
+            washHp += (wash - washHp) * 0.004f;
+            float hush = (wash - washHp) * 0.35f;
 
-            // A new drop now and then (about 70 a second, of every size).
-            if (rng.NextDouble() < 70.0 / Rate)
+            // The patter: individual drops, ticks of filtered noise.
+            densityPhase += 1f / Rate;
+            float density = 110f + 40f * Mathf.PerlinNoise(t * 0.4f, 2.3f);
+            if (rng.NextDouble() < density / Rate)
             {
-                dropT = 0f;
+                tickEnv = 0.15f + (float)rng.NextDouble() * 0.6f;
                 bool leaf = rng.NextDouble() < 0.6;
-                dropHz = leaf ? 2200f + (float)rng.NextDouble() * 2500f : 500f + (float)rng.NextDouble() * 700f;
-                dropDecay = leaf ? 350f : 120f;
-                dropAmp = 0.08f + (float)rng.NextDouble() * 0.35f;
-                dropPhase = 0f;
+                tickBright = leaf ? 0.6f + (float)rng.NextDouble() * 0.35f : 0.12f + (float)rng.NextDouble() * 0.2f;
+                tickDecay = leaf ? 0.996f - (float)rng.NextDouble() * 0.006f : 0.9975f;
             }
-            dropT += 1f / Rate;
-            dropPhase += TwoPi * dropHz / Rate;
-            float drop = Mathf.Sin(dropPhase) * Mathf.Exp(-dropT * dropDecay) * dropAmp;
-            return hiss + drop;
+            tickLp += (w - tickLp) * tickBright;
+            float tick = (w * 0.5f + tickLp * 0.5f) * tickEnv;
+            tickEnv *= tickDecay;
+
+            float swell = 0.85f + 0.15f * Mathf.PerlinNoise(t * 0.25f, 7.1f);
+            return (sizzle + hush + tick * 0.35f) * swell;
         }, 0.6f);
+    }
+
+    static AudioClip MakeTornadoRoar()
+    {
+        float lp1 = 0f, lp2 = 0f, lp3 = 0f, hp = 0f;
+        return Loop("Tornado Roar", 16f, t =>
+        {
+            float w = White();
+            lp1 += (w - lp1) * 0.02f;
+            lp2 += (lp1 - lp2) * 0.03f;
+            hp += (lp2 - hp) * 0.002f;
+            float rumble = (lp2 - hp) * 6f;
+            lp3 += (w - lp3) * 0.15f; // the rushing, higher up
+            float rush = lp3 * 0.25f;
+            float swell = 0.6f + 0.4f * Mathf.PerlinNoise(t * 0.2f, 4.4f);
+            return (rumble + rush * swell) * swell;
+        }, 0.7f);
     }
 
     static AudioClip MakeCarChirp()

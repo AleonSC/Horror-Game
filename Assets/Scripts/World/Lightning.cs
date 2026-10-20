@@ -54,6 +54,12 @@ public class Lightning : MonoBehaviour
         timer = Mathf.Max(timer, minInterval * 0.5f); // no other strike straight after
     }
 
+    [Tooltip("At the storm's height (7 lamps lit) strikes come every this many seconds (picked between the two).")]
+    public float peakMinInterval = 3f, peakMaxInterval = 9f;
+
+    /// <summary>How built-up the storm is: 0 below 5 lamps lit, then a third, two thirds, and 1 (its height) at 7.</summary>
+    public static float Storm => Lamp.TimesLit < 5 ? 0f : Mathf.Clamp01((Lamp.TimesLit - 4f) / 3f);
+
     void Start()
     {
         timer = Random.Range(minInterval * 0.5f, maxInterval);
@@ -73,8 +79,18 @@ public class Lightning : MonoBehaviour
         timer -= dt;
         if (timer <= 0f)
         {
-            timer = Random.Range(minInterval, maxInterval);
-            if (!PortalDoor.PlayerInRoom) Strike();
+            // The storm builds with the lamps: from the 5th it comes more often and closer, peaking by the 7th.
+            float storm = Storm;
+            timer = Random.Range(Mathf.Lerp(minInterval, peakMinInterval, storm), Mathf.Lerp(maxInterval, peakMaxInterval, storm));
+            if (!PortalDoor.PlayerInRoom)
+            {
+                Strike();
+                float far = Random.value * Mathf.Lerp(1f, 0.45f, storm);
+                thunderTimer = Mathf.Lerp(0.6f, 4f, far);
+                thunderVolumeNow = thunderVolume * Mathf.Lerp(1f, 0.45f, far);
+                // At its height, now and then a second strike right after the first.
+                if (storm > 0.5f && Random.value < 0.35f * storm) timer = Mathf.Min(timer, Random.Range(0.4f, 1.5f));
+            }
         }
 
         if (thunderTimer > 0f)
