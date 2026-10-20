@@ -30,6 +30,12 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     [Tooltip("Summon another entity each time a lamp is lit.")]
     public bool spawnEntityWhenLit = true;
 
+    [Header("Up Close")]
+    [Tooltip("Lit lamps are beacons to find from far off, not reading lamps: the light dims as you come within farDistance, down to nearLevel inside nearDistance. (The safe zone stays.)")]
+    public float nearDistance = 9f;
+    public float farDistance = 22f;
+    [Range(0f, 1f)] public float nearLevel = 0.12f;
+
     [Header("Energy")]
     [Tooltip("Once lit, a lamp stays on for good (energy doesn't run down).")]
     public bool stayLit = true;
@@ -173,6 +179,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     float flickerLevel = 1f;
 
     const float PoleHeight = 3f;
+    float proximityDim = 1f;
     const float HumVolume = 0.2f;
 
     /// <summary>World position of the bulb (moths gather here).</summary>
@@ -326,9 +333,20 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         }
 
         float level = flickerLevel * Mathf.Lerp(1f, 0.7f, low); // also dims overall near the end
+
+        // Dims down as you come close: a light to find from far off, not one to stand in.
+        var cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 d = cam.transform.position - transform.position;
+            d.y = 0f;
+            float target = Mathf.Lerp(nearLevel, 1f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(nearDistance, farDistance, d.magnitude)));
+            proximityDim = Mathf.MoveTowards(proximityDim, target, Time.deltaTime * 0.8f);
+        }
+        level *= proximityDim;
         lampLight.intensity = lightIntensity * level;
         SetBulb(level);
-        hum.volume = HumVolume * level;
+        hum.volume = HumVolume * level / Mathf.Max(proximityDim, 0.01f); // the hum doesn't dim with the light
     }
 
     /// <summary>While recharging, little blue sparks crackle around the lamp head now and then.</summary>
