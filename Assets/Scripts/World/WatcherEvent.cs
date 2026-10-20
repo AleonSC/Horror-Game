@@ -30,14 +30,15 @@ public class WatcherEvent : MonoBehaviour
     public float giantDelay = 10f;
 
     [Header("Giant")]
-    public float giantHeight = 220f;
-    public float giantStartDistance = 700f;
-    [Tooltip("Metres per second it closes in.")]
-    public float giantSpeed = 2.5f;
-    [Tooltip("Seconds per full stride (two steps).")]
-    public float strideTime = 9f;
+    public float giantHeight = 660f;
+    [Tooltip("Scaled with its height, so it still fills the same part of the sky when it appears.")]
+    public float giantStartDistance = 2100f;
+    [Tooltip("Metres per second it closes in. Scaled with its height, so it still takes about 4 minutes to arrive.")]
+    public float giantSpeed = 7.5f;
+    [Tooltip("Seconds per full stride (two steps). Longer legs, slower steps.")]
+    public float strideTime = 12f;
     [Tooltip("If it gets this close, it takes the player.")]
-    public float giantCatchDistance = 45f;
+    public float giantCatchDistance = 135f;
 
     [Header("Atmosphere")]
     public Color redFog = new Color(0.11f, 0.015f, 0.015f);
