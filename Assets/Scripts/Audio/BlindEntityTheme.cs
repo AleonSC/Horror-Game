@@ -13,106 +13,28 @@ using UnityEngine;
 ///          high minor seconds, and its clicking, all building, until it all falls away at the end
 ///
 /// It's generated on a background thread when the game starts (BlindEntitySpawner calls Prepare), so
-/// there's no hitch when it's needed. While it plays the rest of the music ducks out (MusicManager.CueDuck).
-/// Volume follows the music volume in the pause menu.
+/// there's no hitch when it's needed. MusicCue plays it (ducking the rest of the music out).
 /// </summary>
-public class BlindEntityTheme : MonoBehaviour
+public static class BlindEntityTheme
 {
-    [Range(0f, 1f)] public float themeVolume = 0.9f;
-    [Tooltip("Seconds to fade out when it's stopped early (the run resets).")]
-    public float fadeOutTime = 2f;
-
     const int Rate = 44100;
     const float TwoPi = Mathf.PI * 2f;
     const float Length = 80f;
 
-    static BlindEntityTheme instance;
-    static float[] data;
-    static Task generating;
-    static AudioClip clip;
-
-    AudioSource source;
-    float requestedAt = -1f, fade = 1f;
-    bool stopping;
+    static MusicCue Cue => MusicCue.Get("Blind Entity Theme", Synthesize, 0.9f);
 
     /// <summary>Starts generating the theme in the background, if it hasn't been already.</summary>
-    public static void Prepare()
-    {
-        if (generating != null || data != null) return;
-        generating = Task.Run(() => data = Synthesize());
-    }
+    public static void Prepare() => Cue.Prepare();
 
     /// <summary>Plays the theme from the top (as soon as it's ready, in step with the moment it was asked for).</summary>
-    public static void Play()
-    {
-        Prepare();
-        if (instance == null) instance = new GameObject("Blind Entity Theme").AddComponent<BlindEntityTheme>();
-        instance.requestedAt = Time.time;
-        instance.stopping = false;
-        instance.fade = 1f;
-        if (instance.source.isPlaying) instance.source.Stop();
-    }
+    public static void Play() => Cue.Play();
 
     /// <summary>Fades the theme out (used when the blind one is removed).</summary>
     public static void FadeOut()
     {
-        if (instance != null && (instance.source.isPlaying || instance.requestedAt >= 0f)) instance.stopping = true;
-    }
-
-    void Awake()
-    {
-        source = gameObject.AddComponent<AudioSource>();
-        source.playOnAwake = false;
-        source.loop = false;
-        source.spatialBlend = 0f;
-        source.ignoreListenerVolume = true; // music: the sound effects slider doesn't touch it
-        source.volume = 0f;
-    }
-
-    void OnDestroy()
-    {
-        if (instance == this) instance = null;
-        MusicManager.CueDuck = 0f;
-    }
-
-    void Update()
-    {
-        // Ready: make the clip on the main thread, and start it in step with when it was asked for.
-        if (clip == null && data != null)
-        {
-            clip = AudioClip.Create("Blind Entity Theme", data.Length, 1, Rate, false);
-            clip.SetData(data, 0);
-        }
-        if (requestedAt >= 0f && clip != null && !source.isPlaying)
-        {
-            float late = Time.time - requestedAt;
-            requestedAt = -1f;
-            if (late < clip.length - 1f)
-            {
-                source.clip = clip;
-                source.time = late;
-                source.Play();
-            }
-        }
-
-        if (stopping)
-        {
-            fade = Mathf.MoveTowards(fade, 0f, Time.unscaledDeltaTime / Mathf.Max(fadeOutTime, 0.01f));
-            if (fade <= 0f)
-            {
-                source.Stop();
-                stopping = false;
-                requestedAt = -1f;
-            }
-        }
-
-        bool playing = source.isPlaying || requestedAt >= 0f;
-        var music = MusicManager.Instance;
-        float musicVolume = music != null ? music.Volume : 0.6f;
-        source.volume = PauseMenu.MasterVolume * musicVolume * themeVolume * fade * (1f - PortalDoor.RoomQuiet);
-        // Duck the rest of the music while it plays, letting it back in over the last few seconds.
-        float tail = source.isPlaying && source.clip != null ? Mathf.Clamp01((source.clip.length - source.time) / 6f) : 1f;
-        MusicManager.CueDuck = playing ? fade * tail : 0f;
+        // Not if it was never made (nothing to fade, and no need to make it now).
+        foreach (var cue in Object.FindObjectsByType<MusicCue>(FindObjectsSortMode.None))
+            if (cue.name == "Blind Entity Theme") cue.FadeOut();
     }
 
     // ---------------------------------------------------------------- Synthesis

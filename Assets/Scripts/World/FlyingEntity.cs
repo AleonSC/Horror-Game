@@ -89,6 +89,7 @@ public class FlyingEntity : MonoBehaviour
         All.Remove(this);
         if (musicTaken && MusicManager.Instance != null) MusicManager.Instance.ClearOverride();
         musicTaken = false;
+        FlierTheme.FadeOut();
     }
 
     /// <summary>Brings it in, starting its entrance over the player.</summary>
@@ -172,7 +173,7 @@ public class FlyingEntity : MonoBehaviour
             // A cry from far off, everywhere at once.
             near.pitch = 0.42f;
             near.PlayOneShot(ProceduralAudio.Screech, 0.25f);
-            if (MusicManager.Instance != null) { MusicManager.Instance.SetOverride(MusicManager.Mood.Danger); musicTaken = true; }
+            FlierTheme.Play(); // its own music, scored to all this
         }
         if (Beat(1, DiveTime - 1.8f))
         {
@@ -733,6 +734,8 @@ public class FlyingEntitySpawner : MonoBehaviour
 {
     [Tooltip("Times lamps have been lit (the counter at the top right) before the flier comes.")]
     public int lampsToSpawn = 7;
+
+    void Start() => FlierTheme.Prepare(); // its music takes a moment to make: start now, in the background
 
     void Update()
     {

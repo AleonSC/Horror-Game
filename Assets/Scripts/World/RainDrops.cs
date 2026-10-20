@@ -4,7 +4,8 @@ using UnityEngine;
 /// A very light rain: a sparse scattering of drops falling around the player, slanted by the wind. They're
 /// lit like everything else, so they mostly show up as glints crossing the flashlight beam or a lamp's
 /// light, and vanish into the dark outside it. They stop at roofs (shacks, the car, the watchtower deck).
-/// No sound. It picks up slowly as lamps are lit: twice as heavy by the 5th, twice that by the 7th.
+/// It picks up slowly as lamps are lit: twice as heavy by the 5th, twice that by the 7th. Silent at first;
+/// from the 5th lamp you can just hear it, a little more from the 7th.
 /// Drawn with GPU instancing. DarkForestGenerator adds this.
 /// </summary>
 public class RainDrops : MonoBehaviour
@@ -15,6 +16,8 @@ public class RainDrops : MonoBehaviour
     public float atLamp5 = 2f, atLamp7 = 4f;
     [Tooltip("Seconds for the rain to pick up to a new level.")]
     public float rampTime = 25f;
+    [Tooltip("How loud the rain is from the 5th lamp, and from the 7th (silent before).")]
+    [Range(0f, 1f)] public float soundAtLamp5 = 0.06f, soundAtLamp7 = 0.11f;
     [Tooltip("Drops fall within this distance of the player.")]
     public float radius = 14f;
     public float fallSpeed = 9f;
@@ -28,6 +31,7 @@ public class RainDrops : MonoBehaviour
     float[] speeds;
     Matrix4x4[] matrices;
     float heaviness = 1f;
+    AudioSource sound;
     int active;
     Mesh mesh;
     Material material;
@@ -41,6 +45,7 @@ public class RainDrops : MonoBehaviour
         mesh = BuildStreak();
         material = MaterialFactory.LitTransparent(MakeStreakTexture(), tint, 0.9f);
         material.enableInstancing = true;
+        sound = ProceduralAudio.AddSource(gameObject, ProceduralAudio.RainLoop, true, false, 0f);
 
         int n = Mathf.Clamp(Mathf.CeilToInt(dropCount * Mathf.Max(atLamp5, atLamp7)), 0, 1023); // room for the heaviest
         positions = new Vector3[n];
@@ -64,6 +69,7 @@ public class RainDrops : MonoBehaviour
     void Update()
     {
         var cam = Camera.main;
+        if (PortalDoor.PlayerInRoom && sound != null && sound.isPlaying) sound.Stop(); // no rain in the dark room
         if (cam == null || positions == null || positions.Length == 0 || PortalDoor.PlayerInRoom) return;
         Vector3 c = cam.transform.position;
         float dt = Time.deltaTime;
@@ -75,6 +81,14 @@ public class RainDrops : MonoBehaviour
         int want = Mathf.Clamp(Mathf.RoundToInt(dropCount * heaviness), 0, positions.Length);
         while (active < want) { Respawn(active, c, Random.Range(6f, 12f)); active++; } // new drops start up high
         active = want;
+
+        // The sound: nothing until the 5th lamp, then just audible, a little more from the 7th.
+        float lit = Lamp.TimesLit;
+        float loud = lit < 5f ? 0f : lit < 7f ? soundAtLamp5 : soundAtLamp7;
+        loud *= (1f - 0.8f * EntityDread.Silence) * (1f - PortalDoor.RoomQuiet);
+        sound.volume = Mathf.MoveTowards(sound.volume, loud, Mathf.Max(soundAtLamp7, 0.01f) * dt / Mathf.Max(rampTime * 0.6f, 0.1f));
+        if (sound.volume > 0.001f && !sound.isPlaying) { sound.time = Random.Range(0f, sound.clip.length * 0.9f); sound.Play(); }
+        else if (sound.volume <= 0.001f && sound.isPlaying) sound.Stop();
 
         for (int i = 0; i < active; i++)
         {

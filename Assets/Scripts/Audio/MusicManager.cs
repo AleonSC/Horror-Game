@@ -31,9 +31,6 @@ public class MusicManager : MonoBehaviour
 
     public static MusicManager Instance { get; private set; }
 
-    /// <summary>0 to 1: how far a scripted music cue (e.g. BlindEntityTheme) is ducking the soundtrack out.</summary>
-    public static float CueDuck { get; set; }
-
     const string VolumeKey = "Horror.MusicVolume";
     const string ResourceFolder = "Music";
 
@@ -308,7 +305,7 @@ public class MusicManager : MonoBehaviour
     void UpdateVolumes()
     {
         float duck = (1f - dreadDuck * EntityDread.Silence) * (1f - PortalDoor.RoomQuiet) // silent in the dark room
-                     * (1f - Mathf.Clamp01(CueDuck));                                        // out of the way of a cue
+                     * (1f - Mathf.Clamp01(MusicCue.Duck));                                        // out of the way of a cue
         float dt = Time.unscaledDeltaTime;
         for (int i = 0; i < 2; i++)
         {

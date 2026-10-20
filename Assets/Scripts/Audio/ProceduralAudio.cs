@@ -36,7 +36,9 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop;
+    /// <summary>Light rain on the forest: a soft hiss and a patter of drops on leaves and ground. Loops.</summary>
+    public static AudioClip RainLoop => rainLoop != null ? rainLoop : (rainLoop = MakeRainLoop());
     /// <summary>An old radio on a bad station: a scratchy minor waltz through hiss and crackle, drifting in and out. Loops.</summary>
     public static AudioClip RadioBroadcast => radioBroadcast != null ? radioBroadcast : (radioBroadcast = MakeRadioBroadcast());
     /// <summary>A film camera's flash: the shutter's clack, the pop of the bulb, and the whine of it charging again.</summary>
@@ -1114,6 +1116,37 @@ public static class ProceduralAudio
             float crackle = rng.NextDouble() < 0.0006 ? White() * 2.5f : 0f;
             return music * signal + hiss * (0.12f + 0.25f * (1f - signal)) + crackle + crackleLp * 0.02f;
         }, 0.7f);
+    }
+
+    static AudioClip MakeRainLoop()
+    {
+        // A soft, airy hiss, and drops: little ticks at random, some sharp on leaves, some dull on earth.
+        float lp = 0f, lp2 = 0f, hp = 0f;
+        float dropT = 1f, dropHz = 3000f, dropAmp = 0f, dropDecay = 300f, dropPhase = 0f;
+        return Loop("Rain", 12f, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.35f;
+            lp2 += (lp - lp2) * 0.35f;
+            hp += (lp2 - hp) * 0.02f;
+            float swell = 0.8f + 0.2f * Mathf.PerlinNoise(t * 0.3f, 1.7f);
+            float hiss = (lp2 - hp) * 0.25f * swell;
+
+            // A new drop now and then (about 70 a second, of every size).
+            if (rng.NextDouble() < 70.0 / Rate)
+            {
+                dropT = 0f;
+                bool leaf = rng.NextDouble() < 0.6;
+                dropHz = leaf ? 2200f + (float)rng.NextDouble() * 2500f : 500f + (float)rng.NextDouble() * 700f;
+                dropDecay = leaf ? 350f : 120f;
+                dropAmp = 0.08f + (float)rng.NextDouble() * 0.35f;
+                dropPhase = 0f;
+            }
+            dropT += 1f / Rate;
+            dropPhase += TwoPi * dropHz / Rate;
+            float drop = Mathf.Sin(dropPhase) * Mathf.Exp(-dropT * dropDecay) * dropAmp;
+            return hiss + drop;
+        }, 0.6f);
     }
 
     static AudioClip MakeCameraFlash()
