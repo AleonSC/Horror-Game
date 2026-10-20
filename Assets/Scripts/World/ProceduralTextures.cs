@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Generates textures in code (no image files needed), each made once on first use and shared:
-/// - the forest floor: dark, damp soil covered in rotting leaf litter, twigs and the odd stone, plus a
-///   matching normal map so the flashlight picks out every bump (tiles seamlessly);
+/// - the forest floor: bare brown soil scattered with pebbles and clods, plus a matching normal map so
+///   the flashlight picks out every bump (tiles seamlessly);
 /// - bark (with a normal map) for tree trunks and branches, and pine needles for foliage;
 /// - the eyeball of the giant eye in the sky.
 /// </summary>
