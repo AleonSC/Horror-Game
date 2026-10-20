@@ -175,8 +175,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
         Selected = item;
         selectedAt = Time.unscaledTime;
-        if (flashlight != null) flashlight.SetEquipped(item == Item.Flashlight);
-        Play(ProceduralAudio.Pickup, 0.3f, 1.3f);
+        if (flashlight != null) flashlight.SetEquipped(item == Item.Flashlight); // (silently: no sound for switching)
     }
 
     /// <summary>Steps through the hotbar to the next (or previous) slot that has something in it, wrapping round.</summary>

@@ -237,10 +237,7 @@ public class Flashlight : MonoBehaviour
             flashlight.enabled = false;
         }
         else if (wasOnBeforeUnequip && Battery > 0f)
-        {
-            flashlight.enabled = true;
-            PlayClick(1f);
-        }
+            flashlight.enabled = true; // back on as it was, silently (switching items makes no sound)
     }
 
     /// <summary>Adds charge (0-1). Returns false if the battery was already full.</summary>
