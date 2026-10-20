@@ -31,6 +31,7 @@ public class TreeFall : MonoBehaviour
     readonly List<Rigidbody> pieces = new List<Rigidbody>();
     readonly List<Joint> joints = new List<Joint>();
     readonly List<float> breakHeights = new List<float>(); // in sway space, between pieces
+    readonly List<Collider> crowns = new List<Collider>();  // the bulky colliders round the boughs
     Material barkMaterial;
     bool splintered;
     float shake;
@@ -101,9 +102,12 @@ public class TreeFall : MonoBehaviour
                 break;
 
             case Phase.Falling:
-                // Physics has it now. If it never hits anything hard (a gentle slide), call it settled.
+                // Physics has it now. It splinters when it hits something, or once it's tipped well over
+                // (a soft landing, a slide down a slope, or caught on another tree), or failing all that, in time.
                 timer -= dt;
-                if (timer <= 0f) Splinter(sway.position, 0f);
+                if (pieces.Count > 0 && pieces[0] != null && Vector3.Angle(pieces[0].transform.up, Vector3.up) > 62f)
+                    Splinter(pieces[pieces.Count > 1 ? 1 : 0].worldCenterOfMass, Mathf.Max(6f, pieces[0].angularVelocity.magnitude * height * 0.5f));
+                else if (timer <= 0f) Splinter(sway.position, 6f);
                 break;
 
             case Phase.Settling:
@@ -196,6 +200,7 @@ public class TreeFall : MonoBehaviour
                 crown.radius = foliageReach * 0.4f;
                 crown.height = Mathf.Max(top - bottom, crown.radius * 2f);
                 crown.center = trunkCollider.center;
+                crowns.Add(crown);
             }
 
             var body = piece.AddComponent<Rigidbody>();
@@ -297,17 +302,19 @@ public class TreeFall : MonoBehaviour
     public void OnSectionHit(Collision collision)
     {
         if (phase != Phase.Falling || splintered) return;
-        if (collision.relativeVelocity.magnitude < 2.5f) return;
+        if (collision.relativeVelocity.magnitude < 1.5f) return;
         Splinter(collision.GetContact(0).point, collision.relativeVelocity.magnitude);
     }
 
     /// <summary>The tree breaks apart where it hits: joints snap, shards fly, and each section finds its own rest.</summary>
     void Splinter(Vector3 impactPoint, float impactSpeed)
     {
+        if (splintered) return;
         splintered = true;
         foreach (var joint in joints)
             if (joint != null) Destroy(joint);
         joints.Clear();
+        ReleaseLeaves();
 
         if (impactSpeed > 0f)
         {
@@ -330,6 +337,29 @@ public class TreeFall : MonoBehaviour
 
         phase = Phase.Settling;
         timer = settleTime;
+    }
+
+    /// <summary>
+    /// The boughs are gone in the crash: each section's foliage vanishes in a burst of loose needles and leaves
+    /// that drift and tumble on the wind, slowly settling, and the bulky colliders round them go too.
+    /// </summary>
+    void ReleaseLeaves()
+    {
+        foreach (var body in pieces)
+        {
+            if (body == null) continue;
+            foreach (Transform child in body.transform)
+            {
+                if (child.name != "Foliage") continue;
+                var renderer = child.GetComponent<Renderer>();
+                if (renderer != null) LeafBurst.Spawn(renderer.bounds);
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
+        }
+        foreach (var crown in crowns)
+            if (crown != null) Destroy(crown);
+        crowns.Clear();
     }
 
     void SpawnShard(Vector3 at, float speed)
