@@ -14,7 +14,7 @@ public class ScreamEvent : MonoBehaviour
     [Tooltip("How far away it sounds.")]
     public float minDistance = 25f;
     public float maxDistance = 40f;
-    [Range(0f, 1f)] public float volume = 0.6f;
+    [Range(0f, 1f)] public float volume = 0.35f;
     [Tooltip("Leave empty to use the built-in synthesized scream.")]
     public AudioClip screamClip;
 

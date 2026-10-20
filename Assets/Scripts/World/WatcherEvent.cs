@@ -22,7 +22,11 @@ public class WatcherEvent : MonoBehaviour
 
     [Header("Eye")]
     public float eyeOpenTime = 4f;
-    public float eyeWatchTime = 8f;
+    public float eyeWatchTime = 11f;
+    [Tooltip("Seconds the eye stares before the dream hallway starts to take hold...")]
+    public float dreamDelay = 3f;
+    [Tooltip("...and how long it takes to take hold fully.")]
+    public float dreamRampTime = 2.5f;
     public float eyeCloseTime = 3f;
     [Tooltip("How high in the sky the eye is, in degrees above the horizon.")]
     public float eyeElevation = 50f;
@@ -41,6 +45,8 @@ public class WatcherEvent : MonoBehaviour
     public float strideTime = 12f;
     [Tooltip("If it gets this close, it takes the player.")]
     public float giantCatchDistance = 135f;
+    [Tooltip("However far off it is, it always stands at least this many degrees tall above the horizon, so it towers over the treeline (it's scaled up in the distance and shrinks back to its real size as it comes).")]
+    public float minApparentHeight = 45f;
 
     [Header("Atmosphere")]
     public Color redFog = new Color(0.11f, 0.015f, 0.015f);
@@ -66,6 +72,7 @@ public class WatcherEvent : MonoBehaviour
     Transform[] giantLegs = new Transform[2], giantKnees = new Transform[2], giantArms = new Transform[2];
     Vector3 giantBearing;    // direction from the player to the giant
     float giantDistance, stridePhase, shake;
+    float dream; // how strongly the dream hallway has taken hold
     bool leftFootDown;
 
     AudioSource audioSource;
@@ -106,12 +113,17 @@ public class WatcherEvent : MonoBehaviour
             case Phase.EyeWatching:
                 timer += dt;
                 SetEyeOpen(1f);
+                // It stares a while before the dream takes hold.
+                dream = Mathf.Clamp01((timer - dreamDelay) / Mathf.Max(dreamRampTime, 0.01f));
+                if (player != null) player.DreamStretch = dream;
                 if (timer >= eyeWatchTime) { phase = Phase.EyeClosing; timer = 0f; }
                 break;
 
             case Phase.EyeClosing:
                 timer += dt;
                 SetEyeOpen(1f - Mathf.SmoothStep(0f, 1f, timer / eyeCloseTime));
+                // The dream lets go as the eye closes.
+                if (player != null) player.DreamStretch = dream * (1f - Mathf.SmoothStep(0f, 1f, timer / eyeCloseTime));
                 if (timer >= eyeCloseTime)
                 {
                     eye.gameObject.SetActive(false);
@@ -198,8 +210,6 @@ public class WatcherEvent : MonoBehaviour
 
     void SetEyeOpen(float open)
     {
-        // While it's open, the dream: the view stretches into a hallway and you can't get anywhere.
-        if (player != null) player.DreamStretch = Mathf.Clamp01(open);
         eyeMaterial.SetFloat("_Open", open);
     }
 
@@ -263,6 +273,9 @@ public class WatcherEvent : MonoBehaviour
         var generator = FindAnyObjectByType<DarkForestGenerator>();
         p.y = generator != null ? generator.GetGroundHeight(p.x, p.z) : player.transform.position.y;
         giant.SetPositionAndRotation(p, Quaternion.LookRotation(-giantBearing));
+        // Far off, it's scaled up so it always looms over the treeline; it shrinks to its true size as it nears.
+        float apparent = Mathf.Tan(minApparentHeight * Mathf.Deg2Rad) * giantDistance / Mathf.Max(giantHeight, 1f);
+        giant.localScale = Vector3.one * Mathf.Max(1f, apparent);
 
         // Slow, heavy stride: legs swing in opposite directions, knees bend on the forward swing.
         stridePhase += dt * Mathf.PI * 2f / strideTime;
@@ -402,6 +415,7 @@ public class WatcherEvent : MonoBehaviour
         phase = Phase.Waiting;
         timer = 0f;
         shake = 0f;
+        dream = 0f;
         if (player != null) player.DreamStretch = 0f;
         if (eye != null) eye.gameObject.SetActive(false);
         if (giant != null) giant.gameObject.SetActive(false);
