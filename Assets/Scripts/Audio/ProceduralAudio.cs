@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
+        lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, deerGrunt, deerBleat, deerSnort, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
         doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, flareShot, flareBurn, treeSnap, treeImpact, eyeOpen, distantRumble, giantStep, scream, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
@@ -90,6 +90,12 @@ public static class ProceduralAudio
     public static AudioClip WingFlaps => wingFlaps != null ? wingFlaps : (wingFlaps = MakeWingFlaps());
     /// <summary>A crow's harsh, rasping caw.</summary>
     public static AudioClip Caw => caw != null ? caw : (caw = MakeCaw());
+    /// <summary>A deer's low, short grunt: a couple of throaty pulses.</summary>
+    public static AudioClip DeerGrunt => deerGrunt != null ? deerGrunt : (deerGrunt = MakeDeerGrunt());
+    /// <summary>A deer's nasal bleat, rising then cracking.</summary>
+    public static AudioClip DeerBleat => deerBleat != null ? deerBleat : (deerBleat = MakeDeerBleat());
+    /// <summary>A sharp snort through the nose, a blast of air.</summary>
+    public static AudioClip DeerSnort => deerSnort != null ? deerSnort : (deerSnort = MakeDeerSnort());
     /// <summary>A tawny owl's call: a low hoot, a pause, then a long wavering hoo-hoo-hooo.</summary>
     public static AudioClip OwlHoot => owlHoot != null ? owlHoot : (owlHoot = MakeOwlHoot());
     /// <summary>A barn owl's screech: a harsh, breathy rasp that trails off.</summary>
@@ -837,6 +843,57 @@ public static class ProceduralAudio
             float swish = Mathf.Pow(Mathf.Abs(Mathf.Sin(Mathf.PI * p * swishes + Mathf.Sin(p * 9f) * 0.6f)), 1.5f);
             float rustle = (lp - hp) * swish * Mathf.Sin(Mathf.PI * p) * 0.9f;
             return crackle * 0.6f + rustle;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeDeerGrunt()
+    {
+        const float len = 0.9f;
+        float phase = 0f, lp = 0f;
+        return Shot("Deer Grunt", len, t =>
+        {
+            // Two or three short, throaty pulses, each a little lower.
+            float pulse = Mathf.Repeat(t, 0.3f) / 0.3f;
+            int n = Mathf.FloorToInt(t / 0.3f);
+            float amp = Mathf.Sin(Mathf.PI * Mathf.Clamp01(pulse * 1.4f)) * (n < 3 ? 1f - n * 0.25f : 0f);
+            float pitch = 110f - n * 12f;
+            phase += pitch / Rate;
+            float voice = 2f * (phase % 1f) - 1f;
+            lp += (voice + White() * 0.4f - lp) * 0.08f; // dark and muffled
+            return lp * amp;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeDeerBleat()
+    {
+        const float len = 0.8f;
+        float phase = 0f, lp = 0f;
+        return Shot("Deer Bleat", len, t =>
+        {
+            float p = t / len;
+            float env = Mathf.Clamp01(t / 0.04f) * Mathf.Pow(1f - p, 1.3f);
+            // Nasal and reedy: rises, then breaks downward.
+            float pitch = (p < 0.6f ? Mathf.Lerp(420f, 560f, p / 0.6f) : Mathf.Lerp(560f, 380f, (p - 0.6f) / 0.4f))
+                          * (1f + 0.03f * Mathf.Sin(t * TwoPi * 22f));
+            phase += pitch / Rate;
+            float reed = (2f * (phase % 1f) - 1f) * 0.6f + Mathf.Sin(TwoPi * phase * 3f) * 0.3f;
+            lp += (reed + White() * 0.15f - lp) * 0.3f;
+            return lp * env;
+        }, 0.7f);
+    }
+
+    static AudioClip MakeDeerSnort()
+    {
+        const float len = 0.5f;
+        float lp = 0f, hp = 0f;
+        return Shot("Deer Snort", len, t =>
+        {
+            float env = Mathf.Clamp01(t / 0.01f) * Mathf.Exp(-t * 9f);
+            float w = White();
+            lp += (w - lp) * 0.35f;
+            hp += (lp - hp) * 0.05f;
+            float flutter = 0.7f + 0.3f * Mathf.Sin(t * TwoPi * 35f); // nostrils fluttering
+            return (lp - hp) * env * flutter;
         }, 0.8f);
     }
 

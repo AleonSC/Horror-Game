@@ -8,6 +8,7 @@ using UnityEngine;
 /// - Moths: flutter around the bulbs of lit lamps.
 /// - Bats: every so often a few swoop overhead with a flurry of wing beats.
 /// - Crows: flocks that fly over high in the sky now and then, gliding between wingbeats and cawing.
+/// - Deer now and then grunt, bleat or snort while grazing, and snort when they notice you.
 /// - Owls: dark owls perched on branches of some trees, white eyes, heads turning to stare at you,
 ///   and now and then one nearby calls out (a low hooting, or rarely a rasping screech).
 /// - Deer: pitch-black deer that wander and graze, look up when you come near, and gallop off,
@@ -72,6 +73,11 @@ public class Wildlife : MonoBehaviour
     public float deerFleeDistance = 14f;
     public float deerWalkSpeed = 1.1f;
     public float deerGallopSpeed = 10f;
+    [Tooltip("Seconds between deer calls (picked at random between the two). A grazing deer near the player grunts, bleats or snorts.")]
+    public float minDeerCallInterval = 30f;
+    public float maxDeerCallInterval = 80f;
+    [Tooltip("Only deer within this distance call.")]
+    public float deerCallDistance = 60f;
 
     [Header("Audio")]
     [Range(0f, 1f)] public float volume = 0.7f;
@@ -179,6 +185,7 @@ public class Wildlife : MonoBehaviour
         UpdateBats(dt);
         UpdateCrows(dt);
         for (int i = 0; i < deer.Count; i++) UpdateDeer(i, dt);
+        UpdateDeerCalls(dt);
         UpdateOwls(dt);
     }
 
@@ -528,6 +535,32 @@ public class Wildlife : MonoBehaviour
         d.root.rotation = Quaternion.LookRotation(d.heading);
     }
 
+    float deerCallTimer = -1f;
+
+    /// <summary>Now and then, a grazing or wandering deer near the player calls: a grunt, a bleat, or a snort.</summary>
+    void UpdateDeerCalls(float dt)
+    {
+        if (deerCallTimer < 0f) deerCallTimer = Random.Range(minDeerCallInterval, maxDeerCallInterval);
+        deerCallTimer -= dt;
+        if (deerCallTimer > 0f) return;
+        deerCallTimer = Random.Range(minDeerCallInterval, maxDeerCallInterval);
+        if (player == null || PortalDoor.PlayerInRoom || EntityDread.Silence > 0.2f) return;
+
+        var calm = new List<Critter>();
+        foreach (var d in deer)
+        {
+            if (d.root == null || !d.root.gameObject.activeInHierarchy) continue;
+            if (d.mode != DeerGraze && d.mode != DeerWalk) continue;
+            if ((d.root.position - player.position).sqrMagnitude < deerCallDistance * deerCallDistance) calm.Add(d);
+        }
+        if (calm.Count == 0) return;
+
+        var caller = calm[Random.Range(0, calm.Count)];
+        float roll = Random.value;
+        AudioClip clip = roll < 0.5f ? ProceduralAudio.DeerGrunt : roll < 0.8f ? ProceduralAudio.DeerBleat : ProceduralAudio.DeerSnort;
+        Play(caller.audio, clip, Random.Range(0.9f, 1.1f));
+    }
+
     void UpdateDeer(int i, float dt)
     {
         Critter d = deer[i];
@@ -549,6 +582,8 @@ public class Wildlife : MonoBehaviour
             {
                 d.mode = DeerAlert;
                 d.timer = Random.Range(1.5f, 3.5f);
+                // Head up, a sharp snort through the nose: it's noticed you.
+                Play(d.audio, ProceduralAudio.DeerSnort, Random.Range(0.9f, 1.1f));
             }
         }
 
