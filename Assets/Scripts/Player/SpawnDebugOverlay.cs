@@ -2,7 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Debug: F1 toggles labels over everything that spawns (except trees, boulders and animals), seen
+/// Debug: F1 toggles labels over everything that spawns (except trees, boulders and animals; batteries are
+/// small green dots and enemies red dots, with no labels), seen
 /// through walls and fog from anywhere: name, state and distance. Things off screen or behind you are
 /// pinned to the edge of the screen in their direction, with an arrow. A list down the left side gives
 /// every one with its distance and compass bearing. DarkForestGenerator adds this automatically.
@@ -18,6 +19,7 @@ public class SpawnDebugOverlay : MonoBehaviour
         public string label;
         public Vector3 position;
         public Color color;
+        public bool dot; // drawn as a small dot, not a label (batteries, enemies)
     }
 
     readonly List<Marker> markers = new List<Marker>();
@@ -27,7 +29,7 @@ public class SpawnDebugOverlay : MonoBehaviour
     static readonly Color StructureColor = new Color(0.55f, 0.85f, 1f);
     static readonly Color LampColor = new Color(1f, 0.8f, 0.35f);
     static readonly Color ItemColor = new Color(0.6f, 1f, 0.55f);
-    static readonly Color BatteryColor = new Color(0.8f, 0.8f, 0.8f);
+    static readonly Color BatteryColor = new Color(0.3f, 1f, 0.35f);
     static readonly Color EntityColor = new Color(1f, 0.3f, 0.25f);
 
     void Update()
@@ -51,24 +53,24 @@ public class SpawnDebugOverlay : MonoBehaviour
         foreach (var item in ItemPickup.All)
             Add(Capitalise(item.DisplayName), item.transform.position + Vector3.up * 0.5f, ItemColor);
         foreach (var battery in BatteryPickup.All)
-            Add("Battery", battery.transform.position + Vector3.up * 0.4f, BatteryColor);
+            Add("Battery", battery.transform.position + Vector3.up * 0.2f, BatteryColor, true);
         foreach (var stick in Glowstick.All)
             Add("Glowstick", stick.transform.position + Vector3.up * 0.3f, Glowstick.GlowColor);
         foreach (var entity in ShadowEntity.All)
-            Add($"Entity ({entity.CurrentState}{(entity.Aggression > 0 ? $", aggression {entity.Aggression}" : "")})",
-                entity.transform.position + Vector3.up * 2.6f, EntityColor);
+            if (entity.CurrentState != ShadowEntity.State.Hidden)
+                Add("Entity", entity.transform.position + Vector3.up * 1.6f, EntityColor, true);
         foreach (var blind in BlindEntity.All)
-            Add("Blind Entity", blind.transform.position + Vector3.up * 3.6f, EntityColor);
+            Add("Blind Entity", blind.transform.position + Vector3.up * 3f, EntityColor, true);
         if (WatcherEvent.Instance != null && WatcherEvent.Instance.TryGetGiantHead(out var head))
-            Add("The Watcher", head, EntityColor);
+            Add("The Watcher", head, EntityColor, true);
     }
 
-    void Add(string label, Vector3 position, Color color)
+    void Add(string label, Vector3 position, Color color, bool dot = false)
     {
         // Wherever the map has looped round to, use the copy nearest the player.
         var cam = Camera.main;
         if (cam != null) position = WorldWrap.NearestImage(position, cam.transform.position);
-        markers.Add(new Marker { label = label, position = position, color = color });
+        markers.Add(new Marker { label = label, position = position, color = color, dot = dot });
     }
 
     static string Capitalise(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s.Substring(1);
@@ -94,6 +96,11 @@ public class SpawnDebugOverlay : MonoBehaviour
         float margin = 40f * unit;
         foreach (var m in markers)
         {
+            if (m.dot)
+            {
+                DrawDot(cam, m, unit);
+                continue;
+            }
             float dist = Vector3.Distance(eye, m.position);
             string text = $"{m.label}  {Mathf.RoundToInt(dist)}m";
             Vector3 sp = cam.WorldToScreenPoint(m.position);
@@ -123,7 +130,8 @@ public class SpawnDebugOverlay : MonoBehaviour
             GUI.Label(rect, text, style);
         }
 
-        // The full list, nearest first, with compass bearings.
+        // The full list, nearest first, with compass bearings (dots are left out of it).
+        markers.RemoveAll(m => m.dot);
         markers.Sort((a, b) => (a.position - eye).sqrMagnitude.CompareTo((b.position - eye).sqrMagnitude));
         float y = 60f * unit;
         float line = listStyle.fontSize * 1.35f;
@@ -145,6 +153,20 @@ public class SpawnDebugOverlay : MonoBehaviour
         }
         GUI.color = Color.white;
         if (shown < markers.Count) GUI.Label(new Rect(16f * unit, y, 320f * unit, 30f * unit), $"...and {markers.Count - shown} more further away", listStyle);
+    }
+
+    /// <summary>A small coloured dot over the thing, only when it's in front of you.</summary>
+    static void DrawDot(Camera cam, Marker m, float unit)
+    {
+        Vector3 sp = cam.WorldToScreenPoint(m.position);
+        if (sp.z < 0f) return;
+        float size = (m.color == BatteryColor ? 6f : 9f) * unit;
+        var r = new Rect(sp.x - size * 0.5f, Screen.height - sp.y - size * 0.5f, size, size);
+        GUI.color = new Color(0f, 0f, 0f, 0.7f);
+        GUI.DrawTexture(new Rect(r.x - 1f, r.y - 1f, r.width + 2f, r.height + 2f), Texture2D.whiteTexture);
+        GUI.color = m.color;
+        GUI.DrawTexture(r, Texture2D.whiteTexture);
+        GUI.color = Color.white;
     }
 
     static string Compass(float bearing)
