@@ -281,6 +281,7 @@ public class BlindEntity : MonoBehaviour
     // ---------------------------------------------------------------- Lured and banished
 
     bool quietReturn;
+    BlindStorm storm;
 
     /// <summary>
     /// Something it can't resist (the car radio): it rushes there, from however far away, and keeps
@@ -358,12 +359,6 @@ public class BlindEntity : MonoBehaviour
         }
         entrance += dt;
         float t = entrance;
-        float bearing = 0f;
-        if (player != null)
-        {
-            Vector3 to = transform.position - player.transform.position;
-            bearing = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
-        }
 
         // Each beat happens once, in order.
         if (Beat(0, 0f))
@@ -372,11 +367,12 @@ public class BlindEntity : MonoBehaviour
             omen.PlayOneShot(ProceduralAudio.DistantRumble, 1f);
             omen.PlayOneShot(ProceduralAudio.Tension, 0.5f);
             BlindEntityTheme.Play(); // its own music, scored to all this
+            storm = BlindStorm.Over(transform.position); // a black cloud rolls in over it, crackling red
         }
         if (Beat(1, OmenTime))
         {
             // It breaks out of the ground.
-            if (Lightning.Instance != null) Lightning.Instance.StrikeAt(bearing, 0.85f);
+            if (storm != null) storm.Strike(true);
             PlaySound(ProceduralAudio.TreeImpact, 0.55f, 1f);
             steps.pitch = 0.8f;
             steps.PlayOneShot(ProceduralAudio.GiantStep, footstepVolume);
@@ -393,7 +389,7 @@ public class BlindEntity : MonoBehaviour
             omen.PlayOneShot(ProceduralAudio.DistantRumble, 0.8f);
             shake = 3f;
         }
-        if (Beat(4, RoarStart + 0.5f) && Lightning.Instance != null) Lightning.Instance.StrikeAt(bearing + Random.Range(-15f, 15f), 1f);
+        if (Beat(4, RoarStart + 0.5f) && storm != null) storm.Strike(true);
         if (Beat(5, RoarStart + RoarTime + 0.5f)) { Footfall(1.3f); shake = 2f; }
         if (Beat(6, RoarStart + RoarTime + 1.1f)) { Footfall(1.3f); shake = 2f; }
 
@@ -620,7 +616,8 @@ public class BlindEntity : MonoBehaviour
             legs[i].localRotation = Quaternion.Euler(s * (20f + 15f * rushing), 0f, 0f);
             arms[i].localRotation = Quaternion.Euler(-s * (12f + 20f * rushing) + 10f * rushing, 0f, (i == 0 ? -1f : 1f) * 6f);
         }
-        body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.Euler(25f + 20f * rushing, 0f, 0f), 1f - Mathf.Exp(-3f * dt));
+        // Standing tall, leaning in a little; further forward when it rushes.
+        body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.Euler(8f + 16f * rushing, 0f, 0f), 1f - Mathf.Exp(-3f * dt));
         body.localPosition = Vector3.up * Mathf.Abs(Mathf.Cos(stride)) * (moving ? 0.05f * scale : 0f);
 
         // Listening: the head cocks sharply this way and that.
@@ -746,6 +743,7 @@ public class BlindEntity : MonoBehaviour
                 if (c is MeshCollider ground && ground.sharedMesh != null && ground.sharedMesh.name == "Forest Ground") continue;
                 if (c is CapsuleCollider && c.transform.Find("Sway") != null) continue; // a tree: it goes through (and over)
                 if (c.attachedRigidbody != null) continue;                             // fallen pieces and splinters
+                if (c.name == "Stump") continue;                                       // what's left of the trees it knocked down
                 Bounds b = c.bounds;
                 Vector3 push;
                 float clearance;
