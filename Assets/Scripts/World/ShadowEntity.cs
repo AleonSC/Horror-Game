@@ -1244,6 +1244,7 @@ public class ShadowEntity : MonoBehaviour
         {
             // A few glowing embers mixed in with the black smoke.
             var go = CreatePart(PrimitiveType.Sphere, i < 4 ? ember : black, fragmentRoot);
+            go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off; // just specks of it
             go.GetComponent<Renderer>().enabled = false;
             fragments[i] = go.transform;
         }
@@ -1580,7 +1581,7 @@ public class ShadowEntity : MonoBehaviour
         go.name = type.ToString();
         go.transform.SetParent(parent, false);
         go.GetComponent<Renderer>().sharedMaterial = mat;
-        go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+        go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.On; // it throws a shadow in your light
 
         // It's a ghost: no collisions with the player or trees.
         var col = go.GetComponent<Collider>();

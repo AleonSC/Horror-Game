@@ -8,8 +8,8 @@ using UnityEngine;
 /// softly to itself. Any noise in earshot (Noise.Emit: footsteps, running, bushes, doors, lamp cranking,
 /// the flare gun, a glowstick clattering down) and it turns and rushes to the spot, then searches there.
 /// If the player is in reach, it takes them. Crouch, move slowly, keep still when it's close. It won't
-/// come into lit lamps or other lights. Nothing else stops it: it walks straight through trees and rocks,
-/// trunks creaking and cracking as it shoulders past. BlindEntitySpawner brings it in; a run reset removes it.
+/// come into lit lamps or other lights. Trees don't stop it either: it shoulders straight into them and
+/// knocks them down (TreeFall), crashing and splintering. Rocks, boulders and buildings it steps round. BlindEntitySpawner brings it in; a run reset removes it.
 /// </summary>
 public class BlindEntity : MonoBehaviour
 {
@@ -207,7 +207,7 @@ public class BlindEntity : MonoBehaviour
         Vector3 next = Settle(transform.position + to / dist * Mathf.Min(speed * dt, dist));
         if (SafeZones.Contains(next)) return true; // the light stops it: it gives up here
         transform.position = next;
-        ShoulderThroughTrees(speed);
+        KnockDownTrees(speed);
         Face(target, dt * 4f);
         stride += dt * speed * 1.6f;
         stepTimer -= dt;
@@ -219,28 +219,29 @@ public class BlindEntity : MonoBehaviour
         return false;
     }
 
-    float crashCooldown;
-    Collider lastTrunk;
-
-    /// <summary>Pushing through a trunk: it groans and cracks (more at a run). Shown by sound; it doesn't stop.</summary>
-    void ShoulderThroughTrees(float speed)
+    /// <summary>Any tree its body walks into is shoved over, falling the way it's going.</summary>
+    void KnockDownTrees(float speed)
     {
-        crashCooldown -= Time.deltaTime;
-        int count = Physics.OverlapCapsuleNonAlloc(transform.position + Vector3.up * 1.5f, transform.position + Vector3.up * (height - 1f),
-            0.9f * scale / 2.7f, overlaps, ~0, QueryTriggerInteraction.Ignore);
+        float r = BodyRadius;
+        int count = Physics.OverlapCapsuleNonAlloc(transform.position + Vector3.up * (1f + r), transform.position + Vector3.up * (height - r),
+            r, overlaps, ~0, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
         {
-            var c = overlaps[i];
-            if (!(c is CapsuleCollider) || c.GetComponentInParent<FirstPersonController>() != null) continue;
-            if (c == lastTrunk || crashCooldown > 0f) return;
-            lastTrunk = c;
-            crashCooldown = 0.6f;
+            Transform sway = TreeSway(overlaps[i]);
+            if (sway == null) continue;
+            Vector3 dir = Quaternion.Euler(0f, Random.Range(-35f, 35f), 0f) * transform.forward;
             bool rushing = speed > roamSpeed + 0.5f;
-            ProceduralAudio.PlayAt(rushing ? ProceduralAudio.TreeSnap : ProceduralAudio.TreeCreak, c.bounds.center,
-                volume * (rushing ? 0.6f : 0.4f), Random.Range(0.8f, 1.1f), 8f);
-            return;
+            // Shoved hard: a short crack, and over it goes.
+            TreeFall.Fell(sway, dir, rushing ? 0.1f : 0.35f, rushing ? 1.1f : 0.6f, volume);
         }
-        lastTrunk = null;
+    }
+
+    /// <summary>The sway pivot of the tree a collider is the trunk of, or null if it isn't a standing tree.</summary>
+    static Transform TreeSway(Collider c)
+    {
+        if (!(c is CapsuleCollider) || !c.enabled) return null;
+        Transform sway = c.transform.Find("Sway");
+        return sway != null && TreeFall.CanFell(sway) ? sway : null;
     }
 
     void Face(Vector3 target, float rate)
@@ -397,7 +398,7 @@ public class BlindEntity : MonoBehaviour
         go.transform.localScale = scale;
         var r = go.GetComponent<Renderer>();
         r.sharedMaterial = mat;
-        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
         Destroy(go.GetComponent<Collider>()); // a ghost to physics
         return go.transform;
     }
@@ -415,10 +416,47 @@ public class BlindEntity : MonoBehaviour
 
     static readonly Collider[] overlaps = new Collider[16];
 
-    /// <summary>Puts a point on the ground. It goes straight through trunks and rocks (ShoulderThroughTrees just makes them creak).</summary>
+    float BodyRadius => 0.9f * scale / 2.7f;
+
+    /// <summary>
+    /// Puts a point on the ground, stepping round rocks, boulders and buildings. Trees don't count: it
+    /// walks into them and knocks them down.
+    /// </summary>
     Vector3 Settle(Vector3 p)
     {
+        float r = BodyRadius;
         p.y = GroundHeight(p);
+        for (int iteration = 0; iteration < 4; iteration++)
+        {
+            int count = Physics.OverlapCapsuleNonAlloc(p + Vector3.up * (0.8f + r), p + Vector3.up * (height - r), r, overlaps, ~0, QueryTriggerInteraction.Ignore);
+            bool pushed = false;
+            Vector3 probe = p + Vector3.up * 1.3f;
+            for (int i = 0; i < count; i++)
+            {
+                Collider c = overlaps[i];
+                if (c is CharacterController || c.GetComponentInParent<FirstPersonController>() != null) continue;
+                if (c is MeshCollider ground && ground.sharedMesh != null && ground.sharedMesh.name == "Forest Ground") continue;
+                if (c is CapsuleCollider && c.transform.Find("Sway") != null) continue; // a tree: it goes through (and over)
+                if (c.attachedRigidbody != null) continue;                             // fallen pieces and splinters
+                Bounds b = c.bounds;
+                Vector3 push;
+                float clearance;
+                if (c is MeshCollider mesh && !mesh.convex) { push = probe - b.center; clearance = Mathf.Max(b.extents.x, b.extents.z) * 0.85f + r; }
+                else
+                {
+                    push = probe - c.ClosestPoint(probe);
+                    push.y = 0f;
+                    clearance = r + 0.02f;
+                    if (push.sqrMagnitude < 0.0001f) { push = probe - b.center; clearance = r + Mathf.Max(b.extents.x, b.extents.z); }
+                }
+                push.y = 0f;
+                if (push.sqrMagnitude < 0.0001f) push = transform.right;
+                float d = push.magnitude;
+                if (d < clearance) { p += push / d * (clearance - d); pushed = true; }
+            }
+            p.y = GroundHeight(p);
+            if (!pushed) break;
+        }
         return p;
     }
 
