@@ -117,6 +117,10 @@ public class ShadowEntity : MonoBehaviour
 
     [Header("Crescendo & Poof")]
     public float crescendoTime = 2.5f;
+    [Tooltip("Each lamp the player has lit makes the crescendo this much faster (0.15 = 15% of the base speed per lamp).")]
+    public float crescendoSpeedupPerLamp = 0.15f;
+    [Tooltip("However many lamps are lit, the crescendo never gets shorter than this.")]
+    public float minCrescendoTime = 0.8f;
     [Tooltip("Degrees of camera shake at the peak of the crescendo.")]
     public float maxCameraShake = 2.5f;
     public int fragmentCount = 40;
@@ -474,8 +478,13 @@ public class ShadowEntity : MonoBehaviour
     {
         CurrentState = State.Crescendo;
         timer = 0f;
-        PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo, 0f, crescendoVolume);
+        // The sound speeds up to match a shortened crescendo.
+        PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo, crescendoTime / CrescendoDuration, crescendoVolume);
     }
+
+    /// <summary>How long the crescendo takes now: every lamp the player has lit makes them quicker at dismissing it.</summary>
+    float CrescendoDuration =>
+        Mathf.Max(minCrescendoTime, crescendoTime / (1f + crescendoSpeedupPerLamp * Lamp.TimesLit));
 
     bool IsLitByFlashlight()
     {
@@ -539,7 +548,7 @@ public class ShadowEntity : MonoBehaviour
         if (player != null) player.SetApproachLimit(this, transform.position, reactDistance, stopDistance);
 
         timer += Time.deltaTime;
-        float c = Mathf.Clamp01(timer / Mathf.Max(crescendoTime, 0.01f));
+        float c = Mathf.Clamp01(timer / Mathf.Max(CrescendoDuration, 0.01f));
         float e = c * c; // ease in: slow build, violent finish
 
         Vibrate(Mathf.Lerp(maxVibration, crescendoVibration, e));
