@@ -30,12 +30,6 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     [Tooltip("Summon another entity each time a lamp is lit.")]
     public bool spawnEntityWhenLit = true;
 
-    [Header("Up Close")]
-    [Tooltip("Lit lamps are beacons to find from far off, not reading lamps: the light dims as you come within farDistance, down to nearLevel inside nearDistance. (The safe zone stays.)")]
-    public float nearDistance = 9f;
-    public float farDistance = 22f;
-    [Range(0f, 1f)] public float nearLevel = 0.12f;
-
     [Header("Energy")]
     [Tooltip("Once lit, a lamp stays on for good (energy doesn't run down).")]
     public bool stayLit = true;
@@ -55,6 +49,9 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     public Color markerColor = new Color(1f, 0.08f, 0.04f);
     [Tooltip("Seconds between the marker's blinks.")]
     public float markerPeriod = 2.4f;
+    [Tooltip("The marker's for finding lamps from far off: it fades out as you come within markerFadeFar, gone inside markerFadeNear.")]
+    public float markerFadeNear = 10f;
+    public float markerFadeFar = 25f;
     [Tooltip("A faint electrical buzz you can follow to it, audible out to buzzRange metres.")]
     [Range(0f, 1f)] public float buzzVolume = 0.2f;
     public float buzzRange = 40f;
@@ -179,7 +176,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     float flickerLevel = 1f;
 
     const float PoleHeight = 3f;
-    float proximityDim = 1f;
+    float markerFade = 1f;
     const float HumVolume = 0.2f;
 
     /// <summary>World position of the bulb (moths gather here).</summary>
@@ -227,11 +224,18 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         // A slow blink, like a radio mast: a quick flare, fading away.
         float t = Mathf.Repeat(Time.time + markerPhase, Mathf.Max(markerPeriod, 0.1f));
         float glow = Mathf.Exp(-t * 3.5f);
-        MaterialFactory.SetColor(markerMat, markerColor * (0.25f + 4f * glow));
-
-        // Kept big enough to see from far off.
         var cam = Camera.main;
         float dist = cam != null ? Vector3.Distance(cam.transform.position, marker.position) : 10f;
+
+        // Only for finding it from far off: it fades away as you come close.
+        Vector3 flat = cam != null ? cam.transform.position - transform.position : Vector3.forward * 100f;
+        flat.y = 0f;
+        float fade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(markerFadeNear, markerFadeFar, flat.magnitude));
+        markerFade = Mathf.MoveTowards(markerFade, fade, Time.deltaTime * 1.5f);
+        marker.GetComponent<Renderer>().enabled = markerFade > 0.01f;
+        MaterialFactory.SetColor(markerMat, markerColor * (0.25f + 4f * glow) * markerFade);
+
+        // Kept big enough to see from far off.
         marker.localScale = Vector3.one * Mathf.Max(0.12f, dist * 0.006f);
 
         // Now and then the buzz crackles.
@@ -333,20 +337,9 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         }
 
         float level = flickerLevel * Mathf.Lerp(1f, 0.7f, low); // also dims overall near the end
-
-        // Dims down as you come close: a light to find from far off, not one to stand in.
-        var cam = Camera.main;
-        if (cam != null)
-        {
-            Vector3 d = cam.transform.position - transform.position;
-            d.y = 0f;
-            float target = Mathf.Lerp(nearLevel, 1f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(nearDistance, farDistance, d.magnitude)));
-            proximityDim = Mathf.MoveTowards(proximityDim, target, Time.deltaTime * 0.8f);
-        }
-        level *= proximityDim;
         lampLight.intensity = lightIntensity * level;
         SetBulb(level);
-        hum.volume = HumVolume * level / Mathf.Max(proximityDim, 0.01f); // the hum doesn't dim with the light
+        hum.volume = HumVolume * level;
     }
 
     /// <summary>While recharging, little blue sparks crackle around the lamp head now and then.</summary>
