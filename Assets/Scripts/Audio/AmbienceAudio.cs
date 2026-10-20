@@ -10,8 +10,8 @@ using UnityEngine;
 public class AmbienceAudio : MonoBehaviour
 {
     [Header("Volume")]
-    [Range(0f, 1f)] public float droneVolume = 0.5f;
-    [Range(0f, 1f)] public float tensionVolume = 0.35f;
+    [Range(0f, 1f)] public float droneVolume = 0.3f;
+    [Range(0f, 1f)] public float tensionVolume = 0.28f;
     [Range(0f, 1f)] public float randomNoiseVolume = 0.7f;
 
     [Header("Random Noises")]

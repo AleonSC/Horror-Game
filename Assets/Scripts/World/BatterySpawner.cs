@@ -9,14 +9,14 @@ using UnityEngine;
 /// </summary>
 public class BatterySpawner : MonoBehaviour
 {
-    public int batteryCount = 14;
+    public int batteryCount = 50;
     [Tooltip("Keep batteries at least this far from the middle of the map (where the player spawns).")]
     public float minDistanceFromCenter = 8f;
     public float minSpacing = 12f;
     [Tooltip("Keep batteries at least this far from any tree.")]
     public float treeClearance = 1.2f;
     [Tooltip("Map size when there's no DarkForestGenerator in the scene.")]
-    public float areaSize = 160f;
+    public float areaSize = 320f;
     [Range(0f, 1f), Tooltip("How much of the flashlight each battery refills.")]
     public float chargePerBattery = 0.25f;
 

@@ -21,7 +21,7 @@ public class DarkForestGenerator : MonoBehaviour
     public int seed = 1337;
     public bool randomizeSeed = false;
     [Tooltip("Width/length of the forest in meters.")]
-    public float areaSize = 160f;
+    public float areaSize = 320f;
     [Tooltip("Radius of the open clearing around the center where the player spawns.")]
     public float clearingRadius = 8f;
     [Tooltip("Make the map loop: leaving one side brings you in on the opposite side. Off = invisible walls at the edges.")]
@@ -32,7 +32,7 @@ public class DarkForestGenerator : MonoBehaviour
     public float groundBumpiness = 1.5f;
 
     [Header("Trees")]
-    public int treeCount = 700;
+    public int treeCount = 2800;
     public float minTreeSpacing = 2.2f;
     [Range(0f, 1f), Tooltip("Portion of trees that are dead/bare instead of pines.")]
     public float deadTreeRatio = 0.3f;
@@ -41,9 +41,16 @@ public class DarkForestGenerator : MonoBehaviour
     [Tooltip("Optional tree prefabs. If set, these are used instead of procedural trees.")]
     public GameObject[] treePrefabs;
 
+    [Header("Grass")]
+    public int grassPatchCount = 3500;
+    [Tooltip("Perlin scale for where grass grows (lower = bigger meadows).")]
+    public float grassNoiseScale = 0.03f;
+    public Color grassColor = new Color(0.07f, 0.09f, 0.05f);
+    public Material grassMaterial;
+
     [Header("Props")]
-    public int rockCount = 120;
-    public int fallenLogCount = 35;
+    public int rockCount = 480;
+    public int fallenLogCount = 140;
     public GameObject[] rockPrefabs;
 
     [Header("Atmosphere")]
@@ -81,6 +88,9 @@ public class DarkForestGenerator : MonoBehaviour
 
     /// <summary>The moving part of each tree (pivot at its base), for WeatherSystem to sway in the wind.</summary>
     public readonly List<Transform> SwayPivots = new List<Transform>();
+
+    /// <summary>Every grass patch, for WeatherSystem to sway in the wind.</summary>
+    public readonly List<Transform> GrassPivots = new List<Transform>();
 
     [Header("Material Overrides (optional)")]
     public Material groundMaterial;
@@ -151,6 +161,7 @@ public class DarkForestGenerator : MonoBehaviour
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
+        ScatterGrass();
 
         if (applyLighting) ApplyAtmosphere();
         if (spawnPlayer) SpawnPlayer();
@@ -209,14 +220,15 @@ public class DarkForestGenerator : MonoBehaviour
     void BuildTerrainWaves()
     {
         var waves = new List<TerrainWave>();
-        AddWaves(waves, 6, 4, 0.35f);   // broad rolling hills
-        AddWaves(waves, 8, 16, 0.06f);  // small bumps
+        AddWaves(waves, 8, 40f, 0.35f);   // broad rolling hills
+        AddWaves(waves, 12, 10f, 0.06f);  // small bumps
         terrainWaves = waves.ToArray();
     }
 
-    void AddWaves(List<TerrainWave> waves, int count, int maxCycles, float amplitude)
+    void AddWaves(List<TerrainWave> waves, int count, float minWavelength, float amplitude)
     {
         float k = Mathf.PI * 2f / areaSize;
+        int maxCycles = Mathf.Max(1, Mathf.RoundToInt(areaSize / minWavelength));
         for (int i = 0; i < count; i++)
         {
             int nx, nz;
@@ -427,6 +439,8 @@ public class DarkForestGenerator : MonoBehaviour
             cone.AddComponent<MeshFilter>().sharedMesh = coneMesh;
             cone.AddComponent<MeshRenderer>().sharedMaterial = foliageMat;
         }
+
+        MergeMeshes(sway, foliageMat, "Foliage");
     }
 
     void BuildDeadTree(Vector3 pos, Transform parent)
@@ -458,6 +472,145 @@ public class DarkForestGenerator : MonoBehaviour
             branch.transform.localPosition = new Vector3(0f, length * 0.5f, 0f);
             branch.transform.localScale = new Vector3(radius * 2f, length * 0.5f, radius * 2f);
         }
+
+        MergeMeshes(sway, deadBarkMat, "Bark");
+    }
+
+    /// <summary>
+    /// Merges every mesh under root that uses the given material into a single mesh. A big forest has
+    /// thousands of trees, so cutting each one down to one or two renderers keeps it running smoothly.
+    /// </summary>
+    void MergeMeshes(Transform root, Material mat, string name)
+    {
+        var combine = new List<CombineInstance>();
+        var merged = new HashSet<Transform>();
+        Matrix4x4 toRoot = root.worldToLocalMatrix;
+
+        foreach (var filter in root.GetComponentsInChildren<MeshFilter>())
+        {
+            var renderer = filter.GetComponent<MeshRenderer>();
+            if (renderer == null || renderer.sharedMaterial != mat) continue;
+            combine.Add(new CombineInstance { mesh = filter.sharedMesh, transform = toRoot * filter.transform.localToWorldMatrix });
+
+            // Remove the whole branch of the hierarchy it hangs from (e.g. a limb's pivot).
+            Transform top = filter.transform;
+            while (top.parent != root) top = top.parent;
+            merged.Add(top);
+        }
+        if (combine.Count == 0) return;
+
+        var mesh = new Mesh { name = name };
+        mesh.CombineMeshes(combine.ToArray(), true, true);
+
+        var go = new GameObject(name);
+        go.transform.SetParent(root, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+
+        foreach (var t in merged)
+        {
+            t.gameObject.SetActive(false);
+            if (Application.isPlaying) Destroy(t.gameObject);
+            else DestroyImmediate(t.gameObject);
+        }
+    }
+
+    // ---------------------------------------------------------------- Grass
+
+    void ScatterGrass()
+    {
+        var parent = new GameObject("Grass").transform;
+        parent.SetParent(root, false);
+        GrassPivots.Clear();
+
+        // A handful of shared clump shapes, from short and sparse to tall and thick.
+        var variants = new Mesh[8];
+        for (int i = 0; i < variants.Length; i++)
+        {
+            float t = i / (float)(variants.Length - 1);
+            variants[i] = BuildGrassMesh(
+                blades: Mathf.RoundToInt(Mathf.Lerp(12f, 40f, t)),
+                radius: Mathf.Lerp(0.2f, 0.5f, Range(0f, 1f)),
+                height: Mathf.Lerp(0.25f, 0.8f, t),
+                width: Mathf.Lerp(0.015f, 0.04f, Range(0f, 1f)));
+        }
+
+        var materials = new Material[3];
+        for (int i = 0; i < materials.Length; i++)
+        {
+            materials[i] = grassMaterial != null
+                ? grassMaterial
+                : MaterialFactory.Lit(grassColor * Range(0.75f, 1.25f), 0f);
+        }
+
+        float half = areaSize * 0.5f;
+        for (int attempt = 0; attempt < grassPatchCount * 6 && GrassPivots.Count < grassPatchCount; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+
+            // Grass grows in meadows and drifts rather than evenly everywhere.
+            float n = Mathf.PerlinNoise((p.x + noiseOffset.x) * grassNoiseScale, (p.y + noiseOffset.y) * grassNoiseScale);
+            if (Range(0f, 1f) > n * n * 2.2f) continue;
+
+            var patch = new GameObject("Grass Patch");
+            patch.transform.SetParent(parent, false);
+            patch.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.02f, p.y);
+            patch.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+            float thickness = Range(0.7f, 1.5f);
+            patch.transform.localScale = new Vector3(thickness, Range(0.6f, 1.8f), thickness);
+
+            patch.AddComponent<MeshFilter>().sharedMesh = variants[rng.Next(variants.Length)];
+            var renderer = patch.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = materials[rng.Next(materials.Length)];
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            GrassPivots.Add(patch.transform);
+        }
+    }
+
+    /// <summary>A clump of curved, tapering blades, visible from both sides.</summary>
+    Mesh BuildGrassMesh(int blades, float radius, float height, float width)
+    {
+        var verts = new List<Vector3>();
+        var tris = new List<int>();
+
+        for (int b = 0; b < blades; b++)
+        {
+            Vector2 at = Random2(radius);
+            var basePos = new Vector3(at.x, 0f, at.y);
+            float h = height * Range(0.5f, 1.2f);
+            float w = width * Range(0.6f, 1.4f);
+            float yaw = Range(0f, Mathf.PI * 2f);
+            var across = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw)) * (w * 0.5f);
+            var lean = new Vector3(-Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)) * (h * Range(0.1f, 0.4f));
+
+            int i = verts.Count;
+            verts.Add(basePos - across);
+            verts.Add(basePos + across);
+            verts.Add(basePos - across * 0.6f + Vector3.up * (h * 0.55f) + lean * 0.3f);
+            verts.Add(basePos + across * 0.6f + Vector3.up * (h * 0.55f) + lean * 0.3f);
+            verts.Add(basePos + Vector3.up * h + lean);
+
+            int[] front = { i, i + 2, i + 1, i + 1, i + 2, i + 3, i + 2, i + 4, i + 3 };
+            tris.AddRange(front);
+            for (int k = front.Length - 1; k >= 0; k--) tris.Add(front[k]); // back faces
+        }
+
+        var mesh = new Mesh { name = "Grass Clump" };
+        mesh.SetVertices(verts);
+        mesh.SetTriangles(tris, 0);
+        // Normals point up so both sides of every blade are lit like the ground beneath.
+        var normals = new Vector3[verts.Count];
+        for (int n = 0; n < normals.Length; n++) normals[n] = Vector3.up;
+        mesh.normals = normals;
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    Vector2 Random2(float radius)
+    {
+        float a = Range(0f, Mathf.PI * 2f);
+        float r = Mathf.Sqrt(Range(0f, 1f)) * radius;
+        return new Vector2(Mathf.Cos(a) * r, Mathf.Sin(a) * r);
     }
 
     /// <summary>

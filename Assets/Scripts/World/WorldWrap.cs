@@ -20,7 +20,7 @@ public class WorldWrap : MonoBehaviour
     public static bool IsActive => instance != null && instance.isActiveAndEnabled;
 
     [Tooltip("Width/length of the looping square, usually the generator's area size.")]
-    public float size = 160f;
+    public float size = 320f;
     [Tooltip("Centre of the looping square.")]
     public Vector3 center;
 
@@ -74,12 +74,12 @@ public class WorldWrap : MonoBehaviour
         instance.dynamicItems.Add(t);
     }
 
-    /// <summary>Registers the generator's trees, rocks and logs.</summary>
+    /// <summary>Registers the generator's trees, rocks, logs and grass.</summary>
     public void CollectFromGenerator(DarkForestGenerator generator)
     {
         Transform root = generator.transform.Find(DarkForestGenerator.RootName);
         if (root == null) return;
-        foreach (string group in new[] { "Trees", "Rocks", "Fallen Logs" })
+        foreach (string group in new[] { "Trees", "Rocks", "Fallen Logs", "Grass" })
         {
             Transform parent = root.Find(group);
             if (parent == null) continue;

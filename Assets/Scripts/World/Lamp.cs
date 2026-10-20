@@ -7,7 +7,7 @@ using UnityEngine;
 /// enter or creep into. Every lamp lit also summons another ShadowEntity.
 ///
 /// A lit lamp burns through its energy. It flickers more and more as the energy runs low, then
-/// goes out and needs to cool down before it can be lit again.
+/// goes out and needs to recharge before it can be lit again, crackling with faint blue sparks meanwhile.
 /// LampSpawner places these around the map; LampInteractor handles the clicking and HUD.
 /// </summary>
 public class Lamp : MonoBehaviour
@@ -37,6 +37,10 @@ public class Lamp : MonoBehaviour
     public float flickerBelow = 0.35f;
     [Tooltip("Seconds after going out before the lamp can be lit again.")]
     public float cooldownTime = 30f;
+    [Tooltip("Colour of the little electrical sparks while the lamp recharges.")]
+    public Color sparkColor = new Color(0.45f, 0.65f, 1f);
+    [Tooltip("Average sparks per second while recharging.")]
+    public float sparksPerSecond = 1.2f;
 
     [Header("Audio (optional)")]
     public AudioClip clickSound;
@@ -91,6 +95,10 @@ public class Lamp : MonoBehaviour
     }
 
     Light lampLight;
+    Light sparkLight;
+    Transform sparkRoot;
+    Material sparkMat;
+    float sparkTimer;
     Material bulbMat;
     AudioSource hum, sfx;
     float lastClickTime;
@@ -99,6 +107,7 @@ public class Lamp : MonoBehaviour
     float flickerLevel = 1f;
 
     const float PoleHeight = 3f;
+    const float HumVolume = 0.2f;
 
     /// <summary>World position of the bulb (moths gather here).</summary>
     public Vector3 BulbPosition => transform.position + Vector3.up * (PoleHeight - 0.05f);
@@ -106,7 +115,7 @@ public class Lamp : MonoBehaviour
     void Awake()
     {
         Build();
-        hum = ProceduralAudio.AddSource(gameObject, humLoop != null ? humLoop : ProceduralAudio.LampHum, true, true, 0.35f, 2f, 20f);
+        hum = ProceduralAudio.AddSource(gameObject, humLoop != null ? humLoop : ProceduralAudio.LampHum, true, true, HumVolume, 2f, 20f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, 0.8f, 3f, 30f);
         SetBulb(0f);
     }
@@ -140,9 +149,8 @@ public class Lamp : MonoBehaviour
         if (IsCoolingDown)
         {
             CooldownRemaining = Mathf.Max(0f, CooldownRemaining - Time.deltaTime);
-            // The filament glows a dull red as it cools.
-            float ember = (1f - CooldownProgress) * 0.25f;
-            MaterialFactory.SetColor(bulbMat, Color.Lerp(new Color(0.08f, 0.07f, 0.06f), new Color(1f, 0.25f, 0.05f), ember));
+            UpdateSparks();
+            if (!IsCoolingDown) EndSpark();
             return;
         }
 
@@ -189,7 +197,43 @@ public class Lamp : MonoBehaviour
         float level = flickerLevel * Mathf.Lerp(1f, 0.7f, low); // also dims overall near the end
         lampLight.intensity = lightIntensity * level;
         SetBulb(level);
-        hum.volume = 0.35f * level;
+        hum.volume = HumVolume * level;
+    }
+
+    /// <summary>While recharging, little blue sparks crackle around the lamp head now and then.</summary>
+    void UpdateSparks()
+    {
+        if (sparkTimer > 0f)
+        {
+            sparkTimer -= Time.deltaTime;
+            // Jitter the arcs and light while the spark lasts.
+            sparkLight.intensity = Random.Range(0.6f, 1.6f);
+            foreach (Transform arc in sparkRoot)
+                arc.localRotation = Random.rotation;
+            if (sparkTimer <= 0f) EndSpark();
+            return;
+        }
+
+        MaterialFactory.SetColor(bulbMat, Color.Lerp(BulbOff, sparkColor * 0.4f, 0.15f)); // faint blue tinge
+
+        if (Random.value < sparksPerSecond * Time.deltaTime)
+        {
+            sparkTimer = Random.Range(0.05f, 0.15f);
+            sparkRoot.localPosition = new Vector3(Random.Range(-0.2f, 0.2f), PoleHeight - Random.Range(0f, 0.25f), Random.Range(-0.2f, 0.2f));
+            sparkRoot.gameObject.SetActive(true);
+            sparkLight.enabled = true;
+            MaterialFactory.SetColor(bulbMat, sparkColor * 1.5f);
+            sfx.pitch = Random.Range(1.3f, 1.8f);
+            sfx.PlayOneShot(flickerSound != null ? flickerSound : ProceduralAudio.LampSpark, 0.15f);
+        }
+    }
+
+    void EndSpark()
+    {
+        sparkTimer = 0f;
+        sparkRoot.gameObject.SetActive(false);
+        sparkLight.enabled = false;
+        if (!IsLit) SetBulb(0f);
     }
 
     void TurnOn()
@@ -207,7 +251,7 @@ public class Lamp : MonoBehaviour
 
         sfx.pitch = 1f;
         sfx.PlayOneShot(igniteSound != null ? igniteSound : ProceduralAudio.LampIgnite);
-        hum.volume = 0.35f;
+        hum.volume = HumVolume;
         hum.Play();
 
         if (spawnEntityWhenLit) ShadowEntity.Spawn();
@@ -235,6 +279,7 @@ public class Lamp : MonoBehaviour
         Charge = 0f;
         Energy = 0f;
         CooldownRemaining = 0f;
+        EndSpark();
         flash = 0f;
         lampLight.enabled = false;
         lampLight.range = 6f;
@@ -242,10 +287,11 @@ public class Lamp : MonoBehaviour
         hum.Stop();
     }
 
+    static readonly Color BulbOff = new Color(0.08f, 0.07f, 0.06f);
+
     void SetBulb(float glow)
     {
-        Color off = new Color(0.08f, 0.07f, 0.06f);
-        MaterialFactory.SetColor(bulbMat, Color.Lerp(off, lightColor * 6f, glow));
+        MaterialFactory.SetColor(bulbMat, Color.Lerp(BulbOff, lightColor * 6f, glow));
     }
 
     void Build()
@@ -274,6 +320,27 @@ public class Lamp : MonoBehaviour
         lampLight.range = 6f; // just the sputter while charging; widened when lit
         lampLight.shadows = LightShadows.None;
         lampLight.enabled = false;
+
+        // Recharge spark: a few thin, bright blue arcs and a small flash of blue light.
+        sparkMat = MaterialFactory.Unlit(sparkColor * 4f);
+        sparkRoot = new GameObject("Spark").transform;
+        sparkRoot.SetParent(transform, false);
+        for (int i = 0; i < 3; i++)
+        {
+            var arc = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            arc.transform.SetParent(sparkRoot, false);
+            arc.transform.localScale = new Vector3(0.006f, 0.006f, Random.Range(0.06f, 0.14f));
+            arc.GetComponent<Renderer>().sharedMaterial = sparkMat;
+            arc.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Destroy(arc.GetComponent<Collider>());
+        }
+        sparkLight = sparkRoot.gameObject.AddComponent<Light>();
+        sparkLight.type = LightType.Point;
+        sparkLight.color = sparkColor;
+        sparkLight.range = 2.5f;
+        sparkLight.shadows = LightShadows.None;
+        sparkLight.enabled = false;
+        sparkRoot.gameObject.SetActive(false);
     }
 
     GameObject Part(PrimitiveType type, Material mat, Vector3 pos, Vector3 scale, bool keepCollider = false)

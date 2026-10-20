@@ -7,6 +7,8 @@ using UnityEngine;
 /// - Rats: sniff around, dart between spots, and scatter, squeaking, if you get close.
 /// - Moths: flutter around the bulbs of lit lamps.
 /// - Bats: every so often a few swoop overhead with a flurry of wing beats.
+/// - Deer: pitch-black deer that wander and graze, look up when you come near, and gallop off,
+///   snorting, if you get too close. A spooked deer sets off the rest of its herd.
 ///
 /// Creatures live in a circle around the player and are quietly moved back near them when they
 /// drift too far away, so there's always something nearby without simulating the whole forest.
@@ -34,12 +36,25 @@ public class Wildlife : MonoBehaviour
     public float maxBatInterval = 45f;
     public int maxBatsPerFlock = 3;
 
+    [Header("Deer")]
+    public int deerCount = 6;
+    [Tooltip("Deer roam within this distance of the player.")]
+    public float deerRange = 70f;
+    [Tooltip("Deer stop and watch the player inside this distance.")]
+    public float deerAlertDistance = 24f;
+    [Tooltip("Deer bolt when the player gets this close.")]
+    public float deerFleeDistance = 14f;
+    public float deerWalkSpeed = 1.1f;
+    public float deerGallopSpeed = 10f;
+
     [Header("Audio")]
     [Range(0f, 1f)] public float volume = 0.7f;
     [Tooltip("Leave clips empty to use the built-in synthesized sounds.")]
     public AudioClip squeakSound;
     public AudioClip skitterSound;
     public AudioClip wingSound;
+    public AudioClip deerAlarmSound;
+    public AudioClip gallopLoop;
 
     class Critter
     {
@@ -47,6 +62,8 @@ public class Wildlife : MonoBehaviour
         public Transform body;
         public Transform[] parts; // legs / wings / tail, depending on the creature
         public AudioSource audio;
+        public AudioSource loop;
+        public float neckAngle;
         public Vector3 heading = Vector3.forward;
         public Vector3 target;
         public float speed;
@@ -67,13 +84,17 @@ public class Wildlife : MonoBehaviour
     readonly List<Critter> rats = new List<Critter>();
     readonly List<Critter> moths = new List<Critter>();
     readonly List<Bat> bats = new List<Bat>();
+    readonly List<Critter> deer = new List<Critter>();
 
     DarkForestGenerator generator;
     Transform player;
     float batTimer;
-    Material beetleMat, ratMat, eyeMat, mothMat, batMat;
+    Material beetleMat, ratMat, eyeMat, mothMat, batMat, deerMat, deerEyeMat;
 
     const int RatIdle = 0, RatDash = 1, RatFlee = 2;
+    const int DeerGraze = 0, DeerWalk = 1, DeerAlert = 2, DeerFlee = 3;
+    // Indices into a deer's parts array.
+    const int FrontLeft = 0, FrontRight = 1, BackLeft = 2, BackRight = 3, Neck = 4, Head = 5, Tail = 6;
 
     void Start()
     {
@@ -84,10 +105,13 @@ public class Wildlife : MonoBehaviour
         eyeMat = MaterialFactory.Unlit(new Color(0.5f, 0.15f, 0.1f));
         mothMat = MaterialFactory.Lit(new Color(0.12f, 0.1f, 0.08f), 0.05f);
         batMat = MaterialFactory.Lit(new Color(0.02f, 0.02f, 0.02f), 0.1f);
+        deerMat = MaterialFactory.Lit(new Color(0.025f, 0.025f, 0.03f), 0.2f);
+        deerEyeMat = MaterialFactory.Unlit(new Color(0.35f, 0.45f, 0.4f)); // eyeshine
 
         for (int i = 0; i < beetleCount; i++) beetles.Add(BuildBeetle());
         for (int i = 0; i < ratCount; i++) rats.Add(BuildRat());
         for (int i = 0; i < maxBatsPerFlock; i++) bats.Add(new Bat { critter = BuildBat() });
+        for (int i = 0; i < deerCount; i++) deer.Add(BuildDeer());
 
         batTimer = Random.Range(minBatInterval, maxBatInterval);
     }
@@ -101,6 +125,7 @@ public class Wildlife : MonoBehaviour
             player = controller.transform;
             foreach (var b in beetles) Place(b, Random.Range(2f, beetleRange));
             foreach (var r in rats) Place(r, Random.Range(6f, ratRange));
+            for (int i = 0; i < deer.Count; i++) PlaceDeer(i);
         }
 
         float dt = Time.deltaTime;
@@ -108,6 +133,7 @@ public class Wildlife : MonoBehaviour
         foreach (var r in rats) UpdateRat(r, dt);
         UpdateMoths();
         UpdateBats(dt);
+        for (int i = 0; i < deer.Count; i++) UpdateDeer(i, dt);
     }
 
     // ---------------------------------------------------------------- Beetles
@@ -431,6 +457,299 @@ public class Wildlife : MonoBehaviour
         c.audio = ProceduralAudio.AddSource(c.root.gameObject, null, false, true, volume, 3f, 40f);
         c.root.gameObject.SetActive(false);
         return c;
+    }
+
+    // ---------------------------------------------------------------- Deer
+
+    void PlaceDeer(int i)
+    {
+        Critter d = deer[i];
+        // Most deer turn up near another one, so they come in small herds.
+        if (i > 0 && Random.value < 0.6f && (deer[i - 1].root.position - player.position).sqrMagnitude < deerRange * deerRange)
+        {
+            Vector2 offset = Random.insideUnitCircle * 6f;
+            Vector3 p = deer[i - 1].root.position + new Vector3(offset.x, 0f, offset.y);
+            p.y = GroundHeight(p);
+            d.root.position = p;
+        }
+        else
+        {
+            Place(d, Random.Range(deerRange * 0.5f, deerRange));
+        }
+        d.mode = DeerGraze;
+        d.timer = Random.Range(2f, 8f);
+        d.heading = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
+        d.root.rotation = Quaternion.LookRotation(d.heading);
+    }
+
+    void UpdateDeer(int i, float dt)
+    {
+        Critter d = deer[i];
+        Vector3 pos = d.root.position;
+        Vector3 away = pos - player.position;
+        away.y = 0f;
+        float dist = away.magnitude;
+
+        if (dist > deerRange * 1.4f)
+        {
+            PlaceDeer(i);
+            return;
+        }
+
+        if (d.mode != DeerFlee)
+        {
+            if (dist < deerFleeDistance) StartDeerFlee(d, true);
+            else if (dist < deerAlertDistance && d.mode != DeerAlert)
+            {
+                d.mode = DeerAlert;
+                d.timer = Random.Range(1.5f, 3.5f);
+            }
+        }
+
+        float speed = 0f;
+        float targetNeck = 35f;
+        float turnRate = 4f;
+        d.timer -= dt;
+
+        switch (d.mode)
+        {
+            case DeerGraze:
+                targetNeck = 115f; // head down to the grass
+                if (d.timer <= 0f)
+                {
+                    d.mode = DeerWalk;
+                    Vector3 dir = Quaternion.Euler(0f, Random.Range(-120f, 120f), 0f) * d.heading;
+                    d.target = pos + dir * Random.Range(4f, 12f);
+                    d.timer = 15f;
+                }
+                break;
+
+            case DeerWalk:
+            {
+                Vector3 to = d.target - pos;
+                to.y = 0f;
+                if (to.magnitude < 0.5f || d.timer <= 0f)
+                {
+                    d.mode = DeerGraze;
+                    d.timer = Random.Range(4f, 10f);
+                }
+                else
+                {
+                    d.heading = Steer(pos, to.normalized, 3f);
+                    speed = deerWalkSpeed;
+                }
+                break;
+            }
+
+            case DeerAlert:
+                targetNeck = -5f; // head up, staring
+                d.heading = -away.normalized;
+                turnRate = 3f;
+                if (d.timer <= 0f)
+                {
+                    if (dist < deerAlertDistance * 0.8f) StartDeerFlee(d, true);
+                    else
+                    {
+                        d.mode = DeerGraze; // lost interest
+                        d.timer = Random.Range(2f, 5f);
+                    }
+                }
+                break;
+
+            case DeerFlee:
+                targetNeck = 15f;
+                turnRate = 6f;
+                d.heading = Steer(pos, Vector3.Slerp(d.heading, away.normalized, dt * 0.5f).normalized, 6f);
+                speed = deerGallopSpeed;
+                if (d.timer <= 0f && dist > deerAlertDistance * 1.5f)
+                {
+                    d.mode = DeerWalk;
+                    d.target = pos + d.heading * Random.Range(5f, 10f);
+                    d.timer = 15f;
+                }
+                break;
+        }
+
+        pos += d.heading * (speed * dt);
+        pos.y = GroundHeight(pos);
+        d.root.position = pos;
+        d.root.rotation = Quaternion.Slerp(d.root.rotation, Quaternion.LookRotation(d.heading), 1f - Mathf.Exp(-turnRate * dt));
+
+        d.loop.volume = Mathf.MoveTowards(d.loop.volume, d.mode == DeerFlee ? volume : 0f, dt * 2f);
+        if (d.loop.volume <= 0f && d.loop.isPlaying) d.loop.Stop();
+
+        AnimateDeer(d, speed, targetNeck, dt);
+    }
+
+    void StartDeerFlee(Critter d, bool alertHerd)
+    {
+        if (d.mode == DeerFlee) return;
+
+        Vector3 away = d.root.position - player.position;
+        away.y = 0f;
+        d.heading = Quaternion.Euler(0f, Random.Range(-30f, 30f), 0f) * away.normalized;
+        d.mode = DeerFlee;
+        d.timer = Random.Range(5f, 8f);
+        Play(d.audio, deerAlarmSound != null ? deerAlarmSound : ProceduralAudio.DeerAlarm, Random.Range(0.85f, 1.1f));
+        if (!d.loop.isPlaying) d.loop.Play();
+
+        // One spooked deer sends the rest of the herd running.
+        if (!alertHerd) return;
+        foreach (var other in deer)
+            if (other != d && (other.root.position - d.root.position).sqrMagnitude < 25f * 25f)
+                StartDeerFlee(other, false);
+    }
+
+    /// <summary>Turns away from trees ahead, so deer don't run straight through trunks.</summary>
+    Vector3 Steer(Vector3 pos, Vector3 heading, float lookAhead)
+    {
+        Vector3 origin = pos + Vector3.up * 1f;
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            if (!Physics.SphereCast(origin, 0.4f, heading, out var hit, lookAhead, ~0, QueryTriggerInteraction.Ignore))
+                return heading;
+            float side = Vector3.Cross(heading, hit.normal).y >= 0f ? -1f : 1f;
+            heading = Quaternion.Euler(0f, side * 45f, 0f) * heading;
+        }
+        return heading;
+    }
+
+    void AnimateDeer(Critter d, float speed, float targetNeck, float dt)
+    {
+        Transform[] p = d.parts;
+        bool galloping = speed > deerWalkSpeed * 2f;
+        float bob = 0f, pitch = 0f;
+
+        if (galloping)
+        {
+            // Bounding gait: front legs together, then back legs together.
+            d.phase += dt * Mathf.PI * 2f * 2.4f;
+            float front = Mathf.Sin(d.phase) * 45f;
+            float back = Mathf.Sin(d.phase + 2.2f) * 45f;
+            p[FrontLeft].localRotation = Quaternion.Euler(front, 0f, 0f);
+            p[FrontRight].localRotation = Quaternion.Euler(Mathf.Sin(d.phase + 0.3f) * 45f, 0f, 0f);
+            p[BackLeft].localRotation = Quaternion.Euler(back, 0f, 0f);
+            p[BackRight].localRotation = Quaternion.Euler(Mathf.Sin(d.phase + 2.5f) * 45f, 0f, 0f);
+            bob = Mathf.Abs(Mathf.Sin(d.phase)) * 0.15f;
+            pitch = Mathf.Sin(d.phase + 1f) * 6f;
+        }
+        else if (speed > 0f)
+        {
+            // Walk: diagonal pairs move together.
+            d.phase += dt * speed * 4f;
+            float swing = Mathf.Sin(d.phase) * 22f;
+            p[FrontLeft].localRotation = Quaternion.Euler(swing, 0f, 0f);
+            p[BackRight].localRotation = Quaternion.Euler(swing, 0f, 0f);
+            p[FrontRight].localRotation = Quaternion.Euler(-swing, 0f, 0f);
+            p[BackLeft].localRotation = Quaternion.Euler(-swing, 0f, 0f);
+            bob = Mathf.Abs(Mathf.Sin(d.phase)) * 0.03f;
+        }
+        else
+        {
+            for (int leg = FrontLeft; leg <= BackRight; leg++)
+                p[leg].localRotation = Quaternion.Slerp(p[leg].localRotation, Quaternion.identity, 1f - Mathf.Exp(-8f * dt));
+        }
+
+        d.body.localPosition = new Vector3(0f, 1f + bob, 0f);
+        d.body.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+
+        // Neck and head: down to graze, up to watch. The head stays roughly level.
+        d.neckAngle = Mathf.MoveTowards(d.neckAngle, targetNeck, dt * 90f);
+        float nibble = d.mode == DeerGraze && Mathf.Abs(d.neckAngle - targetNeck) < 1f ? Mathf.Sin(Time.time * 6f + d.phase) * 4f : 0f;
+        p[Neck].localRotation = Quaternion.Euler(d.neckAngle + nibble, 0f, 0f);
+        p[Head].localRotation = Quaternion.Euler(-d.neckAngle * 0.75f + 15f, 0f, 0f);
+
+        // White-tail flag goes up when spooked.
+        float tail = d.mode == DeerFlee || d.mode == DeerAlert ? -60f : 10f;
+        p[Tail].localRotation = Quaternion.Slerp(p[Tail].localRotation, Quaternion.Euler(tail, 0f, 0f), 1f - Mathf.Exp(-6f * dt));
+    }
+
+    Critter BuildDeer()
+    {
+        var d = NewCritter("Deer");
+        float size = Random.Range(0.9f, 1.15f);
+        d.root.localScale = Vector3.one * size;
+
+        d.body = new GameObject("Body").transform;
+        d.body.SetParent(d.root, false);
+        d.body.localPosition = new Vector3(0f, 1f, 0f);
+
+        var torso = Part(PrimitiveType.Capsule, deerMat, d.body, Vector3.zero, new Vector3(0.42f, 0.6f, 0.48f));
+        torso.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+        var parts = new Transform[7];
+
+        // Legs pivot at the hips and shoulders.
+        Vector3[] hips =
+        {
+            new Vector3(-0.13f, -0.1f, 0.42f), new Vector3(0.13f, -0.1f, 0.42f),
+            new Vector3(-0.13f, -0.1f, -0.42f), new Vector3(0.13f, -0.1f, -0.42f),
+        };
+        for (int i = 0; i < 4; i++)
+        {
+            var hip = new GameObject("Leg").transform;
+            hip.SetParent(d.body, false);
+            hip.localPosition = hips[i];
+            bool back = i >= 2;
+            Part(PrimitiveType.Capsule, deerMat, hip, new Vector3(0f, -0.15f, back ? -0.03f : 0f), new Vector3(back ? 0.16f : 0.12f, 0.2f, back ? 0.2f : 0.13f));
+            Part(PrimitiveType.Cylinder, deerMat, hip, new Vector3(0f, -0.5f, 0f), new Vector3(0.06f, 0.4f, 0.06f));
+            Part(PrimitiveType.Cube, deerMat, hip, new Vector3(0f, -0.88f, 0.02f), new Vector3(0.07f, 0.05f, 0.09f));
+            parts[i] = hip;
+        }
+
+        // Neck, angled up and forward from the chest.
+        var neck = new GameObject("Neck").transform;
+        neck.SetParent(d.body, false);
+        neck.localPosition = new Vector3(0f, 0.12f, 0.5f);
+        Part(PrimitiveType.Cylinder, deerMat, neck, new Vector3(0f, 0.27f, 0f), new Vector3(0.14f, 0.28f, 0.16f));
+        parts[Neck] = neck;
+
+        // Head on top of the neck.
+        var head = new GameObject("Head").transform;
+        head.SetParent(neck, false);
+        head.localPosition = new Vector3(0f, 0.55f, 0f);
+        Part(PrimitiveType.Sphere, deerMat, head, new Vector3(0f, 0f, 0.08f), new Vector3(0.16f, 0.17f, 0.24f));
+        Part(PrimitiveType.Sphere, deerMat, head, new Vector3(0f, -0.03f, 0.22f), new Vector3(0.09f, 0.09f, 0.16f));
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var ear = Part(PrimitiveType.Sphere, deerMat, head, new Vector3(side * 0.08f, 0.1f, -0.01f), new Vector3(0.05f, 0.13f, 0.02f));
+            ear.localRotation = Quaternion.Euler(0f, 0f, side * -35f);
+            Part(PrimitiveType.Sphere, deerEyeMat, head, new Vector3(side * 0.065f, 0.03f, 0.12f), Vector3.one * 0.022f);
+        }
+        if (Random.value < 0.5f) AddAntlers(head);
+        parts[Head] = head;
+
+        var tail = new GameObject("Tail").transform;
+        tail.SetParent(d.body, false);
+        tail.localPosition = new Vector3(0f, 0.12f, -0.6f);
+        Part(PrimitiveType.Sphere, deerMat, tail, new Vector3(0f, -0.06f, -0.02f), new Vector3(0.07f, 0.14f, 0.05f));
+        parts[Tail] = tail;
+
+        d.parts = parts;
+        d.neckAngle = 35f;
+        d.phase = Random.Range(0f, 10f);
+        d.audio = ProceduralAudio.AddSource(d.root.gameObject, null, false, true, volume, 4f, 50f);
+        d.loop = ProceduralAudio.AddSource(d.root.gameObject, gallopLoop != null ? gallopLoop : ProceduralAudio.Gallop, true, true, 0f, 4f, 50f);
+        d.loop.pitch = Random.Range(0.9f, 1.1f);
+        return d;
+    }
+
+    void AddAntlers(Transform head)
+    {
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var beam = new GameObject("Antler").transform;
+            beam.SetParent(head, false);
+            beam.localPosition = new Vector3(side * 0.05f, 0.1f, 0f);
+            beam.localRotation = Quaternion.Euler(-25f, 0f, side * -30f);
+            Part(PrimitiveType.Cylinder, deerMat, beam, new Vector3(0f, 0.18f, 0f), new Vector3(0.025f, 0.18f, 0.025f));
+            for (int tine = 0; tine < 2; tine++)
+            {
+                var t = Part(PrimitiveType.Cylinder, deerMat, beam, new Vector3(0f, 0.14f + tine * 0.13f, 0.03f), new Vector3(0.018f, 0.07f, 0.018f));
+                t.localRotation = Quaternion.Euler(45f, 0f, 0f);
+                t.localPosition += t.localRotation * Vector3.up * 0.06f; // base of the tine sits on the beam
+            }
+        }
     }
 
     // ---------------------------------------------------------------- Helpers

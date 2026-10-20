@@ -4,10 +4,10 @@ using UnityEngine;
 /// <summary>
 /// Wind.
 ///
-/// Trees lean downwind and sway, with gusts that roll across the forest in waves.
+/// Trees and grass lean downwind and sway, with gusts that roll across the forest in waves.
 /// Audio: gusting wind, rustling leaves, and creaking trunks in strong gusts.
 ///
-/// Sways the trees DarkForestGenerator builds (its SwayPivots). DarkForestGenerator adds this
+/// Sways the trees and grass DarkForestGenerator builds (its SwayPivots and GrassPivots). DarkForestGenerator adds this
 /// automatically. Leave the clip slots empty to use the built-in synthesized sounds.
 /// </summary>
 public class WeatherSystem : MonoBehaviour
@@ -25,6 +25,14 @@ public class WeatherSystem : MonoBehaviour
     [Tooltip("Only trees within this distance of the camera are animated.")]
     public float swayRadius = 70f;
 
+    [Header("Grass")]
+    [Tooltip("How far grass bends at full strength, in degrees.")]
+    public float grassSwayAngle = 12f;
+    [Tooltip("Grass sways this many times faster than trees.")]
+    public float grassSwaySpeed = 2.5f;
+    [Tooltip("Only grass within this distance of the camera is animated.")]
+    public float grassSwayRadius = 40f;
+
     [Header("Audio")]
     [Range(0f, 1f)] public float windVolume = 0.35f;
     [Range(0f, 1f)] public float leavesVolume = 0.3f;
@@ -41,9 +49,30 @@ public class WeatherSystem : MonoBehaviour
     public float CurrentWind { get; private set; }
     public Vector3 WindVector => Quaternion.Euler(0f, windDirection, 0f) * Vector3.forward;
 
+    /// <summary>A set of things that sway, with their resting rotations.</summary>
+    class SwayGroup
+    {
+        public readonly List<Transform> pivots = new List<Transform>();
+        public readonly List<Quaternion> baseRotations = new List<Quaternion>();
+
+        public void Refresh(List<Transform> source)
+        {
+            bool stale = source.Count != pivots.Count || (pivots.Count > 0 && pivots[0] != source[0]);
+            if (!stale) return;
+            pivots.Clear();
+            baseRotations.Clear();
+            foreach (var t in source)
+            {
+                pivots.Add(t);
+                baseRotations.Add(t != null ? t.localRotation : Quaternion.identity);
+            }
+        }
+    }
+
     DarkForestGenerator generator;
-    readonly List<Transform> pivots = new List<Transform>();
-    readonly List<Quaternion> baseRotations = new List<Quaternion>();
+    readonly SwayGroup trees = new SwayGroup();
+    readonly SwayGroup grass = new SwayGroup();
+    List<Transform> pivots => trees.pivots;
 
     AudioSource windSource, leavesSource;
     float creakCooldown;
@@ -73,9 +102,16 @@ public class WeatherSystem : MonoBehaviour
         windDirection += windDirectionDrift * Time.deltaTime;
         Vector3 wind = WindVector;
 
-        CurrentWind = windStrength * Gust(listener, wind);
+        CurrentWind = windStrength * Gust(WorldWrap.Fold(listener), wind);
 
-        SwayTrees(listener, wind);
+        if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
+        if (generator != null)
+        {
+            trees.Refresh(generator.SwayPivots);
+            grass.Refresh(generator.GrassPivots);
+            Sway(trees, listener, wind, maxSwayAngle, 1f, swayRadius);
+            Sway(grass, listener, wind, grassSwayAngle, grassSwaySpeed, grassSwayRadius);
+        }
         UpdateAudio(listener);
     }
 
@@ -90,51 +126,31 @@ public class WeatherSystem : MonoBehaviour
 
     // ---------------------------------------------------------------- Trees
 
-    void SwayTrees(Vector3 listener, Vector3 wind)
+    void Sway(SwayGroup group, Vector3 listener, Vector3 wind, float maxAngle, float speed, float radius)
     {
-        RefreshPivots();
-        if (pivots.Count == 0) return;
+        Vector3 axisWorld = Vector3.Cross(Vector3.up, wind); // leaning around this tilts things downwind
+        float radiusSq = radius * radius;
+        float time = Time.time * speed;
 
-        Vector3 axisWorld = Vector3.Cross(Vector3.up, wind); // leaning around this tilts trees downwind
-        float radiusSq = swayRadius * swayRadius;
-        float time = Time.time;
-
-        for (int i = 0; i < pivots.Count; i++)
+        for (int i = 0; i < group.pivots.Count; i++)
         {
-            Transform pivot = pivots[i];
+            Transform pivot = group.pivots[i];
             if (pivot == null) continue;
 
             Vector3 p = pivot.position;
             if ((p - listener).sqrMagnitude > radiusSq) continue;
 
-            // Stable per-tree randomness so neighbours don't move in lockstep.
+            // Stable per-object randomness so neighbours don't move in lockstep.
             float seed = Mathf.Repeat(Mathf.Sin(p.x * 12.9898f + p.z * 78.233f) * 43758.5453f, 1f);
 
-            float gust = Gust(p, wind);
-            float lean = windStrength * maxSwayAngle * gust * 0.7f;
-            float bob = Mathf.Sin(time * (1.1f + seed * 0.8f) + seed * 20f) * windStrength * maxSwayAngle * 0.3f * gust;
+            // Gusts are worked out from the position folded back into the map, so they don't jump when the map wraps.
+            float gust = Gust(WorldWrap.Fold(p), wind);
+            float lean = windStrength * maxAngle * gust * 0.7f;
+            float bob = Mathf.Sin(time * (1.1f + seed * 0.8f) + seed * 20f) * windStrength * maxAngle * 0.3f * gust;
 
             Transform parent = pivot.parent;
             Vector3 axis = parent != null ? parent.InverseTransformDirection(axisWorld) : axisWorld;
-            pivot.localRotation = Quaternion.AngleAxis(lean + bob, axis) * baseRotations[i];
-        }
-    }
-
-    void RefreshPivots()
-    {
-        if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
-        if (generator == null) return;
-
-        var source = generator.SwayPivots;
-        bool stale = source.Count != pivots.Count || (pivots.Count > 0 && pivots[0] != source[0]);
-        if (!stale) return;
-
-        pivots.Clear();
-        baseRotations.Clear();
-        foreach (var t in source)
-        {
-            pivots.Add(t);
-            baseRotations.Add(t != null ? t.localRotation : Quaternion.identity);
+            pivot.localRotation = Quaternion.AngleAxis(lean + bob, axis) * group.baseRotations[i];
         }
     }
 

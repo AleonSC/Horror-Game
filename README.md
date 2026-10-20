@@ -9,7 +9,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/FirstPersonController.cs` | Walk, run, jump and crouch (CharacterController based), mouse look, head bob. |
 | `Assets/Scripts/Player/Flashlight.cs` | Spot light on the camera, toggled with **F**. Runs on a battery (bar in the bottom left) that dims and flickers when low. |
 | `Assets/Scripts/World/BatteryPickup.cs` / `BatterySpawner.cs` | Batteries scattered around the map each run. Click one to refill the flashlight by 25%. |
-| `Assets/Scripts/World/DarkForestGenerator.cs` | Procedurally builds a dark wooded area: bumpy ground, pines, dead trees, rocks, logs, fog, moonlight and boundary walls. Can spawn the player too. |
+| `Assets/Scripts/World/DarkForestGenerator.cs` | Procedurally builds a 320m x 320m dark forest: rolling ground, pines, dead trees, swaying grass, rocks, logs, fog and moonlight. Spawns the player and the other systems too. |
 | `Assets/Scripts/World/ShadowEntity.cs` | A pitch-black silhouette that watches you from the dark. It creeps closer when you're not looking, grows and advances if you get near it in the dark, circles lamps you're sheltering in, and poofs if you face it down with the flashlight. |
 | `Assets/Scripts/World/Lamp.cs` / `LampSpawner.cs` | Unlit lamps scattered around the map. Click one repeatedly to light it, making a safe zone the entities can't enter. Lamps run out of energy (flickering as they fade), then need to cool down. Every lamp lit summons another entity. |
 | `Assets/Scripts/Player/LampInteractor.cs` | Clicking lamps and batteries, plus the HUD (crosshair, lamp bars, lamp counter top right). |
@@ -17,7 +17,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/GameOverScreen.cs` | Fade to black when caught, then resets the run. |
 | `Assets/Scripts/World/WeatherSystem.cs` | Wind that sways the trees in rolling gusts, with wind, leaf rustle and tree creak audio. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
-| `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, and bats swooping overhead. |
+| `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, and black deer that graze and gallop off when you get close. |
 | `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |
 | `Assets/Scripts/Audio/ProceduralAudio.cs` | Synthesizes every sound in code, so no audio files are needed. Each script has clip slots to swap in real sounds. |
 | `Assets/Scripts/World/MaterialFactory.cs` | Placeholder materials for Built-in and URP. |

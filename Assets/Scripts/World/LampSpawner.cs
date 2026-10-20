@@ -9,14 +9,14 @@ using UnityEngine;
 /// </summary>
 public class LampSpawner : MonoBehaviour
 {
-    public int lampCount = 8;
+    public int lampCount = 24;
     [Tooltip("Keep lamps at least this far from the middle of the map (where the player spawns).")]
     public float minDistanceFromCenter = 15f;
     public float minLampSpacing = 25f;
     [Tooltip("Keep lamps at least this far from any tree.")]
     public float treeClearance = 2f;
     [Tooltip("Map size when there's no DarkForestGenerator in the scene.")]
-    public float areaSize = 160f;
+    public float areaSize = 320f;
 
     [Header("Lamp Settings")]
     public float safeRadius = 10f;

@@ -14,7 +14,7 @@ public static class ProceduralAudio
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
-        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, advance, lampSpark, lampPowerDown;
+        lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -42,6 +42,10 @@ public static class ProceduralAudio
     public static AudioClip Skitter => skitter != null ? skitter : (skitter = MakeSkitter());
     /// <summary>Leathery wing beats passing overhead.</summary>
     public static AudioClip WingFlaps => wingFlaps != null ? wingFlaps : (wingFlaps = MakeWingFlaps());
+    /// <summary>A deer's sharp alarm snort.</summary>
+    public static AudioClip DeerAlarm => deerAlarm != null ? deerAlarm : (deerAlarm = MakeDeerAlarm());
+    /// <summary>Hooves drumming the ground at a gallop. Loops seamlessly.</summary>
+    public static AudioClip Gallop => gallop != null ? gallop : (gallop = MakeGallop());
 
     // ---------------------------------------------------------------- Weather
 
@@ -261,6 +265,36 @@ public static class ProceduralAudio
             return lp * flap * Mathf.Sin(Mathf.PI * t / len);
         }, 0.7f);
     }
+
+    static AudioClip MakeDeerAlarm()
+    {
+        const float len = 0.6f;
+        float lp = 0f, hp = 0f;
+        return Shot("Deer Alarm", len, t =>
+        {
+            // A forceful burst of breath through the nose, with a little throaty buzz.
+            lp += (White() - lp) * 0.35f;
+            hp += (lp - hp) * 0.06f;
+            float env = t < 0.02f ? t / 0.02f : Mathf.Exp(-(t - 0.02f) * 7f);
+            float buzz = Mathf.Sin(TwoPi * 140f * t) * 0.25f * Mathf.Exp(-t * 10f);
+            return ((lp - hp) + buzz) * env;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeGallop()
+    {
+        float lp = 0f;
+        return Loop("Gallop", 1.2f, t =>
+        {
+            // Three strides per loop, four hoof strikes per stride.
+            float stride = t % 0.4f;
+            float hits = Hoof(stride, 0f) + Hoof(stride, 0.05f) * 0.8f + Hoof(stride, 0.13f) + Hoof(stride, 0.17f) * 0.9f;
+            lp += (White() - lp) * 0.2f;
+            return hits * (Mathf.Sin(TwoPi * 70f * t) * 0.8f + lp * 0.6f);
+        }, 0.8f);
+    }
+
+    static float Hoof(float t, float start) => t >= start ? Mathf.Exp(-(t - start) * 45f) : 0f;
 
     static AudioClip MakeLeaves()
     {
