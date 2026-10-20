@@ -630,15 +630,15 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         float scaleRig = giantHeight / 2.4f;
         for (int i = 0; i < 2; i++)
         {
-            float p = stridePhase + i * Mathf.PI;
-            float swing = Mathf.Sin(p);                          // +1: leg furthest forward
-            float swinging = Mathf.Max(0f, Mathf.Cos(p));        // moving forward through the air
+            float legPhase = stridePhase + i * Mathf.PI;
+            float swing = Mathf.Sin(legPhase);                          // +1: leg furthest forward
+            float swinging = Mathf.Max(0f, Mathf.Cos(legPhase));        // moving forward through the air
             float hip = -24f * swing - 6f * swinging;            // forward is negative
             float knee = 8f + 55f * Mathf.Pow(swinging, 1.5f);   // folds as it swings through, nearly straight planted
             giantLegs[i].localRotation = Quaternion.Euler(hip, 0f, (i == 0 ? 1f : -1f) * 2f);
             giantKnees[i].localRotation = Quaternion.Euler(knee, 0f, 0f);
             // The arm goes back as the leg on its side goes forward, trailing a little behind it.
-            giantArms[i].localRotation = Quaternion.Euler(14f * Mathf.Sin(p - 0.5f) + 4f, 0f, (i == 0 ? -1f : 1f) * 4f);
+            giantArms[i].localRotation = Quaternion.Euler(14f * Mathf.Sin(legPhase - 0.5f) + 4f, 0f, (i == 0 ? -1f : 1f) * 4f);
         }
         stepDip = Mathf.MoveTowards(stepDip, 0f, dt * 0.6f);
         float rise = Mathf.Cos(2f * stridePhase);               // highest as the legs pass, lowest at full stride
