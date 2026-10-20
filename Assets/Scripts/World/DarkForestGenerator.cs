@@ -192,6 +192,8 @@ public class DarkForestGenerator : MonoBehaviour
 
     [Header("Material Overrides (optional)")]
     public Material groundMaterial;
+    [Tooltip("Tint over the ground's soil texture: lower it to darken the earth.")]
+    public Color groundTint = new Color(0.85f, 0.85f, 0.85f);
     public Material barkMaterial;
     public Material foliageMaterial;
     public Material rockMaterial;
@@ -403,7 +405,7 @@ public class DarkForestGenerator : MonoBehaviour
                 float wz = -half + z * step;
                 verts[i] = new Vector3(wx, GetGroundHeight(wx, wz), wz);
                 normals[i] = GroundNormal(wx, wz); // computed from the height function so tile edges shade seamlessly
-                uvs[i] = new Vector2(wx, wz) * 0.25f;
+                uvs[i] = new Vector2(wx, wz) * 0.35f; // the soil texture repeats about every 3m
             }
         }
 
@@ -1623,7 +1625,7 @@ public class DarkForestGenerator : MonoBehaviour
     {
         groundMat = groundMaterial != null
             ? groundMaterial
-            : MaterialFactory.LitTextured(ProceduralTextures.Dirt, ProceduralTextures.DirtNormal, 0.1f);
+            : MaterialFactory.LitTextured(ProceduralTextures.Dirt, ProceduralTextures.DirtNormal, groundTint, 0.08f);
         barkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.11f, 0.08f, 0.06f));
         deadBarkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.16f, 0.15f, 0.14f));
         if (barkMaterial == null)

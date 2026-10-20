@@ -92,54 +92,6 @@ public static class ProceduralTextures
 
     static int Mod(int a, int m) => ((a % m) + m) % m;
 
-    // ---------------------------------------------------------------- Scattered details
-
-    // Small things (leaves, twigs, stones) are scattered a few per grid cell. To find what covers a pixel,
-    // check its own cell and the eight around it; cells wrap, so details crossing an edge tile correctly.
-    struct Detail
-    {
-        public float x, y, angle, length, width, tint;
-    }
-
-    static Detail GetDetail(int gx, int gy, int k, int grid, int seed, float minLength, float maxLength, float widthRatio)
-    {
-        int hx = Mod(gx, grid), hy = Mod(gy, grid);
-        return new Detail
-        {
-            x = (gx + Hash(hx, hy, seed + k * 7)) / grid,
-            y = (gy + Hash(hx, hy, seed + k * 7 + 1)) / grid,
-            angle = Hash(hx, hy, seed + k * 7 + 2) * Mathf.PI,
-            length = Mathf.Lerp(minLength, maxLength, Hash(hx, hy, seed + k * 7 + 3)),
-            width = widthRatio * Mathf.Lerp(0.6f, 1.2f, Hash(hx, hy, seed + k * 7 + 4)),
-            tint = Hash(hx, hy, seed + k * 7 + 5),
-        };
-    }
-
-    /// <summary>Coverage 0..1 of an oriented ellipse (a leaf or stone) at (u, v).</summary>
-    static float Ellipse(Detail d, float u, float v, out float along, out float across)
-    {
-        float dx = u - d.x, dy = v - d.y;
-        float c = Mathf.Cos(d.angle), s = Mathf.Sin(d.angle);
-        float lx = (dx * c + dy * s) / d.length;
-        float ly = (-dx * s + dy * c) / (d.length * d.width);
-        along = lx;
-        across = ly;
-        float e = lx * lx + ly * ly;
-        return Mathf.Clamp01((1f - e) * 4f);
-    }
-
-    /// <summary>Coverage 0..1 of a thin line segment (a twig) at (u, v).</summary>
-    static float Segment(Detail d, float u, float v)
-    {
-        float dx = u - d.x, dy = v - d.y;
-        float c = Mathf.Cos(d.angle), s = Mathf.Sin(d.angle);
-        float along = dx * c + dy * s;
-        if (Mathf.Abs(along) > d.length) return 0f;
-        float across = Mathf.Abs(-dx * s + dy * c);
-        float thickness = d.length * d.width * (1f - 0.5f * Mathf.Abs(along) / d.length); // tapers
-        return Mathf.Clamp01((1f - across / thickness) * 3f);
-    }
-
     // ---------------------------------------------------------------- Bark & needles
 
     static void MakeBark()
@@ -376,107 +328,136 @@ public static class ProceduralTextures
 
     // ---------------------------------------------------------------- Dirt
 
+    const int DirtSize = 1024;
+
+    /// <summary>
+    /// Realistic bare soil, like a photo of a forest floor: fine, even brown earth with soft darker damp
+    /// patches, sandy grains, and hundreds of little pebbles and clods of mixed sizes and colours pressed
+    /// into it, each rounded, lit from above and sitting in its own contact shadow. Pebbles are stamped
+    /// in (wrapping at the edges) rather than searched for per pixel, so a large texture builds quickly.
+    /// </summary>
     static void MakeDirt()
     {
-        var height = new float[Size * Size];
-        var albedo = new Color32[Size * Size];
+        const int n = DirtSize;
+        var height = new float[n * n];
+        var col = new Color[n * n];
+        var shadow = new float[n * n]; // contact shadow round the pebbles, applied to the soil only
 
-        const int leafGrid = 22, twigGrid = 7, stoneGrid = 10;
-        var soilDark = new Color(0.028f, 0.022f, 0.017f);
-        var soilLight = new Color(0.06f, 0.046f, 0.034f);
-        var leafDark = new Color(0.05f, 0.03f, 0.018f);
-        var leafLight = new Color(0.095f, 0.06f, 0.03f);
-        var twigColor = new Color(0.04f, 0.032f, 0.024f);
-        var stoneColor = new Color(0.07f, 0.068f, 0.065f);
-
-        for (int y = 0; y < Size; y++)
+        // Soil: an even mid brown, a little warmer where it's dry, darker where it's damp, finely grained.
+        var soil = new Color(0.23f, 0.18f, 0.145f);
+        var damp = new Color(0.15f, 0.115f, 0.095f);
+        var dry = new Color(0.27f, 0.215f, 0.175f);
+        for (int y = 0; y < n; y++)
         {
-            for (int x = 0; x < Size; x++)
+            for (int x = 0; x < n; x++)
             {
-                float u = x / (float)Size, v = y / (float)Size;
+                float u = x / (float)n, v = y / (float)n;
+                float patches = Fbm(u, v, 3, 3, 211);
+                float dryness = TileNoise(u * 7f, v * 7f, 7, 212);
+                float fine = TileNoise(u * 180f, v * 180f, 180, 213) * 0.5f + TileNoise(u * 360f, v * 360f, 360, 214) * 0.5f;
+                float speck = Hash(x, y, 215);
 
-                // Soil: damp darker patches, fine grain and little clods.
-                float patches = Fbm(u, v, 3, 3, 11);
-                float grain = Fbm(u, v, 32, 3, 47);
-                float clods = TileNoise(u * 64f, v * 64f, 64, 91);
-                Color color = Color.Lerp(soilDark, soilLight, patches) * (0.75f + 0.45f * grain);
-                float h = patches * 0.25f + grain * 0.3f + clods * 0.15f;
+                Color c = Color.Lerp(damp, soil, Ramp(0.25f, 0.65f, patches));
+                c = Color.Lerp(c, dry, Ramp(0.6f, 0.9f, dryness) * 0.5f);
+                c *= 0.88f + 0.24f * fine;
+                if (speck > 0.985f) c = Color.Lerp(c, new Color(0.42f, 0.38f, 0.33f), 0.6f);      // pale sand grains
+                else if (speck < 0.02f) c *= 0.6f;                                                // dark grit
 
-                // Half-buried stones.
-                int sx = (int)(u * stoneGrid), sy = (int)(v * stoneGrid);
-                for (int oy = -1; oy <= 1; oy++)
-                for (int ox = -1; ox <= 1; ox++)
-                {
-                    var d = GetDetail(sx + ox, sy + oy, 0, stoneGrid, 500, 0.008f, 0.016f, 0.8f);
-                    if (d.tint > 0.6f) continue; // only some cells have one
-                    float cover = Ellipse(d, u, v, out _, out _);
-                    if (cover <= 0f) continue;
-                    color = Color.Lerp(color, stoneColor * (0.8f + 0.4f * grain), cover);
-                    h = Mathf.Max(h, 0.55f + 0.3f * cover);
-                }
-
-                // Twigs.
-                int tx = (int)(u * twigGrid), ty = (int)(v * twigGrid);
-                for (int oy = -1; oy <= 1; oy++)
-                for (int ox = -1; ox <= 1; ox++)
-                for (int k = 0; k < 2; k++)
-                {
-                    var d = GetDetail(tx + ox, ty + oy, k, twigGrid, 700, 0.025f, 0.07f, 0.035f);
-                    float cover = Segment(d, u, v);
-                    if (cover <= 0f) continue;
-                    color = Color.Lerp(color, twigColor * (0.7f + 0.6f * d.tint), cover);
-                    h = Mathf.Max(h, 0.6f + 0.2f * cover);
-                }
-
-                // Rotting leaf litter on top, each leaf with a darker midrib.
-                int lx = (int)(u * leafGrid), ly = (int)(v * leafGrid);
-                for (int oy = -1; oy <= 1; oy++)
-                for (int ox = -1; ox <= 1; ox++)
-                for (int k = 0; k < 3; k++)
-                {
-                    var d = GetDetail(lx + ox, ly + oy, k, leafGrid, 900, 0.01f, 0.022f, 0.45f);
-                    float cover = Ellipse(d, u, v, out float along, out float across);
-                    if (cover <= 0f) continue;
-                    float edge = 1f - cover;
-                    Color leaf = Color.Lerp(leafDark, leafLight, d.tint) * (0.8f + 0.3f * grain);
-                    leaf *= 1f - 0.35f * edge;                              // curled, darker edges
-                    float midrib = Mathf.Clamp01(1f - Mathf.Abs(across) * 8f) * Mathf.Clamp01(1f - Mathf.Abs(along));
-                    leaf *= 1f - 0.3f * midrib;
-                    color = Color.Lerp(color, leaf, cover);
-                    h = Mathf.Max(h, 0.5f + 0.15f * cover + 0.05f * d.tint);
-                }
-
-                // Crevices between things sit in shadow.
-                color *= Mathf.Lerp(0.55f, 1f, Mathf.Clamp01(h * 1.4f));
-                color.a = 1f;
-
-                height[y * Size + x] = h;
-                albedo[y * Size + x] = color;
+                col[y * n + x] = c;
+                height[y * n + x] = patches * 0.15f + fine * 0.12f;
             }
         }
 
-        dirt = new Texture2D(Size, Size, TextureFormat.RGBA32, true, false)
+        var rng = new System.Random(4242);
+        float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+
+        // Pebbles and clods: a few larger, more medium, and a great many tiny ones (drawn last, on top).
+        void Pebbles(int count, float minR, float maxR)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float cx = R(0f, n), cy = R(0f, n);
+                float rx = R(minR, maxR);
+                float ry = rx * R(0.65f, 1f);
+                float angle = R(0f, Mathf.PI);
+                float ca = Mathf.Cos(angle), sa = Mathf.Sin(angle);
+                float lumpSeed = R(0f, 100f);
+
+                // What it is: mostly clods of earth, some grey and brown stones, the odd pale or rusty one.
+                float kind = R(0f, 1f);
+                Color c;
+                if (kind < 0.45f) c = new Color(0.26f, 0.2f, 0.16f) * R(0.75f, 1.25f);               // clod
+                else if (kind < 0.75f) c = new Color(0.33f, 0.3f, 0.27f) * R(0.7f, 1.2f);             // grey stone
+                else if (kind < 0.9f) c = new Color(0.35f, 0.25f, 0.18f) * R(0.75f, 1.15f);           // brown stone
+                else if (kind < 0.96f) c = new Color(0.5f, 0.47f, 0.43f) * R(0.85f, 1.1f);            // pale quartz
+                else c = new Color(0.38f, 0.2f, 0.12f) * R(0.8f, 1.1f);                              // rusty
+                float raised = rx * R(0.6f, 1f);
+
+                int reach = Mathf.CeilToInt(rx * 1.6f) + 2;
+                for (int oy = -reach; oy <= reach; oy++)
+                {
+                    for (int ox = -reach; ox <= reach; ox++)
+                    {
+                        float px = Mathf.Floor(cx) + ox + 0.5f - cx, py = Mathf.Floor(cy) + oy + 0.5f - cy;
+                        float lx = (px * ca + py * sa) / rx, ly = (-px * sa + py * ca) / ry;
+                        float angleAround = Mathf.Atan2(ly, lx);
+                        float lumpy = 1f + 0.18f * Mathf.Sin(angleAround * 3f + lumpSeed) + 0.08f * Mathf.Sin(angleAround * 7f + lumpSeed * 2f);
+                        float d = Mathf.Sqrt(lx * lx + ly * ly) / lumpy;
+
+                        int ix = Mod((int)Mathf.Floor(cx) + ox, n), iy = Mod((int)Mathf.Floor(cy) + oy, n);
+                        int k = iy * n + ix;
+                        if (d < 1f)
+                        {
+                            // Rounded top, lit from above, darker round its foot; a little texture of its own.
+                            float dome = Mathf.Sqrt(1f - d * d);
+                            float light = 0.75f + 0.35f * dome - 0.15f * Mathf.Clamp01(ly) + 0.1f * Mathf.Clamp01(-ly);
+                            float grain = 0.9f + 0.2f * Hash(ix, iy, 216);
+                            float edge = Mathf.Clamp01((1f - d) * rx * 0.8f); // antialiased rim
+                            col[k] = Color.Lerp(col[k], c * light * grain, edge);
+                            height[k] = Mathf.Max(height[k], 0.25f + raised * 0.06f * dome);
+                        }
+                        else if (d < 1.6f)
+                        {
+                            // Sitting in the soil: a soft contact shadow, heavier below it.
+                            float s = (1f - (d - 1f) / 0.6f) * (0.35f + 0.15f * Mathf.Clamp01(ly));
+                            shadow[k] = Mathf.Max(shadow[k], s);
+                        }
+                    }
+                }
+            }
+        }
+        Pebbles(70, 12f, 22f);
+        Pebbles(1300, 5f, 11f);
+        Pebbles(11000, 1.6f, 4.5f);
+
+        var albedo = new Color32[n * n];
+        for (int i = 0; i < n * n; i++)
+        {
+            Color c = col[i] * (1f - shadow[i]);
+            c.a = 1f;
+            albedo[i] = c;
+        }
+
+        dirt = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
         {
             name = "Dirt", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
         };
         dirt.SetPixels32(albedo);
         dirt.Apply(true);
 
-        // Normal map from the height (wrapping at the edges). Stored as (x, y, z, 1), which Unity's
-        // normal unpacking reads correctly on desktop for both pipelines.
-        var normals = new Color32[Size * Size];
-        const float strength = 6f;
-        for (int y = 0; y < Size; y++)
+        var normals = new Color32[n * n];
+        const float strength = 9f;
+        for (int y = 0; y < n; y++)
         {
-            for (int x = 0; x < Size; x++)
+            for (int x = 0; x < n; x++)
             {
-                float dx = height[y * Size + Mod(x + 1, Size)] - height[y * Size + Mod(x - 1, Size)];
-                float dy = height[Mod(y + 1, Size) * Size + x] - height[Mod(y - 1, Size) * Size + x];
-                var n = new Vector3(-dx * strength, -dy * strength, 1f).normalized;
-                normals[y * Size + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
+                float dx = height[y * n + Mod(x + 1, n)] - height[y * n + Mod(x - 1, n)];
+                float dy = height[Mod(y + 1, n) * n + x] - height[Mod(y - 1, n) * n + x];
+                var nv = new Vector3(-dx * strength, -dy * strength, 1f).normalized;
+                normals[y * n + x] = new Color(nv.x * 0.5f + 0.5f, nv.y * 0.5f + 0.5f, nv.z * 0.5f + 0.5f, 1f);
             }
         }
-        dirtNormal = new Texture2D(Size, Size, TextureFormat.RGBA32, true, true)
+        dirtNormal = new Texture2D(n, n, TextureFormat.RGBA32, true, true)
         {
             name = "Dirt Normal", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
         };
