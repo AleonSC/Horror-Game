@@ -484,8 +484,7 @@ public class ShadowEntity : MonoBehaviour
                 Vector3 toPlayer = target.position - transform.position;
                 toPlayer.y = 0f;
                 Vector3 next = transform.position + toPlayer.normalized * (advanceSpeed * (1f + 0.3f * Aggression) * Time.deltaTime);
-                next.y = GroundHeight(next);
-                transform.position = next;
+                transform.position = Settle(next);
             }
         }
 
@@ -549,8 +548,7 @@ public class ShadowEntity : MonoBehaviour
         }
 
         Vector3 next = center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * r;
-        next.y = GroundHeight(next);
-        transform.position = next;
+        transform.position = Settle(next); // steps round trunks on its way
 
         stepSoundTimer -= Time.deltaTime;
         if (stepSoundTimer <= 0f)
@@ -571,8 +569,7 @@ public class ShadowEntity : MonoBehaviour
         to.y = 0f;
         if (to.magnitude < 0.1f) return;
         Vector3 next = transform.position + Vector3.ClampMagnitude(to, poolSpeed * Time.deltaTime);
-        next.y = GroundHeight(next);
-        transform.position = next;
+        transform.position = Settle(next);
 
         stepSoundTimer -= Time.deltaTime;
         if (stepSoundTimer <= 0f)
@@ -671,8 +668,7 @@ public class ShadowEntity : MonoBehaviour
 
         float step = Mathf.Min(chargeSpeed * Time.deltaTime, dist - chargeStopDistance);
         Vector3 next = transform.position + toPlayer / dist * step;
-        next.y = GroundHeight(next);
-        transform.position = next;
+        transform.position = Settle(next);
     }
 
     /// <summary>Seconds until its next creep: sooner the angrier it is.</summary>
@@ -732,8 +728,7 @@ public class ShadowEntity : MonoBehaviour
 
         // Step closer, drifting a little to one side so it isn't a perfectly straight line.
         Vector3 side = Vector3.Cross(Vector3.up, dir) * Random.Range(-1f, 1f);
-        Vector3 next = transform.position + dir * CreepStep + side;
-        next.y = GroundHeight(next);
+        Vector3 next = Settle(transform.position + dir * CreepStep + side);
         if (SafeZones.Contains(next)) return;
 
         transform.position = next;
@@ -897,13 +892,13 @@ public class ShadowEntity : MonoBehaviour
                 p.z = Mathf.Clamp(p.z, center.z - half, center.z + half);
             }
 
-            if (!SafeZones.Contains(p)) break;
+            p.y = GroundHeight(p);
+            if (!SafeZones.Contains(p) && !Blocked(p)) break;
             // Lit lamps ahead: try anywhere around the player instead.
             forward = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
         }
 
-        p.y = GroundHeight(p);
-        return p;
+        return Settle(p); // last resort: nudged out of whatever it's in
     }
 
     /// <summary>
@@ -934,21 +929,108 @@ public class ShadowEntity : MonoBehaviour
         }
         if (candidates.Count == 0) return false;
 
-        var (tree, radius) = candidates[Random.Range(0, candidates.Count)];
-        Vector3 away = tree.position - from;
-        away.y = 0f;
-        spot = tree.position + away.normalized * (radius + 0.45f);
-        spot.y = GroundHeight(spot);
-        return true;
+        for (int attempt = 0; attempt < 6 && candidates.Count > 0; attempt++)
+        {
+            int pick = Random.Range(0, candidates.Count);
+            var (tree, radius) = candidates[pick];
+            candidates.RemoveAt(pick);
+            Vector3 away = tree.position - from;
+            away.y = 0f;
+            spot = tree.position + away.normalized * (radius + BodyRadius + 0.12f);
+            spot.y = GroundHeight(spot);
+            if (!Blocked(spot)) return true; // not jammed against another tree
+        }
+        return false;
     }
 
     /// <summary>A spot just outside the searchlight's pool, all round it.</summary>
     Vector3 PickCrowdSpot(WatcherEvent watcher)
     {
         var light = (SafeZones.ISource)watcher;
-        float angle = Random.Range(0f, Mathf.PI * 2f);
-        Vector3 p = light.Center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * (light.Radius + ringMargin + Random.Range(0f, 2.5f));
+        Vector3 p = light.Center;
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            float angle = Random.Range(0f, Mathf.PI * 2f);
+            p = light.Center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * (light.Radius + ringMargin + Random.Range(0f, 2.5f));
+            p.y = GroundHeight(p);
+            if (!Blocked(p)) return p;
+        }
+        return Settle(p);
+    }
+
+    // ---------------------------------------------------------------- Not walking through things
+
+    /// <summary>Its body, for keeping out of trunks and rocks: a thin upright capsule.</summary>
+    float BodyRadius => 0.32f * Mathf.Max(1f, growth);
+    static readonly Collider[] overlaps = new Collider[16];
+
+    /// <summary>
+    /// The solid things (trunks, rocks, walls...) its body would be inside, standing at a point. The capsule
+    /// starts knee-high, and the ground and the player don't count.
+    /// </summary>
+    int Overlapping(Vector3 feet)
+    {
+        float r = BodyRadius;
+        Vector3 bottom = feet + Vector3.up * (0.7f + r);
+        Vector3 top = feet + Vector3.up * Mathf.Max(0.7f + r, height * growth - r);
+        int count = Physics.OverlapCapsuleNonAlloc(bottom, top, r, overlaps, ~0, QueryTriggerInteraction.Ignore);
+        int kept = 0;
+        for (int i = 0; i < count; i++)
+        {
+            Collider c = overlaps[i];
+            if (c is CharacterController || c.GetComponentInParent<FirstPersonController>() != null) continue;
+            if (c is MeshCollider ground && ground.sharedMesh != null && ground.sharedMesh.name == "Forest Ground") continue;
+            overlaps[kept++] = c;
+        }
+        return kept;
+    }
+
+    bool Blocked(Vector3 feet) => Overlapping(feet) > 0;
+
+    /// <summary>
+    /// Puts a point on the ground and pushes it out of any trunk or rock it would be inside, so it slides
+    /// round them instead of through.
+    /// </summary>
+    Vector3 Settle(Vector3 p)
+    {
         p.y = GroundHeight(p);
+        float r = BodyRadius;
+        for (int iteration = 0; iteration < 4; iteration++)
+        {
+            int count = Overlapping(p);
+            if (count == 0) break;
+            Vector3 probe = p + Vector3.up * 1.2f;
+            for (int i = 0; i < count; i++)
+            {
+                Collider c = overlaps[i];
+                Bounds b = c.bounds;
+                Vector3 push;
+                float clearance;
+                if (c is MeshCollider mesh && !mesh.convex)
+                {
+                    // Rocks and boulders: treat them as round, from their bounds.
+                    push = probe - b.center;
+                    clearance = Mathf.Max(b.extents.x, b.extents.z) * 0.85f + r;
+                }
+                else
+                {
+                    push = probe - c.ClosestPoint(probe);
+                    push.y = 0f;
+                    clearance = r + 0.02f;
+                    if (push.sqrMagnitude < 0.0001f)
+                    {
+                        // Right inside it: push out from its middle.
+                        push = probe - b.center;
+                        clearance = r + Mathf.Max(b.extents.x, b.extents.z);
+                    }
+                }
+                push.y = 0f;
+                if (push.sqrMagnitude < 0.0001f) push = Vector3.Cross(Vector3.up, transform.forward);
+                float d = push.magnitude;
+                if (d < clearance) p += push / d * (clearance - d);
+            }
+            p.y = GroundHeight(p);
+        }
         return p;
     }
 
