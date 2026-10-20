@@ -427,6 +427,20 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         }
     }
 
+    /// <summary>
+    /// Uses the lighter on something else (a torch on a wall or at a camp): true if you have one with fuel
+    /// left, spending that much of it.
+    /// </summary>
+    public bool UseLighterFlame(float cost)
+    {
+        if (LighterCount <= 0 || LighterFuel <= 0f) return false;
+        SpendLighter(cost);
+        return true;
+    }
+
+    /// <summary>Shows a short message above the hotbar.</summary>
+    public void Notify(string text) => Message(text);
+
     void SpendLighter(float amount)
     {
         LighterFuel -= amount;

@@ -4,7 +4,8 @@ using UnityEngine;
 /// <summary>
 /// An abandoned campsite: a sagging tent, a burnt-out campfire with a few dying embers and a thin trail of
 /// smoke (it ignores fog, so you can spot camps far off across the forest), a log to sit on, and a backpack
-/// with a flare gun and a bundle of glowsticks beside it. DarkForestGenerator places a few around the map.
+/// with a flare gun and a bundle of glowsticks beside it, and two tall torches staked out at its edge that
+/// a lighter will light (LightableTorch). DarkForestGenerator places a few around the map.
 /// </summary>
 public class Campsite : MonoBehaviour
 {
@@ -171,14 +172,26 @@ public class Campsite : MonoBehaviour
             puffDrift.Add(Random.insideUnitCircle);
         }
 
+        // Two tall torches staked out at the edge of the camp, unlit: a lighter will light them.
+        torches.Clear();
+        foreach (var spot in new[] { new Vector3(2.7f, 0f, 0.3f), new Vector3(0.6f, 0f, 2.6f) })
+        {
+            var at = new Vector3(spot.x + R(-0.3f, 0.3f), 0f, spot.z + R(-0.3f, 0.3f));
+            at.y = Ground(at) - 0.05f;
+            torches.Add(LightableTorch.Standing(transform, at, R(0f, 360f)));
+        }
+
         SpawnItems();
     }
+
+    readonly List<LightableTorch> torches = new List<LightableTorch>();
 
     /// <summary>Puts a fresh flare gun and glowsticks by the backpack (used when the run resets).</summary>
     public void ResetCampsite()
     {
         SpawnItems();
         if (radio != null) radio.ResetRadio();
+        foreach (var torch in torches) if (torch != null) torch.ResetTorch();
     }
 
     [Range(0f, 1f), Tooltip("Chance of a portable radio on the log (the blind one comes for it when it plays).")]

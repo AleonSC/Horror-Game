@@ -4,7 +4,8 @@ using UnityEngine;
 /// <summary>
 /// A small abandoned shack: raised plank floor, gappy weathered walls with a broken window,
 /// a sagging roof, and a creaky door that opens when clicked. Inside, a torch and a lighter
-/// sit on a table, waiting to be picked up. DarkForestGenerator places a few around the map.
+/// sit on a table, waiting to be picked up. Outside, a torch in a bracket either side of the door, which
+/// a lighter will light (LightableTorch). DarkForestGenerator places a few around the map.
 /// </summary>
 public class Shack : MonoBehaviour
 {
@@ -21,6 +22,7 @@ public class Shack : MonoBehaviour
     [Range(0f, 1f), Tooltip("Chance of a portable radio on the floor (the blind one comes for it when it plays).")]
     public float radioChance = 0.3f;
     CarRadio radio;
+    readonly List<LightableTorch> torches = new List<LightableTorch>();
 
     /// <summary>
     /// True if a point is inside the shack (or just in its doorway). Things on its table can only be reached
@@ -117,6 +119,12 @@ public class Shack : MonoBehaviour
             Box(wood, new Vector3(DoorWidth * 0.5f, 0.3f + i * 0.7f, 0.035f), new Vector3(DoorWidth - 0.08f, 0.1f, 0.03f), Vector3.zero, false, hinge);
         Box(darkWood, new Vector3(DoorWidth - 0.12f, DoorHeight * 0.5f, 0.06f), new Vector3(0.04f, 0.12f, 0.04f), Vector3.zero, false, hinge); // handle
 
+        // A torch in a bracket on the front wall either side of the door, unlit: a lighter will light them.
+        torches.Clear();
+        float wallFront = Depth * 0.5f + 0.06f;
+        torches.Add(LightableTorch.WallMounted(transform, new Vector3(DoorX - DoorWidth * 0.5f - 0.45f, floorY + 1.75f, wallFront), Quaternion.identity));
+        torches.Add(LightableTorch.WallMounted(transform, new Vector3(DoorX + DoorWidth * 0.5f + 0.35f, floorY + 1.75f, wallFront), Quaternion.identity));
+
         // Sometimes a portable radio on the floor in the corner: turn it on and the blind one comes for it.
         if (rng.NextDouble() < radioChance)
         {
@@ -155,6 +163,7 @@ public class Shack : MonoBehaviour
         if (door != null) door.Close();
         SpawnItems();
         if (radio != null) radio.ResetRadio();
+        foreach (var torch in torches) if (torch != null) torch.ResetTorch();
     }
 
     void SpawnItems()

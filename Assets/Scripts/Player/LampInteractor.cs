@@ -24,6 +24,7 @@ public class LampInteractor : MonoBehaviour
     WatchtowerButton focusedButton;
     CarHeadlightSwitch focusedSwitch;
     CarRadio focusedRadio;
+    LightableTorch focusedTorch;
     Flashlight flashlight;
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
@@ -42,6 +43,7 @@ public class LampInteractor : MonoBehaviour
         focusedButton = null;
         focusedSwitch = null;
         focusedRadio = null;
+        focusedTorch = null;
         if (hotbar == null) hotbar = GetComponent<Hotbar>();
         var cam = Camera.main;
         if (cam == null) return;
@@ -57,11 +59,14 @@ public class LampInteractor : MonoBehaviour
             focusedButton = target.GetComponentInParent<WatchtowerButton>();
             focusedSwitch = target.GetComponentInParent<CarHeadlightSwitch>();
             focusedRadio = target.GetComponentInParent<CarRadio>();
+            focusedTorch = target.GetComponentInParent<LightableTorch>();
         }
 
         if (!HorrorInput.ClickPressed || Cursor.lockState != CursorLockMode.Locked) return;
 
-        if (focusedButton != null)
+        if (focusedTorch != null)
+            focusedTorch.TryLight(hotbar);
+        else if (focusedButton != null)
             focusedButton.Press();
         else if (focusedRadio != null)
             focusedRadio.Toggle();
@@ -120,7 +125,8 @@ public class LampInteractor : MonoBehaviour
     /// <summary>The interactable a collider belongs to, if any.</summary>
     static Component Owner(Collider col)
     {
-        Component c = col.GetComponentInParent<WatchtowerButton>();
+        Component c = col.GetComponentInParent<LightableTorch>();
+        if (c == null) c = col.GetComponentInParent<WatchtowerButton>();
         if (c == null) c = col.GetComponentInParent<CarRadio>();
         if (c == null) c = col.GetComponentInParent<CarHeadlightSwitch>();
         if (c == null) c = col.GetComponentInParent<ItemPickup>();
@@ -193,7 +199,8 @@ public class LampInteractor : MonoBehaviour
 
         // What the crosshair's on, and what clicking will do.
         string prompt = null;
-        if (focusedRadio != null) prompt = focusedRadio.Prompt;
+        if (focusedTorch != null) prompt = focusedTorch.Prompt;
+        else if (focusedRadio != null) prompt = focusedRadio.Prompt;
         else if (focusedButton != null)
         {
             var tower = focusedButton.tower;
@@ -231,7 +238,7 @@ public class LampInteractor : MonoBehaviour
 
         if (prompt != null)
         {
-            bool clickable = focused == null ? !(focusedRadio != null && (focusedRadio.IsBroken || focusedRadio.Charge <= 0f))
+            bool clickable = focused == null ? !(focusedRadio != null && (focusedRadio.IsBroken || focusedRadio.Charge <= 0f)) && !(focusedTorch != null && !focusedTorch.CanLight)
                 : !focused.IsLit && !focused.IsCoolingDown;
             DrawPrompt(prompt, cx, cy + (focused != null ? 62f : 34f) * unit, unit, Ease(promptAge / 0.25f), clickable);
         }
