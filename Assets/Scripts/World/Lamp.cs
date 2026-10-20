@@ -128,6 +128,19 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     public static int TimesLit { get; private set; }
     public static void ResetTimesLit() { TimesLit = 0; LastLit = null; }
 
+    /// <summary>Dev tools: lights it now, as if it had been cranked up (if it isn't already).</summary>
+    public void ForceLight()
+    {
+        if (!IsLit) TurnOn();
+    }
+
+    /// <summary>Dev tools: sets the count of lamps lit (the narration, the entities and the giant go by it).</summary>
+    public static void SetTimesLit(int count)
+    {
+        TimesLit = Mathf.Max(0, count);
+        if (TimesLit == 0) LastLit = null;
+    }
+
     /// <summary>The lamp lit most recently: where the player comes back after being caught.</summary>
     public static Lamp LastLit { get; private set; }
 

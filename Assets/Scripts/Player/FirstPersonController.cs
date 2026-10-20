@@ -207,7 +207,7 @@ public class FirstPersonController : MonoBehaviour
     void HandleCursor()
     {
         // Esc opens the pause menu (which frees the mouse); clicking back into the game recaptures it.
-        if (!lockCursor) return;
+        if (!lockCursor || DevTools.IsOpen) return; // (the dev tools window needs the mouse)
         if (HorrorInput.ClickPressed && Cursor.lockState != CursorLockMode.Locked) SetCursorLocked(true);
     }
 
