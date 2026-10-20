@@ -8,12 +8,30 @@ public static class MaterialFactory
 {
     static bool UsingSrp => GraphicsSettings.currentRenderPipeline != null;
 
+    /// <summary>
+    /// A shader from the reference materials kept in Resources/HorrorShaderRefs (HorrorBuildSetup makes them),
+    /// which is what guarantees the shader is in a build at all; otherwise by name; and as a last resort the
+    /// game's own fog-free unlit shader, so a missing shader can never stop the forest being built.
+    /// </summary>
+    static Shader FindShader(string reference, params string[] names)
+    {
+        var refMat = Resources.Load<Material>("HorrorShaderRefs/" + reference);
+        if (refMat != null && refMat.shader != null && refMat.shader.isSupported) return refMat.shader;
+        foreach (var name in names)
+        {
+            var shader = Shader.Find(name);
+            if (shader != null && shader.isSupported) return shader;
+        }
+        Debug.LogWarning($"MaterialFactory: no '{reference}' shader in this build; using a plain fallback.");
+        return Shader.Find("Horror/Unlit No Fog");
+    }
+
     /// <summary>A rough, lit material (Standard or URP Lit).</summary>
     public static Material Lit(Color color, float smoothness = 0.05f)
     {
-        Shader shader = UsingSrp ? Shader.Find("Universal Render Pipeline/Lit") : Shader.Find("Standard");
-        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Simple Lit");
-        if (shader == null) shader = Shader.Find("Diffuse");
+        Shader shader = UsingSrp
+            ? FindShader("Lit", "Universal Render Pipeline/Lit", "Universal Render Pipeline/Simple Lit")
+            : FindShader("Lit", "Standard", "Diffuse");
 
         var mat = new Material(shader) { enableInstancing = true };
         SetColor(mat, color);
@@ -77,8 +95,9 @@ public static class MaterialFactory
     /// <summary>An unlit material. Colors brighter than 1 glow when Bloom is enabled.</summary>
     public static Material Unlit(Color color)
     {
-        Shader shader = Shader.Find(UsingSrp ? "Universal Render Pipeline/Unlit" : "Unlit/Color");
-        if (shader == null) shader = Shader.Find("Unlit/Color");
+        Shader shader = UsingSrp
+            ? FindShader("Unlit", "Universal Render Pipeline/Unlit", "Unlit/Color")
+            : FindShader("Unlit", "Unlit/Color");
 
         var mat = new Material(shader);
         SetColor(mat, color);

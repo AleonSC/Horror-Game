@@ -45,6 +45,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, crows flying over high up, dark owls in the trees whose white eyes follow you, and black deer that graze and gallop off when you get close. |
 | `Assets/Scripts/Audio/AmbienceAudio.cs` | Background drone, a tension layer that swells near entities, and random noises in the dark. |
 | `Assets/Scripts/Audio/ProceduralAudio.cs` | Synthesizes every sound in code, so no audio files are needed. Each script has clip slots to swap in real sounds. |
+| `Assets/Scripts/Editor/HorrorBuildSetup.cs` | Makes builds work: keeps the shaders the game needs (and fog) in builds, and the scene in the build list. |
 | `Assets/Scripts/World/MaterialFactory.cs` | Placeholder materials for Built-in and URP. |
 | `Assets/Scripts/Input/HorrorInput.cs` | Input wrapper that works with both the new Input System and the legacy Input Manager. |
 
@@ -58,6 +59,14 @@ Unity scripts for a first-person horror prototype set in a dark forest.
    switched off with `DarkForestGenerator.autoCreateInEmptyScenes`.
 
 Tip: right-click the DarkForestGenerator component header and choose **Generate** to build the forest in edit mode, so you can look around and tweak it. Change `seed` for a different layout.
+
+## Building
+
+`Assets/Scripts/Editor/HorrorBuildSetup.cs` handles it: before every build (and whenever scripts reload) it keeps
+reference materials in `Assets/Scripts/Resources/HorrorShaderRefs` so the shaders the game creates materials
+from in code are included, keeps fog in the build, and adds the open scene to the build list if none is.
+Then use **File > Build And Run** as usual. You can also run it by hand: **Horror > Prepare For Build**.
+If a build still comes up empty, open the Player log (or a Development Build's console) for the error.
 
 ## How to play
 
