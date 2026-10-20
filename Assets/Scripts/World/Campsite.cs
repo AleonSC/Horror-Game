@@ -187,7 +187,13 @@ public class Campsite : MonoBehaviour
         BatterySpawner.Create(backpack, new Vector3(-0.2f, 0f, -0.45f), Random.Range(0f, 360f));
         ItemPickup.CreateFlareGun(backpack, new Vector3(0.35f, 0.02f, 0.15f), Random.Range(0f, 360f));
         ItemPickup.CreateGlowsticks(backpack, new Vector3(-0.35f, 0.02f, -0.05f), Random.Range(0f, 360f));
+        // Now and then, the car's key fob, dropped by the pack.
+        if (Random.value < keyFobChance)
+            ItemPickup.CreateKeyFob(backpack, new Vector3(0.3f, 0f, -0.4f), Random.Range(0f, 360f));
     }
+
+    [Range(0f, 1f), Tooltip("Chance of the car's key fob lying by the backpack.")]
+    public float keyFobChance = 0.2f;
 
     void Update()
     {

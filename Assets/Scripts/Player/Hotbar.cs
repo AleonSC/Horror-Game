@@ -10,6 +10,9 @@ using UnityEngine;
 /// - Camera (7): found in the broken car's trunk, three shots. F takes a flash photo: every entity caught in
 ///   the frame (in range, nothing in the way) is driven off for banishTime seconds.
 ///
+/// - Key fob (8): sometimes found at campsites and shacks. F presses its button: the broken car chirps and
+///   flashes its lights, wherever it is, so you can find it. (Anything listening near the car hears it too.)
+///
 /// - Glowsticks: F cracks one and tosses it a few metres ahead, where it lies glowing yellow for minutes.
 ///   Only a light to find your way by (the entities ignore it). Ten in a bundle at each campsite.
 ///
@@ -26,8 +29,8 @@ using UnityEngine;
 /// </summary>
 public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
-    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera }
-    const int SlotCount = 7;
+    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob }
+    const int SlotCount = 8;
     [Header("Camera")]
     [Tooltip("Shots on the camera when it's found.")]
     public int cameraShots = 3;
@@ -75,6 +78,9 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public int GlowstickCount { get; private set; }
     public int BatteryCount { get; private set; }
     public int CameraShots { get; private set; }
+    public bool HasKeyFob { get; private set; }
+    float fobReady;
+    Renderer fobLed;
 
     bool SafeZones.ISource.IsActive => TorchLit || LighterLit;
     Vector3 SafeZones.ISource.Center => transform.position;
@@ -88,8 +94,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera" };
-    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint;
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob" };
+    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, fobModel;
     Light flashLight;
     float flashGlow, flashReady;
 
@@ -113,6 +119,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         glowstickModel.gameObject.SetActive(false);
         BuildBattery(hand);
         BuildCamera(hand);
+        fobModel = new GameObject("Held Key Fob").transform;
+        fobModel.SetParent(hand, false);
+        fobModel.localPosition = new Vector3(0.16f, -0.18f, 0.32f);
+        fobModel.localRotation = Quaternion.Euler(-55f, 10f, 0f);
+        PropModels.KeyFob(fobModel, false, out fobLed).localScale = Vector3.one * 1.4f;
+        fobModel.gameObject.SetActive(false);
 
         fireLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FireLoop, true, false, 0f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.8f);
@@ -147,6 +159,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Item.Glowstick && GlowstickCount == 0) { Message("You don't have any glowsticks"); return; }
         if (item == Item.Battery && BatteryCount == 0) { Message("You don't have any batteries"); return; }
         if (item == Item.Camera && CameraShots == 0) { Message("You don't have a camera"); return; }
+        if (item == Item.KeyFob && !HasKeyFob) { Message("You don't have a key fob"); return; }
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -177,7 +190,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         item == Item.FlareGun ? FlareCount :
         item == Item.Glowstick ? GlowstickCount :
         item == Item.Battery ? BatteryCount :
-        item == Item.Camera ? CameraShots : 1;
+        item == Item.Camera ? CameraShots :
+        item == Item.KeyFob ? (HasKeyFob ? 1 : 0) : 1;
 
     void Use()
     {
@@ -222,7 +236,24 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         {
             TakePhoto();
         }
+        else if (Selected == Item.KeyFob)
+        {
+            PressFob();
+        }
     }
+
+    /// <summary>The fob's button: the car chirps and flashes its lights, wherever it is.</summary>
+    void PressFob()
+    {
+        if (!HasKeyFob || Time.time < fobReady) return;
+        fobReady = Time.time + 1.5f;
+        Play(ProceduralAudio.FobClick, 0.6f);
+        fobLedTimer = 0.25f;
+        foreach (var car in BrokenCar.All) car.Locate();
+    }
+
+    float fobLedTimer;
+    static Material fobLedOn, fobLedOff;
 
     /// <summary>
     /// A flash photo: a blinding burst of light, and every entity caught in the frame (close enough, nothing
@@ -397,6 +428,11 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             FlareCount++;
             Message("Picked up a flare gun. Press 4 to hold it, then aim up and press F to fire.");
         }
+        else if (item == Item.KeyFob)
+        {
+            HasKeyFob = true;
+            Message("Picked up a car key fob. Press 8 to hold it, F to press the button: the car will chirp and flash.");
+        }
         else if (item == Item.Camera)
         {
             CameraShots += cameraShots;
@@ -414,6 +450,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     {
         TorchLit = LighterLit = false;
         TorchCount = LighterCount = FlareCount = GlowstickCount = BatteryCount = CameraShots = 0;
+        HasKeyFob = false;
         flashGlow = 0f;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
@@ -457,6 +494,14 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         glowstickModel.gameObject.SetActive(Selected == Item.Glowstick);
         batteryModel.gameObject.SetActive(Selected == Item.Battery);
         cameraModel.gameObject.SetActive(Selected == Item.Camera);
+        fobModel.gameObject.SetActive(Selected == Item.KeyFob);
+        // The fob's little LED lights while the button's pressed.
+        fobLedTimer -= Time.deltaTime;
+        if (fobLed != null)
+        {
+            if (fobLedOn == null) { fobLedOn = MaterialFactory.NoFog(new Color(1f, 0.1f, 0.05f) * 3f); fobLedOff = fobLed.sharedMaterial; }
+            fobLed.sharedMaterial = fobLedTimer > 0f ? fobLedOn : fobLedOff;
+        }
         // The flash: a blinding burst, gone in a moment.
         flashGlow = Mathf.MoveTowards(flashGlow, 0f, Time.deltaTime * 4f);
         flashLight.enabled = flashGlow > 0f;

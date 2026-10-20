@@ -87,6 +87,27 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         if (LightsOn) Play(ProceduralAudio.LampSpark, 0.3f, 1.4f);
     }
 
+    /// <summary>
+    /// The key fob's locate button: the car chirps twice, loud enough to hear a long way off, and flashes its
+    /// headlights and tail lights on and off a few times. Works whatever's left in the battery.
+    /// </summary>
+    public void Locate()
+    {
+        locateTimer = LocateTime;
+        if (chirp != null)
+        {
+            chirp.pitch = 1f;
+            chirp.PlayOneShot(ProceduralAudio.CarChirp, 1f);
+        }
+        Noise.Emit(transform.position, 25f); // anything listening hears it too
+    }
+
+    const float LocateTime = 2.4f;
+    float locateTimer;
+    AudioSource chirp;
+    readonly List<Renderer> tailLights = new List<Renderer>();
+    Material tailOff, tailOn;
+
     /// <summary>Lights off, battery back, everything shut and restocked (used when the run resets).</summary>
     public void ResetCar()
     {
@@ -122,6 +143,16 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
             }
             if (flickerTimer < 0.08f) level *= Random.Range(0.1f, 0.5f);
         }
+
+        // Flashing to the key fob: on, off, on, off, a few times.
+        bool flash = false;
+        if (locateTimer > 0f)
+        {
+            locateTimer -= Time.deltaTime;
+            flash = Mathf.Repeat(LocateTime - locateTimer, 0.6f) < 0.3f;
+            if (flash) level = Mathf.Max(level, 0.9f);
+        }
+        foreach (var tail in tailLights) tail.sharedMaterial = flash || level > 0f ? tailOn : tailOff;
 
         foreach (var light in headlights)
         {
@@ -299,6 +330,8 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         var plate = MaterialFactory.Lit(new Color(0.55f, 0.53f, 0.45f), 0.3f);
         lampOff = MaterialFactory.Lit(new Color(0.5f, 0.5f, 0.45f), 0.9f);
         lampOn = MaterialFactory.NoFog(lightColor * 3f);
+        tailOff = MaterialFactory.Lit(new Color(0.4f, 0.03f, 0.02f), 0.7f);
+        tailOn = MaterialFactory.NoFog(new Color(1f, 0.08f, 0.04f) * 2.5f);
 
         // Leaning: a flat front-left tyre drops that corner.
         var body = new GameObject("Body").transform;
@@ -390,7 +423,8 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
 
             // Tail lights: red lenses in chrome surrounds, one cracked out.
             Box(chrome, body, new Vector3(x * 1.05f, 0.72f, -2.085f), new Vector3(0.34f, 0.16f, 0.02f));
-            Box(MaterialFactory.Lit(x < 0f ? new Color(0.12f, 0.02f, 0.02f) : new Color(0.4f, 0.03f, 0.02f), 0.7f), body, new Vector3(x * 1.05f, 0.72f, -2.095f), new Vector3(0.3f, 0.12f, 0.015f));
+            var tail = Box(x < 0f ? MaterialFactory.Lit(new Color(0.12f, 0.02f, 0.02f), 0.7f) : tailOff, body, new Vector3(x * 1.05f, 0.72f, -2.095f), new Vector3(0.3f, 0.12f, 0.015f));
+            if (x > 0f) tailLights.Add(tail.GetComponent<Renderer>()); // (the other one's cracked out)
         }
         Box(dark, body, new Vector3(0f, 0.68f, 2.09f), new Vector3(0.82f, 0.22f, 0.03f)); // grille
         for (int i = 0; i < 5; i++) Box(dullChrome, body, new Vector3(0f, 0.6f + i * 0.04f, 2.105f), new Vector3(0.8f, 0.012f, 0.012f));
@@ -553,6 +587,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         pack.localRotation = Quaternion.Euler(-90f, 0f, R(-15f, 15f)); // lying on its back
 
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, 0.8f, 2f, 30f);
+        chirp = ProceduralAudio.AddSource(gameObject, null, false, true, 1f, 8f, 180f); // carries a long way
         StockItems();
     }
 

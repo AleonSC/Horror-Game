@@ -217,6 +217,39 @@ public static class PropModels
         return root;
     }
 
+    // ---------------------------------------------------------------- Key fob
+
+    /// <summary>A car key fob (origin at its base, lying flat): a black plastic body, rubber buttons, a little
+    /// red LED, a key ring through one end with the car key on it.</summary>
+    public static Transform KeyFob(Transform parent, bool castShadows, out Renderer led)
+    {
+        var root = new GameObject("Key Fob Model").transform;
+        root.SetParent(parent, false);
+        var plastic = MaterialFactory.Lit(new Color(0.03f, 0.03f, 0.035f), 0.55f);
+        var rubber = MaterialFactory.Lit(new Color(0.1f, 0.1f, 0.11f), 0.2f);
+        var metal = MaterialFactory.Lit(new Color(0.55f, 0.55f, 0.55f), 0.8f);
+        var parts = new List<Transform>
+        {
+            MeshObj(root, "Body", SoftBox(new Vector3(0.035f, 0.012f, 0.06f), 0.45f, 0f, 0f, 0f, 7, 0.05f), plastic, new Vector3(0f, 0.006f, 0f), Vector3.zero),
+        };
+        for (int i = 0; i < 3; i++)
+            parts.Add(Prim(PrimitiveType.Cylinder, rubber, root, new Vector3(0f, 0.0125f, -0.012f + i * 0.013f), new Vector3(0.012f, 0.0015f, 0.009f), Vector3.zero));
+        var ledPart = Prim(PrimitiveType.Sphere, MaterialFactory.Lit(new Color(0.3f, 0.02f, 0.02f), 0.8f), root, new Vector3(0f, 0.0125f, 0.024f), new Vector3(0.004f, 0.002f, 0.004f), Vector3.zero);
+        led = ledPart.GetComponent<Renderer>();
+        parts.Add(ledPart);
+        // The ring, a few segments round, and the key hanging off it.
+        for (int i = 0; i < 10; i++)
+        {
+            float a = i / 10f * Mathf.PI * 2f;
+            parts.Add(Prim(PrimitiveType.Cylinder, metal, root, new Vector3(Mathf.Cos(a) * 0.012f, 0.004f, -0.042f + Mathf.Sin(a) * 0.012f), new Vector3(0.002f, 0.004f, 0.002f), new Vector3(90f, -a * Mathf.Rad2Deg, 0f)));
+        }
+        parts.Add(Prim(PrimitiveType.Cube, metal, root, new Vector3(0.01f, 0.002f, -0.072f), new Vector3(0.012f, 0.002f, 0.045f), new Vector3(0f, 20f, 0f)));
+        foreach (var t in parts)
+            t.GetComponent<Renderer>().shadowCastingMode = castShadows
+                ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+        return root;
+    }
+
     // ---------------------------------------------------------------- Building blocks
 
     /// <summary>

@@ -137,6 +137,12 @@ public class LampInteractor : MonoBehaviour
     static bool Visible(Vector3 eye, Collider col, Vector3 closest, Component owner)
     {
         Bounds b = col.bounds;
+        // Things inside a shack can only be taken from inside it (or its doorway), not through the walls.
+        if (owner is ItemPickup || owner is BatteryPickup)
+        {
+            var shack = owner.GetComponentInParent<Shack>();
+            if (shack != null && !shack.Contains(eye)) return false;
+        }
         // Within arm's reach, anything you're aiming at counts: things lie on tables, against backpacks...
         if ((closest - eye).magnitude < 1.6f) return true;
         return Clear(eye, closest, owner)

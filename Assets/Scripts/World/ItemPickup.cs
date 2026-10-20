@@ -18,7 +18,8 @@ public class ItemPickup : MonoBehaviour
         item == Hotbar.Item.Lighter ? "lighter" :
         item == Hotbar.Item.FlareGun ? "flare gun" :
         item == Hotbar.Item.Glowstick ? "glowsticks" :
-        item == Hotbar.Item.Camera ? "camera" : "item";
+        item == Hotbar.Item.Camera ? "camera" :
+        item == Hotbar.Item.KeyFob ? "car key fob" : "item";
 
     /// <summary>Puts the item in the hotbar and removes it from the world.</summary>
     public void PickUp(Hotbar hotbar)
@@ -56,6 +57,14 @@ public class ItemPickup : MonoBehaviour
     {
         var pickup = Create("Camera Pickup", Hotbar.Item.Camera, parent, localPos, yaw);
         PropModels.FilmCamera(pickup.transform, true, out _);
+        return pickup;
+    }
+
+    /// <summary>Builds a car key fob on its ring (PropModels.KeyFob).</summary>
+    public static ItemPickup CreateKeyFob(Transform parent, Vector3 localPos, float yaw)
+    {
+        var pickup = Create("Key Fob Pickup", Hotbar.Item.KeyFob, parent, localPos, yaw);
+        PropModels.KeyFob(pickup.transform, true, out _);
         return pickup;
     }
 

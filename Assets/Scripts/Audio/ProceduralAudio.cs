@@ -36,7 +36,11 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash, rainLoop;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick;
+    /// <summary>A car answering its key fob: two sharp, bright chirps.</summary>
+    public static AudioClip CarChirp => carChirp != null ? carChirp : (carChirp = MakeCarChirp());
+    /// <summary>The little click of a key fob's button.</summary>
+    public static AudioClip FobClick => fobClick != null ? fobClick : (fobClick = MakeFobClick());
     /// <summary>Light rain on the forest: a soft hiss and a patter of drops on leaves and ground. Loops.</summary>
     public static AudioClip RainLoop => rainLoop != null ? rainLoop : (rainLoop = MakeRainLoop());
     /// <summary>An old radio on a bad station: a scratchy minor waltz through hiss and crackle, drifting in and out. Loops.</summary>
@@ -1147,6 +1151,31 @@ public static class ProceduralAudio
             float drop = Mathf.Sin(dropPhase) * Mathf.Exp(-dropT * dropDecay) * dropAmp;
             return hiss + drop;
         }, 0.6f);
+    }
+
+    static AudioClip MakeCarChirp()
+    {
+        const float len = 0.75f;
+        return Shot("Car Chirp", len, t =>
+        {
+            // Two quick chirps, each a bright square-ish tone with a little upward blip.
+            float on = (t < 0.12f || (t > 0.28f && t < 0.4f)) ? 1f : 0f;
+            float local = t < 0.2f ? t : t - 0.28f;
+            float hz = 2600f + 400f * Mathf.Exp(-local * 40f);
+            float tone = Mathf.Sign(Mathf.Sin(TwoPi * hz * t)) * 0.6f + Mathf.Sin(TwoPi * hz * 2f * t) * 0.2f;
+            float edge = Mathf.Clamp01(local / 0.004f) * Mathf.Clamp01((0.12f - local) / 0.01f);
+            return tone * on * edge;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeFobClick()
+    {
+        float lp = 0f;
+        return Shot("Fob Click", 0.06f, t =>
+        {
+            lp += (White() - lp) * 0.6f;
+            return lp * Mathf.Exp(-t * 180f) + Mathf.Sin(TwoPi * 3800f * t) * Mathf.Exp(-t * 300f) * 0.3f;
+        }, 0.7f);
     }
 
     static AudioClip MakeCameraFlash()

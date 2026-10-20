@@ -16,6 +16,20 @@ public class Shack : MonoBehaviour
     [SerializeField] Transform table;
     [Range(0f, 1f), Tooltip("Chance of a battery lying on the table as well.")]
     public float batteryChance = 0.5f;
+    [Range(0f, 1f), Tooltip("Chance of the car's key fob lying on the table.")]
+    public float keyFobChance = 0.2f;
+
+    /// <summary>
+    /// True if a point is inside the shack (or just in its doorway). Things on its table can only be reached
+    /// from in here, not through the walls from outside.
+    /// </summary>
+    public bool Contains(Vector3 point)
+    {
+        Vector3 l = transform.InverseTransformPoint(point);
+        return Mathf.Abs(l.x) < Width * 0.5f - 0.02f
+            && l.z > -Depth * 0.5f + 0.02f && l.z < Depth * 0.5f + 0.7f // a little way out the front: reaching in through the door
+            && l.y > floorY - 0.5f && l.y < floorY + WallHeight + 0.5f;
+    }
     float floorY;
 
     void OnEnable() => All.Add(this);
@@ -146,6 +160,9 @@ public class Shack : MonoBehaviour
             BatterySpawner.Create(table, new Vector3(0.05f, 0.78f + 0.025f, 0.18f), Random.Range(-20f, 20f));
         ItemPickup.CreateTorch(table, new Vector3(-0.2f, 0.805f, 0.05f), Random.Range(-15f, 15f));
         ItemPickup.CreateLighter(table, new Vector3(0.3f, 0.805f, -0.08f), Random.Range(0f, 360f));
+        // Now and then, the car's key fob.
+        if (Random.value < keyFobChance)
+            ItemPickup.CreateKeyFob(table, new Vector3(-0.4f, 0.805f, -0.15f), Random.Range(0f, 360f));
     }
 
     /// <summary>A wall of upright planks with gaps, uneven tops, and an optional doorway or window.</summary>
