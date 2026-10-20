@@ -118,6 +118,15 @@ public class ShadowEntity : MonoBehaviour
     public float maxEyeWiden = 1.6f;
     [Tooltip("Strength of the red light the eyes cast on the surroundings.")]
     public float eyeLightStrength = 0.3f;
+    [Tooltip("Eyeshine: how bright the eyes flare when the flashlight beam crosses them, like an animal's in headlights.")]
+    public float eyeshineBrightness = 9f;
+    public Color eyeshineColor = new Color(1f, 0.55f, 0.35f);
+
+    [Header("Mouth")]
+    [Tooltip("The mouth starts to split open within this distance...")]
+    public float mouthOpenDistance = 6f;
+    [Tooltip("...and is fully open at this distance.")]
+    public float mouthFullDistance = 2.8f;
 
     [Header("Crescendo & Poof")]
     public float crescendoTime = 2.5f;
@@ -196,6 +205,9 @@ public class ShadowEntity : MonoBehaviour
     Pose pose;
     Quaternion poseHead = Quaternion.identity, poseLeftArm = Quaternion.identity, poseRightArm = Quaternion.identity;
     bool peeking; // half hidden behind a trunk
+    float eyeshine;
+    Transform mouth;
+    float mouthOpen, mouthTarget;
 
     float timer;
     float creepTimer;
@@ -285,6 +297,13 @@ public class ShadowEntity : MonoBehaviour
                 UpdateKilling();
                 break;
         }
+
+        // The mouth splits open slowly, and snaps shut when it's gone.
+        if (CurrentState == State.Hidden || CurrentState == State.Materializing) mouthTarget = mouthOpen = 0f;
+        mouthOpen = Mathf.MoveTowards(mouthOpen, mouthTarget, Time.deltaTime * 2.5f);
+        mouth.localScale = new Vector3(1f, Mathf.Max(mouthOpen, 0.001f), 1f);
+        bool showMouth = mouthOpen > 0.01f;
+        if (mouth.gameObject.activeSelf != showMouth) mouth.gameObject.SetActive(showMouth);
     }
 
     // ---------------------------------------------------------------- States
@@ -421,7 +440,13 @@ public class ShadowEntity : MonoBehaviour
         float huntBrightness = Mathf.Lerp(startHuntEyeIntensity, endHuntEyeIntensity, HuntProgress * HuntProgress);
         float flashBrightness = spawnEyeIntensity * Mathf.Lerp(0.1f, 1f, HuntProgress);
         float brightness = Mathf.Lerp(huntBrightness, Mathf.Max(huntBrightness, flashBrightness), eyeFlare);
-        SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), brightness);
+        // Eyeshine: the beam crossing its eyes makes them flare back at you.
+        eyeshine = Mathf.MoveTowards(eyeshine, EyesInBeam() ? 1f : 0f, Time.deltaTime * 6f);
+        SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), Mathf.Max(brightness, eyeshine * eyeshineBrightness), eyeshine);
+        eyeLight.intensity = brightness * eyeLightStrength; // a reflection: it doesn't light up the trees
+
+        // The last few metres: a too-wide mouth splits open.
+        mouthTarget = Mathf.Clamp01(Mathf.InverseLerp(mouthOpenDistance, mouthFullDistance, dist));
         whisper.volume = Mathf.Lerp(0.25f, 1f, closeness) * volume;
 
         float advanceTarget = advancing ? Mathf.Lerp(0.5f, 1f, closeness) * volume : 0f;
@@ -506,20 +531,24 @@ public class ShadowEntity : MonoBehaviour
     float CrescendoDuration =>
         Mathf.Max(minCrescendoTime, crescendoTime / (1f + crescendoSpeedupPerLamp * Lamp.TimesLit));
 
-    bool IsLitByFlashlight()
+    bool IsLitByFlashlight() => InBeam(transform.position + Vector3.up * (1.4f * scale * growth), beamMargin, false);
+
+    /// <summary>True if the flashlight beam is on its eyes. Peeking round a trunk doesn't hide them.</summary>
+    bool EyesInBeam() => InBeam((leftEye.position + rightEye.position) * 0.5f, 0f, peeking);
+
+    bool InBeam(Vector3 point, float margin, bool ignoreTrees)
     {
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
         if (flashlight == null || !flashlight.IsOn) return false;
 
         Light beam = flashlight.flashlight;
-        Vector3 chest = transform.position + Vector3.up * (1.4f * scale * growth);
-        Vector3 toChest = chest - beam.transform.position;
-        float dist = toChest.magnitude;
+        Vector3 to = point - beam.transform.position;
+        float dist = to.magnitude;
 
         if (dist > beam.range) return false;
-        if (Vector3.Angle(beam.transform.forward, toChest) > beam.spotAngle * 0.5f + beamMargin) return false;
+        if (Vector3.Angle(beam.transform.forward, to) > beam.spotAngle * 0.5f + margin) return false;
         // Trees in the way block the beam.
-        if (Physics.Raycast(beam.transform.position, toChest / dist, dist - 0.3f, ~0, QueryTriggerInteraction.Ignore))
+        if (!ignoreTrees && Physics.Raycast(beam.transform.position, to / dist, dist - 0.3f, ~0, QueryTriggerInteraction.Ignore))
             return false;
         return true;
     }
@@ -578,6 +607,7 @@ public class ShadowEntity : MonoBehaviour
         visual.localScale = new Vector3(1f - 0.15f * e, 1f + 0.2f * e, 1f - 0.15f * e);
 
         float flicker = 1f + Random.Range(-0.3f, 0.3f) * e;
+        mouthTarget = Mathf.Lerp(0.7f, 1.5f, e); // stretching wider and wider
         SetEyes(Mathf.Lerp(maxEyeWiden, maxEyeWiden * 1.8f, e),
                 Mathf.Lerp(eyeIntensity * 3f, spawnEyeIntensity * 1.5f, e) * flicker);
         whisper.volume = volume * Mathf.Lerp(1f, crescendoVolume, e);
@@ -630,6 +660,7 @@ public class ShadowEntity : MonoBehaviour
         Vibrate(crescendoVibration * 0.6f);
         visual.localScale = new Vector3(0.85f, 1.2f, 0.85f);
         SetEyes(maxEyeWiden * 2f, spawnEyeIntensity * 2f * Random.Range(0.7f, 1.3f));
+        mouthTarget = 1.6f;
         whisper.volume = volume * killVolume;
 
         // Force the camera to stare into its face.
@@ -843,12 +874,12 @@ public class ShadowEntity : MonoBehaviour
         SetEyes(1f, eyeIntensity);
     }
 
-    void SetEyes(float widen, float brightness)
+    void SetEyes(float widen, float brightness, float shine = 0f)
     {
         Vector3 s = new Vector3(eyeBaseScale.x * Mathf.Lerp(1f, widen, 0.5f), eyeBaseScale.y * widen, eyeBaseScale.z);
         leftEye.localScale = s;
         rightEye.localScale = s;
-        MaterialFactory.SetColor(eyeMat, eyeColor * brightness);
+        MaterialFactory.SetColor(eyeMat, Color.Lerp(eyeColor, eyeshineColor, shine) * brightness);
         eyeLight.intensity = brightness * eyeLightStrength;
     }
 
@@ -1061,12 +1092,15 @@ public class ShadowEntity : MonoBehaviour
         jaw.localRotation = Quaternion.Euler(20f, 0f, 0f);
         jaw.localScale = new Vector3(0.12f, 0.1f, 0.16f) * scale;
 
-        eyeMat = MaterialFactory.Unlit(eyeColor * eyeIntensity);
+        // Fog-free, so eyeshine glints back from far off in the mist.
+        eyeMat = MaterialFactory.NoFog(eyeColor * eyeIntensity);
         eyeBaseScale = new Vector3(0.035f, 0.025f, 0.02f) * scale;
         leftEye = CreatePart(PrimitiveType.Sphere, eyeMat, headPivot).transform;
         leftEye.localPosition = new Vector3(-0.05f, 0.12f, 0.125f) * scale;
         rightEye = CreatePart(PrimitiveType.Sphere, eyeMat, headPivot).transform;
         rightEye.localPosition = new Vector3(0.05f, 0.12f, 0.125f) * scale;
+
+        BuildMouth();
 
         eyeLight = new GameObject("Eye Glow").AddComponent<Light>();
         eyeLight.transform.SetParent(headPivot, false);
@@ -1078,6 +1112,40 @@ public class ShadowEntity : MonoBehaviour
 
         bodyRenderers = visual.GetComponentsInChildren<Renderer>();
         SetEyes(1f, eyeIntensity);
+    }
+
+    /// <summary>
+    /// A thin, too-wide split across the lower face, dark red inside, lined with narrow teeth. Scaled
+    /// vertically by how open it is; hidden when shut.
+    /// </summary>
+    void BuildMouth()
+    {
+        mouth = Pivot(headPivot, "Mouth", new Vector3(0f, 0.01f, 0.115f));
+        var inside = CreatePart(PrimitiveType.Sphere, MaterialFactory.NoFog(new Color(0.22f, 0.015f, 0.01f)), mouth).transform;
+        inside.localScale = new Vector3(0.19f, 0.07f, 0.035f) * scale;
+        // The corners curl up a little: a grin.
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var corner = CreatePart(PrimitiveType.Sphere, MaterialFactory.NoFog(new Color(0.22f, 0.015f, 0.01f)), mouth).transform;
+            corner.localPosition = new Vector3(side * 0.085f, 0.012f, -0.012f) * scale;
+            corner.localRotation = Quaternion.Euler(0f, 0f, side * 25f);
+            corner.localScale = new Vector3(0.05f, 0.025f, 0.025f) * scale;
+        }
+
+        var toothMat = MaterialFactory.Unlit(new Color(0.55f, 0.53f, 0.46f));
+        for (int row = -1; row <= 1; row += 2)
+        {
+            for (int i = 0; i < 9; i++)
+            {
+                float x = (i - 4) * 0.018f;
+                var tooth = CreatePart(PrimitiveType.Cube, toothMat, mouth).transform;
+                tooth.localPosition = new Vector3(x, row * 0.024f, 0.012f - x * x * 2f) * scale;
+                tooth.localRotation = Quaternion.Euler(0f, x * 300f, 0f);
+                tooth.localScale = new Vector3(0.007f, 0.024f, 0.006f) * scale;
+            }
+        }
+        mouth.localScale = new Vector3(1f, 0.001f, 1f);
+        mouth.gameObject.SetActive(false);
     }
 
     /// <summary>Unsettling idle motion: the head snaps to new angles, arms drift, fingers curl and uncurl.</summary>
