@@ -20,16 +20,17 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/Player/PauseMenu.cs` | Esc pauses: resume, restart the run, lighting test panel, mouse sensitivity and volume (remembered), quit. |
 | `Assets/Scripts/Player/LightingSettings.cs` | Lighting test panel (pause menu → Lighting): themes, live moon / ambient / fog / flashlight / shadow controls, and "Log Values" to print a setup. |
 | `Assets/Scripts/Player/Footsteps.cs` | Very faint footsteps on the dirt (quieter crouching, a little louder running) and a thump on landing. |
-| `Assets/Scripts/Player/Hotbar.cs` | Hotbar: 1 flashlight, 2 torch, 3 lighter. Lit torches and lighters keep the entities away, but burn out for good. |
+| `Assets/Scripts/Player/Hotbar.cs` | Hotbar: 1 flashlight, 2 torch, 3 lighter, 4 flare gun, 5 glowsticks. Lit torches and lighters keep the entities away, but burn out for good. |
 | `Assets/Scripts/World/Watchtower.cs` / `WatchtowerButton.cs` / `Ladder.cs` | One very tall watchtower somewhere on the map. Climb the ladder and press the button: floodlights blaze for a minute, every entity's hunt is reset, and the lit area is safe. Then it recharges. |
 | `Assets/Scripts/World/FallingTreeEvent.cs` | Every minute or so (first one about 30 seconds in), a nearby tree cracks at the base and comes crashing down. `Trigger()` sets one off any time. |
 | `Assets/Scripts/World/ProceduralTextures.cs` | Generates the forest-floor dirt texture in code. |
 | `Assets/Scripts/World/WatcherEvent.cs` | After 5 lamps: a giant red eye opens in the sky, the world turns red, and a colossal entity walks toward you. The watchtower floodlights drive it back. |
 | `Assets/Scripts/Resources/HorrorUnlitNoFog.shader` | Flat colour that ignores fog, for the eye and the giant. |
 | `Assets/Scripts/World/FallingLeaves.cs` | Leaves drifting down from the canopy around you, carried by the wind, settling, and skittering along in strong gusts. |
-| `Assets/Scripts/World/Campsite.cs` / `Flare.cs` | Three abandoned campsites (tent, smoking burnt-out campfire seen from afar, backpack with a flare gun). Fire a flare into the sky to wipe every entity's hunt progress. |
+| `Assets/Scripts/World/Campsite.cs` / `Flare.cs` | Three abandoned campsites (tent, smoking burnt-out campfire seen from afar, backpack with a flare gun and 10 glowsticks). Fire a flare into the sky to wipe every entity's hunt progress. |
 | `Assets/Scripts/Resources/HorrorSmoke.shader` | Soft, fog-proof smoke puffs for the campfires. |
 | `Assets/Scripts/World/BushRustle.cs` | Bushes (small to medium) you can run straight through: they lean away, shake and rustle as you pass. |
+| `Assets/Scripts/World/Glowstick.cs` | Yellow glowsticks (10 per campsite). Hold with 5, F cracks one and tosses it ahead; it glows on the ground for minutes, marking your way. The entities ignore them. |
 | `Assets/Scripts/World/NightSky.cs` | Stars and drifting clouds on a dome around the camera (shader `Resources/HorrorNightSky.shader`). Purely visual: it adds no light. |
 | `Assets/Scripts/World/ScreamEvent.cs` | 50 seconds into each run, a loud scream rings out from a random direction in the trees. |
 | `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
@@ -82,7 +83,7 @@ Tip: right-click the DarkForestGenerator component header and choose **Generate*
 | Space | Jump |
 | Left Ctrl / C | Crouch (hold, or toggle via `toggleCrouch`) |
 | F | Use the item in hand: flashlight on/off, light / put out the torch, flick the lighter |
-| 1 / 2 / 3 / 4 | Hold the flashlight / torch / lighter / flare gun |
+| 1 / 2 / 3 / 4 / 5 | Hold the flashlight / torch / lighter / flare gun / glowsticks |
 | Left click | Charge the lamp you're looking at (click repeatedly), use a battery, open a door, pick up an item |
 | Esc | Pause menu (resume, restart, mouse sensitivity, volume, quit) |
 

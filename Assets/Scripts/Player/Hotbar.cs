@@ -1,8 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter, 4 = flare gun. Press a number to hold
-/// that item, and F to use it.
+/// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter, 4 = flare gun, 5 = glowsticks. Press a
+/// number to hold that item, and F to use it.
+///
+/// - Glowsticks: F cracks one and tosses it a few metres ahead, where it lies glowing yellow for minutes.
+///   Only a light to find your way by (the entities ignore it). Ten in a bundle at each campsite.
 ///
 /// - Flare gun: each one holds a single flare. Fire it into the sky and it bursts at the top of its arc,
 ///   wiping out every entity's hunt progress. Fired low, it's wasted. Found at campsites.
@@ -17,7 +20,10 @@ using UnityEngine;
 /// </summary>
 public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
-    public enum Item { Flashlight, Torch, Lighter, FlareGun }
+    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick }
+    const int SlotCount = 5;
+    [Tooltip("Glowsticks in each bundle found at a campsite.")]
+    public int glowsticksPerBundle = 10;
 
     [Header("Torch")]
     [Tooltip("Seconds a torch burns before it's used up for good.")]
@@ -49,6 +55,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public bool LighterLit { get; private set; }
     /// <summary>Flares left (one per flare gun picked up).</summary>
     public int FlareCount { get; private set; }
+    public int GlowstickCount { get; private set; }
 
     bool SafeZones.ISource.IsActive => TorchLit || LighterLit;
     Vector3 SafeZones.ISource.Center => transform.position;
@@ -62,8 +69,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun" };
-    Transform flareGunModel, muzzle;
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks" };
+    Transform flareGunModel, muzzle, glowstickModel;
 
     void OnEnable() => SafeZones.Register(this);
     void OnDisable() => SafeZones.Unregister(this);
@@ -77,6 +84,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         BuildTorch(hand);
         BuildLighter(hand);
         BuildFlareGun(hand);
+        glowstickModel = new GameObject("Held Glowstick").transform;
+        glowstickModel.SetParent(hand, false);
+        glowstickModel.localPosition = new Vector3(0.22f, -0.24f, 0.45f);
+        glowstickModel.localRotation = Quaternion.Euler(30f, 0f, -20f);
+        Glowstick.BuildModel(glowstickModel, false);
+        glowstickModel.gameObject.SetActive(false);
 
         fireLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FireLoop, true, false, 0f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.8f);
@@ -104,6 +117,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Item.Torch && TorchCount == 0) { Message("You don't have a torch"); return; }
         if (item == Item.Lighter && LighterCount == 0) { Message("You don't have a lighter"); return; }
         if (item == Item.FlareGun && FlareCount == 0) { Message("You don't have a flare gun"); return; }
+        if (item == Item.Glowstick && GlowstickCount == 0) { Message("You don't have any glowsticks"); return; }
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -144,6 +158,22 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         {
             FireFlare();
         }
+        else if (Selected == Item.Glowstick)
+        {
+            ThrowGlowstick();
+        }
+    }
+
+    void ThrowGlowstick()
+    {
+        if (GlowstickCount <= 0) return;
+        var cam = Camera.main;
+        Transform aim = cam != null ? cam.transform : transform;
+        Vector3 velocity = aim.forward * 7f + Vector3.up * 2f;
+        Glowstick.Throw(glowstickModel.position, velocity);
+        Play(ProceduralAudio.TwigSnap, 0.35f, 1.8f); // the crack
+        GlowstickCount--;
+        if (GlowstickCount == 0) Select(Item.Flashlight);
     }
 
     void FireFlare()
@@ -234,13 +264,18 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             FlareCount++;
             Message("Picked up a flare gun. Press 4 to hold it, then aim up and press F to fire.");
         }
+        else if (item == Item.Glowstick)
+        {
+            GlowstickCount += glowsticksPerBundle;
+            Message($"Picked up {glowsticksPerBundle} glowsticks. Press 5 to hold them, F to crack and throw one.");
+        }
     }
 
     /// <summary>Empties the hotbar back to just the flashlight (used when the run resets).</summary>
     public void ResetInventory()
     {
         TorchLit = LighterLit = false;
-        TorchCount = LighterCount = FlareCount = 0;
+        TorchCount = LighterCount = FlareCount = GlowstickCount = 0;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
         if (flashlight != null) flashlight.SetEquipped(true);
@@ -280,6 +315,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         }
 
         flareGunModel.gameObject.SetActive(Selected == Item.FlareGun);
+        glowstickModel.gameObject.SetActive(Selected == Item.Glowstick);
         lighterModel.gameObject.SetActive(Selected == Item.Lighter);
         lighterFlame.gameObject.SetActive(LighterLit);
         lighterLight.enabled = LighterLit;
@@ -406,7 +442,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
         float unit = Mathf.Max(1f, Screen.height / 1080f);
         float size = 76f * unit, gap = 10f * unit, margin = 24f * unit;
-        float x0 = (Screen.width - (4f * size + 3f * gap)) * 0.5f;
+        float x0 = (Screen.width - (SlotCount * size + (SlotCount - 1) * gap)) * 0.5f;
         float y = Screen.height - size - margin;
 
         if (nameStyle == null)
@@ -419,11 +455,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         numberStyle.fontSize = Mathf.RoundToInt(13f * unit);
         messageStyle.fontSize = Mathf.RoundToInt(17f * unit);
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < SlotCount; i++)
         {
             var item = (Item)i;
             var slot = new Rect(x0 + i * (size + gap), y, size, size);
-            int count = item == Item.Torch ? TorchCount : item == Item.Lighter ? LighterCount : item == Item.FlareGun ? FlareCount : 1;
+            int count = item == Item.Torch ? TorchCount : item == Item.Lighter ? LighterCount : item == Item.FlareGun ? FlareCount
+                : item == Item.Glowstick ? GlowstickCount : 1;
             bool owned = count > 0;
             bool selected = Selected == item;
             bool lit = (item == Item.Torch && TorchLit) || (item == Item.Lighter && LighterLit) || (item == Item.Flashlight && flashlight != null && flashlight.IsOn);
@@ -446,10 +483,11 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
             if (owned)
             {
-                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.FlareGun ? 1f : (flashlight != null ? flashlight.Battery : 1f);
+                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.FlareGun || item == Item.Glowstick ? 1f : (flashlight != null ? flashlight.Battery : 1f);
                 var bar = new Rect(slot.x + 8f * unit, slot.yMax - 14f * unit, slot.width - 16f * unit, 5f * unit);
                 DrawRect(bar, new Color(0.15f, 0.15f, 0.15f, 0.9f));
-                Color barColor = fill < 0.2f ? new Color(0.9f, 0.3f, 0.2f) : item == Item.Flashlight ? new Color(0.95f, 0.9f, 0.7f) : new Color(1f, 0.6f, 0.25f);
+                Color barColor = fill < 0.2f ? new Color(0.9f, 0.3f, 0.2f) : item == Item.Flashlight ? new Color(0.95f, 0.9f, 0.7f)
+                    : item == Item.Glowstick ? Glowstick.GlowColor : new Color(1f, 0.6f, 0.25f);
                 DrawRect(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(fill), bar.height), barColor);
             }
         }

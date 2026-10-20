@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// An abandoned campsite: a sagging tent, a burnt-out campfire with a few dying embers and a thin trail of
 /// smoke (it ignores fog, so you can spot camps far off across the forest), a log to sit on, and a backpack
-/// with a flare gun beside it. DarkForestGenerator places a few around the map.
+/// with a flare gun and a bundle of glowsticks beside it. DarkForestGenerator places a few around the map.
 /// </summary>
 public class Campsite : MonoBehaviour
 {
@@ -113,16 +113,16 @@ public class Campsite : MonoBehaviour
             puffRenderers.Add(renderer);
         }
 
-        SpawnFlareGun();
+        SpawnItems();
     }
 
-    /// <summary>Puts a fresh flare gun by the backpack if it's been taken (used when the run resets).</summary>
+    /// <summary>Puts a fresh flare gun and glowsticks by the backpack (used when the run resets).</summary>
     public void ResetCampsite()
     {
-        SpawnFlareGun();
+        SpawnItems();
     }
 
-    void SpawnFlareGun()
+    void SpawnItems()
     {
         if (backpack == null) return;
         foreach (var old in backpack.GetComponentsInChildren<ItemPickup>())
@@ -131,6 +131,7 @@ public class Campsite : MonoBehaviour
             else DestroyImmediate(old.gameObject);
         }
         ItemPickup.CreateFlareGun(backpack, new Vector3(0.35f, 0.02f, 0.15f), Random.Range(0f, 360f));
+        ItemPickup.CreateGlowsticks(backpack, new Vector3(-0.35f, 0.02f, -0.05f), Random.Range(0f, 360f));
     }
 
     void Update()

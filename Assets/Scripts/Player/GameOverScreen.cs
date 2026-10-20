@@ -71,6 +71,7 @@ public class GameOverScreen : MonoBehaviour
         foreach (var shack in Shack.All)
             shack.ResetShack();
 
+        Glowstick.ClearAll();
         foreach (var camp in Campsite.All)
             camp.ResetCampsite();
 
