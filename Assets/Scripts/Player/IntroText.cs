@@ -425,7 +425,7 @@ public class LampNarration : MonoBehaviour
     {
         (2, "LampText2", false, new[]
         {
-            "These are \"-Scours.\"",
+            "Have you seen the \"-Scours?\"",
             "They \"Really\" don't like light.",
             "\"Use it.\"",
         }),
