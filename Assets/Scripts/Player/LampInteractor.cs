@@ -9,8 +9,10 @@ using UnityEngine;
 /// </summary>
 public class LampInteractor : MonoBehaviour
 {
-    [Tooltip("How far away a lamp or battery can be clicked.")]
+    [Tooltip("How far away things can be clicked.")]
     public float reach = 3.5f;
+    [Tooltip("How far off the centre of the screen (in metres, at the object) something can be and still be picked out.")]
+    public float aimRadius = 0.6f;
     public bool showHud = true;
 
     Lamp focused;
@@ -21,6 +23,7 @@ public class LampInteractor : MonoBehaviour
     Flashlight flashlight;
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
+    static readonly Collider[] nearby = new Collider[128];
 
     void Update()
     {
@@ -34,14 +37,14 @@ public class LampInteractor : MonoBehaviour
         if (cam == null) return;
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
 
-        Transform t = cam.transform;
-        if (Physics.Raycast(t.position, t.forward, out var hit, reach, ~0, QueryTriggerInteraction.Collide))
+        Collider target = FindTarget(cam.transform);
+        if (target != null)
         {
-            focused = hit.collider.GetComponentInParent<Lamp>();
-            focusedBattery = hit.collider.GetComponentInParent<BatteryPickup>();
-            focusedDoor = hit.collider.GetComponentInParent<ShackDoor>();
-            focusedItem = hit.collider.GetComponentInParent<ItemPickup>();
-            focusedButton = hit.collider.GetComponentInParent<WatchtowerButton>();
+            focused = target.GetComponentInParent<Lamp>();
+            focusedBattery = target.GetComponentInParent<BatteryPickup>();
+            focusedDoor = target.GetComponentInParent<ShackDoor>();
+            focusedItem = target.GetComponentInParent<ItemPickup>();
+            focusedButton = target.GetComponentInParent<WatchtowerButton>();
         }
 
         if (!HorrorInput.ClickPressed || Cursor.lockState != CursorLockMode.Locked) return;
@@ -56,6 +59,64 @@ public class LampInteractor : MonoBehaviour
             focused.AddCharge();
         else if (focusedBattery != null)
             focusedBattery.Use(flashlight);
+    }
+
+    /// <summary>
+    /// Picks the interactable nearest to the line of sight, within reach and aimRadius of it,
+    /// that isn't hidden behind something. Much more forgiving than an exact raycast hit.
+    /// </summary>
+    Collider FindTarget(Transform cam)
+    {
+        Vector3 eye = cam.position, forward = cam.forward;
+        int count = Physics.OverlapSphereNonAlloc(eye, reach, nearby, ~0, QueryTriggerInteraction.Collide);
+
+        Collider best = null;
+        float bestScore = float.MaxValue;
+        for (int i = 0; i < count; i++)
+        {
+            Collider col = nearby[i];
+            Component owner = Owner(col);
+            if (owner == null) continue;
+
+            // The point on the object closest to the line of sight.
+            float along = Mathf.Clamp(Vector3.Dot(col.bounds.center - eye, forward), 0f, reach);
+            Vector3 closest = col.ClosestPoint(eye + forward * along);
+            float ahead = Vector3.Dot(closest - eye, forward);
+            if (ahead < 0f || (closest - eye).magnitude > reach) continue;
+
+            float offAxis = Vector3.Distance(closest, eye + forward * ahead);
+            if (offAxis > aimRadius) continue;
+            if (Blocked(eye, closest, owner)) continue;
+
+            float score = offAxis + ahead * 0.05f; // closest to the crosshair wins, nearer breaks ties
+            if (score < bestScore)
+            {
+                bestScore = score;
+                best = col;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>The interactable a collider belongs to, if any.</summary>
+    static Component Owner(Collider col)
+    {
+        Component c = col.GetComponentInParent<WatchtowerButton>();
+        if (c == null) c = col.GetComponentInParent<ItemPickup>();
+        if (c == null) c = col.GetComponentInParent<ShackDoor>();
+        if (c == null) c = col.GetComponentInParent<Lamp>();
+        if (c == null) c = col.GetComponentInParent<BatteryPickup>();
+        return c;
+    }
+
+    /// <summary>True if something solid that isn't part of the target is in the way.</summary>
+    static bool Blocked(Vector3 from, Vector3 to, Component owner)
+    {
+        Vector3 d = to - from;
+        float dist = d.magnitude;
+        if (dist < 0.1f) return false;
+        if (!Physics.Raycast(from, d / dist, out var hit, dist - 0.05f, ~0, QueryTriggerInteraction.Ignore)) return false;
+        return Owner(hit.collider) != owner;
     }
 
     void OnGUI()
