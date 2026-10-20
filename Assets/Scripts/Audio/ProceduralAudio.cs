@@ -15,7 +15,7 @@ public static class ProceduralAudio
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
         lampClick, lampIgnite, lampHum, leaves, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop,
-        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, advance, lampSpark, lampPowerDown;
+        doorCreak, pickup, lighterFlick, torchIgnite, fireLoop, burnOut, floodlight, treeSnap, treeImpact, advance, lampSpark, lampPowerDown;
 
     // ---------------------------------------------------------------- Ambience
 
@@ -69,6 +69,10 @@ public static class ProceduralAudio
 
     /// <summary>Leaves and needles rustling in the wind. Loops seamlessly.</summary>
     public static AudioClip Leaves => leaves != null ? leaves : (leaves = MakeLeaves());
+    /// <summary>A trunk cracking through: a sharp report, then splintering.</summary>
+    public static AudioClip TreeSnap => treeSnap != null ? treeSnap : (treeSnap = MakeTreeSnap());
+    /// <summary>A tree crashing to the ground: deep thud and smashing branches.</summary>
+    public static AudioClip TreeImpact => treeImpact != null ? treeImpact : (treeImpact = MakeTreeImpact());
     /// <summary>A trunk groaning as it bends.</summary>
     public static AudioClip TreeCreak => treeCreak != null ? treeCreak : (treeCreak = MakeTreeCreak());
 
@@ -432,6 +436,41 @@ public static class ProceduralAudio
             float swell = 0.6f + 0.4f * Sin(0.25f, t);
             return (lp - hp) * (0.2f + bursts) * swell;
         }, 0.6f);
+    }
+
+    static AudioClip MakeTreeSnap()
+    {
+        const float len = 1.4f;
+        float lp = 0f, splinter = 0f, groan = 0f;
+        return Shot("Tree Snap", len, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.5f;
+            float report = (w - lp * 0.5f) * Mathf.Exp(-t * 40f) * 1.5f;              // the crack itself
+            if (rng.NextDouble() < 0.004 * Mathf.Exp(-t * 2.5f))
+                splinter = (float)(rng.NextDouble() * 0.8 + 0.2);                      // fibres tearing
+            splinter *= 0.97f;
+            groan += TwoPi * (70f + 20f * Mathf.Sin(t * 9f)) / Rate;
+            float wood = Mathf.Sin(groan) * 0.3f * Mathf.Exp(-t * 2f);
+            return report + splinter * w + wood;
+        }, 1f);
+    }
+
+    static AudioClip MakeTreeImpact()
+    {
+        const float len = 2.5f;
+        float phase = 0f, lp = 0f, crack = 0f;
+        return Shot("Tree Impact", len, t =>
+        {
+            phase += TwoPi * (32f + 30f * Mathf.Exp(-t * 6f)) / Rate;
+            float thud = Mathf.Sin(phase) * Mathf.Exp(-t * 3f);
+            float w = White();
+            lp += (w - lp) * 0.08f;
+            float crash = lp * 2f * Mathf.Exp(-t * 2.2f);                               // branches smashing
+            if (rng.NextDouble() < 0.003 * Mathf.Exp(-t * 1.5f)) crack = (float)rng.NextDouble();
+            crack *= 0.96f;
+            return thud + crash + crack * w * 0.8f;
+        }, 1f);
     }
 
     static AudioClip MakeTreeCreak()

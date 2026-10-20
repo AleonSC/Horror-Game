@@ -92,6 +92,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnIntro = true;
     [Tooltip("Add Wildlife (beetles, rats, moths around lit lamps, bats overhead).")]
     public bool spawnWildlife = true;
+    [Tooltip("Add FallingTreeEvent (a nearby tree snaps and falls about 30 seconds in).")]
+    public bool spawnFallingTree = true;
 
     /// <summary>Positions (x, z) of every generated tree, so other scripts can avoid them.</summary>
     public readonly List<Vector2> TreePositions = new List<Vector2>();
@@ -218,6 +220,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Intro Text").AddComponent<IntroText>();
         if (spawnWildlife && FindAnyObjectByType<Wildlife>() == null)
             new GameObject("Wildlife").AddComponent<Wildlife>();
+        if (spawnFallingTree && Application.isPlaying && FindAnyObjectByType<FallingTreeEvent>() == null)
+            new GameObject("Falling Tree Event").AddComponent<FallingTreeEvent>();
 
         if (Application.isPlaying)
         {
