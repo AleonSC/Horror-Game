@@ -46,6 +46,21 @@ public static class MaterialFactory
         return mat;
     }
 
+    /// <summary>
+    /// A flat colour that ignores fog (Horror/Unlit No Fog), for things that must show through it from far away.
+    /// Drawing with an early renderQueue and no depth writes puts it behind everything, like the sky.
+    /// </summary>
+    public static Material NoFog(Color color, int renderQueue = (int)RenderQueue.Geometry, bool writeDepth = true)
+    {
+        Shader shader = Shader.Find("Horror/Unlit No Fog");
+        if (shader == null) return Unlit(color); // shader missing: fall back to fogged unlit
+        var mat = new Material(shader);
+        mat.SetColor("_Color", color);
+        mat.SetFloat("_ZWrite", writeDepth ? 1f : 0f);
+        mat.renderQueue = renderQueue;
+        return mat;
+    }
+
     /// <summary>Sets the main color on either pipeline's shader.</summary>
     public static void SetColor(Material mat, Color color)
     {
