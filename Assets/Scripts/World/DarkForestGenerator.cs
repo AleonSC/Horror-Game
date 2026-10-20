@@ -158,7 +158,6 @@ public class DarkForestGenerator : MonoBehaviour
 
     System.Random rng;
     Transform root;
-    Mesh coneMesh;
     Vector2 noiseOffset;
 
     // The ground is a sum of sine waves that each fit a whole number of times across the map,
@@ -168,7 +167,8 @@ public class DarkForestGenerator : MonoBehaviour
         public float kx, kz, amplitude, phase;
     }
     TerrainWave[] terrainWaves;
-    Material groundMat, barkMat, deadBarkMat, foliageMat, rockMat;
+    Material groundMat, barkMat, deadBarkMat, rockMat;
+    Material[] foliageMats;
 
     // When true, pressing Play in a scene with no generator and no player creates one automatically.
     // Set to false once you have other scenes (e.g. a main menu) that shouldn't get a forest.
@@ -210,7 +210,6 @@ public class DarkForestGenerator : MonoBehaviour
         }
 
         CreateMaterials();
-        coneMesh = BuildConeMesh(10);
 
         BuildGround();
         if (!wrapWorld) BuildBoundary();
@@ -488,30 +487,40 @@ public class DarkForestGenerator : MonoBehaviour
         tree.transform.SetParent(parent, false);
         tree.transform.localPosition = pos;
         tree.transform.localRotation = Quaternion.Euler(Range(-3f, 3f), Range(0f, 360f), Range(-3f, 3f));
-        Transform sway = AddTrunk(tree.transform, trunkHeight, trunkRadius, barkMat);
 
-        // Stacked cones of foliage, starting high so the lower trunk is bare and creepy.
-        int layers = rng.Next(3, 6);
+        var shape = new TrunkShape(this, trunkHeight, trunkRadius, 0.45f, scale);
         float foliageStart = trunkHeight * Range(0.3f, 0.45f);
+
+        Transform sway = AddTrunk(tree.transform, shape, barkMat, "Trunk", bark =>
+        {
+            // Snapped-off dead branch stubs on the bare lower trunk.
+            int stubs = rng.Next(3, 8);
+            for (int i = 0; i < stubs; i++)
+            {
+                float y = Range(trunkHeight * 0.12f, foliageStart);
+                Vector3 dir = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Vector3.forward;
+                dir = (dir + Vector3.up * Range(-0.3f, 0.25f)).normalized;
+                AddLimb(bark, shape, y, dir, Range(0.25f, 0.7f) * scale, shape.RadiusAt(y) * Range(0.2f, 0.32f), 0f, 0);
+            }
+        });
+
+        // Layers of drooping, star-shaped boughs, starting high so the lower trunk is bare and creepy.
+        var foliage = new MeshBuilder();
+        int layers = rng.Next(5, 9);
         float foliageSpan = trunkHeight * 1.05f - foliageStart;
         float baseRadius = Range(1.6f, 2.4f) * scale;
-
         for (int i = 0; i < layers; i++)
         {
             float t = i / (float)layers;
-            float radius = baseRadius * Mathf.Lerp(1f, 0.35f, t);
-            float height = foliageSpan / layers * 1.8f;
-
-            var cone = new GameObject("Foliage");
-            cone.transform.SetParent(sway, false);
-            cone.transform.localPosition = new Vector3(0f, foliageStart + foliageSpan * t, 0f);
-            cone.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
-            cone.transform.localScale = new Vector3(radius, height, radius);
-            cone.AddComponent<MeshFilter>().sharedMesh = coneMesh;
-            cone.AddComponent<MeshRenderer>().sharedMaterial = foliageMat;
+            float y = foliageStart + foliageSpan * t;
+            float radius = baseRadius * Mathf.Lerp(1f, 0.25f, Mathf.Pow(t, 0.9f)) * Range(0.85f, 1.15f);
+            float height = foliageSpan / layers * Range(1.5f, 2.1f);
+            AddBoughLayer(foliage, shape.Center(y), radius, height, Range(-6f, 6f), Range(-6f, 6f));
         }
-
-        MergeMeshes(sway, foliageMat, "Foliage");
+        var foliageObject = new GameObject("Foliage");
+        foliageObject.transform.SetParent(sway, false);
+        foliageObject.AddComponent<MeshFilter>().sharedMesh = foliage.ToMesh("Foliage", false);
+        foliageObject.AddComponent<MeshRenderer>().sharedMaterial = foliageMats[rng.Next(foliageMats.Length)];
     }
 
     void BuildDeadTree(Vector3 pos, Transform parent)
@@ -524,65 +533,329 @@ public class DarkForestGenerator : MonoBehaviour
         tree.transform.SetParent(parent, false);
         tree.transform.localPosition = pos;
         tree.transform.localRotation = Quaternion.Euler(Range(-8f, 8f), Range(0f, 360f), Range(-8f, 8f));
-        Transform sway = AddTrunk(tree.transform, trunkHeight, trunkRadius, deadBarkMat);
 
-        // Gnarled bare branches reaching outward and up.
-        int branches = rng.Next(3, 7);
-        for (int i = 0; i < branches; i++)
+        var shape = new TrunkShape(this, trunkHeight, trunkRadius, 0.3f, scale);
+        AddTrunk(tree.transform, shape, deadBarkMat, "Bark", bark =>
         {
-            float y = trunkHeight * Range(0.45f, 0.95f);
-            float length = Range(1f, 2.8f) * scale;
-            float radius = trunkRadius * Range(0.3f, 0.5f);
-
-            var pivot = new GameObject("Branch");
-            pivot.transform.SetParent(sway, false);
-            pivot.transform.localPosition = new Vector3(0f, y, 0f);
-            pivot.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Quaternion.Euler(Range(25f, 70f), 0f, 0f);
-
-            var branch = CreatePrimitive(PrimitiveType.Cylinder, "Limb", pivot.transform, deadBarkMat, withCollider: false);
-            branch.transform.localPosition = new Vector3(0f, length * 0.5f, 0f);
-            branch.transform.localScale = new Vector3(radius * 2f, length * 0.5f, radius * 2f);
-        }
-
-        MergeMeshes(sway, deadBarkMat, "Bark");
+            // Gnarled bare branches reaching outward and up, forking into twigs.
+            int branches = rng.Next(3, 7);
+            for (int i = 0; i < branches; i++)
+            {
+                float y = trunkHeight * Range(0.45f, 0.92f);
+                Vector3 dir = Quaternion.Euler(0f, Range(0f, 360f), 0f) * Quaternion.Euler(-Range(20f, 65f), 0f, 0f) * Vector3.forward;
+                AddLimb(bark, shape, y, dir, Range(1f, 2.8f) * scale, shape.RadiusAt(y) * Range(0.4f, 0.6f), 0.35f, rng.Next(1, 4));
+            }
+        });
     }
 
     /// <summary>
-    /// Merges every mesh under root that uses the given material into a single mesh. A big forest has
-    /// thousands of trees, so cutting each one down to one or two renderers keeps it running smoothly.
+    /// The outline of one tree's trunk: tapering, lumpy and slightly bent, with a flared base that
+    /// swells out into buttresses where the roots leave it. Heights are measured up from the ground.
     /// </summary>
-    void MergeMeshes(Transform root, Material mat, string name)
+    class TrunkShape
     {
-        var combine = new List<CombineInstance>();
-        var merged = new HashSet<Transform>();
-        Matrix4x4 toRoot = root.worldToLocalMatrix;
+        public readonly float height, radius, topRadius;
+        public readonly float[] rootAngles;
+        readonly Vector3 bendDir, wobbleDir;
+        readonly float bend, phase1, phase2, phase3, flare;
 
-        foreach (var filter in root.GetComponentsInChildren<MeshFilter>())
+        public TrunkShape(DarkForestGenerator g, float height, float radius, float topRadius, float scale)
         {
-            var renderer = filter.GetComponent<MeshRenderer>();
-            if (renderer == null || renderer.sharedMaterial != mat) continue;
-            combine.Add(new CombineInstance { mesh = filter.sharedMesh, transform = toRoot * filter.transform.localToWorldMatrix });
+            this.height = height;
+            this.radius = radius;
+            this.topRadius = topRadius;
+            float a = g.Range(0f, Mathf.PI * 2f), b = g.Range(0f, Mathf.PI * 2f);
+            bendDir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            wobbleDir = new Vector3(Mathf.Cos(b), 0f, Mathf.Sin(b));
+            bend = g.Range(0f, 0.3f) * scale;
+            phase1 = g.Range(0f, 10f);
+            phase2 = g.Range(0f, 10f);
+            phase3 = g.Range(0f, 10f);
+            flare = g.Range(0.6f, 1.1f);
 
-            // Remove the whole branch of the hierarchy it hangs from (e.g. a limb's pivot).
-            Transform top = filter.transform;
-            while (top.parent != root) top = top.parent;
-            merged.Add(top);
+            rootAngles = new float[g.rng.Next(3, 6)];
+            float start = g.Range(0f, Mathf.PI * 2f);
+            for (int i = 0; i < rootAngles.Length; i++)
+                rootAngles[i] = start + (i + g.Range(-0.25f, 0.25f)) / rootAngles.Length * Mathf.PI * 2f;
         }
-        if (combine.Count == 0) return;
 
-        var mesh = new Mesh { name = name };
-        mesh.CombineMeshes(combine.ToArray(), true, true);
-
-        var go = new GameObject(name);
-        go.transform.SetParent(root, false);
-        go.AddComponent<MeshFilter>().sharedMesh = mesh;
-        go.AddComponent<MeshRenderer>().sharedMaterial = mat;
-
-        foreach (var t in merged)
+        /// <summary>Centre of the trunk at a height.</summary>
+        public Vector3 Center(float y)
         {
-            t.gameObject.SetActive(false);
-            if (Application.isPlaying) Destroy(t.gameObject);
-            else DestroyImmediate(t.gameObject);
+            float t = Mathf.Clamp01(y / height);
+            Vector3 c = bendDir * bend * t * t + wobbleDir * 0.05f * Mathf.Sin(y * 1.1f + phase3) * Mathf.Clamp01(y * 0.5f);
+            c.y = y;
+            return c;
+        }
+
+        /// <summary>Average radius at a height (ignoring lumps and buttresses).</summary>
+        public float RadiusAt(float y) => radius * Mathf.Lerp(1f, topRadius, Mathf.Clamp01(y / height));
+
+        /// <summary>Radius at a height, in a direction around the trunk.</summary>
+        public float Radius(float y, float angle)
+        {
+            float r = RadiusAt(y);
+            float lumps = 1f + 0.07f * Mathf.Sin(3f * angle + phase1 + y * 0.8f) + 0.045f * Mathf.Sin(7f * angle + phase2 - y * 1.7f);
+
+            // Buttresses: the base swells out most towards each root.
+            float lobes = 0f;
+            foreach (float root in rootAngles)
+                lobes = Mathf.Max(lobes, Mathf.Pow(Mathf.Max(0f, Mathf.Cos(angle - root)), 4f));
+            float swell = flare * Mathf.Exp(-Mathf.Max(y, 0f) / (0.5f + radius * 1.5f)) * (0.35f + 0.65f * lobes);
+            return r * lumps + radius * swell;
+        }
+    }
+
+    /// <summary>
+    /// Adds a fixed trunk collider to the tree, roots spreading over the ground and diving into it, and a
+    /// "Sway" pivot at its base holding the visible trunk (a mesh called meshName, with anything addParts adds).
+    /// Foliage and branches go under the pivot, so the wind can bend the whole tree without moving the collider;
+    /// the roots stay put.
+    /// </summary>
+    Transform AddTrunk(Transform tree, TrunkShape shape, Material mat, string meshName, System.Action<MeshBuilder> addParts)
+    {
+        var col = tree.gameObject.AddComponent<CapsuleCollider>();
+        col.radius = shape.radius;
+        col.height = shape.height;
+        col.center = new Vector3(0f, shape.height * 0.5f, 0f);
+
+        var sway = new GameObject("Sway").transform;
+        sway.SetParent(tree, false);
+        SwayPivots.Add(sway);
+
+        // The trunk itself, sunk well into the ground so slopes never show a gap under it.
+        var bark = new MeshBuilder();
+        const int rings = 14;
+        var centers = new Vector3[rings + 1];
+        for (int j = 0; j < rings; j++)
+        {
+            float t = j / (float)(rings - 1);
+            centers[j] = shape.Center(-0.5f + (shape.height + 0.5f) * Mathf.Pow(t, 1.7f)); // denser rings low down, where the flare is
+        }
+        centers[rings] = shape.Center(shape.height + shape.radius * 0.5f); // closes the top in a blunt point
+        bark.AddTube(centers, (j, angle) => j == rings ? 0.01f : shape.Radius(centers[j].y, angle), 12, TileCount(shape.radius), 1.6f);
+        addParts?.Invoke(bark);
+
+        var trunk = new GameObject(meshName);
+        trunk.transform.SetParent(sway, false);
+        trunk.AddComponent<MeshFilter>().sharedMesh = bark.ToMesh(meshName, true);
+        trunk.AddComponent<MeshRenderer>().sharedMaterial = mat;
+
+        // Roots, following the lie of the ground.
+        var roots = new MeshBuilder();
+        foreach (float angle in shape.rootAngles)
+        {
+            var dir = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+            var side = new Vector3(-dir.z, 0f, dir.x);
+            float length = shape.radius * Range(3f, 6f) + Range(0.2f, 0.6f);
+            float thickness = shape.radius * Range(0.35f, 0.5f);
+            float wiggle = Range(-0.15f, 0.15f) * length, wigglePhase = Range(0f, 6f);
+
+            const int steps = 8;
+            var path = new Vector3[steps];
+            var widths = new float[steps];
+            for (int i = 0; i < steps; i++)
+            {
+                float t = i / (float)(steps - 1);
+                Vector3 p = dir * (shape.radius * 0.4f + length * t) + side * wiggle * Mathf.Sin(t * 2.5f + wigglePhase) * t;
+                widths[i] = thickness * Mathf.Pow(1f - t, 1.1f) + 0.015f;
+                // Starts high on the flare, arches along just above the ground, then dives in.
+                p.y = LocalGround(tree, p) + widths[i] * 0.35f + shape.radius * 0.6f * (1f - t) * (1f - t) - 0.3f * t * t * t;
+                path[i] = p;
+            }
+            roots.AddTube(path, (i, a) => widths[i], 7, 1, 1.2f, 0.65f);
+        }
+        var rootObject = new GameObject("Roots");
+        rootObject.transform.SetParent(tree, false);
+        rootObject.AddComponent<MeshFilter>().sharedMesh = roots.ToMesh("Roots", true);
+        rootObject.AddComponent<MeshRenderer>().sharedMaterial = mat;
+
+        return sway;
+    }
+
+    /// <summary>Height of the ground under a point in the tree's own space.</summary>
+    float LocalGround(Transform tree, Vector3 local)
+    {
+        Vector3 w = tree.TransformPoint(new Vector3(local.x, 0f, local.z));
+        w.y = GetGroundHeight(w.x, w.z);
+        return tree.InverseTransformPoint(w).y;
+    }
+
+    /// <summary>How many times the bark texture wraps around a trunk, so it isn't stretched on thick ones.</summary>
+    static int TileCount(float radius) => Mathf.Max(1, Mathf.RoundToInt(radius * Mathf.PI * 2f / 0.7f));
+
+    /// <summary>
+    /// A branch leaving the trunk at a height: a tapering, slightly curving limb, with forked twigs near its end.
+    /// curl bends it upward along its length.
+    /// </summary>
+    void AddLimb(MeshBuilder mesh, TrunkShape shape, float y, Vector3 dir, float length, float thickness, float curl, int twigs)
+    {
+        Vector3 start = shape.Center(y) + new Vector3(dir.x, 0f, dir.z).normalized * shape.RadiusAt(y) * 0.5f;
+        Vector3 kink = Random3() * 0.25f;
+        const int steps = 6;
+        var path = new Vector3[steps];
+        var widths = new float[steps];
+        for (int i = 0; i < steps; i++)
+        {
+            float t = i / (float)(steps - 1);
+            path[i] = start + (dir * t + Vector3.up * curl * t * t + kink * Mathf.Sin(t * Mathf.PI)) * length;
+            widths[i] = thickness * (1f - 0.85f * t) + 0.006f;
+        }
+        mesh.AddTube(path, (i, a) => widths[i], 6, 1, 1.2f);
+
+        for (int k = 0; k < twigs; k++)
+        {
+            float t = Range(0.45f, 0.85f);
+            int i = Mathf.Min(steps - 2, Mathf.FloorToInt(t * (steps - 1)));
+            Vector3 from = Vector3.Lerp(path[i], path[i + 1], t * (steps - 1) - i);
+            Vector3 along = (path[i + 1] - path[i]).normalized;
+            Vector3 twigDir = (along + Random3() * 0.9f + Vector3.up * 0.3f).normalized;
+            float twigLength = length * Range(0.25f, 0.45f);
+            float twigWidth = Mathf.Lerp(widths[i], widths[i + 1], 0.5f) * 0.6f;
+            Vector3 twigKink = Random3() * 0.3f;
+
+            var twig = new Vector3[4];
+            var twigWidths = new float[4];
+            for (int j = 0; j < 4; j++)
+            {
+                float u = j / 3f;
+                twig[j] = from + (twigDir * u + twigKink * u * u) * twigLength;
+                twigWidths[j] = twigWidth * (1f - 0.9f * u) + 0.004f;
+            }
+            mesh.AddTube(twig, (j, a) => twigWidths[j], 5, 1, 1.2f);
+        }
+    }
+
+    Vector3 Random3() => new Vector3(Range(-1f, 1f), Range(-1f, 1f), Range(-1f, 1f));
+
+    /// <summary>
+    /// One layer of pine boughs: a ring of branch tips drooping at the ends with gaps between them, sloping up
+    /// to the trunk, with a hollow underside (what you see looking up into the canopy). Needles run outward.
+    /// </summary>
+    void AddBoughLayer(MeshBuilder mesh, Vector3 center, float radius, float height, float tiltX, float tiltZ)
+    {
+        int tips = rng.Next(7, 12);
+        int points = tips * 2;
+        float rotation = Range(0f, Mathf.PI * 2f);
+        Quaternion tilt = Quaternion.Euler(tiltX, 0f, tiltZ);
+
+        var tipRadius = new float[points + 1];
+        var tipDroop = new float[points + 1];
+        for (int k = 0; k < points; k++)
+        {
+            bool tip = k % 2 == 0;
+            tipRadius[k] = tip ? Range(0.85f, 1.15f) : Range(0.5f, 0.65f);
+            tipDroop[k] = tip ? Range(0.08f, 0.22f) * radius : -0.04f * radius;
+        }
+        tipRadius[points] = tipRadius[0];
+        tipDroop[points] = tipDroop[0];
+
+        // Rings from the outer edge inward: (fraction of each point's radius, height above the layer base).
+        Vector3 Point(int k, float radial, float up, float droop)
+        {
+            float a = rotation + k / (float)points * Mathf.PI * 2f;
+            float r = radius * Mathf.Lerp(radial, tipRadius[k] * radial, radial);
+            return center + tilt * new Vector3(Mathf.Cos(a) * r, up - tipDroop[k] * droop, Mathf.Sin(a) * r);
+        }
+        var top = new[] { (1f, 0f, 1f), (0.55f, height * 0.45f, 0.3f), (0f, height, 0f) };
+        var under = new[] { (1f, 0f, 1f), (0.45f, height * 0.2f, 0.2f), (0f, height * 0.4f, 0f) };
+
+        AddSurface(mesh, Point, top, points, tips, radius, false);
+        AddSurface(mesh, Point, under, points, tips, radius, true);
+    }
+
+    static void AddSurface(MeshBuilder mesh, System.Func<int, float, float, float, Vector3> point, (float radial, float up, float droop)[] rings,
+        int points, int tips, float radius, bool flip)
+    {
+        int first = mesh.vertices.Count;
+        foreach (var ring in rings)
+        {
+            for (int k = 0; k <= points; k++)
+            {
+                mesh.vertices.Add(point(k, ring.radial, ring.up, ring.droop));
+                // Each bough is one width of texture; v runs in toward the trunk.
+                mesh.uvs.Add(new Vector2(k / (float)points * tips, (1f - ring.radial) * radius / 1.2f));
+            }
+            if (mesh.vertices.Count - first > points + 1) mesh.seams.Add((mesh.vertices.Count - points - 1, mesh.vertices.Count - 1));
+        }
+        mesh.seams.Add((first, first + points));
+        mesh.AddGrid(first, rings.Length, points, flip);
+    }
+
+    /// <summary>Collects vertices and triangles for a procedural mesh (tubes for trunks and branches, bough layers).</summary>
+    class MeshBuilder
+    {
+        public readonly List<Vector3> vertices = new List<Vector3>();
+        public readonly List<Vector2> uvs = new List<Vector2>();
+        public readonly List<int> triangles = new List<int>();
+        /// <summary>Pairs of vertices at the same spot (where the texture wraps), whose normals get averaged.</summary>
+        public readonly List<(int, int)> seams = new List<(int, int)>();
+
+        /// <summary>
+        /// A tube along a path. radius(ring, angle) gives its outline; it wraps the texture `wraps` times around,
+        /// one texture height per metresPerV along its length. flatten squashes it top to bottom (for roots).
+        /// </summary>
+        public void AddTube(IList<Vector3> path, System.Func<int, float, float> radius, int segments, int wraps, float metresPerV, float flatten = 1f)
+        {
+            int first = vertices.Count;
+            float v = 0f;
+            Vector3 side = Vector3.zero;
+            for (int j = 0; j < path.Count; j++)
+            {
+                Vector3 forward = (path[Mathf.Min(j + 1, path.Count - 1)] - path[Mathf.Max(j - 1, 0)]).normalized;
+                // Carry the frame along the path so the tube doesn't twist.
+                if (j == 0) side = Vector3.Cross(Mathf.Abs(forward.y) < 0.95f ? Vector3.up : Vector3.right, forward).normalized;
+                else side = (side - forward * Vector3.Dot(side, forward)).normalized;
+                Vector3 up = Vector3.Cross(forward, side);
+                if (j > 0) v += Vector3.Distance(path[j], path[j - 1]) / metresPerV;
+
+                for (int k = 0; k <= segments; k++)
+                {
+                    float a = k / (float)segments * Mathf.PI * 2f;
+                    float r = radius(j, a);
+                    vertices.Add(path[j] + up * (Mathf.Cos(a) * r * flatten) + side * (Mathf.Sin(a) * r));
+                    uvs.Add(new Vector2(k / (float)segments * wraps, v));
+                }
+                seams.Add((vertices.Count - segments - 1, vertices.Count - 1));
+            }
+            AddGrid(first, path.Count, segments, false);
+        }
+
+        /// <summary>Triangles joining rings of (columns + 1) vertices, each ring to the next.</summary>
+        public void AddGrid(int first, int rings, int columns, bool flip)
+        {
+            int stride = columns + 1;
+            for (int j = 0; j < rings - 1; j++)
+            {
+                for (int k = 0; k < columns; k++)
+                {
+                    int a = first + j * stride + k, b = a + stride, c = a + 1, d = b + 1;
+                    if (flip) { triangles.Add(a); triangles.Add(c); triangles.Add(b); triangles.Add(c); triangles.Add(d); triangles.Add(b); }
+                    else { triangles.Add(a); triangles.Add(b); triangles.Add(c); triangles.Add(c); triangles.Add(b); triangles.Add(d); }
+                }
+            }
+        }
+
+        public Mesh ToMesh(string name, bool tangents)
+        {
+            var mesh = new Mesh { name = name };
+            if (vertices.Count > 65000) mesh.indexFormat = IndexFormat.UInt32;
+            mesh.SetVertices(vertices);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+
+            // Smooth over the texture seams.
+            var normals = mesh.normals;
+            foreach (var (a, b) in seams)
+            {
+                Vector3 n = (normals[a] + normals[b]).normalized;
+                normals[a] = normals[b] = n;
+            }
+            mesh.normals = normals;
+            if (tangents) mesh.RecalculateTangents();
+            mesh.RecalculateBounds();
+            return mesh;
         }
     }
 
@@ -954,40 +1227,20 @@ public class DarkForestGenerator : MonoBehaviour
             : MaterialFactory.LitTextured(ProceduralTextures.Dirt, ProceduralTextures.DirtNormal, 0.1f);
         barkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.11f, 0.08f, 0.06f));
         deadBarkMat = barkMaterial != null ? barkMaterial : MaterialFactory.Lit(new Color(0.16f, 0.15f, 0.14f));
-        foliageMat = foliageMaterial != null ? foliageMaterial : MaterialFactory.Lit(new Color(0.03f, 0.08f, 0.05f));
-        rockMat = rockMaterial != null ? rockMaterial : MaterialFactory.Lit(new Color(0.18f, 0.18f, 0.19f));
-    }
-
-    /// <summary>Unit cone: radius 1 at y=0, apex at y=1. Faceted for a low-poly look.</summary>
-    static Mesh BuildConeMesh(int segments)
-    {
-        var verts = new List<Vector3>();
-        var tris = new List<int>();
-        Vector3 apex = Vector3.up;
-
-        for (int i = 0; i < segments; i++)
+        if (barkMaterial == null)
         {
-            float a0 = i / (float)segments * Mathf.PI * 2f;
-            float a1 = (i + 1) / (float)segments * Mathf.PI * 2f;
-            var p0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0));
-            var p1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
-
-            // Side face
-            int s = verts.Count;
-            verts.Add(p0); verts.Add(apex); verts.Add(p1);
-            tris.Add(s); tris.Add(s + 1); tris.Add(s + 2);
-
-            // Bottom cap face
-            int b = verts.Count;
-            verts.Add(p0); verts.Add(p1); verts.Add(Vector3.zero);
-            tris.Add(b); tris.Add(b + 1); tris.Add(b + 2);
+            barkMat = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.95f, 0.85f, 0.78f), 0.05f);
+            deadBarkMat = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(1f, 1f, 1f), 0.08f);
         }
-
-        var mesh = new Mesh { name = "Cone" };
-        mesh.SetVertices(verts);
-        mesh.SetTriangles(tris, 0);
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
-        return mesh;
+        // A few shades of needles, so neighbouring pines don't all match.
+        foliageMats = foliageMaterial != null
+            ? new[] { foliageMaterial }
+            : new[]
+            {
+                MaterialFactory.LitTextured(ProceduralTextures.Needles, null, Color.white, 0.05f),
+                MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(0.75f, 0.85f, 0.8f), 0.05f),
+                MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(1f, 0.95f, 0.75f), 0.05f),
+            };
+        rockMat = rockMaterial != null ? rockMaterial : MaterialFactory.Lit(new Color(0.18f, 0.18f, 0.19f));
     }
 }
