@@ -62,6 +62,9 @@ public class IntroText : MonoBehaviour
 
     /// <summary>True while any narration is on screen (so mid-game narration waits its turn).</summary>
     public static bool AnyShowing => showing > 0;
+
+    /// <summary>How opaque the opening black screen is right now, 0 to 1 (the player wakes up once it lifts).</summary>
+    public static float BlackScreen { get; private set; }
     static int showing;
 
     bool isOpening = true;
@@ -162,12 +165,14 @@ public class IntroText : MonoBehaviour
     {
         showing = Mathf.Max(0, showing - 1);
         if (isOpening) Playing = false;
+        if (showBlackScreen) BlackScreen = 0f;
     }
 
     void Update()
     {
         if (starts == null) PlanTiming();
         timer += Time.deltaTime;
+        if (showBlackScreen) BlackScreen = 1f - Mathf.Clamp01((timer - startDelay) / Mathf.Max(blackScreenFadeTime, 0.01f));
         if (IsFinished && isOpening) Playing = false;
         if (IsFinished && (!showBlackScreen || timer > startDelay + blackScreenFadeTime))
         {

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// First person controller with walk, run, jump and crouch, built on CharacterController.
@@ -40,6 +42,17 @@ public class FirstPersonController : MonoBehaviour
     public bool toggleCrouch = false;
     [Tooltip("Layers that block the player from standing up.")]
     public LayerMask ceilingMask = ~0;
+
+    [Header("Waking Up")]
+    [Tooltip("Seconds after spawning that the player is groggy: slow, heavy movement and blurred, swaying vision, clearing as it wears off.")]
+    public float wakeTime = 5f;
+    [Range(0f, 1f), Tooltip("Movement speed at the start, as a fraction of normal.")]
+    public float wakeSpeed = 0.35f;
+    [Range(0f, 1f), Tooltip("How blurred the view is at the start.")]
+    public float wakeBlur = 0.7f;
+
+    /// <summary>0 when fully awake, 1 just after spawning.</summary>
+    public float Grogginess { get; private set; }
 
     [Header("Look")]
     public float mouseSensitivity = 2f;
@@ -116,6 +129,40 @@ public class FirstPersonController : MonoBehaviour
         spawnPosition = transform.position;
         spawnRotation = transform.rotation;
         if (lockCursor) SetCursorLocked(true);
+        wakeTimer = wakeTime;
+    }
+
+    float wakeTimer;
+    Volume wakeVolume;
+
+    /// <summary>
+    /// Groggy for a few seconds after spawning: it wears off over wakeTime (only once the opening black screen
+    /// has lifted, so you actually feel it). The blur is a depth of field over everything, fading out.
+    /// </summary>
+    void UpdateWaking()
+    {
+        if (IntroText.BlackScreen < 0.3f) wakeTimer = Mathf.Max(0f, wakeTimer - Time.deltaTime);
+        float g = wakeTime > 0f ? wakeTimer / wakeTime : 0f;
+        Grogginess = g * g * (3f - 2f * g); // clears slowly at first, then quickly
+
+        if (Grogginess > 0f && wakeVolume == null)
+        {
+            wakeVolume = new GameObject("Waking Blur").AddComponent<Volume>();
+            wakeVolume.isGlobal = true;
+            wakeVolume.priority = 90f;
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            wakeVolume.profile = profile;
+            var dof = profile.Add<DepthOfField>(true);
+            dof.mode.Override(DepthOfFieldMode.Gaussian);
+            dof.gaussianStart.Override(0.2f);
+            dof.gaussianEnd.Override(3f);
+            dof.gaussianMaxRadius.Override(1.5f);
+            dof.highQualitySampling.Override(true);
+            var cam = cameraRoot != null ? cameraRoot.GetComponentInChildren<Camera>() : null;
+            var data = cam != null ? cam.GetUniversalAdditionalCameraData() : null;
+            if (data != null) data.renderPostProcessing = true;
+        }
+        if (wakeVolume != null) wakeVolume.weight = Grogginess * wakeBlur;
     }
 
     /// <summary>Moves the player back to where they started and clears any movement effects.</summary>
@@ -140,12 +187,14 @@ public class FirstPersonController : MonoBehaviour
         pendingShake = 0f;
         ladder = null;
         ladderContacts = 0;
+        wakeTimer = wakeTime; // waking up again
     }
 
     void Update()
     {
         if (PauseMenu.IsPaused) return;
         HandleCursor();
+        UpdateWaking();
         HandleLook();
         HandleCrouch();
         HandleMovement();
@@ -169,7 +218,7 @@ public class FirstPersonController : MonoBehaviour
     {
         if (lockCursor && Cursor.lockState != CursorLockMode.Locked) return;
 
-        Vector2 look = HorrorInput.Look * mouseSensitivity;
+        Vector2 look = HorrorInput.Look * mouseSensitivity * Mathf.Lerp(1f, 0.5f, Grogginess); // heavy-headed
         transform.Rotate(Vector3.up, look.x, Space.Self);
 
         pitch += invertY ? look.y : -look.y;
@@ -225,12 +274,13 @@ public class FirstPersonController : MonoBehaviour
         Vector2 input = Vector2.ClampMagnitude(HorrorInput.Move, 1f);
         bool hasInput = input.sqrMagnitude > 0.01f;
 
-        IsRunning = HorrorInput.RunHeld && !IsCrouching && hasInput && input.y > 0f;
+        IsRunning = HorrorInput.RunHeld && !IsCrouching && hasInput && input.y > 0f && Grogginess < 0.3f; // can't run yet
 
-        float targetSpeed = (IsCrouching ? crouchSpeed : IsRunning ? runSpeed : walkSpeed) * Water.SpeedFactor(transform.position); // wading is slow
+        float targetSpeed = (IsCrouching ? crouchSpeed : IsRunning ? runSpeed : walkSpeed) * Water.SpeedFactor(transform.position) // wading is slow
+                            * Mathf.Lerp(1f, wakeSpeed, Grogginess);                                                       // and so is waking up
         Vector3 desired = (transform.right * input.x + transform.forward * input.y) * targetSpeed;
 
-        float accel = grounded ? acceleration : acceleration * airControl;
+        float accel = (grounded ? acceleration : acceleration * airControl) * Mathf.Lerp(1f, 0.35f, Grogginess); // sluggish to start and stop
         horizontalVelocity = Vector3.Lerp(horizontalVelocity, desired, 1f - Mathf.Exp(-accel * Time.deltaTime));
         // Applied to this frame's movement only, so the slowdown doesn't compound frame to frame.
         moveVelocity = horizontalVelocity;
@@ -370,7 +420,10 @@ public class FirstPersonController : MonoBehaviour
         cameraRoot.localPosition = Vector3.Lerp(cameraRoot.localPosition, target, 1f - Mathf.Exp(-15f * Time.deltaTime));
         Vector3 shake = pendingShake > 0f ? Random.insideUnitSphere * pendingShake : Vector3.zero;
         pendingShake = 0f;
-        cameraRoot.localRotation = Quaternion.Euler(pitch + shake.x, shake.y, shake.z);
+        // Groggy: the head lolls and sways a little.
+        float t = Time.time;
+        Vector3 sway = new Vector3(Mathf.Sin(t * 0.9f) * 2f, Mathf.Sin(t * 0.6f + 1f) * 2.5f, Mathf.Sin(t * 0.7f + 2f) * 4f) * Grogginess;
+        cameraRoot.localRotation = Quaternion.Euler(pitch + shake.x + sway.x, shake.y + sway.y, shake.z + sway.z);
         UpdateDreamView();
     }
 
