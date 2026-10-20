@@ -69,7 +69,7 @@ public class LampInteractor : MonoBehaviour
         else if (focused != null && !focused.IsLit)
             focused.AddCharge();
         else if (focusedBattery != null)
-            focusedBattery.Use(flashlight);
+            focusedBattery.PickUp(hotbar);
     }
 
     /// <summary>
@@ -195,10 +195,7 @@ public class LampInteractor : MonoBehaviour
 
         if (focusedBattery != null)
         {
-            bool full = flashlight != null && flashlight.IsFull;
-            string text = full
-                ? "Your flashlight is already full"
-                : $"Click to use the battery (+{Mathf.RoundToInt(focusedBattery.charge * 100f)}%)";
+            string text = "Click to pick up the battery";
             GUI.Label(new Rect(cx - 200f, cy + 20f, 400f, 30f), text, labelStyle);
         }
 

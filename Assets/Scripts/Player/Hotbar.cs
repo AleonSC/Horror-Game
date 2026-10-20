@@ -1,8 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter, 4 = flare gun, 5 = glowsticks. Press a
-/// number (or scroll the mouse wheel) to hold that item, and F to use it.
+/// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter, 4 = flare gun, 5 = glowsticks, 6 = batteries.
+/// Press a number (or scroll the mouse wheel) to hold that item, and F to use it.
+///
+/// - Batteries: picked-up batteries pile up in slot 6. F puts one in the flashlight, topping it up by
+///   batteryCharge, and goes back to the flashlight.
 ///
 /// - Glowsticks: F cracks one and tosses it a few metres ahead, where it lies glowing yellow for minutes.
 ///   Only a light to find your way by (the entities ignore it). Ten in a bundle at each campsite.
@@ -20,8 +23,10 @@ using UnityEngine;
 /// </summary>
 public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
-    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick }
-    const int SlotCount = 5;
+    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery }
+    const int SlotCount = 6;
+    [Range(0f, 1f), Tooltip("How much of the flashlight each battery refills.")]
+    public float batteryCharge = 0.1f;
     [Tooltip("Glowsticks in each bundle found at a campsite.")]
     public int glowsticksPerBundle = 10;
 
@@ -56,6 +61,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     /// <summary>Flares left (one per flare gun picked up).</summary>
     public int FlareCount { get; private set; }
     public int GlowstickCount { get; private set; }
+    public int BatteryCount { get; private set; }
 
     bool SafeZones.ISource.IsActive => TorchLit || LighterLit;
     Vector3 SafeZones.ISource.Center => transform.position;
@@ -69,8 +75,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks" };
-    Transform flareGunModel, muzzle, glowstickModel;
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries" };
+    Transform flareGunModel, muzzle, glowstickModel, batteryModel;
 
     void OnEnable() => SafeZones.Register(this);
     void OnDisable() => SafeZones.Unregister(this);
@@ -90,6 +96,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         glowstickModel.localRotation = Quaternion.Euler(30f, 0f, -20f);
         Glowstick.BuildModel(glowstickModel, false);
         glowstickModel.gameObject.SetActive(false);
+        BuildBattery(hand);
 
         fireLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FireLoop, true, false, 0f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.8f);
@@ -122,6 +129,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Item.Lighter && LighterCount == 0) { Message("You don't have a lighter"); return; }
         if (item == Item.FlareGun && FlareCount == 0) { Message("You don't have a flare gun"); return; }
         if (item == Item.Glowstick && GlowstickCount == 0) { Message("You don't have any glowsticks"); return; }
+        if (item == Item.Battery && BatteryCount == 0) { Message("You don't have any batteries"); return; }
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -150,7 +158,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         item == Item.Torch ? TorchCount :
         item == Item.Lighter ? LighterCount :
         item == Item.FlareGun ? FlareCount :
-        item == Item.Glowstick ? GlowstickCount : 1;
+        item == Item.Glowstick ? GlowstickCount :
+        item == Item.Battery ? BatteryCount : 1;
 
     void Use()
     {
@@ -187,6 +196,34 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         {
             ThrowGlowstick();
         }
+        else if (Selected == Item.Battery)
+        {
+            UseBattery();
+        }
+    }
+
+    /// <summary>Puts a battery in the flashlight, then goes back to holding it.</summary>
+    void UseBattery()
+    {
+        if (BatteryCount <= 0) return;
+        if (flashlight == null || !flashlight.AddBattery(batteryCharge))
+        {
+            Message("Your flashlight is already full");
+            return;
+        }
+        BatteryCount--;
+        Play(ProceduralAudio.BatteryInsert, 0.9f);
+        Message($"Flashlight +{Mathf.RoundToInt(batteryCharge * 100f)}% ({Mathf.RoundToInt(flashlight.Battery * 100f)}%)");
+        Select(Item.Flashlight);
+    }
+
+    /// <summary>Adds a picked-up battery to the battery slot.</summary>
+    public void AddBattery()
+    {
+        BatteryCount++;
+        Message(BatteryCount == 1
+            ? "Picked up a battery. Press 6 to hold it, F to put it in the flashlight."
+            : $"Picked up a battery ({BatteryCount})");
     }
 
     void ThrowGlowstick()
@@ -302,7 +339,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public void ResetInventory()
     {
         TorchLit = LighterLit = false;
-        TorchCount = LighterCount = FlareCount = GlowstickCount = 0;
+        TorchCount = LighterCount = FlareCount = GlowstickCount = BatteryCount = 0;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
         if (flashlight != null) flashlight.SetEquipped(true);
@@ -343,6 +380,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
         flareGunModel.gameObject.SetActive(Selected == Item.FlareGun);
         glowstickModel.gameObject.SetActive(Selected == Item.Glowstick);
+        batteryModel.gameObject.SetActive(Selected == Item.Battery);
         lighterModel.gameObject.SetActive(Selected == Item.Lighter);
         lighterFlame.gameObject.SetActive(LighterLit);
         lighterLight.enabled = LighterLit;
@@ -420,6 +458,21 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         lighterModel.gameObject.SetActive(false);
     }
 
+    void BuildBattery(Transform hand)
+    {
+        var body = MaterialFactory.Lit(new Color(0.08f, 0.08f, 0.09f), 0.4f);
+        var label = MaterialFactory.Lit(new Color(0.75f, 0.45f, 0.1f), 0.5f);
+        var metal = MaterialFactory.Lit(new Color(0.6f, 0.6f, 0.62f), 0.8f);
+        batteryModel = new GameObject("Held Battery").transform;
+        batteryModel.SetParent(hand, false);
+        batteryModel.localPosition = new Vector3(0.2f, -0.2f, 0.42f);
+        batteryModel.localRotation = Quaternion.Euler(-70f, 15f, 0f);
+        Part(PrimitiveType.Cylinder, body, batteryModel, Vector3.zero, new Vector3(0.034f, 0.03f, 0.034f));
+        Part(PrimitiveType.Cylinder, label, batteryModel, new Vector3(0f, 0.008f, 0f), new Vector3(0.0345f, 0.016f, 0.0345f));
+        Part(PrimitiveType.Cylinder, metal, batteryModel, new Vector3(0f, 0.033f, 0f), new Vector3(0.012f, 0.004f, 0.012f));
+        batteryModel.gameObject.SetActive(false);
+    }
+
     void BuildFlareGun(Transform hand)
     {
         flareGunModel = new GameObject("Held Flare Gun").transform;
@@ -470,8 +523,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         {
             var item = (Item)i;
             var slot = new Rect(x0 + i * (size + gap), y, size, size);
-            int count = item == Item.Torch ? TorchCount : item == Item.Lighter ? LighterCount : item == Item.FlareGun ? FlareCount
-                : item == Item.Glowstick ? GlowstickCount : 1;
+            int count = Count(item);
             bool owned = count > 0;
             bool selected = Selected == item;
             bool lit = (item == Item.Torch && TorchLit) || (item == Item.Lighter && LighterLit) || (item == Item.Flashlight && flashlight != null && flashlight.IsOn);
@@ -494,11 +546,11 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
             if (owned)
             {
-                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.FlareGun || item == Item.Glowstick ? 1f : (flashlight != null ? flashlight.Battery : 1f);
+                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.FlareGun || item == Item.Glowstick || item == Item.Battery ? 1f : (flashlight != null ? flashlight.Battery : 1f);
                 var bar = new Rect(slot.x + 8f * unit, slot.yMax - 14f * unit, slot.width - 16f * unit, 5f * unit);
                 DrawRect(bar, new Color(0.15f, 0.15f, 0.15f, 0.9f));
                 Color barColor = fill < 0.2f ? new Color(0.9f, 0.3f, 0.2f) : item == Item.Flashlight ? new Color(0.95f, 0.9f, 0.7f)
-                    : item == Item.Glowstick ? Glowstick.GlowColor : new Color(1f, 0.6f, 0.25f);
+                    : item == Item.Glowstick ? Glowstick.GlowColor : item == Item.Battery ? new Color(0.4f, 0.95f, 0.5f) : new Color(1f, 0.6f, 0.25f);
                 DrawRect(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(fill), bar.height), barColor);
             }
         }

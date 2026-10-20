@@ -9,8 +9,8 @@ using UnityEngine;
 /// </summary>
 public class BatterySpawner : MonoBehaviour
 {
-    [Tooltip("Batteries scattered through the woods. More lie at campsites, sometimes on shack tables, and one is dropped by the first deer you startle.")]
-    public int batteryCount = 35;
+    [Tooltip("Batteries scattered through the woods. More lie at campsites, sometimes on shack tables, and and deer drop one every time they're startled.")]
+    public int batteryCount = 30;
     [Tooltip("Keep batteries at least this far from the middle of the map (where the player spawns).")]
     public float minDistanceFromCenter = 8f;
     public float minSpacing = 12f;
@@ -18,8 +18,8 @@ public class BatterySpawner : MonoBehaviour
     public float treeClearance = 1.2f;
     [Tooltip("Map size when there's no DarkForestGenerator in the scene.")]
     public float areaSize = 320f;
-    [Range(0f, 1f), Tooltip("How much of the flashlight each battery refills.")]
-    public float chargePerBattery = 0.25f;
+    [Range(0f, 1f), Tooltip("Unused: each battery in the hotbar refills Hotbar.batteryCharge of the flashlight.")]
+    public float chargePerBattery = 0.1f;
 
     readonly List<BatteryPickup> batteries = new List<BatteryPickup>();
 
@@ -34,7 +34,7 @@ public class BatterySpawner : MonoBehaviour
     {
         foreach (var battery in batteries) if (battery != null) Destroy(battery.gameObject);
         batteries.Clear();
-        DeerDropDone = false;
+
 
         var generator = FindAnyObjectByType<DarkForestGenerator>();
         float size = generator != null ? generator.areaSize : areaSize;
@@ -60,17 +60,9 @@ public class BatterySpawner : MonoBehaviour
         }
     }
 
-    /// <summary>True once a deer has dropped its battery this run.</summary>
-    public bool DeerDropDone { get; private set; }
-
-    /// <summary>
-    /// The first deer startled in a run drops a battery where it stood (the run reset clears it with the
-    /// rest). Does nothing after the first.
-    /// </summary>
+    /// <summary>A startled deer drops a battery where it stood (the run reset clears it with the rest).</summary>
     public void DropFromDeer(Vector3 at)
     {
-        if (DeerDropDone) return;
-        DeerDropDone = true;
         var generator = FindAnyObjectByType<DarkForestGenerator>();
         at.y = GroundHeight(generator, at);
         var battery = Create(null, at, Random.Range(0f, 360f), chargePerBattery);

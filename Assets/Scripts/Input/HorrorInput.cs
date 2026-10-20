@@ -55,7 +55,8 @@ public static class HorrorInput
         Kb.digit2Key.wasPressedThisFrame || Kb.numpad2Key.wasPressedThisFrame ? 2 :
         Kb.digit3Key.wasPressedThisFrame || Kb.numpad3Key.wasPressedThisFrame ? 3 :
         Kb.digit4Key.wasPressedThisFrame || Kb.numpad4Key.wasPressedThisFrame ? 4 :
-        Kb.digit5Key.wasPressedThisFrame || Kb.numpad5Key.wasPressedThisFrame ? 5 : 0;
+        Kb.digit5Key.wasPressedThisFrame || Kb.numpad5Key.wasPressedThisFrame ? 5 :
+        Kb.digit6Key.wasPressedThisFrame || Kb.numpad6Key.wasPressedThisFrame ? 6 : 0;
     public static bool ReleaseCursorPressed => Kb != null && Kb.escapeKey.wasPressedThisFrame;
     public static bool ClickPressed => Ms != null && Ms.leftButton.wasPressedThisFrame;
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
@@ -77,7 +78,8 @@ public static class HorrorInput
         Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2) ? 2 :
         Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3) ? 3 :
         Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4) ? 4 :
-        Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5) ? 5 : 0;
+        Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5) ? 5 :
+        Input.GetKeyDown(KeyCode.Alpha6) || Input.GetKeyDown(KeyCode.Keypad6) ? 6 : 0;
     public static bool ReleaseCursorPressed => Input.GetKeyDown(KeyCode.Escape);
     public static bool ClickPressed => Input.GetMouseButtonDown(0);
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>

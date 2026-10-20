@@ -10,8 +10,8 @@ public class BatteryPickup : MonoBehaviour
 {
     public static readonly List<BatteryPickup> All = new List<BatteryPickup>();
 
-    [Range(0f, 1f), Tooltip("How much of the flashlight battery this refills.")]
-    public float charge = 0.25f;
+    [Range(0f, 1f), Tooltip("Unused: each battery in the hotbar refills Hotbar.batteryCharge of the flashlight.")]
+    public float charge = 0.1f;
     public Color glowColor = new Color(0.3f, 1f, 0.4f);
     [Tooltip("Leave empty to use the built-in sound.")]
     public AudioClip useSound;
@@ -37,13 +37,13 @@ public class BatteryPickup : MonoBehaviour
         glow.intensity = 0.6f * pulse;
     }
 
-    /// <summary>Refills the flashlight and removes the battery. Returns false if the flashlight is already full.</summary>
-    public bool Use(Flashlight flashlight)
+    /// <summary>Puts the battery in the hotbar's battery slot (they stack) and removes it from the world.</summary>
+    public void PickUp(Hotbar hotbar)
     {
-        if (flashlight == null || !flashlight.AddBattery(charge)) return false;
-        ProceduralAudio.PlayAt(useSound != null ? useSound : ProceduralAudio.BatteryInsert, transform.position, 0.9f, 1f, 2f);
+        if (hotbar == null) return;
+        hotbar.AddBattery();
+        ProceduralAudio.PlayAt(ProceduralAudio.Pickup, transform.position, 0.8f, 1.1f, 2f);
         Destroy(gameObject);
-        return true;
     }
 
     void Build()

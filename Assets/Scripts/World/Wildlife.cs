@@ -676,7 +676,7 @@ public class Wildlife : MonoBehaviour
         Play(d.audio, deerAlarmSound != null ? deerAlarmSound : ProceduralAudio.DeerAlarm, Random.Range(0.85f, 1.1f));
         if (!d.loop.isPlaying) d.loop.Play();
 
-        // The first deer you startle in a run drops a battery as it bolts (only the one you spooked, not the herd).
+        // A deer you startle drops a battery as it bolts (only the one you spooked, not the herd).
         if (alertHerd)
         {
             if (batterySpawner == null) batterySpawner = FindAnyObjectByType<BatterySpawner>();
