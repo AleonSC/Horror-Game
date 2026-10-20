@@ -57,6 +57,8 @@ public class SpawnDebugOverlay : MonoBehaviour
         foreach (var entity in ShadowEntity.All)
             Add($"Entity ({entity.CurrentState}{(entity.Aggression > 0 ? $", aggression {entity.Aggression}" : "")})",
                 entity.transform.position + Vector3.up * 2.6f, EntityColor);
+        foreach (var blind in BlindEntity.All)
+            Add("Blind Entity", blind.transform.position + Vector3.up * 3.6f, EntityColor);
         if (WatcherEvent.Instance != null && WatcherEvent.Instance.TryGetGiantHead(out var head))
             Add("The Watcher", head, EntityColor);
     }

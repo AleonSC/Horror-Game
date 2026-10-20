@@ -148,6 +148,7 @@ public class Flashlight : MonoBehaviour
         flickerTimer = 0f;
         flickerLevel = 1f;
         PlayClick(1f);
+        Noise.Emit(transform.position, 3f); // a click, close by
     }
 
     /// <summary>Puts the flashlight away (off) or takes it back out (back on if it was on before).</summary>

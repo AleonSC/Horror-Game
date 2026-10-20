@@ -31,6 +31,7 @@ public class ShackDoor : MonoBehaviour
     {
         IsOpen = !IsOpen;
         if (linked != null) linked.IsOpen = IsOpen; // silently, it's the same door
+        Noise.Emit(transform.position, 13f); // a creaking hinge carries
         if (audioSource != null)
         {
             audioSource.pitch = IsOpen ? Random.Range(0.9f, 1.05f) : Random.Range(0.75f, 0.9f);

@@ -169,6 +169,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             {
                 Play(ProceduralAudio.LighterFlick, 0.7f);
                 Play(ProceduralAudio.TorchIgnite, 0.8f);
+                Noise.Emit(transform.position, 6f);
                 TorchLit = true;
                 SpendLighter(torchLightingCost);
             }
@@ -196,6 +197,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         Vector3 velocity = aim.forward * 7f + Vector3.up * 2f;
         Glowstick.Throw(glowstickModel.position, velocity);
         Play(ProceduralAudio.TwigSnap, 0.35f, 1.8f); // the crack
+        Noise.Emit(transform.position, 6f);
         GlowstickCount--;
         if (GlowstickCount == 0) Select(Item.Flashlight);
     }
@@ -207,6 +209,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         Vector3 direction = cam != null ? cam.transform.forward : transform.forward;
         Flare.Fire(muzzle.position, direction, 30f);
         Play(ProceduralAudio.FlareShot, 1f);
+        Noise.Emit(transform.position, 45f); // the whole forest hears that
         FlareCount--;
 
         if (direction.y < 0.4f) Message("Too low. Flares need to go up into the sky.");

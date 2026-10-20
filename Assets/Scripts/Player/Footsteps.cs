@@ -48,7 +48,11 @@ public class Footsteps : MonoBehaviour
         bool grounded = controller.IsGrounded;
         if (grounded)
         {
-            if (!wasGrounded && airTime > 0.3f) Step(landVolume);
+            if (!wasGrounded && airTime > 0.3f)
+            {
+                Step(landVolume);
+                Noise.Emit(transform.position, 11f); // a thump on landing carries
+            }
             airTime = 0f;
             // In the dream hallway you run without getting anywhere, but the footsteps keep coming.
             distance += Mathf.Lerp(delta.magnitude, controller.CurrentSpeed * Time.deltaTime, controller.DreamStretch);
@@ -64,6 +68,8 @@ public class Footsteps : MonoBehaviour
         {
             distance = 0f;
             Step(controller.IsCrouching ? crouchVolume : controller.IsRunning ? runVolume : walkVolume);
+            // How far each step can be heard: crouching barely at all, running a long way.
+            Noise.Emit(transform.position, controller.IsCrouching ? 1.5f : controller.IsRunning ? 17f : 7f);
         }
     }
 

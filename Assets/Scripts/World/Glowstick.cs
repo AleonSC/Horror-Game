@@ -92,6 +92,7 @@ public class Glowstick : MonoBehaviour
             if (next.y <= ground + 0.02f)
             {
                 landed = true;
+                Noise.Emit(next, 14f); // clatters as it lands: something to lure a listener away with
                 next.y = ground + 0.02f;
                 // Lies flat on the ground.
                 transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Quaternion.Euler(90f, 0f, 0f);

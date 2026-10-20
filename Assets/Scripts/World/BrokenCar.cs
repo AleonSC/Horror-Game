@@ -71,6 +71,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
             return;
         }
         LightsOn = !LightsOn;
+        Noise.Emit(transform.position, 9f);
         Play(ProceduralAudio.LampClick, 0.8f, LightsOn ? 1.2f : 0.9f);
         if (LightsOn) Play(ProceduralAudio.LampSpark, 0.3f, 1.4f);
     }

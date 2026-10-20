@@ -127,5 +127,6 @@ public class BushRustle : MonoBehaviour
         voice.transform.position = at;
         voice.pitch = Random.Range(0.85f, 1.2f);
         voice.PlayOneShot(ProceduralAudio.BushRustle, rustleVolume * Mathf.Clamp01(speed / 6f + 0.3f));
+        Noise.Emit(at, 7f + speed * 1.5f);
     }
 }

@@ -59,6 +59,8 @@ public class GameOverScreen : MonoBehaviour
     {
         foreach (var entity in new List<ShadowEntity>(ShadowEntity.All))
             Destroy(entity.gameObject);
+        foreach (var blind in new List<BlindEntity>(BlindEntity.All))
+            Destroy(blind.gameObject);
 
         foreach (var lamp in Lamp.All)
             lamp.ResetLamp();

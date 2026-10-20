@@ -40,6 +40,8 @@ public class EntityDread : MonoBehaviour
         foreach (var entity in ShadowEntity.All)
             if (entity != null && entity.IsVisible)
                 nearest = Mathf.Min(nearest, Vector3.Distance(entity.transform.position, listener));
+        foreach (var blind in BlindEntity.All)
+            if (blind != null) nearest = Mathf.Min(nearest, Vector3.Distance(blind.transform.position, listener));
 
         float target = Mathf.Clamp01(Mathf.InverseLerp(silenceDistance, fullSilenceDistance, nearest));
         if (GameOverScreen.IsActive) target = 0f;

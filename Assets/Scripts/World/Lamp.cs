@@ -161,6 +161,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
         Charge = Mathf.Clamp01(Charge + chargePerClick);
         lastClickTime = Time.time;
+        Noise.Emit(transform.position, 9f); // the cranking carries
         flash = 1f;
 
         sfx.pitch = Mathf.Lerp(0.8f, 1.6f, Charge);
