@@ -11,10 +11,14 @@ public class Campsite : MonoBehaviour
     public static readonly List<Campsite> All = new List<Campsite>();
 
     [Header("Smoke")]
-    public int puffCount = 18;
-    public float puffLife = 14f;
-    public float riseSpeed = 2.2f;
-    public Color smokeColor = new Color(0.3f, 0.3f, 0.31f, 0.35f);
+    public int puffCount = 34;
+    public float puffLife = 16f;
+    [Tooltip("How fast smoke leaves the embers; it slows as it rises and spreads.")]
+    public float riseSpeed = 2.4f;
+    [Tooltip("Colour low down, faintly warmed by the embers...")]
+    public Color smokeColorLow = new Color(0.33f, 0.28f, 0.25f, 0.5f);
+    [Tooltip("...and higher up, cool grey.")]
+    public Color smokeColor = new Color(0.27f, 0.28f, 0.3f, 0.32f);
 
     [SerializeField] Transform fire;
     [SerializeField] Transform backpack;
@@ -22,6 +26,9 @@ public class Campsite : MonoBehaviour
     readonly List<float> puffAge = new List<float>();
     readonly List<Renderer> puffRenderers = new List<Renderer>();
     readonly List<Renderer> embers = new List<Renderer>();
+    readonly List<float> puffSeed = new List<float>();
+    readonly List<float> puffSpin = new List<float>();
+    readonly List<Vector2> puffDrift = new List<Vector2>();
     MaterialPropertyBlock block;
     WeatherSystem weather;
 
@@ -111,6 +118,9 @@ public class Campsite : MonoBehaviour
             puffs.Add(go.transform);
             puffAge.Add(i / (float)puffCount * puffLife);
             puffRenderers.Add(renderer);
+            puffSeed.Add(Random.Range(0f, 100f));
+            puffSpin.Add(Random.Range(-12f, 12f));
+            puffDrift.Add(Random.insideUnitCircle);
         }
 
         SpawnItems();
@@ -150,20 +160,36 @@ public class Campsite : MonoBehaviour
         for (int i = 0; i < puffs.Count; i++)
         {
             float age = puffAge[i] + dt;
-            if (age >= puffLife) age -= puffLife;
+            if (age >= puffLife)
+            {
+                // Recycled at the embers as a fresh, different wisp.
+                age -= puffLife;
+                puffSeed[i] = Random.Range(0f, 100f);
+                puffSpin[i] = Random.Range(-12f, 12f);
+                puffDrift[i] = Random.insideUnitCircle;
+            }
             puffAge[i] = age;
 
             float t = age / puffLife;
-            float height = age * riseSpeed;
-            float wobble = Mathf.Sin(age * 0.9f + i) * 0.3f * t;
+            // Rises quickly off the embers, slowing as it cools and spreads.
+            float height = riseSpeed * puffLife * (1f - Mathf.Exp(-age / (puffLife * 0.45f))) * 0.45f;
+            // Curls and wanders more the higher it gets; the wind bends the column over.
+            float curl = t * t * 1.4f;
+            Vector3 wander = new Vector3(
+                Mathf.Sin(age * 0.7f + puffSeed[i]) * curl + puffDrift[i].x * t * 0.8f,
+                0f,
+                Mathf.Cos(age * 0.55f + puffSeed[i] * 1.3f) * curl + puffDrift[i].y * t * 0.8f);
             Transform puff = puffs[i];
-            puff.localPosition = new Vector3(wobble, 0.3f + height, wobble * 0.5f) + localWind * (height * 0.35f);
-            puff.localScale = Vector3.one * Mathf.Lerp(0.5f, 3.5f, t);
-            puff.rotation = cam.transform.rotation; // face the camera
+            puff.localPosition = new Vector3(0f, 0.25f + height, 0f) + wander + localWind * (height * height * 0.04f + height * 0.2f);
+            puff.localScale = Vector3.one * Mathf.Lerp(0.35f, 5f, 1f - (1f - t) * (1f - t)); // spreads fast, then slowly
+            // Face the camera, turning slowly as it billows.
+            puff.rotation = cam.transform.rotation * Quaternion.Euler(0f, 0f, puffSeed[i] * 3.6f + age * puffSpin[i]);
 
-            Color c = smokeColor;
-            c.a *= Mathf.Sin(Mathf.PI * t) * Mathf.Clamp01(t * 6f);
+            // Thick and faintly warm over the fire, thinning to cool grey wisps.
+            Color c = Color.Lerp(smokeColorLow, smokeColor, Mathf.Clamp01(t * 2.5f));
+            c.a *= Mathf.Clamp01(t * 8f) * Mathf.Pow(1f - t, 1.6f);
             block.SetColor("_Color", c);
+            block.SetFloat("_Seed", puffSeed[i]);
             puffRenderers[i].SetPropertyBlock(block);
         }
 
