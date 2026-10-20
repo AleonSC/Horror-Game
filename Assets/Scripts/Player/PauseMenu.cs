@@ -17,7 +17,7 @@ public class PauseMenu : MonoBehaviour
     FirstPersonController player;
     float sensitivity = 2f;
     float volume = 1f;
-    [Tooltip("Size of the pause menu and lighting panel (1 = original size). Players can change it in the menu.")]
+    [Tooltip("Size of the pause menu and lighting panel (1 = original size, up to 1.8). Players can change it in the menu.")]
     public float menuScale = 1.6f;
     GUIStyle titleStyle, buttonStyle, labelStyle;
     LightingSettings lighting;
@@ -95,7 +95,7 @@ public class PauseMenu : MonoBehaviour
 
         const float w = 360f, h = 50f, gap = 14f;
         float x = (sw - w) * 0.5f;
-        float y = sh * 0.5f - 260f;
+        float y = Mathf.Max(10f, sh * 0.5f - 280f); // the menu is ~560 tall; keep it on screen
 
         if (showLighting)
         {
@@ -136,7 +136,7 @@ public class PauseMenu : MonoBehaviour
 
         GUI.Label(new Rect(x, y, w, 26f), $"Menu size: {menuScale:0.0}x", labelStyle);
         y += 28f;
-        float newScale = GUI.HorizontalSlider(new Rect(x, y, w, 20f), menuScale, 1f, 2.5f);
+        float newScale = GUI.HorizontalSlider(new Rect(x, y, w, 20f), menuScale, 1f, 1.8f);
         y += 40f;
 
         if (!Mathf.Approximately(newSensitivity, sensitivity) || !Mathf.Approximately(newVolume, volume))
