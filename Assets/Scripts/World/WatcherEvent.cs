@@ -56,6 +56,27 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     [Tooltip("However far off it is, it always stands at least this many degrees tall above the horizon, so it towers over the treeline (it's scaled up in the distance and shrinks back to its real size as it comes).")]
     public float minApparentHeight = 45f;
 
+    [Header("The Others")]
+    [Tooltip("More giants, far behind the Watcher and faded by the fog, sprinting to catch up once it's walking.")]
+    public int otherGiants = 3;
+    [Tooltip("How far off they start.")]
+    public float othersMinDistance = 3200f;
+    public float othersMaxDistance = 4600f;
+    [Tooltip("How fast they sprint, in metres per second (they're so far off it reads as a frantic run).")]
+    public float othersSprintSpeed = 45f;
+    [Tooltip("Degrees tall they stand above the horizon: smaller than the Watcher, so they read as further away.")]
+    public float othersApparentHeight = 26f;
+    [Range(0f, 1f), Tooltip("How far into the fog they fade (0 solid black, 1 invisible).")]
+    public float othersFogFade = 0.72f;
+
+    [Header("Searching")]
+    [Tooltip("Every so often the Watcher stops dead and scans the forest for this long...")]
+    public float searchPauseMin = 3f;
+    public float searchPauseMax = 6f;
+    [Tooltip("...after walking for this long.")]
+    public float searchWalkMin = 18f;
+    public float searchWalkMax = 35f;
+
     [Header("Searchlights")]
     [Tooltip("Once this many lamps have been lit, searchlights blaze from the giant's eyes and follow the player.")]
     public int searchlightLamps = 10;
@@ -93,6 +114,17 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     Transform giant, giantHead;
     readonly Transform[] giantEyes = new Transform[2];
+    float searchTimer = -1f;
+    bool searchPausing;
+
+    /// <summary>A far-off giant running to join the hunt.</summary>
+    class Runner
+    {
+        public GiantRig rig;
+        public float distance, bearingOffset, speed, stride, gap;
+        public bool caughtUp;
+    }
+    readonly System.Collections.Generic.List<Runner> runners = new System.Collections.Generic.List<Runner>();
     bool searchlightsOn;
     Vector3 searchlightTarget;
     Light searchlight;
@@ -402,6 +434,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             audioSource.PlayOneShot(ProceduralAudio.TreeImpact, 1f);
             shake = 2.5f;
             phase = Phase.GiantWalking;
+            SpawnRunners();
         }
     }
 
@@ -460,12 +493,27 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     /// <summary>Drives the giant back to where it started (the watchtower floodlights do this).</summary>
     public void PushBack()
     {
-        if (phase == Phase.GiantWalking) giantDistance = giantStartDistance;
+        if (phase != Phase.GiantWalking) return;
+        giantDistance = giantStartDistance;
+        foreach (var r in runners)
+        {
+            r.distance = Mathf.Max(r.distance, giantStartDistance + r.gap);
+            r.caughtUp = false;
+        }
     }
 
     void UpdateGiant(float dt)
     {
-        giantDistance = Mathf.Max(0f, giantDistance - giantSpeed * dt);
+        // It's close now, and it doesn't quite know where you are: it walks, stops dead, scans, walks on.
+        if (searchTimer < 0f) searchTimer = Random.Range(searchWalkMin, searchWalkMax);
+        searchTimer -= dt;
+        if (searchTimer <= 0f)
+        {
+            searchPausing = !searchPausing;
+            searchTimer = searchPausing ? Random.Range(searchPauseMin, searchPauseMax) : Random.Range(searchWalkMin, searchWalkMax);
+        }
+        if (!searchPausing) giantDistance = Mathf.Max(0f, giantDistance - giantSpeed * dt);
+        UpdateRunners(dt);
 
         Vector3 p = player.transform.position + giantBearing * giantDistance;
         p.y = Ground(p);
@@ -475,7 +523,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         UpdateChain(Vector3.zero, 1f, true);
 
         // Slow, heavy stride: legs swing in opposite directions, knees bend on the forward swing.
-        stridePhase += dt * Mathf.PI * 2f / strideTime;
+        // Stopped to search, it freezes mid-step.
+        if (!searchPausing) stridePhase += dt * Mathf.PI * 2f / strideTime;
         float swing = Mathf.Sin(stridePhase);
         for (int i = 0; i < 2; i++)
         {
@@ -489,13 +538,18 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // Head turns to look down at the player.
         if (!searchlightsOn)
         {
-            Vector3 toPlayer = player.transform.position - giantHead.position;
-            giantHead.rotation = Quaternion.Slerp(giantHead.rotation, Quaternion.LookRotation(toPlayer), 1f - Mathf.Exp(-0.5f * dt));
+            // Searching: its gaze sweeps back and forth across the area you're in, wider when it has stopped.
+            float t = Time.time;
+            Vector3 across = Vector3.Cross(Vector3.up, giantBearing);
+            float sweep = Mathf.Sin(t * 0.3f) * 0.7f + Mathf.Sin(t * 0.13f + 1f) * 0.3f;
+            Vector3 lookAt = player.transform.position + across * sweep * (searchPausing ? 160f : 90f) - giantBearing * Mathf.Sin(t * 0.21f) * 40f;
+            Vector3 toTarget = lookAt - giantHead.position;
+            giantHead.rotation = Quaternion.Slerp(giantHead.rotation, Quaternion.LookRotation(toTarget), 1f - Mathf.Exp(-(searchPausing ? 1.2f : 0.6f) * dt));
         }
 
         // A footfall every time a foot comes down.
         bool leftDown = swing > 0f;
-        if (leftDown != leftFootDown)
+        if (leftDown != leftFootDown && !searchPausing)
         {
             leftFootDown = leftDown;
             float closeness = Mathf.InverseLerp(giantStartDistance, giantCatchDistance, giantDistance);
@@ -514,15 +568,38 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     void BuildGiant()
     {
-        giant = new GameObject("The Watcher").transform;
-        giant.SetParent(transform, false);
+        // Drawn after the night sky, so passing clouds don't wash over its body.
+        var rig = BuildRig("The Watcher", MaterialFactory.NoFog(new Color(0.01f, 0.005f, 0.005f), 2460),
+                           MaterialFactory.NoFog(new Color(4f, 0.2f, 0.05f), 2461));
+        giant = rig.root;
+        giantHead = rig.head;
+        for (int i = 0; i < 2; i++)
+        {
+            giantLegs[i] = rig.legs[i];
+            giantKnees[i] = rig.knees[i];
+            giantArms[i] = rig.arms[i];
+            giantEyes[i] = rig.eyes[i];
+        }
+    }
+
+    /// <summary>The bones and joints of one giant (the Watcher, or one of the far-off ones).</summary>
+    class GiantRig
+    {
+        public Transform root, body, head;
+        public readonly Transform[] legs = new Transform[2], knees = new Transform[2], arms = new Transform[2], eyes = new Transform[2];
+        public Material black, eyeMaterial;
+    }
+
+    GiantRig BuildRig(string name, Material black, Material eyes)
+    {
+        var rig = new GiantRig { black = black, eyeMaterial = eyes };
+        rig.root = new GameObject(name).transform;
+        rig.root.SetParent(transform, false);
         var body = new GameObject("Body").transform;
-        body.SetParent(giant, false);
+        body.SetParent(rig.root, false);
+        rig.body = body;
 
         float s = giantHeight / 2.4f; // proportions are for a 2.4m figure, like the entities
-        // Drawn after the night sky, so passing clouds don't wash over its body.
-        var black = MaterialFactory.NoFog(new Color(0.01f, 0.005f, 0.005f), 2460);
-        var eyes = MaterialFactory.NoFog(new Color(4f, 0.2f, 0.05f), 2461);
 
         for (int i = 0; i < 2; i++)
         {
@@ -535,8 +612,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             Bone(knee, black, Vector3.zero, new Vector3(-side * 0.02f, -0.48f, -0.24f) * s, 0.06f * s);
             for (int toe = -1; toe <= 1; toe++)
                 Bone(knee, black, new Vector3(-side * 0.02f, -0.48f, -0.24f) * s, new Vector3(-side * 0.02f + toe * 0.05f, -0.62f, 0.02f) * s, 0.025f * s);
-            giantLegs[i] = hip;
-            giantKnees[i] = knee;
+            rig.legs[i] = hip;
+            rig.knees[i] = knee;
 
             // Arms hanging past the knees, with long fingers.
             var shoulder = Pivot(body, new Vector3(side * 0.26f, 1.9f, 0.02f) * s);
@@ -544,7 +621,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             Bone(shoulder, black, new Vector3(side * 0.12f, -0.6f, -0.16f) * s, new Vector3(side * 0.06f, -1.22f, 0.1f) * s, 0.045f * s);
             for (int f = 0; f < 3; f++)
                 Bone(shoulder, black, new Vector3(side * 0.06f, -1.22f, 0.1f) * s, new Vector3(side * 0.06f + (f - 1) * 0.04f, -1.5f, 0.18f) * s, 0.015f * s);
-            giantArms[i] = shoulder;
+            rig.arms[i] = shoulder;
         }
 
         // Hunched spine, chest, shoulders, neck.
@@ -556,11 +633,11 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         Bone(body, black, new Vector3(0f, 1.95f, 0.1f) * s, new Vector3(0f, 2.12f, 0.24f) * s, 0.06f * s);
 
         // Head with two huge glowing eyes.
-        giantHead = Pivot(body, new Vector3(0f, 2.12f, 0.24f) * s);
-        Part(giantHead, black, PrimitiveType.Sphere, new Vector3(0f, 0.1f, 0.02f) * s, new Vector3(0.2f, 0.3f, 0.22f) * s);
+        rig.head = Pivot(body, new Vector3(0f, 2.12f, 0.24f) * s);
+        Part(rig.head, black, PrimitiveType.Sphere, new Vector3(0f, 0.1f, 0.02f) * s, new Vector3(0.2f, 0.3f, 0.22f) * s);
         for (int e = -1; e <= 1; e += 2)
-            giantEyes[e < 0 ? 0 : 1] = Part(giantHead, eyes, PrimitiveType.Sphere, new Vector3(e * 0.05f, 0.12f, 0.125f) * s, new Vector3(0.04f, 0.03f, 0.02f) * s);
-
+            rig.eyes[e < 0 ? 0 : 1] = Part(rig.head, eyes, PrimitiveType.Sphere, new Vector3(e * 0.05f, 0.12f, 0.125f) * s, new Vector3(0.04f, 0.03f, 0.02f) * s);
+        return rig;
     }
 
     Transform Pivot(Transform parent, Vector3 localPos)
@@ -589,6 +666,92 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         Destroy(go.GetComponent<Collider>());
         return go.transform;
+    }
+
+    // ---------------------------------------------------------------- The others
+
+    void SpawnRunners()
+    {
+        if (runners.Count == 0)
+        {
+            for (int i = 0; i < otherGiants; i++)
+            {
+                // Drawn after the sky but before the Watcher; their colour is faded toward the fog each frame.
+                var rig = BuildRig("Far Giant", MaterialFactory.NoFog(Color.black, 2458), MaterialFactory.NoFog(Color.red, 2459));
+                runners.Add(new Runner { rig = rig });
+            }
+        }
+        float spread = 1f;
+        foreach (var r in runners)
+        {
+            r.rig.root.gameObject.SetActive(true);
+            r.distance = Random.Range(othersMinDistance, othersMaxDistance);
+            r.bearingOffset = Random.Range(10f, 32f) * spread;
+            spread = -spread;
+            r.speed = othersSprintSpeed * Random.Range(0.8f, 1.2f);
+            r.gap = Random.Range(350f, 700f);
+            r.stride = Random.Range(0f, 10f);
+            r.caughtUp = false;
+        }
+
+        foreach (var cam in Camera.allCameras)
+            if (cam.targetTexture == null) cam.farClipPlane = Mathf.Max(cam.farClipPlane, othersMaxDistance * 1.4f);
+    }
+
+    /// <summary>
+    /// The far giants sprint flat out toward the player's area, lurching and pumping their arms, until they've
+    /// caught up behind the Watcher; then they slow to its pace and search too. Faded deep into the fog.
+    /// </summary>
+    void UpdateRunners(float dt)
+    {
+        float t = Time.time;
+        Color fog = RenderSettings.fogColor;
+        foreach (var r in runners)
+        {
+            if (!r.rig.root.gameObject.activeSelf) continue;
+            float target = giantDistance + r.gap;
+            if (!r.caughtUp)
+            {
+                r.distance = Mathf.MoveTowards(r.distance, target, r.speed * dt);
+                if (r.distance <= target + 1f) r.caughtUp = true;
+            }
+            else r.distance = target;
+
+            Vector3 bearing = Quaternion.Euler(0f, r.bearingOffset, 0f) * giantBearing;
+            Vector3 p = player.transform.position + bearing * r.distance;
+            p.y = Ground(p);
+            float lean = r.caughtUp ? 0f : 22f;
+            r.rig.root.SetPositionAndRotation(p, Quaternion.LookRotation(-bearing));
+            r.rig.root.localScale = Vector3.one * Mathf.Max(1f, Mathf.Tan(othersApparentHeight * Mathf.Deg2Rad) * r.distance / Mathf.Max(giantHeight, 1f));
+            r.rig.body.localRotation = Quaternion.Euler(lean, 0f, 0f);
+
+            // Sprinting: a fast, jerky gallop with arms pumping; caught up: the same slow searching walk.
+            float strideSeconds = r.caughtUp ? strideTime : 1.8f;
+            r.stride += dt * Mathf.PI * 2f / strideSeconds;
+            float swing = Mathf.Sin(r.stride);
+            float legAmp = r.caughtUp ? 18f : 42f, kneeAmp = r.caughtUp ? 25f : 70f, armAmp = r.caughtUp ? 10f : 55f;
+            float jerk = r.caughtUp ? 0f : Mathf.Sin(r.stride * 3.7f) * 6f; // it doesn't run right
+            for (int i = 0; i < 2; i++)
+            {
+                float s = i == 0 ? swing : -swing;
+                r.rig.legs[i].localRotation = Quaternion.Euler(s * legAmp + jerk, 0f, 0f);
+                r.rig.knees[i].localRotation = Quaternion.Euler(-Mathf.Max(0f, s) * kneeAmp, 0f, 0f);
+                r.rig.arms[i].localRotation = Quaternion.Euler(-s * armAmp, 0f, (i == 0 ? -1f : 1f) * (r.caughtUp ? 3f : 15f));
+            }
+            r.rig.body.localPosition = Vector3.up * (Mathf.Abs(Mathf.Cos(r.stride)) * (r.caughtUp ? 0.03f : 0.09f) * giantHeight / 2.4f);
+            float headSweep = r.caughtUp ? Mathf.Sin(t * 0.27f + r.gap) * 45f : Mathf.Sin(r.stride * 2f) * 8f;
+            r.rig.head.localRotation = Quaternion.Euler(r.caughtUp ? 10f : -10f, headSweep, 0f);
+
+            // Faded: almost the colour of the fog, eyes a dull smear of red.
+            float fade = Mathf.Lerp(othersFogFade * 0.85f, othersFogFade, Mathf.InverseLerp(giantStartDistance, othersMaxDistance, r.distance));
+            MaterialFactory.SetColor(r.rig.black, Color.Lerp(new Color(0.01f, 0.005f, 0.005f), fog, fade));
+            MaterialFactory.SetColor(r.rig.eyeMaterial, Color.Lerp(new Color(2f, 0.1f, 0.03f), fog, fade));
+        }
+    }
+
+    void HideRunners()
+    {
+        foreach (var r in runners) r.rig.root.gameObject.SetActive(false);
     }
 
     // ---------------------------------------------------------------- Searchlights
@@ -741,6 +904,9 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         if (player != null) player.DreamStretch = 0f;
         if (eye != null) eye.gameObject.SetActive(false);
         TurnOffSearchlights();
+        HideRunners();
+        searchTimer = -1f;
+        searchPausing = false;
         // It's back up on its chain, somewhere new.
         hangBearingAngle = Random.Range(0f, 360f);
 
