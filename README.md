@@ -25,6 +25,7 @@ Unity scripts for a first-person horror prototype set in a dark forest.
 | `Assets/Scripts/World/ProceduralTextures.cs` | Generates the forest-floor dirt texture in code. |
 | `Assets/Scripts/World/WatcherEvent.cs` | After 5 lamps: a giant red eye opens in the sky, the world turns red, and a colossal entity walks toward you. The watchtower floodlights drive it back. |
 | `Assets/Scripts/Resources/HorrorUnlitNoFog.shader` | Flat colour that ignores fog, for the eye and the giant. |
+| `Assets/Scripts/World/FallingLeaves.cs` | Leaves drifting down from the canopy around you, carried by the wind, settling, and skittering along in strong gusts. |
 | `Assets/Scripts/World/SafeZones.cs` | Every light the entities fear (lit lamps, torch, lighter) in one place. |
 | `Assets/Scripts/World/WorldWrap.cs` | Makes the map loop: walk off one edge and you come back in on the opposite edge, seamlessly. |
 | `Assets/Scripts/World/Wildlife.cs` | Beetles crawling on the ground, rats that scatter and squeak, moths around lit lamps, bats swooping overhead, crows flying over high up, dark owls in the trees whose white eyes follow you, and black deer that graze and gallop off when you get close. |
