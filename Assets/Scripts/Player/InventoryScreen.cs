@@ -10,6 +10,8 @@ using UnityEngine;
 public class InventoryScreen : MonoBehaviour
 {
     public static bool IsOpen { get; private set; }
+    /// <summary>How big the whole screen is drawn (1 = the original size).</summary>
+    const float SizeScale = 1.2f;
     /// <summary>True on the frame it closed (so the same Esc doesn't also open the pause menu).</summary>
     public static bool ClosedThisFrame => closedFrame == Time.frameCount;
     static int closedFrame = -1;
@@ -107,7 +109,7 @@ public class InventoryScreen : MonoBehaviour
         if (!IsOpen || hotbar == null) return;
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
         GUI.depth = -800;
-        float unit = Mathf.Max(0.75f, Screen.height / 1080f);
+        float unit = Mathf.Max(0.75f, Screen.height / 1080f) * SizeScale;
         float a = Mathf.SmoothStep(0f, 1f, (Time.unscaledTime - openTime) / 0.25f);
         MakeStyles(unit);
 
