@@ -25,8 +25,12 @@ public class Flashlight : MonoBehaviour
     public Vector3 localOffset = new Vector3(0.25f, -0.2f, 0.2f);
 
     [Header("Sway")]
-    [Tooltip("How quickly the beam catches up with where the camera is looking. 0 = no lag.")]
-    public float swaySpeed = 12f;
+    [Tooltip("How quickly the beam catches up with where the camera is looking. Lower = more lag; 0 = no lag.")]
+    public float swaySpeed = 5.5f;
+    [Tooltip("How quickly the light's position catches up when you move (the hand trails a little). 0 = fixed.")]
+    public float handLagSpeed = 14f;
+    [Tooltip("Most the beam can trail behind the view, in degrees, so a fast spin never leaves you in the dark.")]
+    public float maxLagAngle = 14f;
 
     [Header("Battery")]
     [Tooltip("Seconds a full battery lasts with the light on.")]
@@ -120,9 +124,20 @@ public class Flashlight : MonoBehaviour
         // Smoothly follow the camera's rotation so the beam drags a little when turning.
         if (flashlight == null || flashlight.transform == transform) return;
         Transform t = flashlight.transform;
-        t.rotation = swaySpeed > 0f
-            ? Quaternion.Slerp(t.rotation, transform.rotation, 1f - Mathf.Exp(-swaySpeed * Time.deltaTime))
+        float dt = Time.deltaTime;
+
+        // The beam trails the view, then catches up, but never by more than maxLagAngle.
+        Quaternion rot = swaySpeed > 0f
+            ? Quaternion.Slerp(t.rotation, transform.rotation, 1f - Mathf.Exp(-swaySpeed * dt))
             : transform.rotation;
+        float behind = Quaternion.Angle(rot, transform.rotation);
+        if (behind > maxLagAngle) rot = Quaternion.RotateTowards(transform.rotation, rot, maxLagAngle);
+        t.rotation = rot;
+
+        // And the hand holding it trails a touch when you move.
+        Vector3 held = transform.TransformPoint(localOffset);
+        bool teleported = (t.position - held).sqrMagnitude > 4f; // the map looped, or through the door
+        t.position = handLagSpeed > 0f && !teleported ? Vector3.Lerp(t.position, held, 1f - Mathf.Exp(-handLagSpeed * dt)) : held;
     }
 
     /// <summary>How many times the player has clicked it on or off (entities watch for frantic flashing).</summary>
