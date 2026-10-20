@@ -249,13 +249,17 @@ public class FirstPersonController : MonoBehaviour
 
     System.Func<Vector3> attractTarget;
     float attractTimer, attractDuration, attractStrength;
+    [Range(0f, 1f), Tooltip("Chance a boss's arrival pulls the view toward it (otherwise you have to notice it yourself).")]
+    public float attentionChance = 0.5f;
 
     /// <summary>
     /// Draws the view gently toward something for a few seconds (a boss arriving), easing in and out. The
     /// target is read every frame, so it can follow something moving. Strength 1 turns fully toward it.
+    /// Only happens attentionChance of the time (half): the rest, nothing turns your head for you.
     /// </summary>
     public void DrawAttention(System.Func<Vector3> target, float seconds, float strength = 0.6f)
     {
+        if (Random.value >= attentionChance) return;
         attractTarget = target;
         attractDuration = attractTimer = Mathf.Max(seconds, 0.1f);
         attractStrength = Mathf.Clamp01(strength);

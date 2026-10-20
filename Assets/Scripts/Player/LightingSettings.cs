@@ -3,12 +3,12 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// The lighting panel, opened from the pause menu: pick a theme, then tweak the night live: moonlight,
+/// The lighting panel, a developer tool (DevTools, F9, Lighting tab): pick a theme, then tweak the night live: moonlight,
 /// ambient light, fog, the night sky, the flashlight, shadows, and the camera's picture (exposure, contrast,
 /// saturation, vignette, film grain). Settings are saved between sessions. "Default" is the usual moonlit
 /// night, "Darker" a much darker one where the flashlight matters more; "Original" puts back what the scene
 /// started with. "Log Values" prints the current setup to the Console so a look you like can be made the default.
-/// PauseMenu adds this and draws its panel.
+/// PauseMenu adds this (so the saved lighting is applied); DevTools draws its panel.
 /// </summary>
 public class LightingSettings : MonoBehaviour
 {
@@ -254,7 +254,7 @@ public class LightingSettings : MonoBehaviour
                   $"  lamp / torch shadows {v.extraShadows}");
     }
 
-    // ---------------------------------------------------------------- Panel (drawn by PauseMenu)
+    // ---------------------------------------------------------------- Panel (drawn by DevTools)
 
     public void DrawPanel(Rect area, float unit)
     {

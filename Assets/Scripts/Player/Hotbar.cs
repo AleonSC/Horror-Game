@@ -1,16 +1,18 @@
 using UnityEngine;
 
 /// <summary>
-/// The player's hotbar: 1 = flashlight, 2 = torch, 3 = lighter, 4 = flare gun, 5 = glowsticks, 6 = batteries.
-/// Press a number (or scroll the mouse wheel) to hold that item, and F to use it.
+/// The player's hotbar: eight slots along the bottom of the screen. You start with just the flashlight in
+/// the first; everything else goes into the next free slot as you find it (and its slot empties when it's
+/// used up). Rearrange them by dragging in the inventory (Tab). Press a slot's number (or scroll the mouse
+/// wheel) to hold what's in it, and F to use it.
 ///
-/// - Batteries: picked-up batteries pile up in slot 6. F puts one in the flashlight, topping it up by
+/// - Batteries: picked-up batteries pile up in one slot. F puts one in the flashlight, topping it up by
 ///   batteryCharge, and goes back to the flashlight.
 ///
-/// - Camera (7): found in the broken car's trunk, three shots. F takes a flash photo: every entity caught in
+/// - Camera: found in the broken car's trunk, three shots. F takes a flash photo: every entity caught in
 ///   the frame (in range, nothing in the way) is driven off for banishTime seconds.
 ///
-/// - Key fob (8): sometimes found at campsites and shacks. F presses its button: the broken car chirps and
+/// - Key fob: sometimes found at campsites and shacks. F presses its button: the broken car chirps and
 ///   flashes its lights, wherever it is, so you can find it. (Anything listening near the car hears it too.)
 ///
 /// - Glowsticks: F cracks one and tosses it a few metres ahead, where it lies glowing yellow for minutes.
@@ -65,6 +67,10 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public bool showHotbar = true;
 
     public Item Selected { get; private set; } = Item.Flashlight;
+
+    // What's in each hotbar slot: an Item, or -1 for an empty slot.
+    readonly int[] slots = { 0, -1, -1, -1, -1, -1, -1, -1 };
+    float selectedAt = -10f;
     public int TorchCount { get; private set; }
     public int LighterCount { get; private set; }
     /// <summary>Fuel left in the current torch, 0 to 1.</summary>
@@ -133,9 +139,10 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     void Update()
     {
+        SyncSlots();
         if (PauseMenu.IsPaused || InventoryScreen.IsOpen) return;
         int slot = HorrorInput.SlotPressed;
-        if (slot > 0) Select((Item)(slot - 1));
+        if (slot > 0 && slots[slot - 1] >= 0) Select((Item)slots[slot - 1]);
 
         // Mouse wheel: down moves to the next item you have, up to the previous one.
         float scroll = HorrorInput.Scroll;
@@ -167,6 +174,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         LighterLit = false;
 
         Selected = item;
+        selectedAt = Time.unscaledTime;
         if (flashlight != null) flashlight.SetEquipped(item == Item.Flashlight);
         Play(ProceduralAudio.Pickup, 0.3f, 1.3f);
     }
@@ -174,15 +182,64 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     /// <summary>Steps through the hotbar to the next (or previous) slot that has something in it, wrapping round.</summary>
     void Cycle(int direction)
     {
+        int at = Mathf.Max(0, SlotOf(Selected));
         for (int step = 1; step < SlotCount; step++)
         {
-            var item = (Item)(((int)Selected + direction * step + SlotCount * 2) % SlotCount);
-            if (Count(item) > 0)
+            int i = (at + direction * step + SlotCount * 2) % SlotCount;
+            if (slots[i] >= 0)
             {
-                Select(item);
+                Select((Item)slots[i]);
                 return;
             }
         }
+    }
+
+    // ---------------------------------------------------------------- Slots
+
+    public static int SlotTotal => SlotCount;
+
+    /// <summary>
+    /// Keeps the slots in step with what you have: anything used up leaves its slot empty, and anything
+    /// newly found goes into the first empty slot.
+    /// </summary>
+    void SyncSlots()
+    {
+        for (int i = 0; i < SlotCount; i++)
+            if (slots[i] >= 0 && Count((Item)slots[i]) <= 0) slots[i] = -1;
+        for (int it = 0; it < ItemNames.Length; it++)
+        {
+            if (Count((Item)it) <= 0 || SlotOf((Item)it) >= 0) continue;
+            int free = System.Array.IndexOf(slots, -1);
+            if (free < 0) return;
+            slots[free] = it;
+        }
+    }
+
+    /// <summary>Which slot an item is in (0-based), or -1.</summary>
+    public int SlotOf(Item item) => System.Array.IndexOf(slots, (int)item);
+
+    /// <summary>What's in a slot; false if it's empty.</summary>
+    public bool TryGetSlot(int index, out Item item)
+    {
+        item = Item.Flashlight;
+        if (index < 0 || index >= SlotCount || slots[index] < 0) return false;
+        item = (Item)slots[index];
+        return true;
+    }
+
+    /// <summary>Swaps two slots' contents (either can be empty): the inventory's drag and drop.</summary>
+    public void SwapSlots(int a, int b)
+    {
+        if (a < 0 || b < 0 || a >= SlotCount || b >= SlotCount || a == b) return;
+        (slots[a], slots[b]) = (slots[b], slots[a]);
+    }
+
+    /// <summary>The key that holds an item ("3"), syncing first so something just picked up has its slot.</summary>
+    string Key(Item item)
+    {
+        SyncSlots();
+        int i = SlotOf(item);
+        return i >= 0 ? (i + 1).ToString() : "?";
     }
 
     /// <summary>How many of an item you have (1 for the flashlight, 0 or 1 for the key fob).</summary>
@@ -326,7 +383,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     {
         BatteryCount++;
         Message(BatteryCount == 1
-            ? "Picked up a battery. Press 6 to hold it, F to put it in the flashlight."
+            ? $"Picked up a battery. Press {Key(Item.Battery)} to hold it, F to put it in the flashlight."
             : $"Picked up a battery ({BatteryCount})");
     }
 
@@ -419,33 +476,33 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         {
             if (TorchCount == 0) TorchFuel = 1f;
             TorchCount++;
-            Message("Picked up a torch. Press 2 to hold it, F to light it.");
+            Message($"Picked up a torch. Press {Key(Item.Torch)} to hold it, F to light it.");
         }
         else if (item == Item.Lighter)
         {
             if (LighterCount == 0) LighterFuel = 1f;
             LighterCount++;
-            Message("Picked up a lighter. Press 3 to hold it, F to flick it.");
+            Message($"Picked up a lighter. Press {Key(Item.Lighter)} to hold it, F to flick it.");
         }
         else if (item == Item.FlareGun)
         {
             FlareCount++;
-            Message("Picked up a flare gun. Press 4 to hold it, then aim up and press F to fire.");
+            Message($"Picked up a flare gun. Press {Key(Item.FlareGun)} to hold it, then aim up and press F to fire.");
         }
         else if (item == Item.KeyFob)
         {
             HasKeyFob = true;
-            Message("Picked up a car key fob. Press 8 to hold it, F to press the button: the car will chirp and flash.");
+            Message($"Picked up a car key fob. Press {Key(Item.KeyFob)} to hold it, F to press the button: the car will chirp and flash.");
         }
         else if (item == Item.Camera)
         {
             CameraShots += cameraShots;
-            Message($"Picked up a camera ({cameraShots} shots). Press 7 to hold it, F to take a flash photo: it drives them off for a while.");
+            Message($"Picked up a camera ({cameraShots} shots). Press {Key(Item.Camera)} to hold it, F to take a flash photo: it drives them off for a while.");
         }
         else if (item == Item.Glowstick)
         {
             GlowstickCount += glowsticksPerBundle;
-            Message($"Picked up {glowsticksPerBundle} glowsticks. Press 5 to hold them, F to crack and throw one.");
+            Message($"Picked up {glowsticksPerBundle} glowsticks. Press {Key(Item.Glowstick)} to hold them, F to crack and throw one.");
         }
     }
 
@@ -458,6 +515,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         flashGlow = 0f;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
+        for (int i = 0; i < SlotCount; i++) slots[i] = i == 0 ? (int)Item.Flashlight : -1;
         if (flashlight != null) flashlight.SetEquipped(true);
         messageTimer = 0f;
     }
@@ -636,78 +694,244 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     // ---------------------------------------------------------------- HUD
 
+    static readonly Color[] Accents =
+    {
+        new Color(0.95f, 0.9f, 0.7f),  // flashlight
+        new Color(1f, 0.55f, 0.2f),    // torch
+        new Color(1f, 0.72f, 0.35f),   // lighter
+        new Color(0.95f, 0.35f, 0.1f), // flare gun
+        new Color(0.85f, 1f, 0.3f),    // glowsticks
+        new Color(0.45f, 0.95f, 0.5f), // batteries
+        new Color(0.8f, 0.85f, 0.95f), // camera
+        new Color(1f, 0.3f, 0.2f),     // key fob
+    };
+    static readonly Color Cream = new Color(0.93f, 0.87f, 0.74f);
+
+    public static string NameOf(Item item) => ItemNames[(int)item];
+    public static Color AccentOf(Item item) => Accents[(int)item];
+
+    /// <summary>True while the item is burning or shining.</summary>
+    public bool IsLit(Item item) =>
+        (item == Item.Torch && TorchLit) || (item == Item.Lighter && LighterLit) || (item == Item.Flashlight && flashlight != null && flashlight.IsOn);
+
+    /// <summary>How full a meter the item has (battery, fuel, shots left), or -1 if it has none.</summary>
+    public float MeterOf(Item item) =>
+        item == Item.Flashlight ? (flashlight != null ? flashlight.Battery : 1f) :
+        item == Item.Torch ? TorchFuel :
+        item == Item.Lighter ? LighterFuel :
+        item == Item.Camera ? CameraShots / (float)Mathf.Max(cameraShots, 1) : -1f;
+
     void OnGUI()
     {
         if (GameOverScreen.IsActive) return;
         if (flashGlow > 0f) DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(1f, 1f, 1f, flashGlow * flashGlow * 0.9f)); // the flash in your own eyes
-        if (!showHotbar) return;
+        if (!showHotbar || InventoryScreen.IsOpen) return; // the inventory shows the slots itself
 
-        float unit = Mathf.Max(1f, Screen.height / 1080f);
-        float size = 76f * unit, gap = 10f * unit, margin = 24f * unit;
-        float x0 = (Screen.width - (SlotCount * size + (SlotCount - 1) * gap)) * 0.5f;
-        float y = Screen.height - size - margin;
+        float unit = Mathf.Max(0.6f, Screen.height / 1080f);
+        float size = 70f * unit, gap = 8f * unit, pad = 10f * unit, margin = 26f * unit;
+        float width = SlotCount * size + (SlotCount - 1) * gap;
+        float x0 = (Screen.width - width) * 0.5f;
+        float y = Screen.height - size - margin - pad;
 
-        if (nameStyle == null)
+        EnsureStyles(unit);
+
+        // The tray: a dark, rounded band behind the slots with a thin gilt line along its top.
+        var tray = new Rect(x0 - pad, y - pad, width + pad * 2f, size + pad * 2f);
+        Rounded(new Rect(tray.x, tray.y + 3f * unit, tray.width, tray.height), new Color(0f, 0f, 0f, 0.35f), 16f * unit); // shadow
+        Rounded(tray, new Color(0.03f, 0.028f, 0.025f, 0.62f), 16f * unit);
+        for (int i = 0; i < 24; i++)
         {
-            nameStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-            numberStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.UpperLeft };
-            messageStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
+            float f = i / 24f, edge = 1f - Mathf.Abs(f - 0.5f) * 2f;
+            DrawRect(new Rect(tray.x + 18f * unit + (tray.width - 36f * unit) * f, tray.y, (tray.width - 36f * unit) / 24f + 0.5f, Mathf.Max(1f, unit)), new Color(1f, 0.72f, 0.36f, 0.55f * edge));
         }
-        nameStyle.fontSize = Mathf.RoundToInt(14f * unit);
-        numberStyle.fontSize = Mathf.RoundToInt(13f * unit);
-        messageStyle.fontSize = Mathf.RoundToInt(17f * unit);
 
         for (int i = 0; i < SlotCount; i++)
         {
-            var item = (Item)i;
             var slot = new Rect(x0 + i * (size + gap), y, size, size);
-            int count = Count(item);
-            bool owned = count > 0;
-            bool selected = Selected == item;
-            bool lit = (item == Item.Torch && TorchLit) || (item == Item.Lighter && LighterLit) || (item == Item.Flashlight && flashlight != null && flashlight.IsOn);
+            bool filled = TryGetSlot(i, out Item item);
+            DrawSlot(slot, i, filled, item, filled && Selected == item, unit);
+        }
 
-            DrawRect(slot, new Color(0f, 0f, 0f, selected ? 0.7f : 0.5f));
-            Color frame = selected ? new Color(1f, 0.8f, 0.5f, 0.95f) : new Color(0.6f, 0.6f, 0.6f, 0.5f);
-            DrawFrame(slot, frame, (selected ? 3f : 1f) * unit);
-
-            Color text = !owned ? new Color(0.5f, 0.5f, 0.5f, 0.5f) : lit ? new Color(1f, 0.75f, 0.4f) : new Color(0.9f, 0.88f, 0.82f);
-            numberStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f, 0.8f);
-            GUI.Label(new Rect(slot.x + 5f * unit, slot.y + 3f * unit, 20f * unit, 20f * unit), (i + 1).ToString(), numberStyle);
-            nameStyle.normal.textColor = text;
-            GUI.Label(new Rect(slot.x, slot.y - 4f * unit, slot.width, slot.height), owned ? ItemNames[i] : "-", nameStyle);
-
-            if (count > 1)
-            {
-                numberStyle.normal.textColor = text;
-                GUI.Label(new Rect(slot.xMax - 26f * unit, slot.y + 3f * unit, 24f * unit, 20f * unit), "x" + count, numberStyle);
-            }
-
-            if (owned)
-            {
-                float fill = item == Item.Torch ? TorchFuel : item == Item.Lighter ? LighterFuel : item == Item.Camera ? CameraShots / (float)Mathf.Max(cameraShots, 1)
-                    : item == Item.FlareGun || item == Item.Glowstick || item == Item.Battery ? 1f : (flashlight != null ? flashlight.Battery : 1f);
-                var bar = new Rect(slot.x + 8f * unit, slot.yMax - 14f * unit, slot.width - 16f * unit, 5f * unit);
-                DrawRect(bar, new Color(0.15f, 0.15f, 0.15f, 0.9f));
-                Color barColor = fill < 0.2f ? new Color(0.9f, 0.3f, 0.2f) : item == Item.Flashlight ? new Color(0.95f, 0.9f, 0.7f)
-                    : item == Item.Glowstick ? Glowstick.GlowColor : item == Item.Battery ? new Color(0.4f, 0.95f, 0.5f) : new Color(1f, 0.6f, 0.25f);
-                DrawRect(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(fill), bar.height), barColor);
-            }
+        // The name of what's in hand, for a moment after picking it up.
+        float since = Time.unscaledTime - selectedAt;
+        float nameAlpha = Mathf.Clamp01(2.2f - since) * Mathf.Clamp01(since * 6f + 0.3f);
+        if (nameAlpha > 0f)
+        {
+            var nameRect = new Rect(0f, tray.y - 34f * unit, Screen.width, 26f * unit);
+            Shadowed(nameRect, Spaced(NameOf(Selected)), nameStyle, Color.Lerp(Cream, AccentOf(Selected), 0.3f), nameAlpha);
         }
 
         if (messageTimer > 0f && !string.IsNullOrEmpty(message))
         {
             float alpha = Mathf.Clamp01(messageTimer);
-            messageStyle.normal.textColor = new Color(0.95f, 0.9f, 0.8f, alpha);
-            GUI.Label(new Rect(0f, y - 40f * unit, Screen.width, 30f * unit), message, messageStyle);
+            Shadowed(new Rect(0f, tray.y - 70f * unit, Screen.width, 30f * unit), message, messageStyle, new Color(0.95f, 0.9f, 0.8f), alpha);
         }
     }
 
-    static void DrawFrame(Rect r, Color c, float t)
+    /// <summary>
+    /// One slot: a rounded dark tile with the item's picture, its key number, how many, and a thin meter. The
+    /// one in hand is lifted, framed in its colour and glowing. Also used by the inventory.
+    /// </summary>
+    public void DrawSlot(Rect slot, int index, bool filled, Item item, bool inHand, float unit, float alpha = 1f)
     {
-        DrawRect(new Rect(r.x, r.y, r.width, t), c);
-        DrawRect(new Rect(r.x, r.yMax - t, r.width, t), c);
-        DrawRect(new Rect(r.x, r.y, t, r.height), c);
-        DrawRect(new Rect(r.xMax - t, r.y, t, r.height), c);
+        EnsureStyles(unit);
+        Color accent = filled ? AccentOf(item) : Cream;
+        if (inHand)
+        {
+            slot.y -= 6f * unit;
+            for (int g = 3; g >= 1; g--) // soft glow
+            {
+                float grow = g * 4f * unit;
+                Rounded(new Rect(slot.x - grow, slot.y - grow, slot.width + grow * 2f, slot.height + grow * 2f), new Color(accent.r, accent.g, accent.b, 0.07f * alpha), 12f * unit + grow);
+            }
+        }
+        Rounded(slot, new Color(0.07f, 0.065f, 0.06f, (inHand ? 0.92f : 0.78f) * alpha), 11f * unit);
+        Rounded(new Rect(slot.x, slot.y, slot.width, slot.height * 0.5f), new Color(1f, 1f, 1f, 0.035f * alpha), 11f * unit); // a little sheen
+        Rounded(slot, inHand ? new Color(accent.r, accent.g, accent.b, 0.95f * alpha) : new Color(Cream.r, Cream.g, Cream.b, 0.16f * alpha), 11f * unit, (inHand ? 2.5f : 1.2f) * unit);
+
+        Shadowed(new Rect(slot.x + 7f * unit, slot.y + 4f * unit, 20f * unit, 16f * unit), (index + 1).ToString(), numberStyle,
+            Cream, (inHand ? 0.9f : 0.45f) * alpha, TextAnchor.UpperLeft);
+        if (!filled) return;
+
+        bool lit = IsLit(item);
+        var icon = new Rect(slot.x + slot.width * 0.2f, slot.y + slot.height * 0.14f, slot.width * 0.6f, slot.width * 0.6f);
+        Color tint = lit ? Color.Lerp(accent, Color.white, 0.3f) : Color.Lerp(Cream, accent, inHand ? 0.55f : 0.3f);
+        DrawIcon(item, icon, tint, (inHand || lit ? 1f : 0.8f) * alpha);
+
+        int count = Count(item);
+        if (count > 1)
+            Shadowed(new Rect(slot.x, slot.yMax - 22f * unit, slot.width - 7f * unit, 18f * unit), "\u00d7" + count, numberStyle, Cream, 0.95f * alpha, TextAnchor.UpperRight);
+
+        float meter = MeterOf(item);
+        if (meter >= 0f)
+        {
+            var bar = new Rect(slot.x + 10f * unit, slot.yMax - 7f * unit, slot.width - 20f * unit, 3f * unit);
+            Rounded(bar, new Color(1f, 1f, 1f, 0.12f * alpha), bar.height * 0.5f);
+            Color barColor = meter < 0.2f ? new Color(0.95f, 0.3f, 0.2f) : accent;
+            Rounded(new Rect(bar.x, bar.y, Mathf.Max(bar.height, bar.width * Mathf.Clamp01(meter)), bar.height), new Color(barColor.r, barColor.g, barColor.b, 0.9f * alpha), bar.height * 0.5f);
+        }
+    }
+
+    void EnsureStyles(float unit)
+    {
+        if (nameStyle == null)
+        {
+            nameStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            numberStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.UpperLeft, fontStyle = FontStyle.Bold };
+            messageStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
+        }
+        nameStyle.fontSize = Mathf.RoundToInt(17f * unit);
+        numberStyle.fontSize = Mathf.RoundToInt(12f * unit);
+        messageStyle.fontSize = Mathf.RoundToInt(17f * unit);
+    }
+
+    // ---------------------------------------------------------------- Icons
+
+    /// <summary>A simple flat picture of an item, drawn from rounded shapes, fitted to a square.</summary>
+    public static void DrawIcon(Item item, Rect r, Color c, float alpha)
+    {
+        Color main = new Color(c.r, c.g, c.b, alpha);
+        Color dark = new Color(c.r * 0.45f, c.g * 0.45f, c.b * 0.45f, alpha);
+        Color warm = new Color(1f, 0.6f, 0.2f, alpha);
+        Color hot = new Color(1f, 0.92f, 0.65f, alpha);
+        Matrix4x4 old = GUI.matrix;
+        switch (item)
+        {
+            case Item.Flashlight:
+                GUIUtility.RotateAroundPivot(-30f, r.center);
+                Shape(r, 0.06f, 0.42f, 0.5f, 0.17f, main, 0.04f);
+                Shape(r, 0.54f, 0.33f, 0.2f, 0.35f, main, 0.05f);
+                Shape(r, 0.74f, 0.36f, 0.05f, 0.29f, hot, 0.02f);
+                Shape(r, 0.26f, 0.385f, 0.1f, 0.05f, dark, 0.02f);
+                Shape(r, 0.08f, 0.45f, 0.14f, 0.11f, dark, 0.03f);
+                break;
+            case Item.Torch:
+                GUIUtility.RotateAroundPivot(20f, r.center);
+                Shape(r, 0.45f, 0.4f, 0.1f, 0.58f, dark, 0.04f);
+                Shape(r, 0.4f, 0.33f, 0.2f, 0.15f, main, 0.04f);
+                Shape(r, 0.35f, 0.02f, 0.3f, 0.36f, warm, 0.15f);
+                Shape(r, 0.42f, 0.13f, 0.16f, 0.2f, hot, 0.08f);
+                break;
+            case Item.Lighter:
+                Shape(r, 0.47f, 0.06f, 0.14f, 0.26f, warm, 0.07f);
+                Shape(r, 0.505f, 0.15f, 0.07f, 0.14f, hot, 0.035f);
+                Shape(r, 0.32f, 0.36f, 0.36f, 0.56f, main, 0.06f);
+                Shape(r, 0.32f, 0.36f, 0.36f, 0.12f, dark, 0.04f);
+                Shape(r, 0.34f, 0.3f, 0.1f, 0.08f, dark, 0.04f);
+                break;
+            case Item.FlareGun:
+                Shape(r, 0.12f, 0.3f, 0.66f, 0.2f, main, 0.05f);
+                Shape(r, 0.74f, 0.27f, 0.1f, 0.26f, main, 0.03f);
+                Shape(r, 0.16f, 0.44f, 0.18f, 0.4f, main, 0.05f);
+                Shape(r, 0.33f, 0.48f, 0.16f, 0.17f, main, 0.07f, 0.035f);
+                Shape(r, 0.8f, 0.33f, 0.04f, 0.14f, dark, 0.02f);
+                break;
+            case Item.Glowstick:
+                GUIUtility.RotateAroundPivot(35f, r.center);
+                Shape(r, 0.31f, 0.04f, 0.38f, 0.92f, new Color(c.r, c.g, c.b, 0.18f * alpha), 0.19f);
+                Shape(r, 0.4f, 0.12f, 0.2f, 0.76f, main, 0.1f);
+                Shape(r, 0.45f, 0.18f, 0.06f, 0.6f, new Color(1f, 1f, 1f, 0.5f * alpha), 0.03f);
+                Shape(r, 0.41f, 0.08f, 0.18f, 0.09f, dark, 0.04f);
+                break;
+            case Item.Battery:
+                GUIUtility.RotateAroundPivot(-20f, r.center);
+                Shape(r, 0.14f, 0.33f, 0.62f, 0.34f, main, 0.05f);
+                Shape(r, 0.76f, 0.43f, 0.08f, 0.14f, main, 0.02f);
+                Shape(r, 0.14f, 0.33f, 0.22f, 0.34f, dark, 0.05f);
+                Shape(r, 0.47f, 0.44f, 0.12f, 0.03f, dark, 0.01f); // a plus sign
+                Shape(r, 0.515f, 0.395f, 0.03f, 0.12f, dark, 0.01f);
+                break;
+            case Item.Camera:
+                Shape(r, 0.1f, 0.32f, 0.8f, 0.48f, main, 0.07f);
+                Shape(r, 0.34f, 0.2f, 0.26f, 0.16f, main, 0.04f);
+                Shape(r, 0.68f, 0.24f, 0.16f, 0.1f, hot, 0.03f);
+                Shape(r, 0.33f, 0.37f, 0.34f, 0.34f, dark, 0.17f);
+                Shape(r, 0.4f, 0.44f, 0.2f, 0.2f, main, 0.1f);
+                Shape(r, 0.46f, 0.47f, 0.06f, 0.06f, hot, 0.03f);
+                break;
+            case Item.KeyFob:
+                Shape(r, 0.1f, 0.06f, 0.34f, 0.34f, main, 0.17f, 0.05f);
+                GUIUtility.RotateAroundPivot(-25f, r.center);
+                Shape(r, 0.36f, 0.3f, 0.36f, 0.6f, main, 0.14f);
+                Shape(r, 0.46f, 0.42f, 0.16f, 0.16f, new Color(0.9f, 0.18f, 0.12f, alpha), 0.08f);
+                Shape(r, 0.47f, 0.66f, 0.14f, 0.1f, dark, 0.05f);
+                break;
+        }
+        GUI.matrix = old;
+    }
+
+    /// <summary>A rounded shape in an icon's square: position and size as fractions of it.</summary>
+    static void Shape(Rect r, float x, float y, float w, float h, Color c, float radius, float border = 0f)
+    {
+        var rect = new Rect(r.x + x * r.width, r.y + y * r.height, w * r.width, h * r.height);
+        Rounded(rect, c, radius * r.width, border * r.width);
+    }
+
+    /// <summary>A filled (or, with a border width, outlined) rounded rectangle.</summary>
+    public static void Rounded(Rect r, Color c, float radius, float border = 0f)
+    {
+        radius = Mathf.Min(radius, Mathf.Min(r.width, r.height) * 0.5f);
+        GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0f, c, border, radius);
+    }
+
+    static void Shadowed(Rect r, string text, GUIStyle style, Color c, float a, TextAnchor anchor = TextAnchor.MiddleCenter)
+    {
+        style.alignment = anchor;
+        style.normal.textColor = new Color(0f, 0f, 0f, 0.75f * a);
+        GUI.Label(new Rect(r.x + 1.5f, r.y + 1.5f, r.width, r.height), text, style);
+        style.normal.textColor = new Color(c.r, c.g, c.b, a);
+        GUI.Label(r, text, style);
+    }
+
+    static string Spaced(string text)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (char ch in text.ToUpperInvariant())
+        {
+            if (sb.Length > 0) sb.Append(ch == ' ' ? "   " : " ");
+            if (ch != ' ') sb.Append(ch);
+        }
+        return sb.ToString();
     }
 
     static void DrawRect(Rect r, Color c)

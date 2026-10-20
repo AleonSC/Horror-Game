@@ -1,11 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Tab opens the inventory: the forest dims behind a dark panel, your things laid out in a grid on the
-/// left (what you haven't found yet shown as an empty, unnamed slot), and on the right a page about the
-/// one you pick: what it is, how many you have or how much is left, and how to use it. Click a slot to
-/// read about it; Hold puts it in your hand. Tab or Esc closes it. The world doesn't stop while you look.
-/// Hotbar adds this.
+/// Tab opens the inventory: the forest dims behind a dark panel, your hotbar's eight slots laid out in a
+/// grid on the left, and on the right a page about the one you pick: what it is, how many you have or how
+/// much is left, and how to use it. Click a slot to read about it; drag it onto another slot to move it
+/// there (swapping with whatever's in it), which changes its key; Hold puts it in your hand. Tab or Esc
+/// closes it. The world doesn't stop while you look. Hotbar adds this.
 /// </summary>
 public class InventoryScreen : MonoBehaviour
 {
@@ -27,41 +27,45 @@ public class InventoryScreen : MonoBehaviour
         new Entry { item = Hotbar.Item.Flashlight, name = "Flashlight", accent = new Color(0.95f, 0.9f, 0.7f),
             lore = new[] { "A heavy steel torch, its lens scratched, the rubber grip worn smooth by somebody's hand.",
                            "They don't like being looked at with it. Hold it on one too long, though, and it stops being afraid." },
-            how = "1 to hold it, F to switch it on and off. It runs down; batteries top it up." },
+            how = "{key} to hold it, F to switch it on and off. It runs down; batteries top it up." },
         new Entry { item = Hotbar.Item.Torch, name = "Torch", accent = new Color(1f, 0.55f, 0.2f),
             lore = new[] { "A length of wood with a pitch-soaked rag bound round the head. It stinks of tar.",
                            "Fire keeps them back, a wide circle of it, for as long as it burns. When it's gone, it's gone." },
-            how = "2 to hold it, F to light it. Lighting it takes a little of the lighter's fuel." },
+            how = "{key} to hold it, F to light it. Lighting it takes a little of the lighter's fuel." },
         new Entry { item = Hotbar.Item.Lighter, name = "Lighter", accent = new Color(1f, 0.72f, 0.35f),
             lore = new[] { "A cheap lighter, the paint chipped off its case.",
                            "A small flame makes a small circle they won't step into. It doesn't last." },
-            how = "3 to hold it, F to flick it on and off." },
+            how = "{key} to hold it, F to flick it on and off." },
         new Entry { item = Hotbar.Item.FlareGun, name = "Flare Gun", accent = new Color(0.95f, 0.35f, 0.1f),
             lore = new[] { "An orange plastic pistol with one flare in it. Somebody brought it out here expecting to need rescuing.",
                            "Fired high, the flare bursts over the trees and every one of them loses its nerve and has to start again." },
-            how = "4 to hold it, aim up into the sky, F to fire. Fired low, it's wasted." },
+            how = "{key} to hold it, aim up into the sky, F to fire. Fired low, it's wasted." },
         new Entry { item = Hotbar.Item.Glowstick, name = "Glowsticks", accent = new Color(0.85f, 1f, 0.3f),
             lore = new[] { "A bundle of yellow chemical lights, the snap-and-shake kind.",
                            "They're only for seeing by: the things in the woods pay them no attention at all." },
-            how = "5 to hold them, F to crack one and toss it ahead." },
+            how = "{key} to hold them, F to crack one and toss it ahead." },
         new Entry { item = Hotbar.Item.Battery, name = "Batteries", accent = new Color(0.45f, 0.95f, 0.5f),
             lore = new[] { "Batteries, some still in their packets. Found in packs, on tables, in the glove box...",
                            "...and, somehow, dropped by the deer when they bolt. Best not to think about it." },
-            how = "6 to hold one, F to put it in the flashlight. Each tops it up a little." },
+            how = "{key} to hold one, F to put it in the flashlight. Each tops it up a little." },
         new Entry { item = Hotbar.Item.Camera, name = "Camera", accent = new Color(0.8f, 0.85f, 0.95f),
             lore = new[] { "An old film camera with a flash gun on top, from the backpack in the car's trunk.",
                            "Whatever's caught in the flash can't bear it, and is gone for a while. Only three shots on the roll." },
-            how = "7 to hold it, F to take a photo. Anything in the frame, close enough, is driven off." },
+            how = "{key} to hold it, F to take a photo. Anything in the frame, close enough, is driven off." },
         new Entry { item = Hotbar.Item.KeyFob, name = "Key Fob", accent = new Color(1f, 0.3f, 0.2f),
             lore = new[] { "The key to the broken-down car, on a ring with a plastic fob.",
                            "Press it and the car answers: two chirps and its lights flashing, wherever it is. So will anything else that's listening." },
-            how = "8 to hold it, F to press the button." },
+            how = "{key} to hold it, F to press the button." },
     };
 
     Hotbar hotbar;
     Flashlight flashlight;
-    int selected;
+    int selected = -1;            // the item whose page is showing (an Item), or -1
+    int dragFrom = -1;            // the slot being dragged from, or -1
+    bool dragging;
+    Vector2 dragStart;
     float openTime;
+    AudioSource sfx;
     GUIStyle title, slotName, slotCount, heading, sub, body, hint, button;
 
     void Awake() => hotbar = GetComponent<Hotbar>();
@@ -85,6 +89,8 @@ public class InventoryScreen : MonoBehaviour
     void SetOpen(bool open)
     {
         IsOpen = open;
+        dragFrom = -1;
+        dragging = false;
         if (!open) closedFrame = Time.frameCount;
         openTime = Time.unscaledTime;
         Cursor.lockState = open ? CursorLockMode.None : CursorLockMode.Locked;
@@ -92,7 +98,7 @@ public class InventoryScreen : MonoBehaviour
         if (open && hotbar != null)
         {
             // Open on whatever's in your hand.
-            for (int i = 0; i < Entries.Length; i++) if (Entries[i].item == hotbar.Selected) selected = i;
+            selected = (int)hotbar.Selected;
         }
     }
 
@@ -121,48 +127,89 @@ public class InventoryScreen : MonoBehaviour
         Text(new Rect(panel.x, panel.y - 64f * unit, panel.width, 40f * unit), Spaced("Inventory"), title, a);
         Rule(panel.center.x, panel.y - 20f * unit, 360f * unit, unit, a);
 
-        // ---- The grid of slots, left.
+        // ---- The hotbar's slots, left: click to read, drag to move.
         const int columns = 4;
-        float slot = 116f * unit, gap = 14f * unit;
-        var grid = new Rect(panel.x, panel.y, columns * slot + (columns - 1) * gap, 2 * slot + gap);
-        for (int i = 0; i < Entries.Length; i++)
+        float slot = 116f * unit, gap = 16f * unit;
+        var grid = new Rect(panel.x, panel.y + 10f * unit, columns * slot + (columns - 1) * gap, 2 * slot + gap + 26f * unit);
+        var ev = Event.current;
+        Vector2 mouse = ev.mousePosition;
+        int under = -1;
+        for (int i = 0; i < Hotbar.SlotTotal; i++)
+            if (SlotRect(grid, i, slot, gap, columns).Contains(mouse)) under = i;
+
+        if (ev.type == EventType.MouseDown && ev.button == 0 && under >= 0)
         {
-            var e = Entries[i];
-            var r = new Rect(grid.x + (i % columns) * (slot + gap), grid.y + (i / columns) * (slot + gap), slot, slot);
-            int count = hotbar.CountOf(e.item);
-            bool owned = count > 0;
-            bool isSel = i == selected;
-            bool over = r.Contains(Event.current.mousePosition);
-            if (over && Event.current.type == EventType.MouseDown && Event.current.button == 0) { selected = i; Event.current.Use(); }
+            if (hotbar.TryGetSlot(under, out Hotbar.Item picked))
+            {
+                selected = (int)picked;
+                dragFrom = under;
+                dragStart = mouse;
+                dragging = false;
+            }
+            else selected = -1;
+            ev.Use();
+        }
+        else if (ev.type == EventType.MouseDrag && dragFrom >= 0)
+        {
+            if (!dragging && (mouse - dragStart).sqrMagnitude > 25f) dragging = true;
+            ev.Use();
+        }
+        else if (ev.type == EventType.MouseUp && ev.button == 0 && dragFrom >= 0)
+        {
+            if (dragging && under >= 0 && under != dragFrom)
+            {
+                hotbar.SwapSlots(dragFrom, under);
+                Click(1.1f);
+            }
+            dragFrom = -1;
+            dragging = false;
+            ev.Use();
+        }
 
-            Fill(r, new Color(0f, 0f, 0f, (isSel ? 0.75f : 0.55f) * a));
-            Color frame = isSel ? new Color(e.accent.r, e.accent.g, e.accent.b, 0.95f) : new Color(0.6f, 0.58f, 0.52f, over ? 0.7f : 0.35f);
-            Frame(r, new Color(frame.r, frame.g, frame.b, frame.a * a), (isSel ? 2f : 1f) * unit);
-            if (isSel) Fill(new Rect(r.x, r.yMax - 3f * unit, r.width, 3f * unit), new Color(e.accent.r, e.accent.g, e.accent.b, 0.8f * a));
+        for (int i = 0; i < Hotbar.SlotTotal; i++)
+        {
+            var r = SlotRect(grid, i, slot, gap, columns);
+            bool filled = hotbar.TryGetSlot(i, out Hotbar.Item item);
+            bool lifted = dragging && i == dragFrom;
+            bool target = dragging && i == under && i != dragFrom;
+            bool reading = filled && (int)item == selected;
+            hotbar.DrawSlot(r, i, filled && !lifted, item, filled && hotbar.Selected == item && !lifted, unit * 1.6f, a);
+            if (reading && !lifted)
+            {
+                Color ac = Hotbar.AccentOf(item);
+                Hotbar.Rounded(new Rect(r.x - 4f * unit, r.y - 4f * unit, r.width + 8f * unit, r.height + 8f * unit), new Color(ac.r, ac.g, ac.b, 0.6f * a), 15f * unit, 1.5f * unit);
+            }
+            if (target) Hotbar.Rounded(new Rect(r.x - 4f * unit, r.y - 4f * unit, r.width + 8f * unit, r.height + 8f * unit), new Color(1f, 0.85f, 0.55f, 0.9f * a), 15f * unit, 2.5f * unit);
+            if (filled && !lifted)
+                Text(new Rect(r.x, r.yMax + 2f * unit, r.width, 20f * unit), Hotbar.NameOf(item).ToUpperInvariant(), hint, a * (reading ? 0.95f : 0.55f));
+        }
+        Text(new Rect(grid.x, grid.yMax + 34f * unit, grid.width, 20f * unit), "CLICK TO READ  ·  DRAG TO MOVE", hint, a * 0.6f);
 
-            // A coloured mark, the name, the count.
-            Fill(new Rect(r.center.x - 4f * unit, r.y + 26f * unit, 8f * unit, 8f * unit), new Color(e.accent.r, e.accent.g, e.accent.b, (owned ? 0.9f : 0.15f) * a));
-            Text(new Rect(r.x + 4f, r.y + 44f * unit, r.width - 8f, 30f * unit), owned ? e.name : "? ? ?", slotName, owned ? a : a * 0.35f);
-            if (owned && e.item != Hotbar.Item.Flashlight && e.item != Hotbar.Item.KeyFob)
-                Text(new Rect(r.x + 4f, r.yMax - 32f * unit, r.width - 8f, 22f * unit), "x" + count, slotCount, a * 0.85f);
-            Text(new Rect(r.x + 6f * unit, r.y + 4f * unit, 30f * unit, 20f * unit), (i + 1).ToString(), hint, a * 0.6f);
-            if (hotbar.Selected == e.item && owned) Text(new Rect(r.x, r.y + 4f * unit, r.width - 8f * unit, 20f * unit), "IN HAND", hint, a * 0.8f, TextAnchor.UpperRight);
+        // What's being dragged follows the pointer.
+        if (dragging && dragFrom >= 0 && hotbar.TryGetSlot(dragFrom, out Hotbar.Item held))
+        {
+            var ghost = new Rect(mouse.x - slot * 0.4f, mouse.y - slot * 0.4f, slot * 0.8f, slot * 0.8f);
+            Hotbar.Rounded(ghost, new Color(0.07f, 0.065f, 0.06f, 0.85f), 12f * unit);
+            Hotbar.Rounded(ghost, Hotbar.AccentOf(held), 12f * unit, 2f * unit);
+            Hotbar.DrawIcon(held, new Rect(ghost.x + ghost.width * 0.2f, ghost.y + ghost.height * 0.2f, ghost.width * 0.6f, ghost.height * 0.6f), Hotbar.AccentOf(held), 1f);
         }
 
         // ---- The page about the selected one, right.
         var page = new Rect(grid.xMax + 40f * unit, panel.y, panel.xMax - grid.xMax - 40f * unit, panel.height);
         Fill(new Rect(page.x - 20f * unit, page.y, 1f * unit, page.height * 0.85f), new Color(0.6f, 0.55f, 0.45f, 0.35f * a));
-        var sel = Entries[Mathf.Clamp(selected, 0, Entries.Length - 1)];
-        int have = hotbar.CountOf(sel.item);
+        int have = selected >= 0 ? hotbar.CountOf((Hotbar.Item)selected) : 0;
         float y = page.y;
         if (have <= 0)
         {
-            Text(new Rect(page.x, y, page.width, 44f * unit), "? ? ?", heading, a * 0.5f, TextAnchor.UpperLeft);
+            Text(new Rect(page.x, y, page.width, 44f * unit), "E M P T Y", heading, a * 0.5f, TextAnchor.UpperLeft);
             y += 56f * unit;
-            Text(new Rect(page.x, y, page.width, 200f * unit), "You haven't found this yet. It's out there somewhere.", body, a * 0.6f, TextAnchor.UpperLeft);
+            Text(new Rect(page.x, y, page.width, 200f * unit), "Nothing here yet. Whatever you find next goes in the first empty slot.", body, a * 0.6f, TextAnchor.UpperLeft);
         }
         else
         {
+            var sel = Entries[Mathf.Clamp(selected, 0, Entries.Length - 1)];
+            int slotIndex = hotbar.SlotOf(sel.item);
+            string how = sel.how.Replace("{key}", slotIndex >= 0 ? (slotIndex + 1).ToString() : "?");
             Text(new Rect(page.x, y, page.width, 44f * unit), Spaced(sel.name), heading, a, TextAnchor.UpperLeft);
             y += 46f * unit;
             Fill(new Rect(page.x, y, 70f * unit, 2f * unit), new Color(sel.accent.r, sel.accent.g, sel.accent.b, 0.9f * a));
@@ -176,26 +223,36 @@ public class InventoryScreen : MonoBehaviour
                 y += ph + 12f * unit;
             }
             y += 8f * unit;
-            float hh = hint.CalcHeight(new GUIContent(sel.how), page.width);
-            Text(new Rect(page.x, y, page.width, hh), sel.how, sub, a * 0.85f, TextAnchor.UpperLeft);
+            float hh = sub.CalcHeight(new GUIContent(how), page.width);
+            Text(new Rect(page.x, y, page.width, hh), how, sub, a * 0.85f, TextAnchor.UpperLeft);
             y += hh + 24f * unit;
 
             // Hold it.
             bool inHand = hotbar.Selected == sel.item;
             var holdRect = new Rect(page.x, y, 150f * unit, 38f * unit);
-            bool overHold = holdRect.Contains(Event.current.mousePosition) && !inHand;
-            Fill(holdRect, new Color(0f, 0f, 0f, 0.6f * a));
-            Frame(holdRect, new Color(sel.accent.r, sel.accent.g, sel.accent.b, (inHand ? 0.3f : overHold ? 1f : 0.6f) * a), Mathf.Max(1f, unit));
+            bool overHold = holdRect.Contains(mouse) && !inHand;
+            Hotbar.Rounded(holdRect, new Color(0f, 0f, 0f, 0.6f * a), 8f * unit);
+            Hotbar.Rounded(holdRect, new Color(sel.accent.r, sel.accent.g, sel.accent.b, (inHand ? 0.3f : overHold ? 1f : 0.6f) * a), 8f * unit, Mathf.Max(1f, unit));
             Text(holdRect, inHand ? "IN HAND" : "HOLD", button, inHand ? a * 0.45f : a);
-            if (overHold && Event.current.type == EventType.MouseDown && Event.current.button == 0)
+            if (overHold && ev.type == EventType.MouseDown && ev.button == 0)
             {
                 hotbar.Select(sel.item);
-                Event.current.Use();
+                ev.Use();
             }
         }
 
         // How to close it.
         Text(new Rect(panel.x, panel.yMax - 10f * unit, panel.width, 24f * unit), "TAB  OR  ESC  TO  CLOSE", hint, a * 0.7f);
+    }
+
+    static Rect SlotRect(Rect grid, int i, float slot, float gap, int columns) =>
+        new Rect(grid.x + (i % columns) * (slot + gap), grid.y + (i / columns) * (slot + gap + 26f * slot / 116f), slot, slot);
+
+    void Click(float pitch)
+    {
+        if (sfx == null) sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.5f);
+        sfx.pitch = pitch;
+        sfx.PlayOneShot(ProceduralAudio.Pickup, 0.35f);
     }
 
     /// <summary>How many, or how much is left.</summary>

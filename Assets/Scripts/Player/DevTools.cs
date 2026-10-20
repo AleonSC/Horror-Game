@@ -6,13 +6,16 @@ using UnityEngine;
 /// Lamps: set how many lamps are lit right now, 0 to all of them. Going up lights the nearest unlit ones
 /// for real (so everything that follows lamps being lit happens: entities, narration, the bird, the eye,
 /// the searchlight...); going down puts the furthest lit ones back out and sets the count to match (anything
-/// already spawned stays). Also: restart the run. DarkForestGenerator adds this.
+/// already spawned stays). Also: restart the run. The Lighting tab is the full lighting panel
+/// (LightingSettings: themes, moon, fog, sky, flashlight, picture). DarkForestGenerator adds this.
 /// </summary>
 public class DevTools : MonoBehaviour
 {
     public static bool IsOpen { get; private set; }
 
     int lampTarget = -1;
+    int tab; // 0 game, 1 lighting
+    LightingSettings lighting;
     Vector2 scroll;
     GUIStyle title, label, button, small;
 
@@ -84,15 +87,36 @@ public class DevTools : MonoBehaviour
         title.normal.textColor = new Color(1f, 0.75f, 0.4f);
         label.normal.textColor = small.normal.textColor = new Color(0.9f, 0.86f, 0.78f);
 
-        var area = new Rect(20f * unit, 20f * unit, 380f * unit, 300f * unit);
+        var area = tab == 1
+            ? new Rect(20f * unit, 20f * unit, Mathf.Min(620f * unit, Screen.width - 40f * unit), Screen.height - 40f * unit)
+            : new Rect(20f * unit, 20f * unit, 380f * unit, 340f * unit);
         GUI.color = new Color(0f, 0f, 0f, 0.85f);
         GUI.DrawTexture(area, Texture2D.whiteTexture);
         GUI.color = Color.white;
 
-        GUILayout.BeginArea(new Rect(area.x + 14f * unit, area.y + 10f * unit, area.width - 28f * unit, area.height - 20f * unit));
+        // Title and tabs.
+        GUI.Label(new Rect(area.x + 14f * unit, area.y + 10f * unit, area.width, 30f * unit), "DEV TOOLS  (F9)", title);
+        float tabWidth = 90f * unit, tabY = area.y + 44f * unit;
+        string[] tabs = { "Game", "Lighting" };
+        for (int i = 0; i < tabs.Length; i++)
+        {
+            var r = new Rect(area.x + 14f * unit + i * (tabWidth + 6f * unit), tabY, tabWidth, 28f * unit);
+            GUI.color = tab == i ? new Color(1f, 0.8f, 0.5f) : Color.white;
+            if (GUI.Button(r, tabs[i], button)) tab = i;
+            GUI.color = Color.white;
+        }
+        var content = new Rect(area.x + 14f * unit, tabY + 38f * unit, area.width - 28f * unit, area.yMax - tabY - 48f * unit);
+
+        if (tab == 1)
+        {
+            if (lighting == null) lighting = FindAnyObjectByType<LightingSettings>();
+            if (lighting != null) lighting.DrawPanel(content, unit);
+            else GUI.Label(content, "No LightingSettings in the scene.", label);
+            return;
+        }
+
+        GUILayout.BeginArea(content);
         scroll = GUILayout.BeginScrollView(scroll);
-        GUILayout.Label("DEV TOOLS  (F9)", title);
-        GUILayout.Space(8f * unit);
 
         int total = Lamp.All.Count;
         if (lampTarget < 0) lampTarget = Lamp.LitCount;

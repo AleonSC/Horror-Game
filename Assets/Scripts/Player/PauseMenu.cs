@@ -6,8 +6,9 @@ using UnityEngine.Rendering.Universal;
 /// Esc pauses the game: time and sound stop, the mouse is freed, and a cinematic menu appears: black
 /// letterbox bars slide in, the game stays visible behind, and plain left-aligned items (Return to Game,
 /// Restart, Options, Quit) light up under the pointer. Options has mouse sensitivity, master volume,
-/// sound effects, music, field of view and menu size sliders, motion blur (on/off and strength), and the
-/// Lighting test panel.
+/// sound effects, music and field of view sliders, and motion blur (on/off and strength). (The lighting
+/// panel is a developer tool now, in DevTools.) The menu is laid out on a virtual 1600x900 screen and
+/// scaled to fit whatever the real one is, its text drawn at the scaled size so it stays sharp.
 /// Settings are remembered between sessions. DarkForestGenerator adds this automatically.
 /// </summary>
 public class PauseMenu : MonoBehaviour
@@ -20,7 +21,6 @@ public class PauseMenu : MonoBehaviour
 
     /// <summary>The master volume (everything, music included). MusicManager scales by this.</summary>
     public static float MasterVolume { get; private set; } = 1f;
-    const string MenuScaleKey = "Horror.MenuScale";
     const string FovKey = "Horror.FieldOfView";
     const string MotionBlurKey = "Horror.MotionBlur", MotionBlurStrengthKey = "Horror.MotionBlurStrength";
 
@@ -35,9 +35,6 @@ public class PauseMenu : MonoBehaviour
     [Range(0f, 1f)] public float motionBlurStrength = 0.4f;
     Volume motionBlurVolume;
     MotionBlur motionBlurFx;
-    [Tooltip("Size of the pause menu and lighting panel (1 = original size, up to 1.8). Players can change it in the menu.")]
-    public float menuScale = 1.6f;
-    LightingSettings lighting;
 
     void Start()
     {
@@ -46,12 +43,11 @@ public class PauseMenu : MonoBehaviour
         sensitivity = PlayerPrefs.GetFloat(SensitivityKey, sensitivity);
         volume = PlayerPrefs.GetFloat(VolumeKey, 1f);
         effectsVolume = PlayerPrefs.GetFloat(EffectsKey, 1f);
-        menuScale = PlayerPrefs.GetFloat(MenuScaleKey, menuScale);
         fieldOfView = PlayerPrefs.GetFloat(FovKey, fieldOfView);
         motionBlur = PlayerPrefs.GetInt(MotionBlurKey, motionBlur ? 1 : 0) == 1;
         motionBlurStrength = PlayerPrefs.GetFloat(MotionBlurStrengthKey, motionBlurStrength);
         ApplySettings();
-        lighting = gameObject.AddComponent<LightingSettings>();
+        gameObject.AddComponent<LightingSettings>(); // applies the saved lighting; DevTools shows its panel
     }
 
     void OnDestroy()
@@ -129,7 +125,6 @@ public class PauseMenu : MonoBehaviour
             PlayerPrefs.SetFloat(SensitivityKey, sensitivity);
             PlayerPrefs.SetFloat(VolumeKey, volume);
             PlayerPrefs.SetFloat(EffectsKey, effectsVolume);
-            PlayerPrefs.SetFloat(MenuScaleKey, menuScale);
             PlayerPrefs.SetFloat(FovKey, fieldOfView);
             PlayerPrefs.SetInt(MotionBlurKey, motionBlur ? 1 : 0);
             PlayerPrefs.SetFloat(MotionBlurStrengthKey, motionBlurStrength);
@@ -177,7 +172,7 @@ public class PauseMenu : MonoBehaviour
 
     // ---------------------------------------------------------------- Drawing
 
-    enum Page { Main, Options, Lighting }
+    enum Page { Main, Options }
     Page page = Page.Main;
     float openedAt;
     int hovered = -1, lastHovered = -1;
@@ -189,16 +184,23 @@ public class PauseMenu : MonoBehaviour
     static readonly Color HoverColor = new Color(1f, 0.98f, 0.94f, 1f);
     static readonly Color AccentColor = new Color(0.75f, 0.08f, 0.06f, 1f);
 
+    // Everything is laid out on a virtual screen this size, then scaled to fit the real one (keeping its
+    // proportions): s is virtual units to pixels. Text is drawn at the scaled font size, not stretched.
+    const float VirtualWidth = 1600f, VirtualHeight = 900f;
+    float s = 1f, vw = VirtualWidth, vh = VirtualHeight;
+    Rect S(Rect r) => new Rect(r.x * s, r.y * s, r.width * s, r.height * s);
+    Vector2 Mouse => Event.current.mousePosition / s;
+    void VFill(Rect r, Color c) => Fill(S(r), c);
+
     void OnGUI()
     {
         if (!IsPaused) return;
         if (Event.current.type == EventType.Layout && openedAt <= 0f) openedAt = Time.unscaledTime;
-
-        // Lay everything out on a virtual 1080p-high screen, scaled by the menu size.
-        float scale = Mathf.Max(0.5f, Screen.height / 1080f * menuScale);
-        Matrix4x4 oldMatrix = GUI.matrix;
         GUI.depth = -2000; // above everything, including the game over fade
         float sw = Screen.width, sh = Screen.height;
+        s = Mathf.Max(0.4f, Mathf.Min(sw / VirtualWidth, sh / VirtualHeight));
+        vw = sw / s;
+        vh = sh / s;
 
         // Cinematic: black bars slide in top and bottom; the game stays visible between them, dimmed toward
         // the left where the menu sits.
@@ -213,23 +215,15 @@ public class PauseMenu : MonoBehaviour
         }
         Fill(new Rect(0f, bar, sw, sh - bar * 2f), new Color(0f, 0f, 0f, 0.15f * open));
 
-        GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-        float vw = sw / scale, vh = sh / scale;
         EnsureStyles();
         GUI.color = new Color(1f, 1f, 1f, open);
 
-        float left = Mathf.Max(60f, vw * 0.07f);
-        float top = vh * 0.13f + 70f;
+        float left = Mathf.Max(70f, vw * 0.07f);
+        float top = vh * 0.13f + 80f;
         hovered = -1;
 
         if (page == Page.Main) DrawMain(left, top);
-        else if (page == Page.Options) DrawOptions(left, top);
-        else
-        {
-            float panelWidth = Mathf.Min(vw - left * 2f, 760f);
-            lighting.DrawPanel(new Rect(left, vh * 0.13f + 20f, panelWidth, vh * 0.74f - 90f), 1f);
-            if (Item(0, "BACK", left, vh * 0.87f - 60f)) page = Page.Options;
-        }
+        else DrawOptions(left, top);
 
         // A soft tick when the pointer moves onto a new item.
         if (Event.current.type == EventType.Repaint && hovered != lastHovered)
@@ -239,12 +233,11 @@ public class PauseMenu : MonoBehaviour
         }
 
         GUI.color = Color.white;
-        GUI.matrix = oldMatrix;
     }
 
     void DrawMain(float x, float y)
     {
-        const float step = 46f;
+        const float step = 50f;
         if (Item(0, "RETURN TO GAME", x, y)) { SetPaused(false); return; }
         y += step;
         if (Item(1, "RESTART", x, y))
@@ -269,9 +262,10 @@ public class PauseMenu : MonoBehaviour
 
     void DrawOptions(float x, float y)
     {
-        GUI.Label(new Rect(x, y - 52f, 600f, 40f), "OPTIONS", smallStyle);
-        const float step = 58f;
-        const float width = 360f;
+        y -= 20f; // a little more room: there's more on this page
+        GUI.Label(S(new Rect(x, y - 46f, 600f, 36f)), "OPTIONS", smallStyle);
+        const float step = 56f;
+        const float width = 380f;
 
         float newSensitivity = Slider(0, "MOUSE SENSITIVITY", $"{sensitivity:0.0}", x, y, width, sensitivity, 0.2f, 6f); y += step;
         float newVolume = Slider(1, "MASTER VOLUME", $"{Mathf.RoundToInt(volume * 100f)}%", x, y, width, volume, 0f, 1f); y += step;
@@ -284,14 +278,13 @@ public class PauseMenu : MonoBehaviour
             y += step;
         }
         float newFov = Mathf.Round(Slider(5, "FIELD OF VIEW", $"{Mathf.RoundToInt(fieldOfView)}°", x, y, width, fieldOfView, 50f, 90f)); y += step;
-        menuScale = Slider(4, "MENU SIZE", $"{menuScale:0.0}x", x, y, width, menuScale, 1f, 1.8f); y += step;
 
         if (Item(12, motionBlur ? "MOTION BLUR: ON" : "MOTION BLUR: OFF", x, y))
         {
             motionBlur = !motionBlur;
             ApplySettings();
         }
-        y += 46f;
+        y += 48f;
         if (motionBlur)
         {
             float newBlur = Slider(6, "MOTION BLUR STRENGTH", $"{Mathf.RoundToInt(motionBlurStrength * 100f)}%", x, y, width, motionBlurStrength, 0f, 1f);
@@ -309,26 +302,24 @@ public class PauseMenu : MonoBehaviour
             ApplySettings();
         }
 
-        y += 10f;
-        if (Item(10, "LIGHTING", x, y)) page = Page.Lighting;
-        y += 46f * 1.5f;
+        y += 24f;
         if (Item(11, "BACK", x, y)) page = Page.Main;
     }
 
     /// <summary>A menu entry: plain text that brightens, gains a red mark and slides right under the pointer.</summary>
     bool Item(int id, string text, float x, float y)
     {
-        Vector2 size = itemStyle.CalcSize(new GUIContent(text));
+        Vector2 size = itemStyle.CalcSize(new GUIContent(text)) / s;
         var hit = new Rect(x - 20f, y - 4f, size.x + 60f, size.y + 8f);
-        bool over = hit.Contains(Event.current.mousePosition);
+        bool over = hit.Contains(Mouse);
         if (over) hovered = id;
 
         float a = GUI.color.a;
         float shift = over ? 10f : 0f;
-        if (over) Fill(new Rect(x - 14f, y + size.y * 0.5f - 1.5f, 6f, 3f), new Color(AccentColor.r, AccentColor.g, AccentColor.b, a));
+        if (over) VFill(new Rect(x - 14f, y + size.y * 0.5f - 1.5f, 6f, 3f), new Color(AccentColor.r, AccentColor.g, AccentColor.b, a));
         itemStyle.normal.textColor = over ? HoverColor : ItemColor;
-        GUI.Label(new Rect(x + shift + 1.5f, y + 1.5f, size.x + 20f, size.y), $"<color=#000000AA>{text}</color>", itemStyle);
-        GUI.Label(new Rect(x + shift, y, size.x + 20f, size.y), text, itemStyle);
+        GUI.Label(S(new Rect(x + shift + 1.5f, y + 1.5f, size.x + 20f, size.y)), $"<color=#000000AA>{text}</color>", itemStyle);
+        GUI.Label(S(new Rect(x + shift, y, size.x + 20f, size.y)), text, itemStyle);
 
         if (over && Event.current.type == EventType.MouseUp && Event.current.button == 0)
         {
@@ -344,26 +335,27 @@ public class PauseMenu : MonoBehaviour
     {
         var track = new Rect(x, y + 32f, width, 14f);
         var labelRect = new Rect(x, y, width, 28f);
-        bool over = new Rect(x - 10f, y - 2f, width + 120f, 50f).Contains(Event.current.mousePosition);
+        Vector2 mouse = Mouse;
+        bool over = new Rect(x - 10f, y - 2f, width + 120f, 50f).Contains(mouse);
         if (over) hovered = 100 + id;
 
         smallStyle.normal.textColor = over || draggingSlider == id ? HoverColor : ItemColor;
-        GUI.Label(labelRect, label, smallStyle);
+        GUI.Label(S(labelRect), label, smallStyle);
         valueStyle.normal.textColor = smallStyle.normal.textColor;
-        GUI.Label(new Rect(x + width + 16f, y + 24f, 100f, 28f), value, valueStyle);
+        GUI.Label(S(new Rect(x + width + 16f, y + 24f, 110f, 28f)), value, valueStyle);
 
         float t = Mathf.InverseLerp(min, max, current);
         float a = GUI.color.a;
-        Fill(new Rect(track.x, track.y + 6f, track.width, 2f), new Color(1f, 1f, 1f, 0.2f * a));
-        Fill(new Rect(track.x, track.y + 6f, track.width * t, 2f), new Color(HoverColor.r, HoverColor.g, HoverColor.b, 0.85f * a));
-        Fill(new Rect(track.x + track.width * t - 2f, track.y, 4f, 14f), new Color(AccentColor.r, AccentColor.g, AccentColor.b, a));
+        VFill(new Rect(track.x, track.y + 6f, track.width, 2f), new Color(1f, 1f, 1f, 0.2f * a));
+        VFill(new Rect(track.x, track.y + 6f, track.width * t, 2f), new Color(HoverColor.r, HoverColor.g, HoverColor.b, 0.85f * a));
+        VFill(new Rect(track.x + track.width * t - 2f, track.y, 4f, 14f), new Color(AccentColor.r, AccentColor.g, AccentColor.b, a));
 
         var e = Event.current;
         var grab = new Rect(track.x - 8f, track.y - 8f, track.width + 16f, track.height + 16f);
-        if (e.type == EventType.MouseDown && e.button == 0 && grab.Contains(e.mousePosition)) { draggingSlider = id; e.Use(); }
+        if (e.type == EventType.MouseDown && e.button == 0 && grab.Contains(mouse)) { draggingSlider = id; e.Use(); }
         if (draggingSlider == id && (e.type == EventType.MouseDrag || e.type == EventType.MouseDown))
         {
-            current = Mathf.Lerp(min, max, Mathf.Clamp01((e.mousePosition.x - track.x) / track.width));
+            current = Mathf.Lerp(min, max, Mathf.Clamp01((mouse.x - track.x) / track.width));
             e.Use();
         }
         if (draggingSlider == id && e.type == EventType.MouseUp) { draggingSlider = -1; e.Use(); Tick(0.3f, 1.3f); }
@@ -372,10 +364,15 @@ public class PauseMenu : MonoBehaviour
 
     void EnsureStyles()
     {
-        if (itemStyle != null) return;
-        itemStyle = new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft, richText = true, wordWrap = false };
-        smallStyle = new GUIStyle(itemStyle) { fontSize = 19 };
-        valueStyle = new GUIStyle(smallStyle) { fontStyle = FontStyle.Normal };
+        if (itemStyle == null)
+        {
+            itemStyle = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft, richText = true, wordWrap = false };
+            smallStyle = new GUIStyle(itemStyle);
+            valueStyle = new GUIStyle(smallStyle) { fontStyle = FontStyle.Normal };
+        }
+        // Sized to the screen every frame, so the text is drawn sharp at the size it's shown.
+        itemStyle.fontSize = Mathf.Max(8, Mathf.RoundToInt(30f * s));
+        smallStyle.fontSize = valueStyle.fontSize = Mathf.Max(7, Mathf.RoundToInt(21f * s));
     }
 
     static void Fill(Rect r, Color c)
