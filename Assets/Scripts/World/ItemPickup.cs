@@ -53,8 +53,8 @@ public class ItemPickup : MonoBehaviour
         // Generous invisible box so small items are easy to click.
         var aim = go.AddComponent<BoxCollider>();
         aim.isTrigger = true;
-        aim.center = new Vector3(0f, 0.08f, 0f);
-        aim.size = new Vector3(0.5f, 0.2f, 0.35f);
+        aim.center = new Vector3(0.05f, 0.15f, 0f);
+        aim.size = new Vector3(0.65f, 0.35f, 0.5f);
         return pickup;
     }
 

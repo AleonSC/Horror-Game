@@ -71,8 +71,8 @@ public class BatteryPickup : MonoBehaviour
         // Generous invisible box so it's easy to click on.
         var aim = gameObject.AddComponent<BoxCollider>();
         aim.isTrigger = true;
-        aim.center = new Vector3(0f, 0.15f, 0f);
-        aim.size = new Vector3(0.6f, 0.4f, 0.6f);
+        aim.center = new Vector3(0f, 0.25f, 0f);
+        aim.size = new Vector3(0.9f, 0.6f, 0.9f);
     }
 
     GameObject Part(PrimitiveType type, Material mat, Vector3 pos, Vector3 scale)

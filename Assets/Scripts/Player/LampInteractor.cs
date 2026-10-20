@@ -10,9 +10,11 @@ using UnityEngine;
 public class LampInteractor : MonoBehaviour
 {
     [Tooltip("How far away things can be clicked.")]
-    public float reach = 3.5f;
+    public float reach = 4f;
     [Tooltip("How far off the centre of the screen (in metres, at the object) something can be and still be picked out.")]
-    public float aimRadius = 0.6f;
+    public float aimRadius = 0.7f;
+    [Tooltip("Extra leeway per metre of distance, so far things are as easy to pick out as near ones.")]
+    public float aimSpreadPerMetre = 0.15f;
     public bool showHud = true;
 
     Lamp focused;
@@ -85,10 +87,11 @@ public class LampInteractor : MonoBehaviour
             if (ahead < 0f || (closest - eye).magnitude > reach) continue;
 
             float offAxis = Vector3.Distance(closest, eye + forward * ahead);
-            if (offAxis > aimRadius) continue;
-            if (Blocked(eye, closest, owner)) continue;
+            float allowed = aimRadius + ahead * aimSpreadPerMetre;
+            if (offAxis > allowed) continue;
+            if (!Visible(eye, col, closest, owner)) continue;
 
-            float score = offAxis + ahead * 0.05f; // closest to the crosshair wins, nearer breaks ties
+            float score = offAxis / allowed + ahead * 0.02f; // closest to the crosshair wins, nearer breaks ties
             if (score < bestScore)
             {
                 bestScore = score;
@@ -109,14 +112,27 @@ public class LampInteractor : MonoBehaviour
         return c;
     }
 
-    /// <summary>True if something solid that isn't part of the target is in the way.</summary>
-    static bool Blocked(Vector3 from, Vector3 to, Component owner)
+    /// <summary>
+    /// True if any of a few points on the target can be seen. Small things lie on the ground or a table,
+    /// so a line to one point often just grazes that surface; only call it hidden if every line is blocked.
+    /// </summary>
+    static bool Visible(Vector3 eye, Collider col, Vector3 closest, Component owner)
+    {
+        Bounds b = col.bounds;
+        return Clear(eye, closest, owner)
+            || Clear(eye, b.center, owner)
+            || Clear(eye, b.center + Vector3.up * b.extents.y, owner);
+    }
+
+    /// <summary>True if nothing solid (other than the target itself) is clearly in front of the point.</summary>
+    static bool Clear(Vector3 from, Vector3 to, Component owner)
     {
         Vector3 d = to - from;
         float dist = d.magnitude;
-        if (dist < 0.1f) return false;
-        if (!Physics.Raycast(from, d / dist, out var hit, dist - 0.05f, ~0, QueryTriggerInteraction.Ignore)) return false;
-        return Owner(hit.collider) != owner;
+        if (dist < 0.1f) return true;
+        // Ignore hits right at the point: that's the surface the thing is resting on.
+        if (!Physics.Raycast(from, d / dist, out var hit, dist - 0.35f, ~0, QueryTriggerInteraction.Ignore)) return true;
+        return Owner(hit.collider) == owner;
     }
 
     void OnGUI()
