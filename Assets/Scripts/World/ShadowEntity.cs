@@ -36,6 +36,22 @@ public class ShadowEntity : MonoBehaviour
         return entity;
     }
 
+    /// <summary>
+    /// Summons a crowd drawn to the giant's searchlights: they appear one after another round the edge of the
+    /// light and circle it. (They're ordinary entities otherwise: step out of the light and they come for you.)
+    /// </summary>
+    public static void SpawnCrowd(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            var entity = Spawn(0.3f + i * Random.Range(0.15f, 0.4f));
+            entity.crowdMember = true;
+        }
+    }
+
+    /// <summary>Part of the crowd round the giant's searchlights: it always rematerializes at the light's edge.</summary>
+    [HideInInspector] public bool crowdMember;
+
     [Tooltip("Who to watch. Found automatically if left empty.")]
     public Transform target;
 
@@ -377,8 +393,10 @@ public class ShadowEntity : MonoBehaviour
 
         int peekSide = Random.value < 0.5f ? -1 : 1;
         Vector3 peekSpot = Vector3.zero;
-        peeking = Random.value < peekChance && TryPickPeekSpot(out peekSpot);
-        transform.position = peeking ? peekSpot : PickSpawnPoint();
+        var watcher = WatcherEvent.Instance;
+        bool atLight = crowdMember && watcher != null && watcher.SearchlightsOn;
+        peeking = !atLight && Random.value < peekChance && TryPickPeekSpot(out peekSpot);
+        transform.position = atLight ? PickCrowdSpot(watcher) : peeking ? peekSpot : PickSpawnPoint();
         FacePlayer();
         ResetVisual();
         SetPose(peeking ? Pose.Peek : RandomPose(), peekSide);
@@ -922,6 +940,16 @@ public class ShadowEntity : MonoBehaviour
         spot = tree.position + away.normalized * (radius + 0.45f);
         spot.y = GroundHeight(spot);
         return true;
+    }
+
+    /// <summary>A spot just outside the searchlight's pool, all round it.</summary>
+    Vector3 PickCrowdSpot(WatcherEvent watcher)
+    {
+        var light = (SafeZones.ISource)watcher;
+        float angle = Random.Range(0f, Mathf.PI * 2f);
+        Vector3 p = light.Center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * (light.Radius + ringMargin + Random.Range(0f, 2.5f));
+        p.y = GroundHeight(p);
+        return p;
     }
 
     Pose RandomPose()

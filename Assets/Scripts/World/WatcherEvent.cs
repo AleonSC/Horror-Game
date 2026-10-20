@@ -13,7 +13,7 @@ using UnityEngine;
 /// Uses the fog-ignoring shader so the eye and the giant read through the fog.
 /// DarkForestGenerator adds this automatically; GameOverScreen resets it.
 /// </summary>
-public class WatcherEvent : MonoBehaviour
+public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 {
     public static WatcherEvent Instance { get; private set; }
 
@@ -56,6 +56,18 @@ public class WatcherEvent : MonoBehaviour
     [Tooltip("However far off it is, it always stands at least this many degrees tall above the horizon, so it towers over the treeline (it's scaled up in the distance and shrinks back to its real size as it comes).")]
     public float minApparentHeight = 45f;
 
+    [Header("Searchlights")]
+    [Tooltip("Once this many lamps have been lit, searchlights blaze from the giant's eyes and follow the player.")]
+    public int searchlightLamps = 10;
+    [Tooltip("Radius of the pool of light round the player. The entities can't come into it.")]
+    public float searchlightRadius = 9f;
+    [Tooltip("Metres per second the light follows the player: faster than walking, slower than running.")]
+    public float searchlightTrackSpeed = 4.5f;
+    public Color searchlightColor = new Color(1f, 0.85f, 0.8f);
+    public float searchlightIntensity = 12f;
+    [Tooltip("How many entities come out of the dark to crowd round the light.")]
+    public int crowdSize = 16;
+
     [Header("Atmosphere")]
     public Color redFog = new Color(0.11f, 0.015f, 0.015f);
     public Color redAmbient = new Color(0.12f, 0.03f, 0.03f);
@@ -80,6 +92,21 @@ public class WatcherEvent : MonoBehaviour
     Vector3 eyeDirection;
 
     Transform giant, giantHead;
+    readonly Transform[] giantEyes = new Transform[2];
+    bool searchlightsOn;
+    Vector3 searchlightTarget;
+    Light searchlight;
+    readonly Transform[] beams = new Transform[2];
+
+    /// <summary>True once the giant's searchlights are on and tracking the player.</summary>
+    public bool SearchlightsOn => searchlightsOn;
+
+    // The pool of light the searchlights throw round the player is a safe zone the crowd circles.
+    bool SafeZones.ISource.IsActive => searchlightsOn;
+    Vector3 SafeZones.ISource.Center => searchlightTarget;
+    float SafeZones.ISource.Radius => searchlightRadius;
+    void OnEnable() => SafeZones.Register(this);
+    void OnDisable() => SafeZones.Unregister(this);
     Transform[] giantLegs = new Transform[2], giantKnees = new Transform[2], giantArms = new Transform[2];
     Vector3 giantBearing;    // direction from the player to the giant
     float giantDistance, stridePhase, shake;
@@ -159,6 +186,8 @@ public class WatcherEvent : MonoBehaviour
                 UpdateGiant(dt);
                 break;
         }
+
+        UpdateSearchlights(dt);
 
         // The sky turns red as the eye opens, and stays that way while the giant walks.
         float targetRed = phase == Phase.Waiting || phase == Phase.Done ? 0f : 1f;
@@ -458,8 +487,11 @@ public class WatcherEvent : MonoBehaviour
         giant.GetChild(0).localPosition = Vector3.up * (Mathf.Abs(Mathf.Cos(stridePhase)) * 0.03f * giantHeight / 2.4f);
 
         // Head turns to look down at the player.
-        Vector3 toPlayer = player.transform.position - giantHead.position;
-        giantHead.rotation = Quaternion.Slerp(giantHead.rotation, Quaternion.LookRotation(toPlayer), 1f - Mathf.Exp(-0.5f * dt));
+        if (!searchlightsOn)
+        {
+            Vector3 toPlayer = player.transform.position - giantHead.position;
+            giantHead.rotation = Quaternion.Slerp(giantHead.rotation, Quaternion.LookRotation(toPlayer), 1f - Mathf.Exp(-0.5f * dt));
+        }
 
         // A footfall every time a foot comes down.
         bool leftDown = swing > 0f;
@@ -527,7 +559,7 @@ public class WatcherEvent : MonoBehaviour
         giantHead = Pivot(body, new Vector3(0f, 2.12f, 0.24f) * s);
         Part(giantHead, black, PrimitiveType.Sphere, new Vector3(0f, 0.1f, 0.02f) * s, new Vector3(0.2f, 0.3f, 0.22f) * s);
         for (int e = -1; e <= 1; e += 2)
-            Part(giantHead, eyes, PrimitiveType.Sphere, new Vector3(e * 0.05f, 0.12f, 0.125f) * s, new Vector3(0.04f, 0.03f, 0.02f) * s);
+            giantEyes[e < 0 ? 0 : 1] = Part(giantHead, eyes, PrimitiveType.Sphere, new Vector3(e * 0.05f, 0.12f, 0.125f) * s, new Vector3(0.04f, 0.03f, 0.02f) * s);
 
     }
 
@@ -559,6 +591,128 @@ public class WatcherEvent : MonoBehaviour
         return go.transform;
     }
 
+    // ---------------------------------------------------------------- Searchlights
+
+    /// <summary>
+    /// After searchlightLamps lamps, beams blaze from the giant's eyes down onto the player and follow them,
+    /// and a crowd of entities comes out of the dark to circle the edge of the light.
+    /// </summary>
+    void UpdateSearchlights(float dt)
+    {
+        bool want = Lamp.TimesLit >= searchlightLamps && giant != null && giant.gameObject.activeSelf
+                    && phase != Phase.Done && !GameOverScreen.IsActive;
+        if (want && !searchlightsOn) TurnOnSearchlights();
+        else if (!want && searchlightsOn) TurnOffSearchlights();
+        if (!searchlightsOn) return;
+
+        // It follows the player: faster than walking, slower than running.
+        Vector3 feet = player.transform.position;
+        searchlightTarget = Vector3.MoveTowards(searchlightTarget, feet, searchlightTrackSpeed * dt);
+        searchlightTarget.y = Ground(searchlightTarget);
+
+        // The real light sits a way up the beam, aimed down at the spot (a light 2km off would need absurd power).
+        Vector3 fromGiant = (searchlightTarget - giantHead.position).normalized;
+        searchlight.transform.position = searchlightTarget - fromGiant * 45f;
+        searchlight.transform.rotation = Quaternion.LookRotation(fromGiant);
+        searchlight.spotAngle = Mathf.Atan(searchlightRadius * 1.3f / 45f) * 2f * Mathf.Rad2Deg;
+        searchlight.intensity = searchlightIntensity * (0.92f + 0.08f * Mathf.PerlinNoise(Time.time * 3f, 0.5f));
+
+        // Its head turns to stare down along the beams.
+        giantHead.rotation = Quaternion.Slerp(giantHead.rotation, Quaternion.LookRotation(searchlightTarget - giantHead.position), 1f - Mathf.Exp(-2f * dt));
+
+        // Visible beams from each eye to the pool of light.
+        for (int i = 0; i < 2; i++)
+        {
+            Vector3 from = giantEyes[i].position;
+            Vector3 to = searchlightTarget + Vector3.up * 0.5f;
+            Vector3 d = to - from;
+            beams[i].position = from;
+            beams[i].rotation = Quaternion.LookRotation(d);
+            beams[i].localScale = new Vector3(searchlightRadius * 0.7f, searchlightRadius * 0.7f, d.magnitude);
+        }
+    }
+
+    void TurnOnSearchlights()
+    {
+        searchlightsOn = true;
+        searchlightTarget = player.transform.position;
+        if (searchlight == null) BuildSearchlights();
+        searchlight.enabled = true;
+        foreach (var beam in beams) beam.gameObject.SetActive(true);
+
+        audioSource.pitch = 0.5f;
+        audioSource.PlayOneShot(ProceduralAudio.Floodlight, 1f);
+        audioSource.PlayOneShot(ProceduralAudio.DistantRumble, 0.8f);
+        shake = Mathf.Max(shake, 1.5f);
+
+        // They come for the light.
+        ShadowEntity.SpawnCrowd(crowdSize);
+    }
+
+    void TurnOffSearchlights()
+    {
+        searchlightsOn = false;
+        if (searchlight != null) searchlight.enabled = false;
+        foreach (var beam in beams) if (beam != null) beam.gameObject.SetActive(false);
+    }
+
+    void BuildSearchlights()
+    {
+        searchlight = new GameObject("Searchlight").AddComponent<Light>();
+        searchlight.transform.SetParent(transform, false);
+        searchlight.type = LightType.Spot;
+        searchlight.color = searchlightColor;
+        searchlight.range = 90f;
+        searchlight.innerSpotAngle = 10f;
+        searchlight.shadows = LightShadows.Soft; // the trees throw long shadows across the pool
+
+        Shader shader = Shader.Find("Horror/Beam");
+        var mat = shader != null ? new Material(shader) : MaterialFactory.NoFog(searchlightColor, 3000, false);
+        mat.SetColor("_Color", new Color(searchlightColor.r, searchlightColor.g, searchlightColor.b, 0.35f));
+        Mesh cone = BuildBeamMesh();
+        for (int i = 0; i < 2; i++)
+        {
+            var go = new GameObject("Eye Beam");
+            go.transform.SetParent(transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = cone;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = mat;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            beams[i] = go.transform;
+        }
+    }
+
+    /// <summary>An open cone, apex at the origin, widening to radius 1 at z = 1.</summary>
+    static Mesh BuildBeamMesh()
+    {
+        const int sides = 24;
+        var verts = new System.Collections.Generic.List<Vector3>();
+        var uvs = new System.Collections.Generic.List<Vector2>();
+        var tris = new System.Collections.Generic.List<int>();
+        for (int k = 0; k <= sides; k++)
+        {
+            float a = k / (float)sides * Mathf.PI * 2f;
+            verts.Add(new Vector3(Mathf.Cos(a) * 0.02f, Mathf.Sin(a) * 0.02f, 0f));
+            uvs.Add(new Vector2(k / (float)sides, 0f));
+            verts.Add(new Vector3(Mathf.Cos(a), Mathf.Sin(a), 1f));
+            uvs.Add(new Vector2(k / (float)sides, 1f));
+        }
+        for (int k = 0; k < sides; k++)
+        {
+            int a = k * 2, b = a + 1, c = a + 2, d = a + 3;
+            tris.Add(a); tris.Add(b); tris.Add(c);
+            tris.Add(c); tris.Add(b); tris.Add(d);
+        }
+        var mesh = new Mesh { name = "Beam" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.bounds = new Bounds(new Vector3(0f, 0f, 0.5f), new Vector3(2f, 2f, 1f));
+        return mesh;
+    }
+
     // ---------------------------------------------------------------- Atmosphere & reset
 
     void ApplyAtmosphere()
@@ -586,6 +740,7 @@ public class WatcherEvent : MonoBehaviour
         dream = 0f;
         if (player != null) player.DreamStretch = 0f;
         if (eye != null) eye.gameObject.SetActive(false);
+        TurnOffSearchlights();
         // It's back up on its chain, somewhere new.
         hangBearingAngle = Random.Range(0f, 360f);
 
