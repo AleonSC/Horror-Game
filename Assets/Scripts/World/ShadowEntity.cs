@@ -87,6 +87,10 @@ public class ShadowEntity : MonoBehaviour
     public float eyeIntensity = 1f;
     [Tooltip("Eye brightness right after it materializes.")]
     public float spawnEyeIntensity = 12f;
+    [Tooltip("Eye brightness at the very start of a hunt, while it's still far away.")]
+    public float startHuntEyeIntensity = 0.25f;
+    [Tooltip("Eye brightness when the hunt is nearly over (it's almost on the player).")]
+    public float endHuntEyeIntensity = 5f;
     [Tooltip("Seconds for the eyes to dim from spawn brightness to normal.")]
     public float eyeDimTime = 6f;
     [Tooltip("How much wider the eyes get when the player is at the stop distance.")]
@@ -126,6 +130,12 @@ public class ShadowEntity : MonoBehaviour
 
     public enum State { Hidden, Materializing, Watching, Crescendo, Killing }
     public State CurrentState { get; private set; }
+    /// <summary>
+    /// How far its hunt has got, 0 to 1: how close it has worked its way to the player, and how much it has grown
+    /// stalking them in the dark. Only goes up; starts over when it's driven off. Its eyes brighten with it.
+    /// </summary>
+    public float HuntProgress { get; private set; }
+
     public bool IsVisible => CurrentState == State.Watching || CurrentState == State.Crescendo || CurrentState == State.Killing;
 
     FirstPersonController player;
@@ -243,6 +253,7 @@ public class ShadowEntity : MonoBehaviour
 
     void Hide(float duration)
     {
+        HuntProgress = 0f;
         CurrentState = State.Hidden;
         timer = duration;
         SetVisible(false);
@@ -345,7 +356,19 @@ public class ShadowEntity : MonoBehaviour
             : Mathf.MoveTowards(growth, 1f, growRate * 2f * Time.deltaTime));
 
         Vibrate(maxVibration * Mathf.Max(closeness, advancing ? 0.6f : 0f));
-        float brightness = Mathf.Lerp(eyeIntensity, spawnEyeIntensity, eyeFlare) + closeness * eyeIntensity * 2f;
+        // Hunt progress: how close it has got (from the far edge of where it spawns, to the distance it kills from),
+        // or how much it has grown. Rises gradually, never falls.
+        float distanceProgress = Mathf.InverseLerp(maxSpawnDistance, killDistance, dist);
+        float growthProgress = Mathf.InverseLerp(1f, maxGrowth, growth);
+        float targetProgress = Mathf.Max(distanceProgress, growthProgress);
+        if (targetProgress > HuntProgress)
+            HuntProgress = Mathf.MoveTowards(HuntProgress, targetProgress, Time.deltaTime * 0.4f);
+
+        // Eyes: dim at the start of the hunt, brighter and brighter as it goes on. The flash when it appears is
+        // scaled the same way, so a far-off entity only glints.
+        float huntBrightness = Mathf.Lerp(startHuntEyeIntensity, endHuntEyeIntensity, HuntProgress * HuntProgress);
+        float flashBrightness = spawnEyeIntensity * Mathf.Lerp(0.1f, 1f, HuntProgress);
+        float brightness = Mathf.Lerp(huntBrightness, Mathf.Max(huntBrightness, flashBrightness), eyeFlare);
         SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), brightness);
         whisper.volume = Mathf.Lerp(0.25f, 1f, closeness) * volume;
 
