@@ -11,7 +11,7 @@ public static class ProceduralTextures
 {
     const int Size = 512;
 
-    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles;
+    static Texture2D dirt, dirtNormal, skyEye, bark, barkNormal, needles, wornPath;
 
     /// <summary>Tiling forest-floor dirt.</summary>
     public static Texture2D Dirt { get { if (dirt == null) MakeDirt(); return dirt; } }
@@ -23,6 +23,11 @@ public static class ProceduralTextures
     public static Texture2D BarkNormal { get { if (barkNormal == null) MakeBark(); return barkNormal; } }
     /// <summary>Tiling pine needles: dark green streaks running down from the tips.</summary>
     public static Texture2D Needles => needles != null ? needles : (needles = MakeNeedles());
+    /// <summary>
+    /// A faded strip of trodden dirt: u runs across the path (fading out at both edges), v along it (tiles).
+    /// Mostly see-through, so the ground shows through it.
+    /// </summary>
+    public static Texture2D WornPath => wornPath != null ? wornPath : (wornPath = MakeWornPath());
     /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
     public static Texture2D SkyEye => skyEye != null ? skyEye : (skyEye = MakeSkyEye());
 
@@ -210,6 +215,41 @@ public static class ProceduralTextures
         var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
         {
             name = "Needles", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
+
+    // ---------------------------------------------------------------- Worn path
+
+    static Texture2D MakeWornPath()
+    {
+        const int w = 128, h = 256;
+        var px = new Color32[w * h];
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float u = x / (float)(w - 1), v = y / (float)h;
+                // Ragged edges: the width wanders along the path.
+                float wobble = (TileNoise2(0.5f, v * 8f, 4, 8, 51) - 0.5f) * 0.25f;
+                float across = Mathf.Abs(u - 0.5f + wobble) * 2f;
+                float edge = 1f - Ramp(0.35f, 1f, across);
+                float patches = TileNoise2(u * 4f, v * 10f, 4, 10, 52) * 0.6f + TileNoise2(u * 12f, v * 30f, 12, 30, 53) * 0.4f;
+                float alpha = edge * Mathf.Lerp(0.15f, 0.75f, patches);
+
+                float grit = TileNoise2(u * 40f, v * 80f, 40, 80, 54);
+                Color c = Color.Lerp(new Color(0.1f, 0.085f, 0.07f), new Color(0.17f, 0.15f, 0.12f), patches * 0.6f + grit * 0.4f);
+                // The odd pebble pressed into the trodden earth.
+                if (grit > 0.82f) c = Color.Lerp(c, new Color(0.22f, 0.21f, 0.2f), 0.6f);
+                c.a = alpha;
+                px[y * w + x] = c;
+            }
+        }
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, false)
+        {
+            name = "Worn Path", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
         };
         tex.SetPixels32(px);
         tex.Apply(true);

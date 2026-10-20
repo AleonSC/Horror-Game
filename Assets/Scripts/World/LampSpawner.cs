@@ -57,6 +57,7 @@ public class LampSpawner : MonoBehaviour
             lamp.transform.SetPositionAndRotation(p, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
             lamp.safeRadius = safeRadius;
             lamp.chargePerClick = chargePerClick;
+            LampPaths.Build(lamp.transform, generator);
             lamps.Add(lamp);
             WorldWrap.RegisterStatic(lamp.transform);
         }

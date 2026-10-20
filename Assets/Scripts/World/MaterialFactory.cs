@@ -26,6 +26,41 @@ public static class MaterialFactory
     public static Material LitTextured(Texture albedo, Texture normalMap, float smoothness = 0.05f) =>
         LitTextured(albedo, normalMap, Color.white, smoothness);
 
+    /// <summary>
+    /// A lit material that's see-through where its texture's alpha is low (worn paths over the ground).
+    /// Doesn't cast shadows from the renderer's side; set that on the renderer.
+    /// </summary>
+    public static Material LitTransparent(Texture albedo, Color tint, float smoothness = 0.05f)
+    {
+        var mat = LitTextured(albedo, null, tint, smoothness);
+        mat.enableInstancing = false;
+        if (mat.HasProperty("_Surface"))
+        {
+            // URP Lit
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        }
+        else if (mat.HasProperty("_Mode"))
+        {
+            // Built-in Standard, "Fade" mode
+            mat.SetFloat("_Mode", 2f);
+            mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.EnableKeyword("_ALPHABLEND_ON");
+        }
+        mat.SetOverrideTag("RenderType", "Transparent");
+        mat.renderQueue = (int)RenderQueue.Transparent - 50; // before other see-through things like smoke
+        return mat;
+    }
+
     /// <summary>As above, with the texture tinted by a colour.</summary>
     public static Material LitTextured(Texture albedo, Texture normalMap, Color tint, float smoothness = 0.05f)
     {
