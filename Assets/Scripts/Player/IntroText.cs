@@ -17,11 +17,8 @@ public class IntroText : MonoBehaviour
         "Do not stop.",
         "They will find you.",
         "But there's still a chance.",
-        "To survive...maybe.",
-        "They don't like the light.",
-        "It keeps you safe.",
-        "But remember...",
-        "Moths flock to the light.",
+        "...maybe.",
+        "They do not like being seen.",
     };
 
     [Header("Timing (seconds)")]
