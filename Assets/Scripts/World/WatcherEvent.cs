@@ -155,6 +155,13 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         return true;
     }
 
+    /// <summary>While it still hangs on its chain (before it falls): the direction it hangs in from the player, flat.</summary>
+    public bool TryGetHangingBearing(out Vector3 bearing)
+    {
+        bearing = giantBearing;
+        return hangBearingAngle >= 0f && phase != Phase.Falling && phase != Phase.GiantWalking && phase != Phase.Done;
+    }
+
     /// <summary>True once the giant's searchlights are on and tracking the player.</summary>
     public bool SearchlightsOn => searchlightsOn && !searchlightLost;
 
@@ -208,6 +215,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         {
             case Phase.Waiting:
                 UpdateHanging(dt);
+                LookUpAtItOnce(dt);
                 if (Lamp.TimesLit >= lampsToTrigger && !GameOverScreen.IsActive) OpenEye();
                 break;
 
@@ -415,17 +423,96 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         }
     }
 
+    // ---------------------------------------------------------------- Drawing your eye to it
+
+    [Header("Noticing It")]
+    [Tooltip("The first time the player stands somewhere with a clear view of it (after the intro), their view is drawn up to it, once.")]
+    public bool lookUpAtItOnce = true;
+    [Tooltip("Each lamp lit, the chain jolts: it drops a little and bounces (as a share of how high it hangs).")]
+    public float joltDrop = 0.012f;
+    bool lookedUp;
+    float clearViewTimer, jolt = -1f;
+    int lampsSeen = -1;
+
+    /// <summary>
+    /// The first time you stand somewhere you can see it from (no trees between you and it), once the
+    /// intro's over: your view is drawn up to it for a moment.
+    /// </summary>
+    void LookUpAtItOnce(float dt)
+    {
+        if (!lookUpAtItOnce || lookedUp || player == null || IntroText.Playing || IntroText.BlackScreen > 0.01f) return;
+        if (PortalDoor.PlayerInRoom || GameOverScreen.IsActive || FirstPersonController.AttentionHeld) return;
+        clearViewTimer -= dt;
+        if (clearViewTimer > 0f) return;
+        clearViewTimer = 0.5f;
+        if (!ClearViewOfIt()) return;
+        lookedUp = true;
+        float midElevation = (hangNeckElevation + hangFeetElevation) * 0.5f * Mathf.Deg2Rad;
+        player.DrawAttention(() => player.transform.position + giantBearing * giantStartDistance
+                                   + Vector3.up * Mathf.Tan(midElevation) * giantStartDistance, 8f, 0.6f);
+    }
+
+    /// <summary>
+    /// True if nothing stands between the player and the hanging giant: no tree's crown in the way of a
+    /// look up toward its middle (trees are about this tall and this wide), and nothing solid either.
+    /// </summary>
+    bool ClearViewOfIt()
+    {
+        var generator = FindAnyObjectByType<DarkForestGenerator>();
+        Vector3 you = player.transform.position;
+        Vector2 here = new Vector2(you.x, you.z);
+        Vector2 toward = new Vector2(giantBearing.x, giantBearing.z).normalized;
+        float rise = Mathf.Tan((hangNeckElevation + hangFeetElevation) * 0.5f * Mathf.Deg2Rad);
+        const float treeTop = 15f, crownRadius = 4.5f, eyeHeight = 1.7f;
+        if (generator != null)
+        {
+            foreach (var tree in generator.TreePositions)
+            {
+                Vector3 nearest = WorldWrap.NearestImage(new Vector3(tree.x, 0f, tree.y), you);
+                Vector2 d = new Vector2(nearest.x, nearest.z) - here;
+                float along = Vector2.Dot(d, toward);
+                if (along < 0.5f || eyeHeight + along * rise > treeTop) continue; // behind you, or the look's already above it
+                float across = Mathf.Abs(d.x * toward.y - d.y * toward.x);
+                if (across < crownRadius) return false;
+            }
+        }
+        Vector3 up = (giantBearing + Vector3.up * rise).normalized;
+        return !Physics.Raycast(you + Vector3.up * eyeHeight, up, 60f, ~0, QueryTriggerInteraction.Ignore);
+    }
+
+    /// <summary>A lamp's been lit: the chain jolts.</summary>
+    void WatchForLamps()
+    {
+        int lit = Lamp.TimesLit;
+        if (lampsSeen >= 0 && lit > lampsSeen) jolt = 0f;
+        lampsSeen = lit;
+    }
+
     /// <summary>Hanging dead by the neck, far off: turning slowly on the chain, swaying a little, limbs limp.</summary>
     void UpdateHanging(float dt)
     {
         EnsureGiant();
+        WatchForLamps();
         float t = Time.time;
         float scale = HangingScale();
         Vector3 anchor = player.transform.position + giantBearing * giantStartDistance + Vector3.up * HangingNeckHeight();
 
+        // A jolt on the chain: it drops a little and bounces, swinging, then settles.
+        float joltPitch = 0f, joltRoll = 0f;
+        if (jolt >= 0f)
+        {
+            jolt += dt;
+            float bounce = Mathf.Exp(-2.2f * jolt) * Mathf.Cos(7f * jolt);
+            anchor += Vector3.down * (HangingNeckHeight() * joltDrop * bounce);
+            float sway = Mathf.Exp(-0.9f * jolt) * Mathf.Sin(2.4f * jolt);
+            joltPitch = sway * 5f;
+            joltRoll = sway * 2.5f;
+            if (jolt > 6f) jolt = -1f;
+        }
+
         Quaternion facing = Quaternion.LookRotation(-giantBearing);
         float turn = Mathf.Sin(t * Mathf.PI * 2f / Mathf.Max(hangTurnTime, 1f)) * 35f;
-        Quaternion swing = Quaternion.Euler(Mathf.Sin(t * 0.21f) * 2.5f, turn, Mathf.Sin(t * 0.17f + 1f) * 2f);
+        Quaternion swing = Quaternion.Euler(Mathf.Sin(t * 0.21f) * 2.5f + joltPitch, turn, Mathf.Sin(t * 0.17f + 1f) * 2f + joltRoll);
         PlaceByNeck(anchor, facing * swing, scale);
 
         // Limp: legs dangle, arms hang, the head lolls on a broken neck. While the eye is open, it twitches.
@@ -1207,8 +1294,11 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         searchPausing = false;
         gait = 1f;
         stepImpulse = 0f;
-        // It's back up on its chain, somewhere new.
+        // It's back up on its chain, somewhere new (and you'll be drawn to look at it again).
         hangBearingAngle = Random.Range(0f, 360f);
+        lookedUp = false;
+        jolt = -1f;
+        lampsSeen = -1;
         foreach (var c in emptyChainList) c.bottomElevation = Random.Range(EmptyChainLow, EmptyChainHigh); // and so are the empty ones
 
         redness = 0f;
