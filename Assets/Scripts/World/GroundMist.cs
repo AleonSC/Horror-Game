@@ -1,195 +1,328 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// Low mist lying on the forest floor: soft, slow-drifting banks of it, thickest in hollows and over the
-/// ponds, thin or gone elsewhere, so it pools in some places and not others. It lives in a circle round the
-/// player (banks that fall behind are moved out ahead), drifts with the wind, thins as you walk into it so
-/// you wade through rather than clip it, and glows where the flashlight's beam falls on it.
-/// Each bank is a few soft sheets lying flat over the ground (tilted to its slope) one above another, fixed
-/// in place, not cards turned to face you: you look across it and down into it, and it stays put as you
-/// walk round it.
+/// Low mist lying in the forest: a real volume of it (Horror/MistVolume), not sprites. A box round the player
+/// is filled, in the shader, with billowing 3D noise that hugs the ground and thins with height, drifting with
+/// the wind; it gathers thickest in its patches, in hollows and round the ponds, and is barely there elsewhere.
+/// The flashlight's beam shows in it as a cone of lit mist, and the nearest lamps and torches glow in it.
+/// It's solid from every angle, wraps round the trees, and you walk through it.
+///
+/// The shader reads where the ground is and where mist gathers from a small map round the player (rebuilt a
+/// little at a time as you move), and needs the camera's depth texture, which this turns on.
 /// DarkForestGenerator adds this.
 /// </summary>
 public class GroundMist : MonoBehaviour
 {
-    public int bankCount = 80;
-    public float radius = 45f;
-    [Tooltip("Mist colour in the dark (a little lighter than the fog)...")]
-    public Color darkColor = new Color(0.055f, 0.063f, 0.075f, 0.42f);
-    [Tooltip("...and where the flashlight lights it.")]
-    public Color litColor = new Color(0.34f, 0.35f, 0.36f, 0.5f);
-    [Tooltip("Size of the areas the mist gathers in, or avoids (smaller = bigger areas).")]
-    public float noiseScale = 0.018f;
+    [Header("Look")]
+    [Tooltip("How thick the mist is overall.")]
+    public float density = 0.55f;
+    [Tooltip("How quickly it thins with height above the ground (metres: about the height it's thick to).")]
+    public float mistHeight = 0.9f;
+    [Tooltip("Its colour in the dark (a touch lighter than the fog).")]
+    public Color mistColor = new Color(0.035f, 0.04f, 0.05f);
+    [Tooltip("How much mist there is outside its patches, hollows and ponds (0 = none, 1 = as much as in them).")]
+    [Range(0f, 1f)] public float patchiness = 0.12f;
+    [Tooltip("Size of the billows (smaller = bigger billows).")]
+    public float noiseScale = 0.06f;
+    [Tooltip("Size of the areas it gathers in, or avoids (smaller = bigger areas).")]
+    public float patchScale = 0.018f;
+    [Tooltip("How far you can see mist.")]
+    public float maxDistance = 60f;
+    public float driftSpeed = 0.35f;
 
-    const int Layers = 5;
-    static readonly float[] layerHeight = { 0.1f, 0.3f, 0.55f, 0.8f, 1.1f };
-    static readonly float[] layerAlpha = { 1f, 0.9f, 0.75f, 0.55f, 0.3f };
-    static readonly float[] layerSize = { 1f, 0.95f, 0.9f, 0.8f, 0.7f };
+    [Header("Light In It")]
+    [Tooltip("How brightly the flashlight lights the mist.")]
+    public float flashlightStrength = 0.05f;
+    [Tooltip("How brightly lamps and torches light it.")]
+    public float lampStrength = 0.06f;
+    public float lampSearchRange = 45f;
 
-    class Bank
-    {
-        public Transform t; // the bank, lying on the ground; its layers are children
-        public readonly Renderer[] r = new Renderer[Layers];
-        public Vector3 pos;
-        public float width, seed, density, fade;
-    }
+    const int MapRes = 64;
+    const float MapSize = 160f;
+    const int NoiseRes = 48;
 
-    readonly List<Bank> banks = new List<Bank>();
+    Material mat;
+    Transform box;
+    Renderer boxRenderer;
+    Texture2D map, nextMap;
+    Vector2 mapOrigin, nextOrigin;
+    float mapMinY, mapMaxY;
+    bool rebuilding;
+    Vector2 noiseOffset;
+    Vector3 drift;
     DarkForestGenerator generator;
     WeatherSystem weather;
     Flashlight flashlight;
-    MaterialPropertyBlock block;
-    Vector2 noiseOffset;
+    Camera depthCam;
+    readonly List<Light> nearLights = new List<Light>();
+    readonly Vector4[] pointPos = new Vector4[4];
+    readonly Vector4[] pointColor = new Vector4[4];
+    float lightSearchTimer;
 
     void Start()
     {
         generator = FindAnyObjectByType<DarkForestGenerator>();
         weather = FindAnyObjectByType<WeatherSystem>();
-        block = new MaterialPropertyBlock();
+        Shader shader = Shader.Find("Horror/MistVolume");
+        if (shader == null || !shader.isSupported || generator == null || !SystemInfo.supports3DTextures)
+        {
+            Debug.LogWarning("[Horror] Ground mist: no volume shader (or no 3D textures) here, so no mist.");
+            enabled = false;
+            return;
+        }
         noiseOffset = new Vector2(Random.Range(0f, 1000f), Random.Range(0f, 1000f));
 
-        Shader shader = Shader.Find("Horror/Smoke");
-        if (shader == null || generator == null) { enabled = false; return; }
-        var mat = new Material(shader) { renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent - 10 };
+        mat = new Material(shader);
+        mat.SetTexture("_Noise", MakeNoise());
+        map = NewMap();
+        nextMap = NewMap();
 
-        for (int i = 0; i < bankCount; i++)
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "Mist Volume";
+        Destroy(go.GetComponent<Collider>());
+        go.transform.SetParent(transform, false);
+        boxRenderer = go.GetComponent<Renderer>();
+        boxRenderer.sharedMaterial = mat;
+        boxRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        boxRenderer.receiveShadows = false;
+        box = go.transform;
+
+        var cam = Camera.main;
+        Vector3 at = cam != null ? cam.transform.position : Vector3.zero;
+        // The first map all at once, so the mist is there from the start.
+        var it = BuildMap(new Vector2(at.x, at.z), int.MaxValue);
+        while (it.MoveNext()) { }
+        SwapMaps();
+    }
+
+    static Texture2D NewMap() => new Texture2D(MapRes, MapRes, TextureFormat.RGBAHalf, false, true)
+    {
+        name = "Mist Map", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear,
+    };
+
+    /// <summary>
+    /// The map round a point: ground height (R) and how much mist gathers there (G), a few rows a frame
+    /// (perRow rows) into the spare texture, so moving on doesn't hitch.
+    /// </summary>
+    IEnumerator BuildMap(Vector2 center, int rowsPerFrame)
+    {
+        rebuilding = true;
+        Vector2 origin = center - Vector2.one * MapSize * 0.5f;
+        var px = new Color[MapRes * MapRes];
+        float lo = float.MaxValue, hi = float.MinValue;
+        float cell = MapSize / (MapRes - 1);
+        int rows = 0;
+        for (int y = 0; y < MapRes; y++)
         {
-            var go = new GameObject("Mist Bank");
-            go.transform.SetParent(transform, false);
-            var bank = new Bank { t = go.transform };
-            for (int k = 0; k < Layers; k++)
+            for (int x = 0; x < MapRes; x++)
             {
-                var layer = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                layer.name = "Mist Layer";
-                Destroy(layer.GetComponent<Collider>());
-                layer.transform.SetParent(go.transform, false);
-                layer.transform.localPosition = Vector3.up * layerHeight[k];
-                // Lying flat, each turned its own way so the layers' shapes don't line up.
-                layer.transform.localRotation = Quaternion.Euler(90f, Random.Range(0f, 360f), 0f);
-                layer.transform.localScale = new Vector3(layerSize[k], layerSize[k] * Random.Range(0.7f, 1f), 1f);
-                var r = layer.GetComponent<MeshRenderer>();
-                r.sharedMaterial = mat;
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                r.receiveShadows = false;
-                bank.r[k] = r;
+                float wx = origin.x + x * cell, wz = origin.y + y * cell;
+                float ground = generator.GetGroundHeight(wx, wz);
+                lo = Mathf.Min(lo, ground);
+                hi = Mathf.Max(hi, ground);
+                px[y * MapRes + x] = new Color(ground, Mistiness(wx, wz, ground), 0f, 1f);
             }
-            banks.Add(bank);
-            go.SetActive(false);
+            if (++rows >= rowsPerFrame) { rows = 0; yield return null; }
         }
+        nextMap.SetPixels(px);
+        nextMap.Apply(false);
+        // Texels sit on the corners of the grid: uv 0 and 1 at the first and last.
+        nextOrigin = origin - Vector2.one * cell * 0.5f;
+        mapMinY = lo;
+        mapMaxY = hi;
+        rebuilding = false;
+    }
+
+    void SwapMaps()
+    {
+        (map, nextMap) = (nextMap, map);
+        mapOrigin = nextOrigin;
+        mat.SetTexture("_MistMap", map);
+        float cell = MapSize / (MapRes - 1);
+        mat.SetVector("_MapRect", new Vector4(mapOrigin.x, mapOrigin.y, cell * MapRes, cell * MapRes));
     }
 
     /// <summary>How much mist gathers here, 0-1: in its patches, deeper in hollows, over and round the ponds.</summary>
-    float Mistiness(Vector3 p)
+    float Mistiness(float x, float z, float ground)
     {
-        float patches = Mathf.PerlinNoise((p.x + noiseOffset.x) * noiseScale, (p.z + noiseOffset.y) * noiseScale);
-        float ground = generator.GetGroundHeight(p.x, p.z);
+        float patches = Mathf.PerlinNoise((x + noiseOffset.x) * patchScale, (z + noiseOffset.y) * patchScale);
         float around = 0f;
         for (int k = 0; k < 4; k++)
         {
             float a = k * Mathf.PI * 0.5f;
-            around += generator.GetGroundHeight(p.x + Mathf.Cos(a) * 8f, p.z + Mathf.Sin(a) * 8f);
+            around += generator.GetGroundHeight(x + Mathf.Cos(a) * 8f, z + Mathf.Sin(a) * 8f);
         }
         float hollow = Mathf.Clamp01((around * 0.25f - ground) / 0.8f); // lower than the ground round it
-        float m = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.4f, 0.62f, patches)) + hollow * 0.8f + Water.NearPond(p, 10f);
+        float m = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.42f, 0.68f, patches)) + hollow * 0.8f
+                  + Water.NearPond(new Vector3(x, ground, z), 10f);
         return Mathf.Clamp01(m);
     }
 
-    /// <summary>Puts a bank somewhere in the ring round the player (ahead of them if `ahead`), where mist gathers.</summary>
-    void Place(Bank b, Vector3 center, Vector3 ahead, bool anywhere)
+    /// <summary>Tiling 3D value noise, a few octaves, for the billows.</summary>
+    static Texture3D MakeNoise()
     {
-        for (int attempt = 0; attempt < 12; attempt++)
+        const int n = NoiseRes;
+        float Hash(int x, int y, int z, int seed)
         {
-            Vector2 dir = Random.insideUnitCircle.normalized;
-            if (!anywhere && ahead.sqrMagnitude > 0.01f && Vector2.Dot(dir, new Vector2(ahead.x, ahead.z)) < 0f) dir = -dir;
-            float dist = anywhere ? Mathf.Sqrt(Random.value) * radius : Random.Range(radius * 0.7f, radius);
-            var p = center + new Vector3(dir.x, 0f, dir.y) * dist;
-            float m = Mistiness(p);
-            if (Random.value > m) continue;
-            b.width = Random.Range(7f, 14f);
-            b.pos = new Vector3(p.x, generator.GetGroundHeight(p.x, p.z), p.z);
-            // Lying along the slope under it, turned any way.
-            float hw = b.width * 0.4f;
-            float dx = generator.GetGroundHeight(p.x + hw, p.z) - generator.GetGroundHeight(p.x - hw, p.z);
-            float dz = generator.GetGroundHeight(p.x, p.z + hw) - generator.GetGroundHeight(p.x, p.z - hw);
-            Vector3 normal = new Vector3(-dx / (2f * hw), 1f, -dz / (2f * hw)).normalized;
-            b.t.rotation = Quaternion.FromToRotation(Vector3.up, normal) * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-            b.t.localScale = new Vector3(b.width, 1f, b.width);
-            b.seed = Random.Range(0f, 100f);
-            b.density = Mathf.Lerp(0.7f, 1f, m);
-            b.fade = 0f; // fades in, so nothing pops into view
-            if (!b.t.gameObject.activeSelf) b.t.gameObject.SetActive(true);
-            return;
+            unchecked
+            {
+                int h = x * 374761393 + y * 668265263 + z * 1442695041 + seed * 144665;
+                h = (h ^ (h >> 13)) * 1274126177;
+                return ((h ^ (h >> 16)) & 0xffff) / 65535f;
+            }
         }
-        if (b.t.gameObject.activeSelf) b.t.gameObject.SetActive(false); // nowhere misty nearby: wait
-        b.fade = 0f;
-    }
+        float Noise(float x, float y, float z, int period, int seed)
+        {
+            int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y), z0 = Mathf.FloorToInt(z);
+            float fx = x - x0, fy = y - y0, fz = z - z0;
+            fx = fx * fx * (3f - 2f * fx);
+            fy = fy * fy * (3f - 2f * fy);
+            fz = fz * fz * (3f - 2f * fz);
+            int M(int v) => ((v % period) + period) % period;
+            int ax = M(x0), bx = M(x0 + 1), ay = M(y0), by = M(y0 + 1), az = M(z0), bz = M(z0 + 1);
+            float c00 = Mathf.Lerp(Hash(ax, ay, az, seed), Hash(bx, ay, az, seed), fx);
+            float c10 = Mathf.Lerp(Hash(ax, by, az, seed), Hash(bx, by, az, seed), fx);
+            float c01 = Mathf.Lerp(Hash(ax, ay, bz, seed), Hash(bx, ay, bz, seed), fx);
+            float c11 = Mathf.Lerp(Hash(ax, by, bz, seed), Hash(bx, by, bz, seed), fx);
+            return Mathf.Lerp(Mathf.Lerp(c00, c10, fy), Mathf.Lerp(c01, c11, fy), fz);
+        }
 
-    bool placedAll;
+        var px = new Color32[n * n * n];
+        for (int z = 0; z < n; z++)
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float u = x / (float)n, v = y / (float)n, w = z / (float)n;
+                    float sum = 0f, amp = 0.5f, norm = 0f;
+                    int period = 4;
+                    for (int o = 0; o < 3; o++)
+                    {
+                        sum += Noise(u * period, v * period, w * period, period, 900 + o) * amp;
+                        norm += amp;
+                        amp *= 0.5f;
+                        period *= 2;
+                    }
+                    byte b = (byte)Mathf.Clamp(Mathf.RoundToInt(sum / norm * 255f), 0, 255);
+                    px[(z * n + y) * n + x] = new Color32(b, b, b, 255);
+                }
+        var tex = new Texture3D(n, n, n, TextureFormat.RGBA32, false)
+        {
+            name = "Mist Noise", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(false);
+        return tex;
+    }
 
     void Update()
     {
         var cam = Camera.main;
-        if (cam == null || banks.Count == 0) return;
+        if (cam == null || mat == null) return;
+
+        // The ray stops at the ground and the trees: it needs the depth texture.
+        if (depthCam != cam)
+        {
+            depthCam = cam;
+            var data = cam.GetUniversalAdditionalCameraData();
+            if (data != null) data.requiresDepthTexture = true;
+        }
+
+        // None in the dark room.
+        bool show = !PortalDoor.PlayerInRoom;
+        if (boxRenderer.enabled != show) boxRenderer.enabled = show;
+        if (!show) return;
+
+        Vector3 at = cam.transform.position;
+        Vector2 here = new Vector2(at.x, at.z);
+        Vector2 mapCenter = mapOrigin + Vector2.one * MapSize * 0.5f;
+        // Moving on: a new map round where you are, built over a few frames, then swapped in.
+        if (!rebuilding && (here - mapCenter).magnitude > MapSize * 0.5f - maxDistance - 2f)
+            StartCoroutine(BuildAndSwap(here));
+
+        // The box: round you, from just under the lowest ground to well over the highest.
+        float half = maxDistance;
+        Vector3 min = new Vector3(at.x - half, mapMinY - 0.5f, at.z - half);
+        Vector3 max = new Vector3(at.x + half, mapMaxY + mistHeight * 5f, at.z + half);
+        box.position = (min + max) * 0.5f;
+        box.rotation = Quaternion.identity;
+        box.localScale = max - min;
+        mat.SetVector("_BoxMin", min);
+        mat.SetVector("_BoxMax", max);
+
+        // Drifting on the wind, and slowly churning even when it's still.
+        Vector3 wind = weather != null ? weather.WindVector * (0.2f + weather.CurrentWind) : Vector3.zero;
+        drift += (wind * driftSpeed + new Vector3(0.05f, 0.03f, 0.04f)) * Time.deltaTime * noiseScale;
+        mat.SetVector("_Wind", -drift);
+
+        mat.SetColor("_MistColor", mistColor);
+        mat.SetFloat("_Density", density);
+        mat.SetFloat("_MistHeight", Mathf.Max(mistHeight, 0.05f));
+        mat.SetFloat("_NoiseScale", noiseScale);
+        mat.SetFloat("_MaxDistance", maxDistance);
+        mat.SetFloat("_Patchiness", patchiness);
+
+        UpdateFlashlight();
+        UpdateLamps(at);
+    }
+
+    IEnumerator BuildAndSwap(Vector2 center)
+    {
+        yield return BuildMap(center, 4);
+        SwapMaps();
+    }
+
+    void UpdateFlashlight()
+    {
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
-        Vector3 center = cam.transform.position;
-        Vector3 ahead = cam.transform.forward;
-        float dt = Time.deltaTime;
-
-        if (!placedAll)
-        {
-            placedAll = true;
-            foreach (var b in banks) { Place(b, center, ahead, true); b.fade = 1f; }
-        }
-
-        Vector3 wind = weather != null ? weather.WindVector * (0.15f + 0.35f * weather.CurrentWind) : Vector3.zero;
         Light beam = flashlight != null && flashlight.IsOn ? flashlight.flashlight : null;
-
-        foreach (var b in banks)
+        if (beam == null || !beam.isActiveAndEnabled)
         {
-            Vector3 flat = b.pos - center;
-            flat.y = 0f;
-            if (!b.t.gameObject.activeSelf || flat.magnitude > radius * 1.1f)
-            {
-                // Fallen behind, or still waiting for a spot: out ahead again (a few a frame at most is plenty).
-                if (Random.value < 0.05f) Place(b, center, ahead, false);
-                continue;
-            }
-
-            // Drifting with the wind, settling to the ground under it as it goes.
-            b.pos += wind * dt;
-            b.pos.y = generator.GetGroundHeight(b.pos.x, b.pos.z);
-            b.fade = Mathf.MoveTowards(b.fade, 1f, dt / 4f);
-            b.t.position = b.pos;
-
-            // Thin round the edge of the ring, and as you walk into it.
-            float dist = flat.magnitude;
-            float alpha = b.density * b.fade
-                          * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius, radius * 0.75f, dist))
-                          * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 3f, dist)); // (a little thinner round your legs)
-
-            // Lit where the beam falls on it.
-            float lit = 0f;
-            if (beam != null)
-            {
-                Vector3 to = b.pos - beam.transform.position;
-                float d = to.magnitude;
-                if (d < beam.range)
-                {
-                    float angle = Vector3.Angle(beam.transform.forward, to);
-                    float cone = Mathf.InverseLerp(beam.spotAngle * 0.5f + 8f, beam.spotAngle * 0.25f, angle);
-                    lit = Mathf.Clamp01(cone) * (1f - d / beam.range) * Mathf.Clamp01(beam.intensity / 12f);
-                }
-            }
-            Color c = Color.Lerp(darkColor, litColor, lit);
-            for (int k = 0; k < Layers; k++)
-            {
-                Color layer = c;
-                layer.a *= alpha * layerAlpha[k];
-                block.SetColor("_Color", layer);
-                block.SetFloat("_Seed", b.seed + k * 17.3f);
-                b.r[k].SetPropertyBlock(block);
-            }
+            mat.SetVector("_SpotColor", new Vector4(0f, 0f, 0f, 1f));
+            return;
         }
+        Transform t = beam.transform;
+        mat.SetVector("_SpotPos", new Vector4(t.position.x, t.position.y, t.position.z, beam.range));
+        float outer = Mathf.Cos(beam.spotAngle * 0.5f * Mathf.Deg2Rad);
+        float inner = Mathf.Cos(Mathf.Min(beam.innerSpotAngle, beam.spotAngle - 1f) * 0.5f * Mathf.Deg2Rad);
+        mat.SetVector("_SpotDir", new Vector4(t.forward.x, t.forward.y, t.forward.z, outer));
+        Color c = beam.color * beam.intensity * flashlightStrength;
+        mat.SetVector("_SpotColor", new Vector4(c.r, c.g, c.b, inner));
+    }
+
+    /// <summary>The few nearest lamps and torches (point lights), looked for now and then, glowing in it.</summary>
+    void UpdateLamps(Vector3 at)
+    {
+        lightSearchTimer -= Time.deltaTime;
+        if (lightSearchTimer <= 0f)
+        {
+            lightSearchTimer = 0.5f;
+            nearLights.Clear();
+            foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None))
+            {
+                if (l.type != LightType.Point || !l.isActiveAndEnabled || l.intensity < 0.3f || l.range < 3f) continue;
+                if ((l.transform.position - at).sqrMagnitude > lampSearchRange * lampSearchRange) continue;
+                nearLights.Add(l);
+            }
+            nearLights.Sort((a, b) => (a.transform.position - at).sqrMagnitude.CompareTo((b.transform.position - at).sqrMagnitude));
+            if (nearLights.Count > 4) nearLights.RemoveRange(4, nearLights.Count - 4);
+        }
+
+        int count = 0;
+        foreach (var l in nearLights)
+        {
+            if (l == null || !l.isActiveAndEnabled) continue;
+            Vector3 p = l.transform.position;
+            pointPos[count] = new Vector4(p.x, p.y, p.z, Mathf.Min(l.range, 14f));
+            Color c = l.color * l.intensity * lampStrength;
+            pointColor[count] = new Vector4(c.r, c.g, c.b, 0f);
+            count++;
+        }
+        for (int k = count; k < 4; k++) { pointPos[k] = Vector4.zero; pointColor[k] = Vector4.zero; }
+        mat.SetVectorArray("_PointPos", pointPos);
+        mat.SetVectorArray("_PointColor", pointColor);
+        mat.SetFloat("_PointCount", count);
     }
 }
