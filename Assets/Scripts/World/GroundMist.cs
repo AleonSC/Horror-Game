@@ -6,6 +6,9 @@ using UnityEngine;
 /// ponds, thin or gone elsewhere, so it pools in some places and not others. It lives in a circle round the
 /// player (banks that fall behind are moved out ahead), drifts with the wind, thins as you walk into it so
 /// you wade through rather than clip it, and glows where the flashlight's beam falls on it.
+/// Each bank is a few soft sheets lying flat over the ground (tilted to its slope) one above another, fixed
+/// in place, not cards turned to face you: you look across it and down into it, and it stays put as you
+/// walk round it.
 /// DarkForestGenerator adds this.
 /// </summary>
 public class GroundMist : MonoBehaviour
@@ -19,12 +22,17 @@ public class GroundMist : MonoBehaviour
     [Tooltip("Size of the areas the mist gathers in, or avoids (smaller = bigger areas).")]
     public float noiseScale = 0.018f;
 
+    const int Layers = 3;
+    static readonly float[] layerHeight = { 0.12f, 0.45f, 0.85f };
+    static readonly float[] layerAlpha = { 1f, 0.7f, 0.4f };
+    static readonly float[] layerSize = { 1f, 0.9f, 0.75f };
+
     class Bank
     {
-        public Transform t;
-        public Renderer r;
+        public Transform t; // the bank, lying on the ground; its layers are children
+        public readonly Renderer[] r = new Renderer[Layers];
         public Vector3 pos;
-        public float width, height, seed, density, fade;
+        public float width, seed, density, fade;
     }
 
     readonly List<Bank> banks = new List<Bank>();
@@ -47,15 +55,25 @@ public class GroundMist : MonoBehaviour
 
         for (int i = 0; i < bankCount; i++)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            go.name = "Mist Bank";
-            Destroy(go.GetComponent<Collider>());
+            var go = new GameObject("Mist Bank");
             go.transform.SetParent(transform, false);
-            var r = go.GetComponent<MeshRenderer>();
-            r.sharedMaterial = mat;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            r.receiveShadows = false;
-            var bank = new Bank { t = go.transform, r = r };
+            var bank = new Bank { t = go.transform };
+            for (int k = 0; k < Layers; k++)
+            {
+                var layer = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                layer.name = "Mist Layer";
+                Destroy(layer.GetComponent<Collider>());
+                layer.transform.SetParent(go.transform, false);
+                layer.transform.localPosition = Vector3.up * layerHeight[k];
+                // Lying flat, each turned its own way so the layers' shapes don't line up.
+                layer.transform.localRotation = Quaternion.Euler(90f, Random.Range(0f, 360f), 0f);
+                layer.transform.localScale = new Vector3(layerSize[k], layerSize[k] * Random.Range(0.7f, 1f), 1f);
+                var r = layer.GetComponent<MeshRenderer>();
+                r.sharedMaterial = mat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                bank.r[k] = r;
+            }
             banks.Add(bank);
             go.SetActive(false);
         }
@@ -88,9 +106,15 @@ public class GroundMist : MonoBehaviour
             var p = center + new Vector3(dir.x, 0f, dir.y) * dist;
             float m = Mistiness(p);
             if (Random.value > m) continue;
-            b.width = Random.Range(5f, 10f);
-            b.height = Random.Range(1.3f, 2.4f);
-            b.pos = new Vector3(p.x, generator.GetGroundHeight(p.x, p.z) + b.height * 0.32f, p.z);
+            b.width = Random.Range(6f, 12f);
+            b.pos = new Vector3(p.x, generator.GetGroundHeight(p.x, p.z), p.z);
+            // Lying along the slope under it, turned any way.
+            float hw = b.width * 0.4f;
+            float dx = generator.GetGroundHeight(p.x + hw, p.z) - generator.GetGroundHeight(p.x - hw, p.z);
+            float dz = generator.GetGroundHeight(p.x, p.z + hw) - generator.GetGroundHeight(p.x, p.z - hw);
+            Vector3 normal = new Vector3(-dx / (2f * hw), 1f, -dz / (2f * hw)).normalized;
+            b.t.rotation = Quaternion.FromToRotation(Vector3.up, normal) * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+            b.t.localScale = new Vector3(b.width, 1f, b.width);
             b.seed = Random.Range(0f, 100f);
             b.density = Mathf.Lerp(0.5f, 1f, m);
             b.fade = 0f; // fades in, so nothing pops into view
@@ -132,21 +156,17 @@ public class GroundMist : MonoBehaviour
                 continue;
             }
 
+            // Drifting with the wind, settling to the ground under it as it goes.
             b.pos += wind * dt;
+            b.pos.y = generator.GetGroundHeight(b.pos.x, b.pos.z);
             b.fade = Mathf.MoveTowards(b.fade, 1f, dt / 4f);
-
-            // Upright, turned to face you, so it always reads as a low bank rather than a flat card.
-            Vector3 face = b.pos - center;
-            face.y = 0f;
-            if (face.sqrMagnitude < 0.0001f) face = Vector3.forward;
-            b.t.SetPositionAndRotation(b.pos, Quaternion.LookRotation(face.normalized, Vector3.up));
-            b.t.localScale = new Vector3(b.width, b.height, 1f);
+            b.t.position = b.pos;
 
             // Thin round the edge of the ring, and as you walk into it.
             float dist = flat.magnitude;
             float alpha = b.density * b.fade
                           * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius, radius * 0.75f, dist))
-                          * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.5f, 6f, dist));
+                          * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 3f, dist)) // (a little thinner round your legs);
 
             // Lit where the beam falls on it.
             float lit = 0f;
@@ -162,10 +182,14 @@ public class GroundMist : MonoBehaviour
                 }
             }
             Color c = Color.Lerp(darkColor, litColor, lit);
-            c.a *= alpha;
-            block.SetColor("_Color", c);
-            block.SetFloat("_Seed", b.seed);
-            b.r.SetPropertyBlock(block);
+            for (int k = 0; k < Layers; k++)
+            {
+                Color layer = c;
+                layer.a *= alpha * layerAlpha[k];
+                block.SetColor("_Color", layer);
+                block.SetFloat("_Seed", b.seed + k * 17.3f);
+                b.r[k].SetPropertyBlock(block);
+            }
         }
     }
 }
