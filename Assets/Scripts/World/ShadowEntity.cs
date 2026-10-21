@@ -564,7 +564,7 @@ public class ShadowEntity : MonoBehaviour
         bool eyesLit = EyesInBeam();
         eyeshine = Mathf.MoveTowards(eyeshine, eyesLit ? 1f : 0f, Time.deltaTime * 6f);
         if (WatchForFlashing(eyesLit)) return;
-        SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), Mathf.Max(brightness, eyeshine * eyeshineBrightness), eyeshine, 0.3f * beamGlow); // a touch of the blue it burns when faced down
+        SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), Mathf.Max(brightness, eyeshine * eyeshineBrightness), eyeshine * (1f - beamGlow), Mathf.SmoothStep(0f, 1f, beamGlow)); // the blue it burns when faced down
         eyeLight.intensity = brightness * eyeLightStrength; // a reflection: it doesn't light up the trees
 
         // The last few metres: its mouth drops open, light glaring out of it.
@@ -869,7 +869,7 @@ public class ShadowEntity : MonoBehaviour
         float flicker = 1f + Random.Range(-0.3f, 0.3f) * e;
         mouthTarget = Mathf.Lerp(0.7f, 1.5f, e); // stretching wider and wider
         // Its eyes carry on from how they looked and burn blue as it's driven off, the glow round them swelling.
-        float blue = Mathf.SmoothStep(0f, 1f, c);
+        float blue = Mathf.Max(Mathf.SmoothStep(0f, 1f, c), Mathf.SmoothStep(0f, 1f, beamGlow)); // (already blue from the beam)
         float brightness = Mathf.Lerp(crescendoStartBrightness, spawnEyeIntensity * 1.5f, e) * flicker;
         SetEyes(Mathf.Lerp(maxEyeWiden, maxEyeWiden * 1.8f, e), brightness, crescendoStartShine * (1f - blue), blue);
         eyeLight.intensity = Mathf.Lerp(crescendoStartLight, brightness, e) * eyeLightStrength * (1f + dismissGlow * blue);
@@ -906,50 +906,15 @@ public class ShadowEntity : MonoBehaviour
 
     int beamLitFrame = -10;
     float beamGlow;
-    Transform beamHalo;
-    Material beamHaloMat;
 
     /// <summary>
-    /// The tell that the flashlight has it, and holding it there will drive it off: a faint, cold blue halo
-    /// shimmering round its silhouette (and a hint of blue in its eyes), easing in while the beam's on it and
-    /// growing as it's faced down, gone when the beam leaves it.
+    /// The tell that the flashlight has it, and holding it there will drive it off: its eyes fade from red to
+    /// the cold blue they burn when it's faced down while the beam's on it, and back when the beam leaves.
     /// </summary>
     void UpdateBeamHalo()
     {
         bool lit = (CurrentState == State.Watching && Time.frameCount - beamLitFrame <= 1) || CurrentState == State.Crescendo;
-        beamGlow = Mathf.MoveTowards(beamGlow, lit ? 1f : 0f, Time.deltaTime / (lit ? 0.25f : 0.4f));
-        if (beamHalo == null)
-        {
-            if (beamGlow <= 0f) return;
-            Shader glow = Shader.Find("Horror/Glow");
-            if (glow == null) return;
-            beamHaloMat = new Material(glow);
-            beamHaloMat.SetColor("_Color", dismissColor);
-            var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            go.name = "Beam Halo";
-            Destroy(go.GetComponent<Collider>());
-            var r = go.GetComponent<Renderer>();
-            r.sharedMaterial = beamHaloMat;
-            r.shadowCastingMode = ShadowCastingMode.Off;
-            r.receiveShadows = false;
-            beamHalo = go.transform;
-            beamHalo.SetParent(transform, false);
-        }
-        bool show = beamGlow > 0.01f && IsVisible;
-        if (beamHalo.gameObject.activeSelf != show) beamHalo.gameObject.SetActive(show);
-        if (!show) return;
-        var cam = Camera.main;
-        if (cam == null) return;
-        // Behind it from where you stand, so its black shape stands out against the glow, rimmed in it.
-        float h = 2.4f * scale * growth;
-        Vector3 middle = transform.position + Vector3.up * h * 0.55f;
-        Vector3 away = (middle - cam.transform.position).normalized;
-        beamHalo.position = middle + away * 0.35f * scale;
-        beamHalo.rotation = Quaternion.LookRotation(away, Vector3.up);
-        float breathe = 0.85f + 0.15f * Mathf.Sin(Time.time * 5f);
-        Vector3 size = new Vector3(h * 0.75f, h * 1.25f, 1f);
-        beamHalo.localScale = new Vector3(size.x / Mathf.Max(transform.lossyScale.x, 0.0001f), size.y / Mathf.Max(transform.lossyScale.y, 0.0001f), 1f);
-        beamHaloMat.SetFloat("_Intensity", (CurrentState == State.Crescendo ? 0.55f : 0.28f) * beamGlow * breathe);
+        beamGlow = Mathf.MoveTowards(beamGlow, lit ? 1f : 0f, Time.deltaTime / (lit ? 0.5f : 0.6f));
     }
 
     /// <summary>The one taking the player right now, if any: only one at a time.</summary>
