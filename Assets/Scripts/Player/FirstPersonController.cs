@@ -224,14 +224,21 @@ public class FirstPersonController : MonoBehaviour
         // The mouse only turns the view while it's captured (not while the dev tools window has it)...
         if (!lockCursor || Cursor.lockState == CursorLockMode.Locked)
         {
-            // While a boss has your eye, the mouse barely moves the view: the moment comes first.
+            // While a boss has your eye, the mouse barely moves the view: the moment comes first. (Likewise
+            // while something holds your gaze, waking up looking down at the flashlight in your hand.)
             float held = attractTimer > 0f && attractTarget != null ? 0.1f : 1f;
+            held *= 1f - gazeBlend;
             Vector2 look = HorrorInput.Look * mouseSensitivity * Mathf.Lerp(1f, 0.5f, Grogginess) * held; // heavy-headed
             transform.Rotate(Vector3.up, look.x, Space.Self);
 
             pitch += invertY ? look.y : -look.y;
             pitch = Mathf.Clamp(pitch, -maxLookAngle, maxLookAngle);
         }
+
+        // Held looking at something (HoldGaze): eased into, and eased out of when let go.
+        gazeBlend = Mathf.MoveTowards(gazeBlend, gazeHeld ? 1f : 0f, Time.deltaTime / (gazeHeld ? 0.5f : 0.8f));
+        if (gazeBlend > 0f)
+            pitch = Mathf.Lerp(pitch, gazePitch, (1f - Mathf.Exp(-5f * Time.deltaTime)) * gazeBlend);
 
         // ...but a boss drawing your eye does it regardless (it used to wait for the mouse to be captured,
         // so with the dev tools open it never happened).
@@ -254,6 +261,21 @@ public class FirstPersonController : MonoBehaviour
             }
         }
     }
+
+    bool gazeHeld;
+    float gazePitch, gazeBlend;
+
+    /// <summary>
+    /// Holds the view at a pitch (degrees; down is positive) and takes the mouse away from it, easing in;
+    /// walking still works. ReleaseGaze hands the view back, easing out.
+    /// </summary>
+    public void HoldGaze(float pitchDegrees)
+    {
+        gazeHeld = true;
+        gazePitch = Mathf.Clamp(pitchDegrees, -maxLookAngle, maxLookAngle);
+    }
+
+    public void ReleaseGaze() => gazeHeld = false;
 
     /// <summary>True while a boss is holding the player's view (narration waits for it to finish).</summary>
     public static bool AttentionHeld => active != null && active.attractTimer > 0f && active.attractTarget != null;
