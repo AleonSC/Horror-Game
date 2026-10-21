@@ -4,7 +4,7 @@ using UnityEngine;
 /// Lets the player click on lamps to charge them, batteries to refill the flashlight, shack doors to
 /// open them (and the car's door), torches / lighters to pick them up, the car's headlight switch,
 /// and draws a simple HUD: a crosshair, the lamp's charge / energy / cooldown bar, the energy of the
-/// lamp you're standing in, and a counter of how many times lamps have been lit (top right).
+/// lamp you're standing in, and a row of squares (one per lamp, lit as lamps are) above the battery bar.
 /// LampSpawner adds this to the player automatically.
 /// </summary>
 public class LampInteractor : MonoBehaviour
@@ -456,26 +456,52 @@ public class LampInteractor : MonoBehaviour
         Diamond(bar.xMax + 6f * unit, bar.center.y, 3f * unit, Ember);
     }
 
-    /// <summary>How many of the lamps have been lit, in the top right: a glowing dot and "3/10".</summary>
+    int squaresLit = -1;
+    float squareLitAt = -10f;
+
+    /// <summary>
+    /// The goal, just above the flashlight's battery bar (bottom left): a row of small squares, one per lamp,
+    /// dark and outlined until lamps are lit, each lighting up warm as one is, the newest flaring as it does.
+    /// </summary>
     void DrawLampCounter()
     {
+        int total = Lamp.All.Count, lit = Mathf.Min(Lamp.LitCount, total);
+        if (total <= 0) return;
+        if (lit != squaresLit)
+        {
+            if (squaresLit >= 0 && lit > squaresLit) squareLitAt = Time.unscaledTime;
+            squaresLit = lit;
+        }
+
+        // Lined up with the battery bar (Flashlight draws it 24 from the left and bottom, 34 tall, 156 wide).
         float unit = Mathf.Max(1f, Screen.height / 1080f);
-        float margin = 24f * unit;
-        float dot = 18f * unit;
-        float height = 48f * unit;
-        var area = new Rect(Screen.width - margin - 200f * unit, margin, 200f * unit, height);
+        float margin = 24f * unit, barHeight = 34f * unit, barWidth = 156f * unit;
+        float gap = 4f * unit;
+        float size = Mathf.Min(14f * unit, (barWidth - gap * (total - 1)) / total);
+        float y = Screen.height - margin - barHeight - 10f * unit - size;
+        float flare = Mathf.Clamp01(1f - (Time.unscaledTime - squareLitAt) / 1.5f);
 
-        var dotRect = new Rect(area.xMax - dot, area.y + (height - dot) * 0.5f, dot, dot);
-        DrawRect(new Rect(dotRect.x - 3f * unit, dotRect.y - 3f * unit, dot + 6f * unit, dot + 6f * unit), new Color(1f, 0.7f, 0.3f, 0.25f));
-        DrawRect(dotRect, new Color(1f, 0.78f, 0.42f, 0.95f));
-
-        smallStyle.fontSize = Mathf.RoundToInt(40f * unit);
-        smallStyle.normal.textColor = new Color(0.95f, 0.88f, 0.72f);
-        var textRect = new Rect(area.x, area.y, area.width - dot - 12f * unit, height);
-        GUI.color = new Color(0f, 0f, 0f, 0.7f);
-        GUI.Label(new Rect(textRect.x + 2f, textRect.y + 2f, textRect.width, textRect.height), $"{Lamp.LitCount}/{Lamp.All.Count}", smallStyle);
-        GUI.color = Color.white;
-        GUI.Label(textRect, $"{Lamp.LitCount}/{Lamp.All.Count}", smallStyle);
+        for (int i = 0; i < total; i++)
+        {
+            var r = new Rect(margin + i * (size + gap), y, size, size);
+            if (i < lit)
+            {
+                bool newest = i == lit - 1 && flare > 0f;
+                float glow = (newest ? 2.5f + 4f * flare : 2.5f) * unit;
+                DrawRect(new Rect(r.x - glow, r.y - glow, r.width + glow * 2f, r.height + glow * 2f), new Color(1f, 0.7f, 0.3f, newest ? 0.18f + 0.3f * flare : 0.18f));
+                DrawRect(r, Color.Lerp(new Color(1f, 0.78f, 0.42f, 0.95f), new Color(1f, 0.97f, 0.85f, 1f), newest ? flare : 0f));
+            }
+            else
+            {
+                DrawRect(r, new Color(0f, 0f, 0f, 0.45f));
+                float b = Mathf.Max(1f, unit);
+                var edge = new Color(0.9f, 0.85f, 0.75f, 0.4f);
+                DrawRect(new Rect(r.x, r.y, r.width, b), edge);
+                DrawRect(new Rect(r.x, r.yMax - b, r.width, b), edge);
+                DrawRect(new Rect(r.x, r.y, b, r.height), edge);
+                DrawRect(new Rect(r.xMax - b, r.y, b, r.height), edge);
+            }
+        }
     }
 
     static Color EnergyColor(Lamp lamp) =>

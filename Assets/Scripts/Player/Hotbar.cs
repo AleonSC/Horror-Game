@@ -545,7 +545,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     {
         message = text;
         messageTimer = 3f;
+        messageAt = Time.unscaledTime;
     }
+
+    float messageAt = -10f;
+    [Tooltip("Seconds the hotbar stays up after you switch items (or pick something up) before it fades away.")]
+    public float hotbarShowTime = 2.5f;
 
     void Play(AudioClip clip, float volume, float pitch = 1f)
     {
@@ -748,6 +753,10 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (flashGlow > 0f) DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(1f, 1f, 1f, flashGlow * flashGlow * 0.9f)); // the flash in your own eyes
         if (!showHotbar || InventoryScreen.IsOpen) return; // the inventory shows the slots itself
 
+        // It shows while you're switching items (or just picked something up), then fades away.
+        float idle = Time.unscaledTime - Mathf.Max(selectedAt, messageAt);
+        float shown = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(hotbarShowTime, hotbarShowTime + 0.8f, idle));
+
         float unit = Mathf.Max(0.6f, Screen.height / 1080f);
         float size = 70f * unit, gap = 8f * unit, pad = 10f * unit, margin = 26f * unit;
         float width = SlotCount * size + (SlotCount - 1) * gap;
@@ -758,19 +767,22 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
         // The tray: a dark, rounded band behind the slots with a thin gilt line along its top.
         var tray = new Rect(x0 - pad, y - pad, width + pad * 2f, size + pad * 2f);
-        Rounded(new Rect(tray.x, tray.y + 3f * unit, tray.width, tray.height), new Color(0f, 0f, 0f, 0.35f), 16f * unit); // shadow
-        Rounded(tray, new Color(0.03f, 0.028f, 0.025f, 0.62f), 16f * unit);
-        for (int i = 0; i < 24; i++)
+        if (shown > 0.002f)
         {
-            float f = i / 24f, edge = 1f - Mathf.Abs(f - 0.5f) * 2f;
-            DrawRect(new Rect(tray.x + 18f * unit + (tray.width - 36f * unit) * f, tray.y, (tray.width - 36f * unit) / 24f + 0.5f, Mathf.Max(1f, unit)), new Color(1f, 0.72f, 0.36f, 0.55f * edge));
-        }
+            Rounded(new Rect(tray.x, tray.y + 3f * unit, tray.width, tray.height), new Color(0f, 0f, 0f, 0.35f * shown), 16f * unit); // shadow
+            Rounded(tray, new Color(0.03f, 0.028f, 0.025f, 0.62f * shown), 16f * unit);
+            for (int i = 0; i < 24; i++)
+            {
+                float f = i / 24f, edge = 1f - Mathf.Abs(f - 0.5f) * 2f;
+                DrawRect(new Rect(tray.x + 18f * unit + (tray.width - 36f * unit) * f, tray.y, (tray.width - 36f * unit) / 24f + 0.5f, Mathf.Max(1f, unit)), new Color(1f, 0.72f, 0.36f, 0.55f * edge * shown));
+            }
 
-        for (int i = 0; i < SlotCount; i++)
-        {
-            var slot = new Rect(x0 + i * (size + gap), y, size, size);
-            bool filled = TryGetSlot(i, out Item item);
-            DrawSlot(slot, i, filled, item, filled && Selected == item, unit);
+            for (int i = 0; i < SlotCount; i++)
+            {
+                var slot = new Rect(x0 + i * (size + gap), y, size, size);
+                bool filled = TryGetSlot(i, out Item item);
+                DrawSlot(slot, i, filled, item, filled && Selected == item, unit, shown);
+            }
         }
 
         // The name of what's in hand, for a moment after picking it up.
