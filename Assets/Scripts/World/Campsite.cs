@@ -26,7 +26,8 @@ public class Campsite : MonoBehaviour
     readonly List<Transform> puffs = new List<Transform>();
     readonly List<float> puffAge = new List<float>();
     readonly List<Renderer> puffRenderers = new List<Renderer>();
-    readonly List<Renderer> embers = new List<Renderer>();
+    Material emberMat;
+    Light emberLight;
     readonly List<float> puffSeed = new List<float>();
     readonly List<float> puffSpin = new List<float>();
     readonly List<Vector2> puffDrift = new List<Vector2>();
@@ -49,7 +50,6 @@ public class Campsite : MonoBehaviour
         var canvas = MaterialFactory.Lit(new Color(0.13f, 0.14f, 0.085f), 0.05f);
         var pole = MaterialFactory.Lit(new Color(0.15f, 0.15f, 0.16f), 0.4f);
         var rope = MaterialFactory.Lit(new Color(0.2f, 0.18f, 0.14f), 0.05f);
-        var ash = MaterialFactory.Lit(new Color(0.12f, 0.115f, 0.11f), 0f);
         // Faded maroon, navy, olive or dull orange.
         Color[] packColors = { new Color(0.2f, 0.06f, 0.045f), new Color(0.06f, 0.08f, 0.15f), new Color(0.12f, 0.13f, 0.07f), new Color(0.3f, 0.13f, 0.04f) };
         Color packColor = packColors[rng.Next(packColors.Length)];
@@ -92,35 +92,68 @@ public class Campsite : MonoBehaviour
         tentCollider.center = new Vector3(0f, 0.55f, 0f);
         tentCollider.size = new Vector3(1.7f, 1.1f, 2.2f);
 
-        // ---- The burnt-out campfire: a ring of soot-blackened stones (real rock shapes), each sitting on
-        // the ground under it, ash, the charred stubs of logs, a few embers still glowing.
+        // ---- The burnt-out campfire: a low mound of ash sinking into the dirt, ringed close with
+        // soot-blackened stones (real rock shapes) bedded into the ground; charred logs, burnt down to points,
+        // collapsed in on each other; a heap of charcoal in the middle, a few lumps still glowing, and their
+        // faint, unsteady light on the stones.
         fire = Anchor("Campfire", new Vector3(1.2f, 0f, -0.4f), 0f, Ground);
-        for (int i = 0; i < 10; i++)
+        float FireGround(Vector3 local) => GroundUnder(fire, local, Ground);
+        int stones = rng.Next(11, 15);
+        for (int i = 0; i < stones; i++)
         {
-            float a = i / 10f * Mathf.PI * 2f + R(-0.12f, 0.12f);
-            var local = new Vector3(Mathf.Cos(a) * 0.58f, 0f, Mathf.Sin(a) * 0.58f);
-            float size = R(0.22f, 0.32f);
-            local.y = GroundUnder(fire, local, Ground) - size * 0.2f; // bedded into the dirt
+            float a = i / (float)stones * Mathf.PI * 2f + R(-0.08f, 0.08f);
+            float ringR = R(0.5f, 0.58f);
+            var local = new Vector3(Mathf.Cos(a) * ringR, 0f, Mathf.Sin(a) * ringR);
+            float size = R(0.2f, 0.3f);
+            local.y = FireGround(local) - size * 0.25f; // bedded into the dirt
             var stone = MeshPart(fire, "Stone", generator.MakeRockMesh(size), sooty);
             stone.localPosition = local;
-            stone.localRotation = Quaternion.Euler(R(-10f, 10f), R(0f, 360f), R(-10f, 10f));
-            stone.localScale = new Vector3(size * R(0.9f, 1.2f), size * R(0.6f, 0.85f), size * R(0.85f, 1.1f));
+            stone.localRotation = Quaternion.Euler(R(-12f, 12f), R(0f, 360f), R(-12f, 12f));
+            stone.localScale = new Vector3(size * R(0.95f, 1.25f), size * R(0.55f, 0.8f), size * R(0.8f, 1.05f));
         }
-        Part(PrimitiveType.Cylinder, ash, fire, new Vector3(0f, GroundUnder(fire, Vector3.zero, Ground) + 0.01f, 0f), new Vector3(0.9f, 0.012f, 0.9f));
-        for (int i = 0; i < 5; i++)
+        var ashMat = MaterialFactory.LitTextured(ProceduralTextures.Ash, null, Color.white, 0f);
+        MeshPart(fire, "Ash", BuildAshMound(0.5f, 0.06f, R(0f, 100f), FireGround), ashMat);
+
+        // The logs: burnt to blackened points where the fire was, fallen in toward the middle, leaning on
+        // the charcoal and each other.
+        int logs = rng.Next(4, 7);
+        for (int i = 0; i < logs; i++)
         {
-            // Logs that burned down where they fell: short, blackened, angled into the middle.
-            float a = i / 5f * Mathf.PI * 2f + R(-0.3f, 0.3f);
-            float len = R(0.35f, 0.55f);
-            var log = Part(PrimitiveType.Cylinder, charred, fire, new Vector3(Mathf.Cos(a) * 0.18f, GroundUnder(fire, Vector3.zero, Ground) + 0.06f, Mathf.Sin(a) * 0.18f), new Vector3(0.07f, len * 0.5f, 0.07f));
-            log.localRotation = Quaternion.Euler(0f, -a * Mathf.Rad2Deg, 0f) * Quaternion.Euler(0f, 0f, 90f - R(5f, 18f));
+            float a = i / (float)logs * Mathf.PI * 2f + R(-0.35f, 0.35f);
+            var outer = new Vector3(Mathf.Cos(a) * R(0.42f, 0.55f), 0f, Mathf.Sin(a) * R(0.42f, 0.55f));
+            outer.y = FireGround(outer) + 0.03f;
+            var inner = new Vector3(Mathf.Cos(a + R(-0.4f, 0.4f)) * R(0.02f, 0.1f), 0f, Mathf.Sin(a + R(-0.4f, 0.4f)) * R(0.02f, 0.1f));
+            inner.y = FireGround(inner) + R(0.06f, 0.16f);
+            Vector3 dir = inner - outer;
+            var log = MeshPart(fire, "Charred Log", BuildCharredLog(dir.magnitude, R(0.045f, 0.065f), R(0f, 100f)), charred);
+            log.localPosition = outer;
+            log.localRotation = Quaternion.FromToRotation(Vector3.right, dir) * Quaternion.Euler(R(0f, 360f), 0f, 0f);
         }
-        var emberMat = MaterialFactory.Unlit(new Color(0.9f, 0.2f, 0.03f));
-        for (int i = 0; i < 7; i++)
+
+        // Charcoal heaped in the middle; some of it still alight.
+        var coal = MaterialFactory.Lit(new Color(0.03f, 0.028f, 0.026f), 0.15f);
+        emberMat = MaterialFactory.Unlit(new Color(1.2f, 0.28f, 0.04f));
+        int lumps = rng.Next(14, 20);
+        for (int i = 0; i < lumps; i++)
         {
-            var ember = Part(PrimitiveType.Sphere, emberMat, fire, new Vector3(R(-0.22f, 0.22f), GroundUnder(fire, Vector3.zero, Ground) + 0.05f, R(-0.22f, 0.22f)), Vector3.one * R(0.03f, 0.06f));
-            embers.Add(ember.GetComponent<Renderer>());
+            float spot = R(0f, Mathf.PI * 2f), d = Mathf.Sqrt(R(0f, 1f));
+            var local = new Vector3(Mathf.Cos(spot) * d * 0.22f, 0f, Mathf.Sin(spot) * d * 0.22f);
+            float size = R(0.04f, 0.09f) * Mathf.Lerp(1f, 0.6f, d);
+            local.y = FireGround(local) + 0.04f * (1f - d) + size * 0.15f;
+            bool alight = rng.NextDouble() < Mathf.Lerp(0.6f, 0.15f, d); // the heart of it stays hot longest
+            var lump = MeshPart(fire, alight ? "Ember" : "Charcoal", generator.MakeRockMesh(size), alight ? emberMat : coal);
+            lump.localPosition = local;
+            lump.localRotation = Quaternion.Euler(R(0f, 360f), R(0f, 360f), R(0f, 360f));
+            lump.localScale = new Vector3(size, size * R(0.5f, 0.8f), size * R(0.7f, 1f));
         }
+        emberLight = new GameObject("Ember Glow").AddComponent<Light>();
+        emberLight.transform.SetParent(fire, false);
+        emberLight.transform.localPosition = new Vector3(0f, FireGround(Vector3.zero) + 0.3f, 0f);
+        emberLight.type = LightType.Point;
+        emberLight.color = new Color(1f, 0.38f, 0.12f);
+        emberLight.range = 2.2f;
+        emberLight.shadows = LightShadows.None;
+        emberLight.intensity = 0.5f;
 
         // ---- A log to sit on: bark all round, sawn ends showing their rings, lying along the ground.
         var seat = AnchorOnGround("Log Seat", new Vector3(1.4f, 0f, 1.2f), R(-30f, 30f), 0.85f, 0.25f, Ground);
@@ -273,9 +306,11 @@ public class Campsite : MonoBehaviour
             puffRenderers[i].SetPropertyBlock(block);
         }
 
-        // Embers pulse faintly.
-        float glow = 0.6f + 0.4f * Mathf.PerlinNoise(Time.time * 1.5f, transform.position.x);
-        foreach (var e in embers) e.transform.localScale = Vector3.one * 0.045f * glow;
+        // The embers breathe, brightening and dimming, and their glow on the stones wavers with them.
+        float glow = 0.55f + 0.45f * Mathf.PerlinNoise(Time.time * 1.2f, transform.position.x)
+                     + 0.08f * Mathf.PerlinNoise(Time.time * 7f, transform.position.z);
+        if (emberMat != null) MaterialFactory.SetColor(emberMat, new Color(1.2f, 0.28f, 0.04f) * glow);
+        if (emberLight != null) emberLight.intensity = 0.55f * glow;
     }
 
     static Material MakeSmokeMaterial()
@@ -320,6 +355,96 @@ public class Campsite : MonoBehaviour
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         go.AddComponent<MeshRenderer>().sharedMaterial = mat;
         return go.transform;
+    }
+
+    /// <summary>
+    /// A low, lumpy mound of ash, roughly round, following the ground (heights from groundAt, in the
+    /// fire's space) and sinking just below it at its ragged rim, so it blends into the dirt with no edge.
+    /// UVs in metres, so the ash texture keeps its size.
+    /// </summary>
+    static Mesh BuildAshMound(float radius, float height, float seed, System.Func<Vector3, float> groundAt)
+    {
+        const int rings = 7, segments = 32;
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var tris = new List<int>();
+        verts.Add(new Vector3(0f, groundAt(Vector3.zero) + height, 0f));
+        uvs.Add(Vector2.zero);
+        for (int r = 1; r <= rings; r++)
+        {
+            float t = r / (float)rings;
+            for (int s = 0; s < segments; s++)
+            {
+                float a = s / (float)segments * Mathf.PI * 2f;
+                float edge = 1f + 0.18f * (Mathf.PerlinNoise(Mathf.Cos(a) * 1.4f + seed, Mathf.Sin(a) * 1.4f + seed) - 0.5f) * 2f;
+                float d = radius * t * edge;
+                var p = new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
+                float lump = 0.012f * (Mathf.PerlinNoise(p.x * 9f + seed, p.z * 9f) - 0.5f);
+                p.y = groundAt(p) + height * (1f - t * t) + lump * (1f - t) - 0.02f * t * t * t;
+                verts.Add(p);
+                uvs.Add(new Vector2(p.x, p.z) * 1.5f);
+            }
+        }
+        for (int s = 0; s < segments; s++) tris.AddRange(new[] { 0, 1 + (s + 1) % segments, 1 + s });
+        for (int r = 1; r < rings; r++)
+        {
+            int a0 = 1 + (r - 1) * segments, b0 = 1 + r * segments;
+            for (int s = 0; s < segments; s++)
+            {
+                int s1 = (s + 1) % segments;
+                tris.AddRange(new[] { a0 + s, a0 + s1, b0 + s, a0 + s1, b0 + s1, b0 + s });
+            }
+        }
+        var mesh = new Mesh { name = "Ash Mound" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>
+    /// A half-burnt log along +x, from a whole, sawn-off end at 0 to a charred point at `length`: knobbly,
+    /// eaten away unevenly toward the tip.
+    /// </summary>
+    static Mesh BuildCharredLog(float length, float radius, float seed)
+    {
+        const int along = 7, around = 9;
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var tris = new List<int>();
+        for (int i = 0; i <= along; i++)
+        {
+            float t = i / (float)along;
+            float taper = 1f - 0.85f * Mathf.Pow(t, 1.8f);
+            for (int j = 0; j <= around; j++)
+            {
+                float a = j / (float)around * Mathf.PI * 2f;
+                float bump = 1f + 0.18f * (Mathf.PerlinNoise(t * 4f + seed, j * 0.7f + seed) - 0.5f) * 2f * (0.4f + t);
+                float r = radius * taper * bump;
+                verts.Add(new Vector3(t * length, Mathf.Cos(a) * r, Mathf.Sin(a) * r));
+                uvs.Add(new Vector2(j / (float)around, t * length * 2f));
+            }
+        }
+        for (int i = 0; i < along; i++)
+            for (int j = 0; j < around; j++)
+            {
+                int a = i * (around + 1) + j, b = a + around + 1;
+                tris.AddRange(new[] { a, a + 1, b, a + 1, b + 1, b });
+            }
+        // The sawn-off end, closed.
+        int c = verts.Count;
+        verts.Add(Vector3.zero);
+        uvs.Add(new Vector2(0.5f, 0f));
+        for (int j = 0; j < around; j++) tris.AddRange(new[] { c, j + 1, j });
+        var mesh = new Mesh { name = "Charred Log" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
     }
 
     /// <summary>A two-sided triangle.</summary>

@@ -34,6 +34,39 @@ public static class ProceduralTextures
     /// </summary>
     public static Texture2D TrailDirt => trailDirt != null ? trailDirt : (trailDirt = MakeTrailDirt());
     static Texture2D trailDirt;
+
+    /// <summary>The bed of a dead campfire: grey and white ash, black with char in places, flecked with charcoal.</summary>
+    public static Texture2D Ash => ash != null ? ash : (ash = MakeAsh());
+    static Texture2D ash;
+
+    static Texture2D MakeAsh()
+    {
+        const int n = 256;
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+        {
+            for (int x = 0; x < n; x++)
+            {
+                float u = x / (float)n, v = y / (float)n;
+                float soot = Fbm(u, v, 4, 4, 401);
+                float fine = TileNoise(u * 96f, v * 96f, 96, 402);
+                float speck = Hash(x, y, 403);
+                Color c = Color.Lerp(new Color(0.05f, 0.045f, 0.04f), new Color(0.3f, 0.29f, 0.27f), Ramp(0.3f, 0.7f, soot));
+                c *= 0.8f + 0.4f * fine;
+                if (speck > 0.992f) c = new Color(0.5f, 0.49f, 0.46f);      // white flakes
+                else if (speck < 0.03f) c = new Color(0.02f, 0.018f, 0.016f); // bits of charcoal
+                c.a = 1f;
+                px[y * n + x] = c;
+            }
+        }
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
+        {
+            name = "Ash", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
     /// <summary>Tiling weathered granite: grey speckled stone, dark cracks, pale lichen and dark moss.</summary>
     public static Texture2D Rock { get { if (rock == null) MakeRock(); return rock; } }
     /// <summary>Normal map matching Rock.</summary>
