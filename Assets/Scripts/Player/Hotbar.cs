@@ -31,6 +31,8 @@ using UnityEngine;
 /// </summary>
 public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob }
     const int SlotCount = 8;
     [Header("Camera")]

@@ -304,6 +304,7 @@ public class ShadowEntity : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         GroundLeaves.Register(transform, 0.35f); // even unseen, the leaves where it steps give it away
         scale = height / 2.4f;
         BuildSilhouette();

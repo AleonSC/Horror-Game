@@ -113,6 +113,7 @@ public class BlindEntity : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         GroundLeaves.Register(transform, 0.9f);
         scale = height / 2.4f;
         Build();

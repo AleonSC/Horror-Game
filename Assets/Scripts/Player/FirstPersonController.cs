@@ -114,6 +114,7 @@ public class FirstPersonController : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         controller = GetComponent<CharacterController>();
 
         if (cameraRoot == null)

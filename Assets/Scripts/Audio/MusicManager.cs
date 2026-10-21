@@ -93,6 +93,7 @@ public class MusicManager : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         if (Instance != null && Instance != this) { Destroy(this); return; }
         Instance = this;
         volume = PlayerPrefs.GetFloat(VolumeKey, volume);

@@ -20,6 +20,8 @@ using UnityEngine;
 /// </summary>
 public class Wildlife : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Header("Beetles")]
     public int beetleCount = 40;
     [Tooltip("Beetles stay within this distance of the player.")]

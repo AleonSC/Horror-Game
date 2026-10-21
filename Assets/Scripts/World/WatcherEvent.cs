@@ -184,6 +184,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         Instance = this;
         audioSource = ProceduralAudio.AddSource(gameObject, null, false, false, 1f);
         if (Application.isPlaying) GiantTheme.Prepare(); // its music takes a moment to make: start now, in the background

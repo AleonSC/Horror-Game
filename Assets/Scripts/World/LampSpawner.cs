@@ -15,6 +15,8 @@ using UnityEngine;
 /// </summary>
 public class LampSpawner : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Tooltip("How many lamps there are in the forest.")]
     public int lampCount = 10;
     [Tooltip("Keep lamps at least this far from the middle of the map (where the player spawns).")]

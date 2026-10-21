@@ -110,6 +110,7 @@ public class FlyingEntity : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         generator = FindAnyObjectByType<DarkForestGenerator>();
         Build();
         wings = ProceduralAudio.AddSource(gameObject, null, false, true, volume, 25f, 400f);

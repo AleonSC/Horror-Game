@@ -11,6 +11,8 @@ using UnityEngine;
 /// </summary>
 public class GroundLeaves : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     public int leafCount = 1000;
     [Tooltip("Leaves lie within this distance of the player.")]
     public float radius = 22f;

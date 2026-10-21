@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class FallingLeaves : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     public int leafCount = 140;
     [Tooltip("Leaves fall within this distance of the player.")]
     public float radius = 25f;

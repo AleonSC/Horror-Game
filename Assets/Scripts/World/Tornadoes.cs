@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class Tornadoes : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     public int lampsToSpawn = 8;
     public int count = 3;
     [Tooltip("How far off they stay (metres).")]

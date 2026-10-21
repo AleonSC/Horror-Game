@@ -16,6 +16,8 @@ using UnityEngine.Rendering.Universal;
 /// </summary>
 public class GroundMist : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Header("Look")]
     [Tooltip("How thick the mist is overall.")]
     public float density = 0.55f;

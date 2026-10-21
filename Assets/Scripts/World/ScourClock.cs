@@ -7,6 +7,8 @@ using UnityEngine;
 /// </summary>
 public class ScourClock : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Tooltip("Seconds between each extra scour.")]
     public float interval = 60f;
     [Tooltip("How many extra scours the clock brings in, at most (one per interval).")]

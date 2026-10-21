@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class BreathFog : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Tooltip("Seconds of running before your breath starts to show...")]
     public float runBeforeBreath = 12f;
     [Tooltip("...and before it's at its heaviest.")]

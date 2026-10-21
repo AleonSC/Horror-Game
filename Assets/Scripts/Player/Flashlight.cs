@@ -67,6 +67,7 @@ public class Flashlight : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         if (flashlight == null)
         {
             var go = new GameObject("Flashlight Light");

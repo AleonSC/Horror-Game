@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class FallingTreeEvent : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Tooltip("Seconds into play before the first tree falls. Set below 0 to only fall when Trigger() is called.")]
     public float firstFallTime = 30f;
     [Tooltip("After that, another tree falls every this many seconds (picked at random between the two).")]

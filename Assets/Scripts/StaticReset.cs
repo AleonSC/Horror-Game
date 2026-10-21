@@ -56,6 +56,8 @@ public static class StaticReset
         InventoryScreen.ResetStatics();
         IntroText.ResetStatics();
 
+        Tuning.ResetStatics();
+
         // Cached assets made at runtime.
         DropAllStatic(typeof(ProceduralTextures));
         DropAllStatic(typeof(ProceduralAudio));

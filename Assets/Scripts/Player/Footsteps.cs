@@ -8,6 +8,8 @@ using UnityEngine;
 [RequireComponent(typeof(FirstPersonController))]
 public class Footsteps : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Header("Volume")]
     [Range(0f, 1f)] public float walkVolume = 0.06f;
     [Range(0f, 1f)] public float runVolume = 0.1f;

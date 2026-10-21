@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class RainDrops : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Tooltip("How many drops are falling around the player at once before any lamps are lit. Keep it low: it's barely raining.")]
     public int dropCount = 140;
     [Tooltip("How heavy the rain gets (times dropCount) by the 5th lamp, and by the 7th.")]

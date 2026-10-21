@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class AmbienceAudio : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Header("Volume")]
     [Range(0f, 1f)] public float droneVolume = 0.3f;
     [Range(0f, 1f)] public float tensionVolume = 0.28f;

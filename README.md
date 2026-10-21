@@ -121,3 +121,11 @@ The forest generator won't spawn a second player if one already exists.
 - The generator makes placeholder art from primitives. Drop real tree/rock prefabs into `treePrefabs` / `rockPrefabs`, or assign materials in the Material Overrides section.
 - Placeholder materials are created with `Shader.Find` (Standard or URP Lit). If they show up pink in a build, assign materials in the inspector instead.
 - In URP, make sure "Additional Lights" and additional light shadows are enabled in the URP asset so the flashlight lights and casts shadows.
+
+## Keeping tweaks (Save Tuning)
+
+Almost everything is created by code when Play starts, so values changed in the Inspector during Play are normally lost when it stops. To keep them, right-click the component's header in the Inspector and choose **Save Tuning (keeps these values)**. They're stored in `Assets/Scripts/Resources/HorrorTuning.asset` and applied every time the game creates that component. **Clear Tuning** goes back to the code's values; **Horror > Open Saved Tuning** shows what's saved. Only plain values are kept (numbers, colours, toggles), not references to other objects.
+
+## Compile check
+
+`.github/workflows/compile-check.yml` opens the scripts in Unity on every push and shows a red X on the commit if anything doesn't compile. It needs the `UNITY_LICENSE`, `UNITY_EMAIL` and `UNITY_PASSWORD` repository secrets (see the comment at the top of the file); until they're added it's skipped.

@@ -40,7 +40,7 @@ public class Lightning : MonoBehaviour
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => Instance = null;
 
-    void Awake() => Instance = this;
+    void Awake() { Tuning.Apply(this); Instance = this; } // (saved tuning first)
     void OnDestroy() { if (Instance == this) Instance = null; }
 
     /// <summary>

@@ -12,6 +12,8 @@ using UnityEngine;
 /// </summary>
 public class WeatherSystem : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Header("Wind")]
     [Range(0f, 1f)] public float windStrength = 0.75f;
     [Tooltip("Direction the wind blows towards, in degrees (0 = +Z).")]

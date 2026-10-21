@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class BatterySpawner : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     [Tooltip("Batteries scattered through the woods. More lie at campsites, sometimes on shack tables, and and deer drop one every time they're startled.")]
     public int batteryCount = 30;
     [Tooltip("Keep batteries at least this far from the middle of the map (where the player spawns).")]

@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class EntityDread : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
+
     /// <summary>0 normally, 1 when an entity is right on you. Other sounds duck by this.</summary>
     public static float Silence { get; private set; }
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
