@@ -30,6 +30,9 @@ public class GameOverScreen : MonoBehaviour
         if (instance != null) return;
         instance = new GameObject("Game Over").AddComponent<GameOverScreen>();
         instance.FadeOutTime = Mathf.Max(0.1f, fadeOutTime);
+        // The sting: the moment you're taken.
+        var sting = ProceduralAudio.AddSource(instance.gameObject, null, false, false, 1f);
+        sting.PlayOneShot(ProceduralAudio.Taken, 0.9f);
     }
 
     void OnDestroy()

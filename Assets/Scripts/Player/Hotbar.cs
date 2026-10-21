@@ -111,6 +111,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     void Start()
     {
         if (GetComponent<InventoryScreen>() == null) gameObject.AddComponent<InventoryScreen>();
+        if (GetComponent<GhostTrail>() == null) gameObject.AddComponent<GhostTrail>(); // the sixth sense for where you've been
         flashlight = GetComponentInChildren<Flashlight>();
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
 

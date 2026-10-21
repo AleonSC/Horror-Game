@@ -36,7 +36,23 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong, dispelBuild, dispel, taken, trailChime;
+    /// <summary>
+    /// A scour being faced down (2.5s, pitched to the crescendo's length): a ghostly cluster of glassy tones
+    /// rising and trembling faster and faster over a long, breathy inhale.
+    /// </summary>
+    public static AudioClip DispelBuild => dispelBuild != null ? dispelBuild : (dispelBuild = MakeDispelBuild());
+    /// <summary>
+    /// A scour driven off: a deep, soft whump, a ghostly exhale echoing away, and a high glassy ring dying.
+    /// </summary>
+    public static AudioClip Dispel => dispel != null ? dispel : (dispel = MakeDispel());
+    /// <summary>
+    /// Caught: a heavy low impact under a swelling, dissonant cluster of strings, a metallic scrape sliding
+    /// down, all sinking away into the dark.
+    /// </summary>
+    public static AudioClip Taken => taken != null ? taken : (taken = MakeTaken());
+    /// <summary>The ghost trail showing itself: a soft, airy shimmer, like a breath on glass.</summary>
+    public static AudioClip TrailChime => trailChime != null ? trailChime : (trailChime = MakeTrailChime());
     /// <summary>
     /// The pause menu's song: a slow, music-box lullaby in a minor key on a warped old record, played down a
     /// bad radio line: wobbling, sagging, skipping, crackling, a hollow voice humming under it. Loops.
@@ -853,6 +869,108 @@ public static class ProceduralAudio
             float env = 0.1f + 0.9f * p * p;
             return Tanh(s * env * (1f + 3f * p));
         }, 0.9f);
+    }
+
+    static AudioClip MakeDispelBuild()
+    {
+        const float len = 2.5f;
+        float[] ratios = { 1f, 1.19f, 1.5f, 2.13f, 2.97f };
+        float[] phases = new float[ratios.Length];
+        float breath = 0f, breathLp = 0f;
+        return Shot("Dispel Build", len, t =>
+        {
+            float p = t / len;
+            float baseHz = 320f * Mathf.Pow(2f, p * 1.2f); // rising a little over an octave
+            float s = 0f;
+            for (int k = 0; k < ratios.Length; k++)
+            {
+                phases[k] += TwoPi * baseHz * ratios[k] * (1f + 0.004f * Mathf.Sin(t * (3f + k))) / Rate;
+                s += Mathf.Sin(phases[k]) / (1f + k * 0.6f);
+            }
+            float tremolo = 0.6f + 0.4f * Mathf.Sin(TwoPi * Mathf.Lerp(3f, 16f, p * p) * t);
+            // The inhale: hollow, filtered breath getting louder and brighter.
+            breathLp += (White() - breathLp) * Mathf.Lerp(0.04f, 0.25f, p);
+            breath = breath * 0.97f + breathLp * 0.03f;
+            float env = Mathf.SmoothStep(0f, 1f, p * 1.4f);
+            return s * tremolo * env * 0.5f + (breathLp - breath) * env * 1.6f;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeDispel()
+    {
+        const float len = 2.6f;
+        float sub = 0f, lp = 0f, lp2 = 0f;
+        float[] bell = { 1f, 2.76f, 5.4f };
+        // A crude echo: the exhale repeated, quieter, a few times.
+        var exhale = new float[(int)(len * Rate)];
+        int[] taps = { (int)(0.23f * Rate), (int)(0.41f * Rate), (int)(0.67f * Rate) };
+        int i = 0;
+        return Shot("Dispel", len, t =>
+        {
+            // The whump: a soft, deep drop.
+            sub += TwoPi * (55f * Mathf.Exp(-t * 6f) + 28f) / Rate;
+            float whump = Mathf.Sin(sub) * Mathf.Exp(-t * 7f) * 1.2f;
+            // The exhale: airy noise, falling in brightness, echoing.
+            lp += (White() - lp) * Mathf.Lerp(0.35f, 0.05f, Mathf.Clamp01(t / 0.8f));
+            lp2 += (lp - lp2) * 0.02f;
+            float breath = (lp - lp2) * Mathf.Exp(-t * 3f) * Mathf.Clamp01(t / 0.03f);
+            if (i < exhale.Length) exhale[i] = breath;
+            float echo = 0f;
+            for (int k = 0; k < taps.Length; k++) if (i - taps[k] >= 0) echo += exhale[i - taps[k]] * (0.45f / (k + 1));
+            i++;
+            // The ring: high, glassy, dying away slowly.
+            float ring = 0f;
+            for (int k = 0; k < bell.Length; k++) ring += Mathf.Sin(TwoPi * 1180f * bell[k] * t) * Mathf.Exp(-t * (2f + k * 2.5f)) / (k + 1);
+            return whump + breath * 1.4f + echo + ring * 0.18f;
+        }, 0.85f);
+    }
+
+    static AudioClip MakeTaken()
+    {
+        const float len = 4.2f;
+        float[] notes = { 82.4f, 87.3f, 116.5f, 123.5f, 174.6f }; // E2 F2 A#2 B2 F3: clashing semitones and a tritone
+        float[] phases = new float[notes.Length];
+        float lp = 0f, sub = 0f, scrapeLp = 0f, scrapeHp = 0f, hitLp = 0f;
+        return Shot("Taken", len, t =>
+        {
+            // The impact.
+            sub += TwoPi * (52f * Mathf.Exp(-t * 2.5f) + 26f) / Rate;
+            hitLp += (White() - hitLp) * 0.08f;
+            float hit = Mathf.Sin(sub) * Mathf.Exp(-t * 1.6f) * 1.3f + hitLp * Mathf.Exp(-t * 9f) * 2f;
+            // The strings: detuned saws, swelling in fast, vibrato widening, closing down darker.
+            float cluster = 0f;
+            for (int k = 0; k < notes.Length; k++)
+            {
+                float vib = 1f + 0.006f * Mathf.Sin(TwoPi * (4.5f + k * 0.7f) * t) * Mathf.Clamp01(t);
+                phases[k] += notes[k] * vib / Rate;
+                float a = phases[k] - Mathf.Floor(phases[k]);
+                cluster += (a * 2f - 1f) * (k == notes.Length - 1 ? 0.5f : 1f);
+            }
+            lp += (cluster - lp) * Mathf.Lerp(0.18f, 0.025f, Mathf.Clamp01(t / len));
+            float strings = lp * Mathf.Clamp01(t / 0.06f) * Mathf.Exp(-t * 0.55f) * 0.35f;
+            // The scrape: a narrow band of noise sliding down.
+            float centre = Mathf.Lerp(0.35f, 0.04f, Mathf.Clamp01(t / 2.5f));
+            scrapeLp += (White() - scrapeLp) * centre;
+            scrapeHp += (scrapeLp - scrapeHp) * centre * 0.5f;
+            float scrape = (scrapeLp - scrapeHp) * Mathf.Exp(-t * 1.1f) * Mathf.Clamp01(t / 0.15f) * 0.9f;
+            return Tanh((hit + strings + scrape) * 1.2f);
+        }, 0.95f);
+    }
+
+    static AudioClip MakeTrailChime()
+    {
+        const float len = 2.2f;
+        float lp = 0f;
+        return Shot("Trail Chime", len, t =>
+        {
+            float env = Mathf.Clamp01(t / 0.25f) * Mathf.Exp(-t * 2.2f);
+            float shimmer = 0f;
+            float[] f = { 1318.5f, 1975.5f, 2637f, 3520f };
+            for (int k = 0; k < f.Length; k++)
+                shimmer += Mathf.Sin(TwoPi * f[k] * t + Mathf.Sin(TwoPi * (0.7f + k * 0.3f) * t) * 2f) * (0.5f + 0.5f * Mathf.Sin(TwoPi * (5f + k * 1.7f) * t));
+            lp += (White() - lp) * 0.15f;
+            return (shimmer * 0.25f + (White() - lp) * 0.15f) * env;
+        }, 0.6f);
     }
 
     static AudioClip MakePoof()

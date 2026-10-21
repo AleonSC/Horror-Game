@@ -26,7 +26,7 @@ public class ShadowEntity : MonoBehaviour
     // Static state is cleared when Play starts, so nothing carries over from the last session if the
     // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { All.Clear(); Capturing = null; blackout = 0f; }
+    static void ResetStatics() { All.Clear(); Capturing = null; }
 
     /// <summary>Seconds before the first entity of a run appears.</summary>
     public const float FirstEntityDelay = 60f;
@@ -182,10 +182,6 @@ public class ShadowEntity : MonoBehaviour
 
     [Header("Crescendo & Poof")]
     public float crescendoTime = 2.5f;
-    [Tooltip("Once its eyes have burned blue, it goes dead still and silent for this long, its head slowly twisting round too far...")]
-    public float breakStillTime = 0.7f;
-    [Tooltip("...then it shrieks and lunges at your face this fast (seconds), and bursts apart in front of you.")]
-    public float lungeTime = 0.18f;
     [Range(0f, 1f), Tooltip("Share of the flashlight's battery it costs to face one down.")]
     public float dismissCost = 0.1f;
     [Tooltip("Each lamp the player has lit makes the crescendo this much faster (0.15 = 15% of the base speed per lamp).")]
@@ -420,7 +416,6 @@ public class ShadowEntity : MonoBehaviour
         SetPose(Pose.Neutral, 1);
         if (wingRoot != null) wingRoot.gameObject.SetActive(false);
         if (Capturing == this) Capturing = null;
-        breakTimer = -1f;
     }
 
     void StartMaterialize()
@@ -694,21 +689,17 @@ public class ShadowEntity : MonoBehaviour
         if (CurrentState == State.Hidden) timer = Mathf.Min(timer, Random.Range(0.5f, 2.5f));
     }
 
-    float breakTimer = -1f;
-    Vector3 lungeFrom;
-    bool lunged;
 
     void StartCrescendo()
     {
         CurrentState = State.Crescendo;
         timer = 0f;
-        breakTimer = -1f;
         // Carry on from exactly how the eyes looked a moment ago (brightness, eyeshine tint, glow), no jump.
         crescendoStartBrightness = Mathf.Max(eyeBrightness, eyeIntensity);
         crescendoStartShine = eyeshine;
         crescendoStartLight = eyeLight.intensity / Mathf.Max(eyeLightStrength, 0.0001f);
         // The sound speeds up to match a shortened crescendo.
-        PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.Crescendo, crescendoTime / CrescendoDuration, crescendoVolume);
+        PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.DispelBuild, crescendoTime / CrescendoDuration, crescendoVolume);
     }
 
     /// <summary>How long the crescendo takes now: every lamp the player has lit makes them quicker at dismissing it.</summary>
@@ -858,11 +849,10 @@ public class ShadowEntity : MonoBehaviour
 
     /// <summary>
     /// Facing it down: held in the light, it shudders harder and harder, stretching, its mouth splitting
-    /// wider, its eyes burning from red to blue. Then it breaks (UpdateBreak).
+    /// wider, its eyes burning from red to blue. Then it's gone (Dispel).
     /// </summary>
     void UpdateCrescendo()
     {
-        if (breakTimer >= 0f) { UpdateBreak(); return; }
         FacePlayer();
         if (player != null) player.SetApproachLimit(this, transform.position, reactDistance, stopDistance);
 
@@ -886,104 +876,18 @@ public class ShadowEntity : MonoBehaviour
 
         if (player != null) player.AddCameraShake(maxCameraShake * e);
 
-        if (c >= 1f) StartBreak();
+        if (c >= 1f) Dispel();
     }
 
-    /// <summary>The light has beaten it: everything stops.</summary>
-    void StartBreak()
+    /// <summary>Faced down: it bursts apart in a ghostly breath and is gone. The light pays for it.</summary>
+    void Dispel()
     {
-        breakTimer = 0f;
-        lunged = false;
-        whisper.Stop();
-        advanceSource.Stop();
-        ResetVisual();
-        SetPose(Pose.Neutral, 1);
-        // A crack, like a neck going.
-        sfx.pitch = 2.1f;
-        sfx.PlayOneShot(ProceduralAudio.TreeSnap, volume * 0.35f);
-    }
-
-    /// <summary>
-    /// Driven off, and it lets you know it. It goes dead still and silent, blue eyes blazing, and its head
-    /// turns slowly round, too far, cracking. Then it shrieks and lunges at your face, arms out, mouth
-    /// gaping, filling your view, and bursts into black right in front of you: the screen goes dark for a
-    /// moment, and it's gone. Facing it down costs some of the flashlight's battery.
-    /// </summary>
-    void UpdateBreak()
-    {
-        float dt = Time.deltaTime;
-        breakTimer += dt;
-        Transform cam = Camera.main != null ? Camera.main.transform : target;
-
-        if (breakTimer < breakStillTime)
-        {
-            // Dead still. Only the head moves: slowly twisting round, too far.
-            float u = Mathf.SmoothStep(0f, 1f, breakTimer / breakStillTime);
-            poseHead = Quaternion.Euler(-15f * u, 25f * u, 150f * u);
-            headTarget = Quaternion.identity;
-            twitchTimer = 1f; // no twitching now: it's utterly still
-            visual.localPosition = Vector3.zero;
-            visual.localRotation = Quaternion.identity;
-            SetEyes(maxEyeWiden * 2f, spawnEyeIntensity * 2f, 0f, 1f);
-            mouthTarget = 0.4f;
-            if (u > 0.5f && Random.value < dt * 6f)
-            {
-                sfx.pitch = Random.Range(1.8f, 2.4f);
-                sfx.PlayOneShot(ProceduralAudio.TwigSnap, volume * 0.2f);
-            }
-            lungeFrom = transform.position;
-            return;
-        }
-
-        if (!lunged)
-        {
-            lunged = true;
-            SetPose(Pose.Lunge, 1);
-            poseHead = Quaternion.Euler(-30f, 0f, 20f);
-            PlaySound(ProceduralAudio.Screech, 1.15f, 1.2f);
-            if (player != null) player.AddCameraShake(maxCameraShake * 1.5f);
-        }
-
-        // At your face.
-        float l = Mathf.Clamp01((breakTimer - breakStillTime) / Mathf.Max(lungeTime, 0.01f));
-        Vector3 ahead = Vector3.ProjectOnPlane(cam.forward, Vector3.up);
-        ahead = ahead.sqrMagnitude > 0.001f ? ahead.normalized : transform.forward;
-        Vector3 face = cam.position + ahead * 0.9f;
-        face.y = cam.position.y - 2.15f * scale * growth; // its eyes level with yours
-        transform.position = Vector3.Lerp(lungeFrom, face, l * l);
-        FacePlayer();
-        mouthTarget = 1.8f;
-        SetEyes(maxEyeWiden * 2.2f, spawnEyeIntensity * 2.5f, 0f, 1f);
-        if (l < 1f) return;
-
-        // Gone, in a burst of black, the light paying for it.
         StartFragments(converge: false);
-        PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof, 0.6f);
-        if (player != null) player.AddCameraShake(maxCameraShake * 2f);
-        blackout = 1f;
+        PlaySound(poofSound != null ? poofSound : ProceduralAudio.Dispel, 1f);
         if (flashlight != null) flashlight.Drain(dismissCost);
-        breakTimer = -1f;
         ResetVisual();
         whisper.pitch = Random.Range(0.85f, 1.1f);
         Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
-    }
-
-    // A moment of black over the screen when one bursts in your face (drawn once, by whichever scour is first).
-    static float blackout;
-
-    void OnGUI()
-    {
-        if (blackout <= 0f || Event.current.type != EventType.Repaint) return;
-        if (All.Count > 0 && All[0] != this) return;
-        GUI.depth = -500;
-        GUI.color = new Color(0f, 0f, 0f, Mathf.Clamp01(blackout * 1.4f));
-        GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
-        GUI.color = Color.white;
-    }
-
-    void LateUpdate()
-    {
-        if (blackout > 0f && (All.Count == 0 || All[0] == this)) blackout = Mathf.MoveTowards(blackout, 0f, Time.deltaTime / 0.35f);
     }
 
     void Poof()
@@ -1152,8 +1056,7 @@ public class ShadowEntity : MonoBehaviour
         if (!gameOverStarted)
         {
             gameOverStarted = true;
-            GameOverScreen.Show(flightTime);
-            PlaySound(ProceduralAudio.DistantRumble, 0.7f, 1f);
+            GameOverScreen.Show(flightTime); // (which plays the sting)
         }
         float f = Mathf.Clamp01((t - tFly) / 2.5f);
         flightVelocity = Vector3.MoveTowards(flightVelocity, flightDir * flightSpeed * f * f, flightSpeed * dt);
