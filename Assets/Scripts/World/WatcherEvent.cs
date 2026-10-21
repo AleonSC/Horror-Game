@@ -16,6 +16,8 @@ using UnityEngine;
 public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 {
     public static WatcherEvent Instance { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Instance = null;
 
     [Header("Trigger")]
     [Tooltip("Number of lamps lit (this run) that wakes the Watcher.")]

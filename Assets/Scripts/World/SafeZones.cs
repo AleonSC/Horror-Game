@@ -27,8 +27,8 @@ public static class SafeZones
 
     // Static state is cleared when Play starts, so nothing carries over from the last session if the
     // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() => sources.Clear();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => sources.Clear();
 
     public static void Register(ISource source)
     {

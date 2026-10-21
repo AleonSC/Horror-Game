@@ -8,6 +8,8 @@ using UnityEngine;
 public class NightSky : MonoBehaviour
 {
     public static NightSky Instance { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Instance = null;
 
     /// <summary>Lightning: 0 none, 1 full flash. Lightning sets this; the clouds light up toward FlashDirection.</summary>
     public float Flash { get; set; }

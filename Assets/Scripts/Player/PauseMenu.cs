@@ -14,6 +14,8 @@ using UnityEngine.Rendering.Universal;
 public class PauseMenu : MonoBehaviour
 {
     public static bool IsPaused { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => IsPaused = false;
 
     const string SensitivityKey = "Horror.MouseSensitivity";
     const string VolumeKey = "Horror.Volume";

@@ -37,6 +37,8 @@ public class GroundLeaves : MonoBehaviour
     }
 
     static readonly List<Disturber> disturbers = new List<Disturber>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => disturbers.Clear();
 
     /// <summary>Something that scatters leaves as it moves through them, with the radius of its body or feet.</summary>
     public static void Register(Transform t, float bodyRadius)

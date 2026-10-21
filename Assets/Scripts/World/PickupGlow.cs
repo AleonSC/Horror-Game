@@ -15,6 +15,8 @@ public class PickupGlow : MonoBehaviour
     [Range(0f, 2f)] public float strength = 0.35f;
 
     static Shader glowShader;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => glowShader = null; // (a shader from the project: forgotten, not destroyed)
     Transform halo;
     Material haloMat;
     Light glow;

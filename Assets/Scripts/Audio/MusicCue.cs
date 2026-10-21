@@ -22,8 +22,8 @@ public class MusicCue : MonoBehaviour
 
     // Static state is cleared when Play starts, so nothing carries over from the last session if the
     // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() => cues.Clear();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => cues.Clear();
 
     /// <summary>How far the playing cues are ducking the soundtrack, 0 to 1.</summary>
     public static float Duck

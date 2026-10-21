@@ -9,6 +9,8 @@ public static class Noise
 {
     /// <summary>Raised for every noise: where it was, and how far it carries, in metres.</summary>
     public static event System.Action<Vector3, float> Heard;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Heard = null;
 
     public static void Emit(Vector3 position, float radius)
     {

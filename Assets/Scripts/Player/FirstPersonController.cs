@@ -258,6 +258,8 @@ public class FirstPersonController : MonoBehaviour
     /// <summary>True while a boss is holding the player's view (narration waits for it to finish).</summary>
     public static bool AttentionHeld => active != null && active.attractTimer > 0f && active.attractTarget != null;
     static FirstPersonController active;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => active = null;
     void OnEnable() { active = this; }
 
     System.Func<Vector3> attractTarget;

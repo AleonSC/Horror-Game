@@ -7,6 +7,8 @@ using UnityEngine;
 public class ItemPickup : MonoBehaviour
 {
     public static readonly System.Collections.Generic.List<ItemPickup> All = new System.Collections.Generic.List<ItemPickup>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => All.Clear();
 
     public Hotbar.Item item;
 

@@ -10,6 +10,8 @@ using UnityEngine;
 public class Watchtower : MonoBehaviour, SafeZones.ISource
 {
     public static readonly List<Watchtower> All = new List<Watchtower>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => All.Clear();
 
     [Tooltip("Seconds the floodlights stay on.")]
     public float lightsOnTime = 60f;

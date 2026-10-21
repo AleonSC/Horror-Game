@@ -130,11 +130,12 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
     // Static state is cleared when Play starts, so nothing carries over from the last session if the
     // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics()
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics()
     {
         All.Clear();
         ResetTimesLit();
+        LastLit = null;
     }
 
     /// <summary>Dev tools: lights it now, as if it had been cranked up (if it isn't already).</summary>

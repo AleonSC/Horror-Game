@@ -15,6 +15,8 @@ using UnityEngine;
 public class WorldWrap : MonoBehaviour
 {
     static WorldWrap instance;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => instance = null;
 
     /// <summary>True when the map loops.</summary>
     public static bool IsActive => instance != null && instance.isActiveAndEnabled;

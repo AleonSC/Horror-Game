@@ -46,6 +46,13 @@ public class Flare : MonoBehaviour
     readonly List<Particle> particles = new List<Particle>();
     static Material sparkMat, smokeMat;
     static Mesh quad;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics()
+    {
+        StaticReset.Drop(ref sparkMat);
+        StaticReset.Drop(ref smokeMat);
+        quad = null; // (Unity's own quad: forgotten, not destroyed)
+    }
 
     /// <summary>Fires a flare from a point in a direction.</summary>
     public static Flare Fire(Vector3 from, Vector3 direction, float speed)

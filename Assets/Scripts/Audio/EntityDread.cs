@@ -10,6 +10,8 @@ public class EntityDread : MonoBehaviour
 {
     /// <summary>0 normally, 1 when an entity is right on you. Other sounds duck by this.</summary>
     public static float Silence { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Silence = 0f;
 
     [Tooltip("The quiet starts when a visible entity is this close...")]
     public float silenceDistance = 7f;

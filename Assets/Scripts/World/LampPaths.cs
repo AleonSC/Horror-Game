@@ -9,6 +9,8 @@ using UnityEngine;
 public static class LampPaths
 {
     static Material material;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => StaticReset.Drop(ref material);
 
     /// <summary>Lays paths around a lamp that's already in place. They're parented to it.</summary>
     public static void Build(Transform lamp, DarkForestGenerator generator)

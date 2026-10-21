@@ -24,6 +24,13 @@ public class Fire : MonoBehaviour
 
     static Mesh quad;
     static Material emberMat, smokeMat;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics()
+    {
+        StaticReset.Drop(ref quad);
+        StaticReset.Drop(ref emberMat);
+        StaticReset.Drop(ref smokeMat);
+    }
 
     /// <summary>A fire at a point on something (its base there, flames rising from it).</summary>
     public static Fire Create(Transform parent, Vector3 localPos, float size, Color tint, int emberCount = 6, int smokeCount = 3)

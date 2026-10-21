@@ -9,6 +9,8 @@ using UnityEngine;
 public class Glowstick : MonoBehaviour
 {
     public static readonly List<Glowstick> All = new List<Glowstick>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => All.Clear();
 
     public static readonly Color GlowColor = new Color(1f, 0.85f, 0.15f);
     [Tooltip("Seconds it glows before it's spent.")]

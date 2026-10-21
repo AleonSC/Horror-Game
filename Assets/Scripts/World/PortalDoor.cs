@@ -22,6 +22,8 @@ public class PortalDoor : MonoBehaviour
 
     /// <summary>0 in the forest, fading up to 1 in the room: the outside world's sounds duck by this.</summary>
     public static float RoomQuiet { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() { PlayerInRoom = false; RoomQuiet = 0f; }
 
     [Tooltip("Seconds for the forest's sounds to fade away once you're in the room.")]
     public float quietFadeIn = 2.5f;

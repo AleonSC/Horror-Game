@@ -17,8 +17,8 @@ public class BlindEntity : MonoBehaviour
 
     // Static state is cleared when Play starts, so nothing carries over from the last session if the
     // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { All.Clear(); BlindEntitySpawner.ResetRun(); }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() { All.Clear(); BlindEntitySpawner.ResetRun(); }
 
     public float height = 7.4f;
     [Tooltip("How heavy-limbed it is: every limb's thickness is multiplied by this.")]

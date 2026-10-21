@@ -30,6 +30,8 @@ public class MusicManager : MonoBehaviour
     public enum Mood { Calm, Intro, Tension, Danger, Watcher, GameOver }
 
     public static MusicManager Instance { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Instance = null;
 
     const string VolumeKey = "Horror.MusicVolume";
     const string ResourceFolder = "Music";

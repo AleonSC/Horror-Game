@@ -314,6 +314,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     float fobLedTimer;
     static Material fobLedOn, fobLedOff;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics()
+    {
+        StaticReset.Drop(ref fobLedOn);
+        fobLedOff = null; // (the fob model's own material, not ours to destroy)
+    }
 
     /// <summary>
     /// A flash photo: a blinding burst of light, and every entity caught in the frame (close enough, nothing

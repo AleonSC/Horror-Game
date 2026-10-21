@@ -421,6 +421,13 @@ public class TreeFall : MonoBehaviour
     }
 
     static Material splinterMaterial;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics()
+    {
+        StaticReset.Drop(ref splinterMaterial);
+        StaticReset.Drop(ref breakWoodMaterial);
+        StaticReset.Drop(ref stumpTopMaterial);
+    }
     static Material SplinterMaterial => splinterMaterial != null ? splinterMaterial
         : (splinterMaterial = MaterialFactory.Lit(new Color(0.42f, 0.33f, 0.22f), 0.05f)); // fresh pale wood inside
 

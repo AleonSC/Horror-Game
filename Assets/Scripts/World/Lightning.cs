@@ -37,6 +37,8 @@ public class Lightning : MonoBehaviour
     };
 
     public static Lightning Instance { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Instance = null;
 
     void Awake() => Instance = this;
     void OnDestroy() { if (Instance == this) Instance = null; }

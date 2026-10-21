@@ -15,6 +15,8 @@ public class GameOverScreen : MonoBehaviour
     const float FadeInTime = 1.5f;
 
     static GameOverScreen instance;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => instance = null;
     public static bool IsActive => instance != null;
 
     float timer;

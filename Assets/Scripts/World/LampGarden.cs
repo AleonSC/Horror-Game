@@ -16,6 +16,14 @@ public class LampGarden : MonoBehaviour
 
     static Material shrub, grass, tallGrass;
     static Mesh sphereMesh, cylinderMesh;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics()
+    {
+        StaticReset.Drop(ref shrub);
+        StaticReset.Drop(ref grass);
+        StaticReset.Drop(ref tallGrass);
+        sphereMesh = cylinderMesh = null; // (Unity's own primitive meshes: forgotten, not destroyed)
+    }
 
     /// <summary>Builds the garden round a lamp that's already in place, parented to it.</summary>
     public static LampGarden Build(Lamp lamp, DarkForestGenerator generator)

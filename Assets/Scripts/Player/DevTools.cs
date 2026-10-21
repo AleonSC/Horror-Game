@@ -12,6 +12,8 @@ using UnityEngine;
 public class DevTools : MonoBehaviour
 {
     public static bool IsOpen { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => IsOpen = false;
 
     int lampTarget = -1;
     int tab; // 0 game, 1 lighting

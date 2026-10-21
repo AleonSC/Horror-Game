@@ -8,6 +8,8 @@ using UnityEngine;
 public class ScreamEvent : MonoBehaviour
 {
     public static ScreamEvent Instance { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Instance = null;
 
     [Tooltip("Seconds into the run before the scream, when there's no intro to wait for.")]
     public float screamTime = 50f;

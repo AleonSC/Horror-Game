@@ -9,6 +9,8 @@ using UnityEngine;
 public class BatteryPickup : MonoBehaviour
 {
     public static readonly List<BatteryPickup> All = new List<BatteryPickup>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => All.Clear();
 
     [Range(0f, 1f), Tooltip("Unused: each battery in the hotbar refills Hotbar.batteryCharge of the flashlight.")]
     public float charge = 0.1f;

@@ -10,6 +10,8 @@ using UnityEngine;
 public class Shack : MonoBehaviour
 {
     public static readonly List<Shack> All = new List<Shack>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => All.Clear();
 
     const float Width = 4f, Depth = 3.4f, WallHeight = 2.4f, DoorWidth = 0.9f, DoorHeight = 2f, DoorX = 0.8f;
 

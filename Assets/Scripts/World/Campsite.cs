@@ -10,6 +10,8 @@ using UnityEngine;
 public class Campsite : MonoBehaviour
 {
     public static readonly List<Campsite> All = new List<Campsite>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => All.Clear();
 
     [Header("Smoke")]
     public int puffCount = 34;

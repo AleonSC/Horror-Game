@@ -15,6 +15,8 @@ public class InventoryScreen : MonoBehaviour
     /// <summary>True on the frame it closed (so the same Esc doesn't also open the pause menu).</summary>
     public static bool ClosedThisFrame => closedFrame == Time.frameCount;
     static int closedFrame = -1;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() { closedFrame = -1; IsOpen = false; }
 
     struct Entry
     {

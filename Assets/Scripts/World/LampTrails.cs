@@ -14,6 +14,8 @@ public static class LampTrails
     // its length (the lit material can't fade along a mesh by itself): Levels steps, faint to full.
     const int Levels = 10;
     static Material[] materials;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() { StaticReset.Drop(materials); materials = null; }
 
     public static void Build(Transform parent, List<Lamp> lamps, DarkForestGenerator generator)
     {

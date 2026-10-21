@@ -29,8 +29,8 @@ public class RainDrops : MonoBehaviour
     /// <summary>How far the storm has built, 0 (the light rain at the start) to 1 (the heaviest, by the 7th lamp).
     /// Picks up as slowly as the rain does. GroundMist thins out with it.</summary>
     public static float Storm { get; private set; }
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() => Storm = 0f;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => Storm = 0f;
 
     Vector3[] positions;
     float[] floors;   // where each drop stops: the ground, or a roof

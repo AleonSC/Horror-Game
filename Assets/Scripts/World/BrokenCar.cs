@@ -16,6 +16,8 @@ using UnityEngine;
 public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
 {
     public static readonly List<BrokenCar> All = new List<BrokenCar>();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => All.Clear();
 
     [Tooltip("Seconds of headlights the battery has left.")]
     public float batteryTime = 120f;

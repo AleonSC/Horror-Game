@@ -13,6 +13,8 @@ public class DoorGarden : MonoBehaviour
     readonly List<Vector3> fireflySeeds = new List<Vector3>();
 
     static Mesh sphereMesh, cubeMesh, cylinderMesh;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => sphereMesh = cubeMesh = cylinderMesh = null; // (Unity's own primitive meshes: forgotten, not destroyed)
 
     const float GardenRadius = 7.6f, PathHalfWidth = 0.55f; // how far out the lawn and path go
 

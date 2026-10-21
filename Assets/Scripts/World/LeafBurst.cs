@@ -8,6 +8,8 @@ using UnityEngine;
 public static class LeafBurst
 {
     static Material leafMaterial;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => StaticReset.Drop(ref leafMaterial);
 
     public static void Spawn(Bounds area)
     {

@@ -22,8 +22,8 @@ public class ScourClock : MonoBehaviour
         added = 0;
     }
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() => ResetRun();
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => ResetRun();
 
     void Update()
     {

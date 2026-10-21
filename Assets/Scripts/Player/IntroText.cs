@@ -65,6 +65,8 @@ public class IntroText : MonoBehaviour
     /// <summary>How opaque the opening black screen is right now, 0 to 1 (the player wakes up once it lifts).</summary>
     public static float BlackScreen { get; private set; }
     static int showing;
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() { showing = 0; Playing = false; BlackScreen = 0f; }
 
     bool isOpening = true;
     float timer;
