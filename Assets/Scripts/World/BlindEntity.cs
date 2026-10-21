@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The blind one. Once three lamps have been lit, a single huge entity (6.5m) comes out of the dark: hunched,
+/// The blind one. Once three lamps have been lit, a single huge entity (7.4m) comes out of the dark: hunched,
 /// long-armed, its head a smooth eyeless shape with a split for a mouth. It can't see: the flashlight means
 /// nothing to it. It roams the woods around the player, stopping to cock its head and listen, clicking
 /// softly to itself. Any noise in earshot (Noise.Emit: footsteps, running, bushes, doors, lamp cranking,
@@ -20,7 +20,9 @@ public class BlindEntity : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() { All.Clear(); BlindEntitySpawner.ResetRun(); }
 
-    public float height = 6.5f;
+    public float height = 7.4f;
+    [Tooltip("How heavy-limbed it is: every limb's thickness is multiplied by this.")]
+    public float bulk = 1.45f;
     [Tooltip("Walking speed while it roams.")]
     public float roamSpeed = 1.5f;
     [Tooltip("Speed when it rushes toward a noise.")]
@@ -749,6 +751,8 @@ public class BlindEntity : MonoBehaviour
         {
             float side = i == 0 ? -1f : 1f;
             legs[i] = Pivot(body, "Hip", new Vector3(side * 0.14f, 1.05f, 0f) * s);
+            // A ball of a hip joint, so the leg grows out of the pelvis however it swings.
+            Part(legs[i], black, PrimitiveType.Sphere, Vector3.zero, Vector3.one * 0.16f * bulk * s, Quaternion.identity);
             Bone(legs[i], black, Vector3.zero, new Vector3(side * 0.05f, -0.5f, 0.18f) * s, 0.09f * s);
             Bone(legs[i], black, new Vector3(side * 0.05f, -0.5f, 0.18f) * s, new Vector3(side * 0.03f, -1.02f, -0.05f) * s, 0.06f * s);
             for (int toe = -1; toe <= 1; toe++)
@@ -756,16 +760,19 @@ public class BlindEntity : MonoBehaviour
 
             // Arms long enough to drag their knuckles.
             arms[i] = Pivot(body, "Shoulder", new Vector3(side * 0.3f, 1.85f, 0.05f) * s);
+            Part(arms[i], black, PrimitiveType.Sphere, Vector3.zero, Vector3.one * 0.12f * bulk * s, Quaternion.identity);
             Bone(arms[i], black, Vector3.zero, new Vector3(side * 0.1f, -0.75f, -0.1f) * s, 0.06f * s);
             Bone(arms[i], black, new Vector3(side * 0.1f, -0.75f, -0.1f) * s, new Vector3(side * 0.08f, -1.5f, 0.15f) * s, 0.045f * s);
             for (int f = 0; f < 4; f++)
                 Bone(arms[i], black, new Vector3(side * 0.08f, -1.5f, 0.15f) * s, new Vector3(side * 0.08f + (f - 1.5f) * 0.04f, -1.82f, 0.25f) * s, 0.014f * s);
         }
 
+        // A broad pelvis joining the legs to the spine.
+        Part(body, black, PrimitiveType.Capsule, new Vector3(0f, 1.07f, -0.01f) * s, new Vector3(0.2f * bulk, 0.2f, 0.17f * bulk) * s, Quaternion.Euler(0f, 0f, 90f));
         // A heavy, hunched back.
         Bone(body, black, new Vector3(0f, 1.05f, 0f) * s, new Vector3(0f, 1.5f, -0.12f) * s, 0.12f * s);
         Bone(body, black, new Vector3(0f, 1.5f, -0.12f) * s, new Vector3(0f, 1.9f, 0.08f) * s, 0.12f * s);
-        Part(body, black, PrimitiveType.Capsule, new Vector3(0f, 1.6f, -0.05f) * s, new Vector3(0.42f, 0.3f, 0.3f) * s, Quaternion.Euler(20f, 0f, 0f));
+        Part(body, black, PrimitiveType.Capsule, new Vector3(0f, 1.6f, -0.05f) * s, new Vector3(0.42f * 1.3f, 0.3f * 1.15f, 0.3f * 1.3f) * s, Quaternion.Euler(20f, 0f, 0f));
         Bone(body, black, new Vector3(-0.3f, 1.85f, 0.05f) * s, new Vector3(0.3f, 1.85f, 0.05f) * s, 0.07f * s);
         Bone(body, black, new Vector3(0f, 1.9f, 0.08f) * s, new Vector3(0f, 2.02f, 0.3f) * s, 0.07f * s);
 
@@ -800,7 +807,11 @@ public class BlindEntity : MonoBehaviour
     void Bone(Transform parent, Material mat, Vector3 a, Vector3 b, float thickness)
     {
         Vector3 d = b - a;
+        thickness *= bulk;
         Part(parent, mat, PrimitiveType.Cylinder, (a + b) * 0.5f, new Vector3(thickness, d.magnitude * 0.5f, thickness), Quaternion.FromToRotation(Vector3.up, d));
+        // A round joint at each end, so bones meet without gaps or flat cut ends.
+        Part(parent, mat, PrimitiveType.Sphere, a, Vector3.one * thickness, Quaternion.identity);
+        Part(parent, mat, PrimitiveType.Sphere, b, Vector3.one * thickness, Quaternion.identity);
     }
 
     Transform Part(Transform parent, Material mat, PrimitiveType type, Vector3 pos, Vector3 scale, Quaternion rot)
