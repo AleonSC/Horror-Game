@@ -110,6 +110,7 @@ public class LampInteractor : MonoBehaviour
             // (The radio's a good size: it gets no extra leeway, or it's picked from metres off.)
             bool small = owner is ItemPickup || owner is BatteryPickup;
             float allowed = (aimRadius + ahead * aimSpreadPerMetre) * (small ? smallItemLeeway : 1f);
+            if (owner is LightableTorch) allowed = 0.25f + ahead * 0.05f; // you have to actually look at a torch
             if (offAxis > allowed) continue;
             if (!Visible(eye, col, closest, owner)) continue;
 

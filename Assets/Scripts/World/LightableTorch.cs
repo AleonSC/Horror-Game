@@ -122,7 +122,7 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
         var model = PropModels.Torch(t, true, out Transform head);
         model.localPosition = new Vector3(0f, 1.2f, 0f);
         model.localScale = Vector3.one * 1.5f;
-        torch.Finish(head, 0.55f, new Vector3(0f, 1.75f, 0f), new Vector3(0.5f, 2.2f, 0.5f));
+        torch.Finish(head, 0.55f, new Vector3(0f, 1.95f, 0f), new Vector3(0.4f, 1.0f, 0.4f)); // round the torch at the top
         return torch;
     }
 
@@ -145,7 +145,7 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
         model.localPosition = new Vector3(0f, -0.25f, 0.13f);
         model.localRotation = Quaternion.Euler(25f, 0f, 0f);
         model.localScale = Vector3.one * 1.1f;
-        torch.Finish(head, 0.42f, new Vector3(0f, 0.2f, 0.25f), new Vector3(0.45f, 0.95f, 0.55f));
+        torch.Finish(head, 0.42f, new Vector3(0f, 0.15f, 0.25f), new Vector3(0.35f, 0.7f, 0.4f));
         return torch;
     }
 
