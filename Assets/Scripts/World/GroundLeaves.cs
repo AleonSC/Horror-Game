@@ -170,7 +170,7 @@ public class GroundLeaves : MonoBehaviour
                 leaf.velocity *= Mathf.Exp(-1.6f * dt);
                 leaf.velocity += new Vector3(Mathf.Sin(Time.time * 7f + i), 0f, Mathf.Cos(Time.time * 5f + i)) * 0.8f * dt; // flutter
                 leaf.position += leaf.velocity * dt;
-                leaf.rotation = Quaternion.Euler(leaf.spin * dt) * leaf.rotation;
+                leaf.rotation = Quaternion.Normalize(Quaternion.Euler(leaf.spin * dt) * leaf.rotation); // (renormalised: rounding builds up spin after spin)
                 float ground = Ground(leaf.position) + 0.012f;
                 if (leaf.position.y <= ground && leaf.velocity.y < 0f)
                 {
