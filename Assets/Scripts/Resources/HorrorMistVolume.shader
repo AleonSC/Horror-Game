@@ -66,7 +66,8 @@ Shader "Horror/MistVolume"
                 float4 m = tex2Dlod(_MistMap, float4(uv, 0, 0));
                 float h = p.y - m.r;
                 // Thick on the ground, thinning away above it; none under it.
-                float height = exp(-max(h, 0) / _MistHeight) * saturate(h * 4 + 1);
+                float height = exp(-max(h, 0) / _MistHeight) * saturate(h * 4 + 1)
+                               * (1 - smoothstep(_MistHeight * 2.5, _MistHeight * 4, h)); // and gone well before head height
                 // Billowing: two scales of drifting noise, gathered into thicker patches where the map says.
                 float n1 = tex3Dlod(_Noise, float4(p * _NoiseScale + _Wind.xyz, 0)).r;
                 float n2 = tex3Dlod(_Noise, float4(p * _NoiseScale * 3.1 + _Wind.xyz * 1.7, 0)).r;
@@ -74,7 +75,7 @@ Shader "Horror/MistVolume"
                 return shape * lerp(_Patchiness, 1, m.g) * height * _Density;
             }
 
-            float3 Lighting(float3 p)
+            float3 Lighting(float3 p, float3 rd)
             {
                 float3 c = _MistColor.rgb;
 
@@ -83,7 +84,12 @@ Shader "Horror/MistVolume"
                 float d = length(toP);
                 float cone = smoothstep(_SpotDir.w, _SpotColor.w, dot(toP / max(d, 0.001), _SpotDir.xyz));
                 float att = saturate(1 - d / max(_SpotPos.w, 0.001));
-                c += _SpotColor.rgb * cone * att * att;
+                // Held at your eye, a beam is mostly seen where it lands, not down its length: lit mist straight
+                // ahead along it, and right in front of the lens, counts for much less (or it glares as a ball).
+                float along = saturate(dot(toP / max(d, 0.001), rd));
+                float view = lerp(1, 0.15, along * along * along * along);
+                float near = smoothstep(1.0, 5.0, d);
+                c += _SpotColor.rgb * cone * att * att * view * near;
 
                 // A glow round each nearby lamp.
                 for (int k = 0; k < 4; k++)
@@ -130,7 +136,7 @@ Shader "Horror/MistVolume"
                     if (dens > 0.0005)
                     {
                         float a = 1 - exp(-dens * stepLen);
-                        col += trans * a * Lighting(p);
+                        col += trans * a * Lighting(p, rd);
                         trans *= 1 - a;
                         if (trans < 0.02) break;
                     }

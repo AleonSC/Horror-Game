@@ -20,7 +20,7 @@ public class GroundMist : MonoBehaviour
     [Tooltip("How thick the mist is overall.")]
     public float density = 0.55f;
     [Tooltip("How quickly it thins with height above the ground (metres: about the height it's thick to).")]
-    public float mistHeight = 0.9f;
+    public float mistHeight = 0.45f;
     [Tooltip("Its colour in the dark (a touch lighter than the fog).")]
     public Color mistColor = new Color(0.035f, 0.04f, 0.05f);
     [Tooltip("How much mist there is outside its patches, hollows and ponds (0 = none, 1 = as much as in them).")]
@@ -35,7 +35,7 @@ public class GroundMist : MonoBehaviour
 
     [Header("Light In It")]
     [Tooltip("How brightly the flashlight lights the mist.")]
-    public float flashlightStrength = 0.05f;
+    public float flashlightStrength = 0.035f;
     [Tooltip("How brightly lamps and torches light it.")]
     public float lampStrength = 0.06f;
     public float lampSearchRange = 45f;
@@ -245,7 +245,7 @@ public class GroundMist : MonoBehaviour
         // The box: round you, from just under the lowest ground to well over the highest.
         float half = maxDistance;
         Vector3 min = new Vector3(at.x - half, mapMinY - 0.5f, at.z - half);
-        Vector3 max = new Vector3(at.x + half, mapMaxY + mistHeight * 5f, at.z + half);
+        Vector3 max = new Vector3(at.x + half, mapMaxY + mistHeight * 4.5f, at.z + half);
         box.position = (min + max) * 0.5f;
         box.rotation = Quaternion.identity;
         box.localScale = max - min;
