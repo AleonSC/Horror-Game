@@ -36,6 +36,7 @@ Shader "Horror/MistVolume"
             float4 _BoxMin, _BoxMax;    // the box, world space
             float4 _MistColor;          // its own faint colour in the dark
             float _Density, _MistHeight, _NoiseScale, _MaxDistance, _Patchiness;
+            float4 _NearClear;          // x: within this distance of you it's thinnest, y: by this it's full, z: how thin (0-1)
             float4 _Wind;               // how far the noise has drifted
             float4 _SpotPos;            // xyz position, w range
             float4 _SpotDir;            // xyz direction, w cos(outer half-angle)
@@ -66,8 +67,7 @@ Shader "Horror/MistVolume"
                 float4 m = tex2Dlod(_MistMap, float4(uv, 0, 0));
                 float h = p.y - m.r;
                 // Thick on the ground, thinning away above it; none under it.
-                float height = exp(-max(h, 0) / _MistHeight) * saturate(h * 4 + 1)
-                               * (1 - smoothstep(_MistHeight * 2.5, _MistHeight * 4, h)); // and gone well before head height
+                float height = exp(-max(h, 0) / _MistHeight) * saturate(h * 4 + 1);
                 // Billowing: two scales of drifting noise, gathered into thicker patches where the map says.
                 float n1 = tex3Dlod(_Noise, float4(p * _NoiseScale + _Wind.xyz, 0)).r;
                 float n2 = tex3Dlod(_Noise, float4(p * _NoiseScale * 3.1 + _Wind.xyz * 1.7, 0)).r;
@@ -132,7 +132,9 @@ Shader "Horror/MistVolume"
                 for (int s = 0; s < STEPS; s++)
                 {
                     float3 p = ro + rd * t;
-                    float dens = Density(p) * saturate((_MaxDistance - t) / 15);
+                    // Thin right round you, so the ground and things close by are easy to see; full further off.
+                    float dens = Density(p) * saturate((_MaxDistance - t) / 15)
+                                 * lerp(_NearClear.z, 1, smoothstep(_NearClear.x, _NearClear.y, t));
                     if (dens > 0.0005)
                     {
                         float a = 1 - exp(-dens * stepLen);

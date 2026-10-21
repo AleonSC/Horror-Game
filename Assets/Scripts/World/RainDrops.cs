@@ -26,6 +26,12 @@ public class RainDrops : MonoBehaviour
     public Vector2 dropSize = new Vector2(0.012f, 0.32f);
     public Color tint = new Color(0.75f, 0.8f, 0.85f, 0.35f);
 
+    /// <summary>How far the storm has built, 0 (the light rain at the start) to 1 (the heaviest, by the 7th lamp).
+    /// Picks up as slowly as the rain does. GroundMist thins out with it.</summary>
+    public static float Storm { get; private set; }
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() => Storm = 0f;
+
     Vector3[] positions;
     float[] floors;   // where each drop stops: the ground, or a roof
     float[] speeds;
@@ -78,6 +84,7 @@ public class RainDrops : MonoBehaviour
         // Picking up (or easing off, when the run resets) slowly.
         float target = TargetHeaviness();
         heaviness = Mathf.MoveTowards(heaviness, target, Mathf.Max(Mathf.Abs(target - 1f), 1f) * dt / Mathf.Max(rampTime, 0.1f));
+        Storm = Mathf.Clamp01((heaviness - 1f) / Mathf.Max(atLamp7 - 1f, 0.01f));
         int want = Mathf.Clamp(Mathf.RoundToInt(dropCount * heaviness), 0, positions.Length);
         while (active < want) { Respawn(active, c, Random.Range(6f, 12f)); active++; } // new drops start up high
         active = want;

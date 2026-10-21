@@ -20,7 +20,7 @@ public class GroundMist : MonoBehaviour
     [Tooltip("How thick the mist is overall.")]
     public float density = 0.55f;
     [Tooltip("How quickly it thins with height above the ground (metres: about the height it's thick to).")]
-    public float mistHeight = 0.45f;
+    public float mistHeight = 0.9f;
     [Tooltip("Its colour in the dark (a touch lighter than the fog).")]
     public Color mistColor = new Color(0.035f, 0.04f, 0.05f);
     [Tooltip("How much mist there is outside its patches, hollows and ponds (0 = none, 1 = as much as in them).")]
@@ -32,6 +32,14 @@ public class GroundMist : MonoBehaviour
     [Tooltip("How far you can see mist.")]
     public float maxDistance = 60f;
     public float driftSpeed = 0.35f;
+    [Tooltip("Close to you it's thinner, so the ground and things nearby are easy to see: thinnest within the first distance, full by the second.")]
+    public float clearNear = 1.5f, clearFar = 8f;
+    [Tooltip("How thick it is right round you, compared with further off.")]
+    [Range(0f, 1f)] public float clearAmount = 0.15f;
+
+    [Header("Storm")]
+    [Tooltip("As the storm builds (the rain getting heavier as lamps are lit), the mist thins out to this much of itself by the heaviest rain.")]
+    [Range(0f, 1f)] public float atFullStorm = 0.1f;
 
     [Header("Light In It")]
     [Tooltip("How brightly the flashlight lights the mist.")]
@@ -245,7 +253,7 @@ public class GroundMist : MonoBehaviour
         // The box: round you, from just under the lowest ground to well over the highest.
         float half = maxDistance;
         Vector3 min = new Vector3(at.x - half, mapMinY - 0.5f, at.z - half);
-        Vector3 max = new Vector3(at.x + half, mapMaxY + mistHeight * 4.5f, at.z + half);
+        Vector3 max = new Vector3(at.x + half, mapMaxY + mistHeight * 5f, at.z + half);
         box.position = (min + max) * 0.5f;
         box.rotation = Quaternion.identity;
         box.localScale = max - min;
@@ -258,7 +266,10 @@ public class GroundMist : MonoBehaviour
         mat.SetVector("_Wind", -drift);
 
         mat.SetColor("_MistColor", mistColor);
-        mat.SetFloat("_Density", density);
+        // The storm (the rain) slowly breaks it up: thinning as the rain picks up, nearly gone at its worst.
+        float storm = Mathf.SmoothStep(0f, 1f, RainDrops.Storm);
+        mat.SetFloat("_Density", density * Mathf.Lerp(1f, atFullStorm, storm));
+        mat.SetVector("_NearClear", new Vector4(clearNear, Mathf.Max(clearFar, clearNear + 0.1f), clearAmount, 0f));
         mat.SetFloat("_MistHeight", Mathf.Max(mistHeight, 0.05f));
         mat.SetFloat("_NoiseScale", noiseScale);
         mat.SetFloat("_MaxDistance", maxDistance);
