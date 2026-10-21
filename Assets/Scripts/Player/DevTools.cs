@@ -6,7 +6,8 @@ using UnityEngine;
 /// Lamps: set how many lamps are lit right now, 0 to all of them. Going up lights the nearest unlit ones
 /// for real (so everything that follows lamps being lit happens: entities, narration, the bird, the eye,
 /// the searchlight...); going down puts the furthest lit ones back out and sets the count to match (anything
-/// already spawned stays). Field of view (players always get 60; this isn't saved). Also: restart the run. The Lighting tab is the full lighting panel
+/// already spawned stays). The stick of truth (a dev item: spawn things, fly) and the F1 overlay can be
+/// switched on and off here. Field of view (players always get 60; this isn't saved). Also: restart the run. The Lighting tab is the full lighting panel
 /// (LightingSettings: themes, moon, fog, sky, flashlight, picture). DarkForestGenerator adds this.
 /// </summary>
 public class DevTools : MonoBehaviour
@@ -19,6 +20,7 @@ public class DevTools : MonoBehaviour
     int tab; // 0 game, 1 lighting
     LightingSettings lighting;
     PauseMenu pause;
+    Hotbar hotbar;
     Vector2 scroll;
     GUIStyle title, label, button, small;
 
@@ -92,7 +94,7 @@ public class DevTools : MonoBehaviour
 
         var area = tab == 1
             ? new Rect(20f * unit, 20f * unit, Mathf.Min(620f * unit, Screen.width - 40f * unit), Screen.height - 40f * unit)
-            : new Rect(20f * unit, 20f * unit, 380f * unit, 400f * unit);
+            : new Rect(20f * unit, 20f * unit, 380f * unit, 520f * unit);
         GUI.color = new Color(0f, 0f, 0f, 0.85f);
         GUI.DrawTexture(area, Texture2D.whiteTexture);
         GUI.color = Color.white;
@@ -148,6 +150,19 @@ public class DevTools : MonoBehaviour
             if (!Mathf.Approximately(fov, pause.fieldOfView)) pause.SetFieldOfView(fov);
             GUILayout.Space(10f * unit);
         }
+        // The stick of truth, and the F1 overlay.
+        if (hotbar == null) hotbar = FindAnyObjectByType<Hotbar>();
+        if (hotbar != null)
+        {
+            bool stick = GUILayout.Toggle(hotbar.HasStick, "  Stick of truth (in your hotbar)", GUILayout.Height(24f * unit));
+            if (stick != hotbar.HasStick) hotbar.SetStick(stick);
+            GUILayout.Label("Right click with it to choose an item or creature, left click to spawn it where you point. Double tap Space to fly while holding it.", small);
+        }
+        bool overlay = GUILayout.Toggle(SpawnDebugOverlay.Enabled, "  F1 spawn overlay", GUILayout.Height(24f * unit));
+        if (overlay != SpawnDebugOverlay.Enabled) SpawnDebugOverlay.Enabled = overlay;
+        GUILayout.Label("F1 steps through: everything, then structures, lamps, items, creatures, then off.", small);
+        GUILayout.Space(10f * unit);
+
         if (GUILayout.Button("Restart the run", button)) GameOverScreen.RestartRun();
 
         GUILayout.EndScrollView();

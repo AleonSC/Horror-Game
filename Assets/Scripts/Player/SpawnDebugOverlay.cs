@@ -2,7 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Debug: F1 toggles labels over everything that spawns (except trees, boulders and animals; batteries are
+/// Debug: F1 steps through showing labels over everything (then each kind on its own: structures, lamps,
+/// items, creatures; then off). It can be switched off altogether in the dev tools (Enabled). Labels over everything that spawns (except trees, boulders and animals; batteries are
 /// small green dots and enemies red dots, with no labels), seen
 /// through walls and fog from anywhere: name, state and distance. Things off screen or behind you are
 /// pinned to the edge of the screen in their direction, with an arrow. A list down the left side gives
@@ -11,6 +12,13 @@ using UnityEngine;
 public class SpawnDebugOverlay : MonoBehaviour
 {
     public bool visible;
+    /// <summary>Whether F1 does anything at all (the dev tools switch it).</summary>
+    public static bool Enabled = true;
+
+    enum Kind { Structure, Lamp, Item, Creature }
+    // 0 off, 1 everything, then each kind on its own.
+    int mode;
+    static readonly string[] ModeNames = { "OFF", "ALL", "STRUCTURES", "LAMPS", "ITEMS", "CREATURES" };
     [Tooltip("Text size at 1080p.")]
     public int fontSize = 15;
 
@@ -20,6 +28,7 @@ public class SpawnDebugOverlay : MonoBehaviour
         public Vector3 position;
         public Color color;
         public bool dot; // drawn as a small dot, not a label (batteries, enemies)
+        public Kind kind;
     }
 
     readonly List<Marker> markers = new List<Marker>();
@@ -34,13 +43,21 @@ public class SpawnDebugOverlay : MonoBehaviour
 
     void Update()
     {
-        if (HorrorInput.DebugOverlayPressed) visible = !visible;
+        if (!Enabled) { visible = false; mode = 0; return; }
+        if (HorrorInput.DebugOverlayPressed)
+        {
+            mode = (mode + 1) % ModeNames.Length;
+            visible = mode != 0;
+        }
+        else if (visible && mode == 0) mode = 1; // (switched on from the inspector)
+        else if (!visible) mode = 0;
     }
 
     void Collect()
     {
         markers.Clear();
-        foreach (var shack in Shack.All) Add("Shack", shack.transform.position + Vector3.up * 3f, StructureColor);
+        kind = Kind.Structure;
+        foreach (var shack in Shack.All) Add(shack.IsCabin ? "Cabin" : "Shack", shack.transform.position + Vector3.up * 3f, StructureColor);
         foreach (var camp in Campsite.All) Add("Campsite", camp.transform.position + Vector3.up * 1.5f, StructureColor);
         foreach (var tower in Watchtower.All) Add("Watchtower", tower.transform.position + Vector3.up * 4f, StructureColor);
         foreach (var car in BrokenCar.All)
@@ -48,14 +65,19 @@ public class SpawnDebugOverlay : MonoBehaviour
         if (door == null) door = FindAnyObjectByType<PortalDoor>();
         if (door != null) Add(PortalDoor.PlayerInRoom ? "Lone Door (you're in the room)" : "Lone Door", door.transform.position + Vector3.up * 2.5f, StructureColor);
 
+        kind = Kind.Lamp;
         foreach (var lamp in Lamp.All)
             Add(lamp.IsLit ? "Lamp (lit)" : lamp.IsCoolingDown ? "Lamp (cooling)" : "Lamp", lamp.transform.position + Vector3.up * 4f, LampColor);
+        kind = Kind.Item;
         foreach (var item in ItemPickup.All)
             Add(Capitalise(item.DisplayName), item.transform.position + Vector3.up * 0.5f, ItemColor);
         foreach (var battery in BatteryPickup.All)
             Add("Battery", battery.transform.position + Vector3.up * 0.2f, BatteryColor, true);
         foreach (var stick in Glowstick.All)
             Add("Glowstick", stick.transform.position + Vector3.up * 0.3f, Glowstick.GlowColor);
+        kind = Kind.Creature;
+        foreach (var crawler in Crawler.All)
+            if (crawler.gameObject.activeInHierarchy) Add("Crawler", crawler.transform.position + Vector3.up * 0.3f, EntityColor, true);
         foreach (var entity in ShadowEntity.All)
             if (entity.CurrentState != ShadowEntity.State.Hidden)
                 Add("Entity", entity.transform.position + Vector3.up * 1.6f, EntityColor, true);
@@ -67,12 +89,15 @@ public class SpawnDebugOverlay : MonoBehaviour
             Add("The Watcher", head, EntityColor, true);
     }
 
+    Kind kind; // what's being collected
+
     void Add(string label, Vector3 position, Color color, bool dot = false)
     {
+        if (mode > 1 && (int)kind != mode - 2) return; // only the kind being shown
         // Wherever the map has looped round to, use the copy nearest the player.
         var cam = Camera.main;
         if (cam != null) position = WorldWrap.NearestImage(position, cam.transform.position);
-        markers.Add(new Marker { label = label, position = position, color = color, dot = dot });
+        markers.Add(new Marker { label = label, position = position, color = color, dot = dot, kind = kind });
     }
 
     static string Capitalise(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s.Substring(1);
@@ -141,7 +166,7 @@ public class SpawnDebugOverlay : MonoBehaviour
         GUI.color = new Color(0f, 0f, 0f, 0.55f);
         GUI.DrawTexture(new Rect(8f * unit, y - 6f * unit, 330f * unit, (shown + 2) * line + 12f * unit), Texture2D.whiteTexture);
         GUI.color = Color.white;
-        GUI.Label(new Rect(16f * unit, y, 320f * unit, 30f * unit), "SPAWNS (F1 to hide)", listStyle);
+        GUI.Label(new Rect(16f * unit, y, 320f * unit, 30f * unit), $"SPAWNS: {ModeNames[mode]}  (F1 for next)", listStyle);
         y += listStyle.fontSize * 1.35f;
         for (int i = 0; i < shown; i++)
         {

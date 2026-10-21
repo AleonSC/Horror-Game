@@ -71,6 +71,23 @@ public class FirstPersonController : MonoBehaviour
     public float CurrentSpeed => moveVelocity.magnitude;
     /// <summary>Held fast by something (a crawler has your ankle): no walking or jumping until it's cleared.</summary>
     public bool Snared { get; set; }
+
+    /// <summary>Flying free (the dev tools' stick): no gravity, through anything, WASD along the view, Space up, Ctrl down, Shift fast.</summary>
+    public bool FreeFlight
+    {
+        get => freeFlight;
+        set
+        {
+            if (freeFlight == value) return;
+            freeFlight = value;
+            if (controller != null) controller.enabled = !value;
+            verticalVelocity = 0f;
+            horizontalVelocity = moveVelocity = Vector3.zero;
+        }
+    }
+    bool freeFlight;
+    [Tooltip("Free flight speed (Shift: three times as fast).")]
+    public float freeFlightSpeed = 10f;
     /// <summary>How fast and which way the player is walking (horizontal).</summary>
     public Vector3 Velocity => moveVelocity;
 
@@ -207,9 +224,10 @@ public class FirstPersonController : MonoBehaviour
         if (!DroneUnit.Piloting) // (flying the drone: you stand still, the mouse and keys are its)
         {
             HandleLook();
-            HandleCrouch();
+            if (!freeFlight) HandleCrouch();
         }
-        HandleMovement();
+        if (freeFlight && !DroneUnit.Piloting) Fly();
+        else HandleMovement();
         UpdateCamera();
     }
 
@@ -217,7 +235,7 @@ public class FirstPersonController : MonoBehaviour
     {
         // Esc opens the pause menu (which frees the mouse); clicking back into the game recaptures it.
         if (!lockCursor || DevTools.IsOpen) return; // (the dev tools window needs the mouse)
-        if (HorrorInput.ClickPressed && Cursor.lockState != CursorLockMode.Locked) SetCursorLocked(true);
+        if (HorrorInput.ClickPressed && Cursor.lockState != CursorLockMode.Locked && !Hotbar.StickMenuOpen) SetCursorLocked(true);
     }
 
     static void SetCursorLocked(bool locked)
@@ -328,6 +346,16 @@ public class FirstPersonController : MonoBehaviour
     {
         controller.height = height;
         controller.center = Vector3.up * (height * 0.5f);
+    }
+
+    void Fly()
+    {
+        Vector2 input = Vector2.ClampMagnitude(HorrorInput.Move, 1f);
+        Transform view = cameraRoot != null ? cameraRoot : transform;
+        Vector3 dir = view.forward * input.y + view.right * input.x
+                      + Vector3.up * ((HorrorInput.JumpHeld ? 1f : 0f) - (HorrorInput.CrouchHeld ? 1f : 0f));
+        float speed = freeFlightSpeed * (HorrorInput.RunHeld ? 3f : 1f);
+        transform.position += Vector3.ClampMagnitude(dir, 1f) * speed * Time.deltaTime;
     }
 
     void HandleMovement()

@@ -66,6 +66,7 @@ public static class HorrorInput
     public static bool ReleaseCursorPressed => Kb != null && Kb.escapeKey.wasPressedThisFrame;
     public static bool InventoryPressed => Kb != null && Kb.tabKey.wasPressedThisFrame;
     public static bool ClickPressed => Ms != null && Ms.leftButton.wasPressedThisFrame;
+    public static bool RightClickPressed => Ms != null && Ms.rightButton.wasPressedThisFrame;
     /// <summary>E: open and close doors (and the car's doors and glove box).</summary>
     public static bool InteractPressed => Kb != null && Kb.eKey.wasPressedThisFrame;
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
@@ -96,6 +97,7 @@ public static class HorrorInput
     public static bool ReleaseCursorPressed => Input.GetKeyDown(KeyCode.Escape);
     public static bool InventoryPressed => Input.GetKeyDown(KeyCode.Tab);
     public static bool ClickPressed => Input.GetMouseButtonDown(0);
+    public static bool RightClickPressed => Input.GetMouseButtonDown(1);
     /// <summary>E: open and close doors (and the car's doors and glove box).</summary>
     public static bool InteractPressed => Input.GetKeyDown(KeyCode.E);
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>

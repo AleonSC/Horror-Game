@@ -36,7 +36,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
     void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
 
-    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob, Map, Drone, Remote }
+    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob, Map, Drone, Remote, Stick }
     const int SlotCount = 8;
     [Header("Camera")]
     [Tooltip("Shots on the camera when it's found.")]
@@ -96,6 +96,10 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public bool HasDrone { get; private set; }
     /// <summary>...or, once it's set down, holding its remote.</summary>
     public bool HasRemote { get; private set; }
+    /// <summary>The stick of truth (dev tools): spawns things where you click, and lets you fly.</summary>
+    public bool HasStick { get; private set; }
+    /// <summary>True while the stick's spawn menu is open (the mouse is free).</summary>
+    public static bool StickMenuOpen { get; private set; }
     float fobReady;
     Renderer fobLed;
 
@@ -111,8 +115,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob", "Map", "Drone", "Remote" };
-    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel, droneModel, remoteModel;
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob", "Map", "Drone", "Remote", "Stick of Truth" };
+    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel, droneModel, remoteModel, stickModel;
     Light flashLight;
     float flashGlow, flashReady;
 
@@ -144,6 +148,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         PropModels.KeyFob(fobModel, false, out fobLed).localScale = Vector3.one * 1.4f;
         fobModel.gameObject.SetActive(false);
         BuildDrone(hand);
+        BuildStick(hand);
 
         fireLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FireLoop, true, false, 0f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.8f);
@@ -153,6 +158,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     {
         SyncSlots();
         if (PauseMenu.IsPaused || InventoryScreen.IsOpen || MainMenu.Showing) return;
+        UpdateStick();
         if (DroneUnit.Piloting)
         {
             // Flying the drone: the keys and the mouse are its (F lets go, which it handles itself).
@@ -191,6 +197,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Item.Map && !HasMap) { Message("You don't have a map"); return; }
         if (item == Item.Drone && !HasDrone) { Message("You don't have the drone"); return; }
         if (item == Item.Remote && !HasRemote) { Message("You don't have the remote"); return; }
+        if (item == Item.Stick && !HasStick) return;
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -277,7 +284,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         item == Item.KeyFob ? (HasKeyFob ? 1 : 0) :
         item == Item.Map ? (HasMap ? 1 : 0) :
         item == Item.Drone ? (HasDrone ? 1 : 0) :
-        item == Item.Remote ? (HasRemote ? 1 : 0) : 1;
+        item == Item.Remote ? (HasRemote ? 1 : 0) :
+        item == Item.Stick ? (HasStick ? 1 : 0) : 1;
 
     void Use()
     {
@@ -388,6 +396,170 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     {
         StaticReset.Drop(ref fobLedOn);
         fobLedOff = null; // (the fob model's own material, not ours to destroy)
+        StickMenuOpen = false;
+    }
+
+    // ---------------------------------------------------------------- The stick of truth (dev tools)
+
+    /// <summary>Gives the player the stick of truth, or takes it away.</summary>
+    public void SetStick(bool has)
+    {
+        if (has == HasStick) return;
+        HasStick = has;
+        if (has)
+        {
+            SyncSlots();
+            Select(Item.Stick);
+            Message("The stick of truth. Right click: pick what to spawn. Left click: spawn it there. Double tap Space: fly.");
+        }
+        else
+        {
+            if (Selected == Item.Stick) Select(Item.Flashlight);
+            CloseStickMenu();
+            var p = GetComponent<FirstPersonController>();
+            if (p != null) p.FreeFlight = false;
+        }
+    }
+
+    static readonly string[] StickItems = { "Torch", "Lighter", "Flare Gun", "Glowsticks", "Battery", "Camera", "Key Fob", "Map", "Drone" };
+    static readonly string[] StickMobs = { "Scour", "Blind One", "Crawler", "Flier" };
+    int stickChoice; // an index into StickItems, then StickMobs after them
+    float lastSpaceTap = -10f;
+    Vector2 stickScroll;
+
+    string StickChoiceName => stickChoice < StickItems.Length ? StickItems[stickChoice] : StickMobs[stickChoice - StickItems.Length];
+
+    void UpdateStick()
+    {
+        var player = GetComponent<FirstPersonController>();
+        bool holding = HasStick && Selected == Item.Stick && !DroneUnit.Piloting;
+        if (!holding)
+        {
+            if (StickMenuOpen) CloseStickMenu();
+            if (player != null && player.FreeFlight) player.FreeFlight = false; // (only while it's in hand)
+            return;
+        }
+        // Double tap Space: free flight on or off.
+        if (HorrorInput.JumpPressed && !StickMenuOpen)
+        {
+            if (Time.unscaledTime - lastSpaceTap < 0.3f)
+            {
+                if (player != null)
+                {
+                    player.FreeFlight = !player.FreeFlight;
+                    Message(player.FreeFlight ? "Free flight: on (Space up, Ctrl down, Shift fast)" : "Free flight: off");
+                }
+                lastSpaceTap = -10f;
+            }
+            else lastSpaceTap = Time.unscaledTime;
+        }
+        if (HorrorInput.RightClickPressed)
+        {
+            if (StickMenuOpen) CloseStickMenu();
+            else
+            {
+                StickMenuOpen = true;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+        }
+        else if (HorrorInput.ClickPressed && !StickMenuOpen && !DevTools.IsOpen && Cursor.lockState == CursorLockMode.Locked)
+            StickSpawn();
+    }
+
+    void CloseStickMenu()
+    {
+        if (!StickMenuOpen) return;
+        StickMenuOpen = false;
+        if (!DevTools.IsOpen && !PauseMenu.IsPaused)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+    }
+
+    /// <summary>Spawns the chosen thing where the stick is pointing.</summary>
+    void StickSpawn()
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+        if (!Physics.Raycast(cam.transform.position, cam.transform.forward, out var hit, 300f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            Message("Nothing there to put it on");
+            return;
+        }
+        Vector3 at = hit.point;
+        float yaw = Random.Range(0f, 360f);
+        Transform made = null;
+        switch (StickChoiceName)
+        {
+            case "Torch": made = ItemPickup.CreateTorch(null, at, yaw).transform; break;
+            case "Lighter": made = ItemPickup.CreateLighter(null, at, yaw).transform; break;
+            case "Flare Gun": made = ItemPickup.CreateFlareGun(null, at, yaw).transform; break;
+            case "Glowsticks": made = ItemPickup.CreateGlowsticks(null, at, yaw).transform; break;
+            case "Battery": made = BatterySpawner.Create(null, at, yaw).transform; break;
+            case "Camera": made = ItemPickup.CreateCamera(null, at, yaw).transform; break;
+            case "Key Fob": made = ItemPickup.CreateKeyFob(null, at, yaw).transform; break;
+            case "Map": made = ItemPickup.CreateMap(null, at, yaw).transform; break;
+            case "Drone": made = ItemPickup.CreateDrone(null, at, yaw).transform; break;
+            case "Scour": ShadowEntity.SpawnAt(at); break;
+            case "Blind One": BlindEntity.SpawnAt(at); break;
+            case "Crawler":
+                var crawler = new GameObject("Crawler").AddComponent<Crawler>();
+                crawler.Settle(at);
+                break;
+            case "Flier": FlyingEntity.Spawn(GetComponent<FirstPersonController>()); break;
+        }
+        if (made != null) WorldWrap.RegisterDynamic(made);
+        Play(ProceduralAudio.LampSpark, 0.4f, 1.6f);
+        Message($"Spawned: {StickChoiceName}");
+    }
+
+    /// <summary>The stick's menu: everything it can spawn, items on the left, creatures on the right.</summary>
+    void DrawStickMenu(float unit)
+    {
+        float w = 460f * unit, h = 420f * unit;
+        var panel = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
+        GUI.depth = -950;
+        DrawRect(panel, new Color(0.02f, 0.02f, 0.02f, 0.9f));
+        var title = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(20f * unit) };
+        title.normal.textColor = new Color(1f, 0.8f, 0.45f);
+        var head = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, fontSize = Mathf.RoundToInt(15f * unit) };
+        head.normal.textColor = new Color(0.9f, 0.86f, 0.78f);
+        var button = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(15f * unit) };
+        GUI.Label(new Rect(panel.x, panel.y + 8f * unit, w, 30f * unit), "STICK OF TRUTH", title);
+        float colW = (w - 48f * unit) * 0.5f, top = panel.y + 48f * unit, rowH = 32f * unit;
+        GUI.Label(new Rect(panel.x + 16f * unit, top, colW, 24f * unit), "Items", head);
+        GUI.Label(new Rect(panel.x + 32f * unit + colW, top, colW, 24f * unit), "Mobs", head);
+        for (int i = 0; i < StickItems.Length + StickMobs.Length; i++)
+        {
+            bool mob = i >= StickItems.Length;
+            int row = mob ? i - StickItems.Length : i;
+            var r = new Rect(panel.x + (mob ? 32f * unit + colW : 16f * unit), top + 28f * unit + row * (rowH + 4f * unit), colW, rowH);
+            GUI.color = stickChoice == i ? new Color(1f, 0.8f, 0.45f) : Color.white;
+            if (GUI.Button(r, mob ? StickMobs[row] : StickItems[row], button))
+            {
+                stickChoice = i;
+                CloseStickMenu();
+            }
+        }
+        GUI.color = Color.white;
+        GUI.Label(new Rect(panel.x, panel.yMax - 30f * unit, w, 24f * unit), "Pick one, then left click to spawn it. Right click to close.", new GUIStyle(head) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, fontSize = Mathf.RoundToInt(12f * unit) });
+    }
+
+    /// <summary>A gnarled stick held out, its tip glowing faintly.</summary>
+    void BuildStick(Transform hand)
+    {
+        stickModel = new GameObject("Held Stick").transform;
+        stickModel.SetParent(hand, false);
+        stickModel.localPosition = new Vector3(0.2f, -0.25f, 0.45f);
+        stickModel.localRotation = Quaternion.Euler(55f, 0f, -15f);
+        var wood = MaterialFactory.LitTextured(ProceduralTextures.Bark, ProceduralTextures.BarkNormal, new Color(0.55f, 0.42f, 0.3f), 0.05f);
+        var tip = MaterialFactory.NoFog(new Color(1f, 0.85f, 0.4f) * 2.5f);
+        HeldPart(PrimitiveType.Cylinder, wood, stickModel, new Vector3(0f, 0.15f, 0f), new Vector3(0.025f, 0.3f, 0.025f), Vector3.zero);
+        HeldPart(PrimitiveType.Cylinder, wood, stickModel, new Vector3(0.02f, 0.3f, 0f), new Vector3(0.015f, 0.06f, 0.015f), new Vector3(0f, 0f, -30f)); // a twig off it
+        HeldPart(PrimitiveType.Sphere, tip, stickModel, new Vector3(0f, 0.46f, 0f), Vector3.one * 0.03f, Vector3.zero);
+        stickModel.gameObject.SetActive(false);
     }
 
     /// <summary>
@@ -669,6 +841,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         fobModel.gameObject.SetActive(Selected == Item.KeyFob);
         droneModel.gameObject.SetActive(Selected == Item.Drone);
         remoteModel.gameObject.SetActive(Selected == Item.Remote);
+        stickModel.gameObject.SetActive(Selected == Item.Stick);
         // The fob's little LED lights while the button's pressed.
         fobLedTimer -= Time.deltaTime;
         if (fobLed != null)
@@ -863,6 +1036,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         new Color(0.88f, 0.78f, 0.58f), // map
         new Color(0.7f, 0.85f, 0.95f),  // drone
         new Color(0.55f, 0.95f, 0.75f), // remote
+        new Color(1f, 0.8f, 0.45f),     // stick
     };
     static readonly Color Cream = new Color(0.93f, 0.87f, 0.74f);
 
@@ -886,6 +1060,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (flashGlow > 0f) DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(1f, 1f, 1f, flashGlow * flashGlow * 0.9f)); // the flash in your own eyes
         // Holding the map: it's up in front of you.
         if (Selected == Item.Map && HasMap && !InventoryScreen.IsOpen) TrailMap.Draw(Mathf.Clamp01((Time.unscaledTime - selectedAt) / 0.25f));
+        if (StickMenuOpen && !InventoryScreen.IsOpen) DrawStickMenu(Mathf.Max(0.6f, Screen.height / 1080f));
         if (!showHotbar || InventoryScreen.IsOpen) return; // the inventory shows the slots itself
 
         // It shows while you're switching items (or just picked something up), then fades away.
@@ -1086,6 +1261,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
                 Shape(r, 0.22f, 0.42f, 0.14f, 0.14f, dark, 0.07f);
                 Shape(r, 0.64f, 0.42f, 0.14f, 0.14f, dark, 0.07f);
                 Shape(r, 0.42f, 0.4f, 0.16f, 0.1f, new Color(0.3f, 0.8f, 0.7f, alpha), 0.02f);
+                break;
+            case Item.Stick:
+                GUIUtility.RotateAroundPivot(40f, r.center);
+                Shape(r, 0.45f, 0.18f, 0.1f, 0.74f, dark, 0.05f);
+                Shape(r, 0.5f, 0.36f, 0.18f, 0.06f, dark, 0.03f);
+                Shape(r, 0.4f, 0.04f, 0.2f, 0.2f, hot, 0.1f);
                 break;
             case Item.KeyFob:
                 Shape(r, 0.1f, 0.06f, 0.34f, 0.34f, main, 0.17f, 0.05f);

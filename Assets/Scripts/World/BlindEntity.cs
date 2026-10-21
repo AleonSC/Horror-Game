@@ -112,6 +112,15 @@ public class BlindEntity : MonoBehaviour
         return e;
     }
 
+    /// <summary>Brings one up right at a spot (the dev tools' stick).</summary>
+    public static BlindEntity SpawnAt(Vector3 at)
+    {
+        var go = new GameObject("Blind Entity");
+        var e = go.AddComponent<BlindEntity>();
+        e.Place(at, 0.01f, false);
+        return e;
+    }
+
     void Awake()
     {
         Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it

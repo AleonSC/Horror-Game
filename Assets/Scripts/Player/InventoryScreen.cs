@@ -72,6 +72,9 @@ public class InventoryScreen : MonoBehaviour
             lore = new[] { "The drone's controller: two sticks, a stubby aerial, a screen to see through its camera.",
                            "While you're looking through it you're standing out here blind. Keep an ear on what's behind you." },
             how = "{key} to hold it, F to fly the drone from wherever you are, F again to let go (it lands). Pick it back up where it lands." },
+        new Entry { item = Hotbar.Item.Stick, name = "Stick of Truth", accent = new Color(1f, 0.8f, 0.45f),
+            lore = new[] { "A stick. It knows things.", "(Dev tools: from the F9 window.)" },
+            how = "{key} to hold it. Right click to choose what to spawn, left click to spawn it where you point. Double tap Space to fly." },
     };
 
     Hotbar hotbar;
@@ -287,6 +290,7 @@ public class InventoryScreen : MonoBehaviour
             case Hotbar.Item.Map: return "The trails, the lamps, the tower";
             case Hotbar.Item.Drone: return "Set it down to fly it";
             case Hotbar.Item.Remote: return DroneUnit.Deployed != null ? "The drone is waiting" : "";
+            case Hotbar.Item.Stick: return "Dev tools";
         }
         return "";
     }

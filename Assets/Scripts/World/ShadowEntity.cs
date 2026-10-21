@@ -41,6 +41,15 @@ public class ShadowEntity : MonoBehaviour
         return entity;
     }
 
+    /// <summary>Spawns one that comes up right at a spot, almost at once (the dev tools' stick).</summary>
+    public static ShadowEntity SpawnAt(Vector3 at)
+    {
+        var entity = Spawn(0.2f);
+        entity.forcedSpawn = at;
+        return entity;
+    }
+    Vector3? forcedSpawn;
+
     /// <summary>
     /// Summons a crowd drawn to the giant's searchlights: they appear one after another round the edge of the
     /// light and circle it. (They're ordinary entities otherwise: step out of the light and they come for you.)
@@ -430,8 +439,9 @@ public class ShadowEntity : MonoBehaviour
         Vector3 peekSpot = Vector3.zero;
         var watcher = WatcherEvent.Instance;
         bool atLight = crowdMember && watcher != null && watcher.SearchlightsOn;
-        peeking = !atLight && Random.value < peekChance && TryPickPeekSpot(out peekSpot);
-        transform.position = atLight ? PickCrowdSpot(watcher) : peeking ? peekSpot : PickSpawnPoint();
+        peeking = !atLight && !forcedSpawn.HasValue && Random.value < peekChance && TryPickPeekSpot(out peekSpot);
+        transform.position = forcedSpawn.HasValue ? forcedSpawn.Value : atLight ? PickCrowdSpot(watcher) : peeking ? peekSpot : PickSpawnPoint();
+        forcedSpawn = null;
         FacePlayer();
         ResetVisual();
         SetPose(peeking ? Pose.Peek : RandomPose(), peekSide);
