@@ -395,9 +395,10 @@ public class ShadowEntity : MonoBehaviour
         // The mouth splits open slowly, and snaps shut when it's gone.
         if (CurrentState == State.Hidden || CurrentState == State.Materializing) mouthTarget = mouthOpen = 0f;
         mouthOpen = Mathf.MoveTowards(mouthOpen, mouthTarget, Time.deltaTime * 2.5f);
-        mouth.localScale = new Vector3(1f, Mathf.Max(mouthOpen, 0.001f), 1f);
+        mouth.localScale = new Vector3(Mathf.Lerp(1f, 1.25f, Mathf.Clamp01(mouthOpen - 1f)), Mathf.Max(mouthOpen, 0.001f), 1f); // gaping wider past fully open
         bool showMouth = mouthOpen > 0.01f;
         if (mouth.gameObject.activeSelf != showMouth) mouth.gameObject.SetActive(showMouth);
+        UpdateMouthGlare();
     }
 
     // ---------------------------------------------------------------- States
@@ -564,7 +565,7 @@ public class ShadowEntity : MonoBehaviour
         SetEyes(Mathf.Lerp(1f, maxEyeWiden, closeness), Mathf.Max(brightness, eyeshine * eyeshineBrightness), eyeshine);
         eyeLight.intensity = brightness * eyeLightStrength; // a reflection: it doesn't light up the trees
 
-        // The last few metres: a too-wide mouth splits open.
+        // The last few metres: its mouth drops open, light glaring out of it.
         mouthTarget = Mathf.Clamp01(Mathf.InverseLerp(mouthOpenDistance, mouthFullDistance, dist));
         whisper.volume = Mathf.Lerp(0.25f, 1f, closeness) * volume;
 
@@ -1489,6 +1490,7 @@ public class ShadowEntity : MonoBehaviour
         rightEye.localScale = s;
         eyeBrightness = brightness;
         Color color = Color.Lerp(Color.Lerp(eyeColor, eyeshineColor, shine), dismissColor, blue);
+        glowColor = Color.Lerp(eyeColor, dismissColor, blue); // the mouth's light burns the same
         MaterialFactory.SetColor(eyeMat, color * brightness);
         eyeLight.color = Color.Lerp(eyeColor, dismissColor, blue);
         eyeLight.intensity = brightness * eyeLightStrength * (1f + dismissGlow * blue);
@@ -1775,34 +1777,88 @@ public class ShadowEntity : MonoBehaviour
     /// A thin, too-wide split across the lower face, dark red inside, lined with narrow teeth. Scaled
     /// vertically by how open it is; hidden when shut.
     /// </summary>
+    // The mouth: a gaping hole that drops open, lit from inside, glaring light out of it.
+    Material mouthGlowMat, mouthBeamMat;
+    Light mouthLight;
+    Transform mouthBeam;
+    Color glowColor = new Color(1f, 0.08f, 0.05f);
+
+    /// <summary>
+    /// Not a grin: a mouth that drops open, far too wide and tall, a ring of thin fangs round its rim, and
+    /// inside it a light, burning the colour of its eyes, glaring out of it: lighting what it faces, a faint
+    /// cone of glare spilling out ahead. Closed it's nothing at all. (Its size follows mouthOpen.)
+    /// </summary>
     void BuildMouth()
     {
-        mouth = Pivot(headPivot, "Mouth", new Vector3(0f, 0.01f, 0.115f));
-        var inside = CreatePart(PrimitiveType.Sphere, MaterialFactory.NoFog(new Color(0.22f, 0.015f, 0.01f)), mouth).transform;
-        inside.localScale = new Vector3(0.19f, 0.07f, 0.035f) * scale;
-        // The corners curl up a little: a grin.
-        for (int side = -1; side <= 1; side += 2)
+        mouth = Pivot(headPivot, "Mouth", new Vector3(0f, -0.005f, 0.11f));
+        var dark = MaterialFactory.NoFog(new Color(0.05f, 0.005f, 0.004f));
+        var hole = CreatePart(PrimitiveType.Sphere, dark, mouth).transform;
+        hole.localScale = new Vector3(0.095f, 0.15f, 0.04f) * scale;
+        // The light down its throat: a blazing core, brightest in the middle.
+        mouthGlowMat = MaterialFactory.NoFog(glowColor * 4f);
+        var core = CreatePart(PrimitiveType.Sphere, mouthGlowMat, mouth).transform;
+        core.localPosition = new Vector3(0f, 0f, 0.006f) * scale;
+        core.localScale = new Vector3(0.06f, 0.11f, 0.03f) * scale;
+        // Thin fangs all round the rim, pointing in.
+        var toothMat = MaterialFactory.Unlit(new Color(0.5f, 0.48f, 0.42f));
+        for (int i = 0; i < 12; i++)
         {
-            var corner = CreatePart(PrimitiveType.Sphere, MaterialFactory.NoFog(new Color(0.22f, 0.015f, 0.01f)), mouth).transform;
-            corner.localPosition = new Vector3(side * 0.085f, 0.012f, -0.012f) * scale;
-            corner.localRotation = Quaternion.Euler(0f, 0f, side * 25f);
-            corner.localScale = new Vector3(0.05f, 0.025f, 0.025f) * scale;
-        }
-
-        var toothMat = MaterialFactory.Unlit(new Color(0.55f, 0.53f, 0.46f));
-        for (int row = -1; row <= 1; row += 2)
-        {
-            for (int i = 0; i < 9; i++)
-            {
-                float x = (i - 4) * 0.018f;
-                var tooth = CreatePart(PrimitiveType.Cube, toothMat, mouth).transform;
-                tooth.localPosition = new Vector3(x, row * 0.024f, 0.012f - x * x * 2f) * scale;
-                tooth.localRotation = Quaternion.Euler(0f, x * 300f, 0f);
-                tooth.localScale = new Vector3(0.007f, 0.024f, 0.006f) * scale;
-            }
+            float a = i / 12f * Mathf.PI * 2f;
+            Vector3 rim = new Vector3(Mathf.Cos(a) * 0.046f, Mathf.Sin(a) * 0.074f, 0.014f);
+            var tooth = CreatePart(PrimitiveType.Cube, toothMat, mouth).transform;
+            tooth.localPosition = rim * scale;
+            tooth.localRotation = Quaternion.Euler(0f, 0f, a * Mathf.Rad2Deg + 90f);
+            tooth.localScale = new Vector3(0.006f, 0.026f, 0.005f) * scale;
         }
         mouth.localScale = new Vector3(1f, 0.001f, 1f);
         mouth.gameObject.SetActive(false);
+
+        // The glare: a real light thrown out ahead of it, and a faint cone of it in the air.
+        mouthLight = new GameObject("Mouth Glare").AddComponent<Light>();
+        mouthLight.transform.SetParent(headPivot, false);
+        mouthLight.transform.localPosition = new Vector3(0f, -0.005f, 0.12f) * scale;
+        mouthLight.type = LightType.Spot;
+        mouthLight.spotAngle = 55f;
+        mouthLight.range = 12f;
+        mouthLight.shadows = LightShadows.None;
+        mouthLight.enabled = false;
+        Shader beam = Shader.Find("Horror/Beam");
+        if (beam != null)
+        {
+            mouthBeamMat = new Material(beam);
+            var go = new GameObject("Mouth Glare Cone");
+            go.transform.SetParent(headPivot, false);
+            go.transform.localPosition = new Vector3(0f, -0.005f, 0.13f) * scale;
+            go.AddComponent<MeshFilter>().sharedMesh = WatcherEvent.BuildBeamMesh();
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mouthBeamMat;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            mouthBeam = go.transform;
+            go.SetActive(false);
+        }
+    }
+
+    /// <summary>The mouth's light follows how far open it is, in the colour its eyes are burning.</summary>
+    void UpdateMouthGlare()
+    {
+        float open = Mathf.Clamp01(mouthOpen);
+        bool shown = open > 0.05f && bodyRenderers != null && bodyRenderers.Length > 0 && bodyRenderers[0].enabled;
+        float flicker = 0.85f + 0.15f * Mathf.PerlinNoise(Time.time * 9f, 3.3f);
+        if (mouthGlowMat != null) MaterialFactory.SetColor(mouthGlowMat, glowColor * (1f + 6f * open) * flicker);
+        if (mouthLight != null)
+        {
+            mouthLight.enabled = shown;
+            mouthLight.color = glowColor;
+            mouthLight.intensity = 6f * open * open * flicker;
+        }
+        if (mouthBeam != null)
+        {
+            if (mouthBeam.gameObject.activeSelf != shown) mouthBeam.gameObject.SetActive(shown);
+            float len = 3.5f * open;
+            mouthBeam.localScale = new Vector3(len * 0.45f, len * 0.45f, Mathf.Max(len, 0.01f)) / Mathf.Max(headPivot.lossyScale.x, 0.0001f);
+            mouthBeamMat.SetColor("_Color", new Color(glowColor.r, glowColor.g, glowColor.b, 0.12f * open * flicker));
+        }
     }
 
     /// <summary>Unsettling idle motion: the head snaps to new angles, arms drift, fingers curl and uncurl.</summary>

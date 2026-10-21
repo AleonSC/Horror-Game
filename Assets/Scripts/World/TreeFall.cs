@@ -159,8 +159,9 @@ public class TreeFall : MonoBehaviour
         audioSource.pitch = 0.6f;
         audioSource.PlayOneShot(ProceduralAudio.TreeCreak, volume);
 
-        // Where it breaks: 2 or 3 sections, the breaks somewhere in the middle of each span.
-        int count = height > 6f && Random.value < 0.6f ? 3 : 2;
+        // Where it breaks: into several shorter sections (one every two to three metres, 3 to 6 of them),
+        // the breaks somewhere in the middle of each span, so the crown and its branches come down in pieces.
+        int count = Mathf.Clamp(Mathf.RoundToInt(height / Random.Range(2.2f, 3f)), 3, 6);
         // The bottom of the trunk and its roots stay put as the stump: the first section starts at the cut.
         var bounds = new List<float> { StumpHeight };
         for (int i = 1; i < count; i++) bounds.Add(height * (i + Random.Range(-0.25f, 0.25f)) / count);
