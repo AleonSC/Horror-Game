@@ -33,7 +33,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
     void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
 
-    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob }
+    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob, Map }
     const int SlotCount = 8;
     [Header("Camera")]
     [Tooltip("Shots on the camera when it's found.")]
@@ -87,6 +87,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public int BatteryCount { get; private set; }
     public int CameraShots { get; private set; }
     public bool HasKeyFob { get; private set; }
+    /// <summary>The map from the top of the watchtower: hold it to look at it.</summary>
+    public bool HasMap { get; private set; }
     float fobReady;
     Renderer fobLed;
 
@@ -102,7 +104,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob" };
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob", "Map" };
     Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel;
     Light flashLight;
     float flashGlow, flashReady;
@@ -170,6 +172,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Item.Battery && BatteryCount == 0) { Message("You don't have any batteries"); return; }
         if (item == Item.Camera && CameraShots == 0) { Message("You don't have a camera"); return; }
         if (item == Item.KeyFob && !HasKeyFob) { Message("You don't have a key fob"); return; }
+        if (item == Item.Map && !HasMap) { Message("You don't have a map"); return; }
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -253,7 +256,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         item == Item.Glowstick ? GlowstickCount :
         item == Item.Battery ? BatteryCount :
         item == Item.Camera ? CameraShots :
-        item == Item.KeyFob ? (HasKeyFob ? 1 : 0) : 1;
+        item == Item.KeyFob ? (HasKeyFob ? 1 : 0) :
+        item == Item.Map ? (HasMap ? 1 : 0) : 1;
 
     void Use()
     {
@@ -516,6 +520,11 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             HasKeyFob = true;
             Message($"Picked up a car key fob. Press {Key(Item.KeyFob)} to hold it, F to press the button: the car will chirp and flash.");
         }
+        else if (item == Item.Map)
+        {
+            HasMap = true;
+            Message($"Picked up a map of the trails. Press {Key(Item.Map)} to look at it.");
+        }
         else if (item == Item.Camera)
         {
             CameraShots += cameraShots;
@@ -534,6 +543,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         TorchLit = LighterLit = false;
         TorchCount = LighterCount = FlareCount = GlowstickCount = BatteryCount = CameraShots = 0;
         HasKeyFob = false;
+        HasMap = false;
         flashGlow = 0f;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
@@ -731,6 +741,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         new Color(0.45f, 0.95f, 0.5f), // batteries
         new Color(0.8f, 0.85f, 0.95f), // camera
         new Color(1f, 0.3f, 0.2f),     // key fob
+        new Color(0.88f, 0.78f, 0.58f), // map
     };
     static readonly Color Cream = new Color(0.93f, 0.87f, 0.74f);
 
@@ -752,6 +763,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     {
         if (GameOverScreen.IsActive || MainMenu.Showing) return;
         if (flashGlow > 0f) DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(1f, 1f, 1f, flashGlow * flashGlow * 0.9f)); // the flash in your own eyes
+        // Holding the map: it's up in front of you.
+        if (Selected == Item.Map && HasMap && !InventoryScreen.IsOpen) TrailMap.Draw(Mathf.Clamp01((Time.unscaledTime - selectedAt) / 0.25f));
         if (!showHotbar || InventoryScreen.IsOpen) return; // the inventory shows the slots itself
 
         // It shows while you're switching items (or just picked something up), then fades away.
@@ -922,6 +935,15 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
                 Shape(r, 0.33f, 0.37f, 0.34f, 0.34f, dark, 0.17f);
                 Shape(r, 0.4f, 0.44f, 0.2f, 0.2f, main, 0.1f);
                 Shape(r, 0.46f, 0.47f, 0.06f, 0.06f, hot, 0.03f);
+                break;
+            case Item.Map:
+                // A folded sheet: three panels, a trail wandering across it, a dot for a lamp.
+                Shape(r, 0.12f, 0.2f, 0.25f, 0.6f, main, 0.02f);
+                Shape(r, 0.37f, 0.24f, 0.25f, 0.56f, new Color(c.r * 0.8f, c.g * 0.8f, c.b * 0.8f, alpha), 0.02f);
+                Shape(r, 0.62f, 0.2f, 0.25f, 0.6f, main, 0.02f);
+                Shape(r, 0.2f, 0.55f, 0.3f, 0.05f, dark, 0.02f);
+                Shape(r, 0.45f, 0.42f, 0.3f, 0.05f, dark, 0.02f);
+                Shape(r, 0.68f, 0.33f, 0.1f, 0.1f, warm, 0.05f);
                 break;
             case Item.KeyFob:
                 Shape(r, 0.1f, 0.06f, 0.34f, 0.34f, main, 0.17f, 0.05f);

@@ -60,6 +60,10 @@ public class InventoryScreen : MonoBehaviour
             lore = new[] { "The key to the broken-down car, on a ring with a plastic fob.",
                            "Press it and the car answers: two chirps and its lights flashing, wherever it is. So will anything else that's listening." },
             how = "{key} to hold it, F to press the button." },
+        new Entry { item = Hotbar.Item.Map, name = "Map", accent = new Color(0.88f, 0.78f, 0.58f),
+            lore = new[] { "A map someone drew of the trails, left up on the watchtower. Pencil, smudged, careful.",
+                           "The lamps, the paths worn between them, and the tower. Whoever drew it never marked the door." },
+            how = "{key} to hold it up and look at it." },
     };
 
     Hotbar hotbar;
@@ -272,6 +276,7 @@ public class InventoryScreen : MonoBehaviour
             case Hotbar.Item.Battery: return count == 1 ? "1 battery" : $"{count} batteries";
             case Hotbar.Item.Camera: return count == 1 ? "1 shot left" : $"{count} shots left";
             case Hotbar.Item.KeyFob: return "For the car";
+            case Hotbar.Item.Map: return "The trails, the lamps, the tower";
         }
         return "";
     }

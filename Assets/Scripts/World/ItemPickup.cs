@@ -27,7 +27,8 @@ public class ItemPickup : MonoBehaviour
         item == Hotbar.Item.FlareGun ? "flare gun" :
         item == Hotbar.Item.Glowstick ? "glowsticks" :
         item == Hotbar.Item.Camera ? "camera" :
-        item == Hotbar.Item.KeyFob ? "car key fob" : "item";
+        item == Hotbar.Item.KeyFob ? "car key fob" :
+        item == Hotbar.Item.Map ? "map" : "item";
 
     /// <summary>Puts the item in the hotbar and removes it from the world.</summary>
     public void PickUp(Hotbar hotbar)
@@ -64,6 +65,38 @@ public class ItemPickup : MonoBehaviour
     {
         var pickup = Create("Camera Pickup", Hotbar.Item.Camera, parent, localPos, yaw);
         PropModels.FilmCamera(pickup.transform, true, out _);
+        return pickup;
+    }
+
+    /// <summary>A hand-drawn map of the trails, folded in three, lying open a little.</summary>
+    public static ItemPickup CreateMap(Transform parent, Vector3 localPos, float yaw)
+    {
+        var pickup = Create("Map Pickup", Hotbar.Item.Map, parent, localPos, yaw);
+        var paper = MaterialFactory.Lit(new Color(0.78f, 0.7f, 0.54f), 0.05f);
+        var ink = MaterialFactory.Lit(new Color(0.18f, 0.12f, 0.08f), 0.05f);
+        for (int i = 0; i < 3; i++)
+        {
+            // Three panels, the outer two tilted up off the fold.
+            var panel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.Destroy(panel.GetComponent<Collider>());
+            panel.transform.SetParent(pickup.transform, false);
+            float x = (i - 1) * 0.1f;
+            panel.transform.localPosition = new Vector3(x, 0.004f + (i == 1 ? 0f : 0.008f), 0f);
+            panel.transform.localRotation = Quaternion.Euler(0f, 0f, i == 0 ? 6f : i == 2 ? -6f : 0f);
+            panel.transform.localScale = new Vector3(0.1f, 0.002f, 0.21f);
+            panel.GetComponent<Renderer>().sharedMaterial = paper;
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            // Pencilled trails across it.
+            var line = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.Destroy(line.GetComponent<Collider>());
+            line.transform.SetParent(pickup.transform, false);
+            line.transform.localPosition = new Vector3(Random.Range(-0.08f, 0.08f), 0.0065f, Random.Range(-0.08f, 0.08f));
+            line.transform.localRotation = Quaternion.Euler(0f, Random.Range(0f, 180f), 0f);
+            line.transform.localScale = new Vector3(0.09f, 0.0005f, 0.003f);
+            line.GetComponent<Renderer>().sharedMaterial = ink;
+        }
         return pickup;
     }
 

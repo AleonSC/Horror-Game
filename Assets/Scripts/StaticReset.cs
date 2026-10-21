@@ -60,6 +60,7 @@ public static class StaticReset
         IntroText.ResetStatics();
 
         Tuning.ResetStatics();
+        TrailMap.ResetStatics();
 
         // Cached assets made at runtime.
         DropAllStatic(typeof(ProceduralTextures));

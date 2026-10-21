@@ -378,6 +378,27 @@ public class FirstPersonController : MonoBehaviour
     void Climb(Vector2 input, bool grounded)
     {
         bool atTop = transform.position.y > ladder.TopY - 0.3f;
+
+        // Jumping off, partway up: let go and push back off it, falling from there.
+        if (HorrorInput.JumpPressed && !atTop && !grounded && !Snared)
+        {
+            Vector3 away = -transform.forward;
+            away.y = 0f;
+            var tower = ladder.GetComponentInParent<Watchtower>();
+            if (tower != null)
+            {
+                Vector3 fromTower = transform.position - tower.transform.position;
+                fromTower.y = 0f;
+                if (fromTower.sqrMagnitude > 0.01f) away = fromTower;
+            }
+            away = away.sqrMagnitude > 0.001f ? away.normalized : -transform.forward;
+            ladder = null;
+            ladderLetGoUntil = Time.time + 0.8f; // it doesn't catch you again as you drop past it
+            horizontalVelocity = moveVelocity = away * 3.5f;
+            verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity) * 0.6f;
+            return;
+        }
+
         bool leavingBottom = grounded && input.y <= 0f;
 
         float climb = input.y * ladder.climbSpeed * (pitch > 40f ? -1f : 1f);
@@ -396,10 +417,21 @@ public class FirstPersonController : MonoBehaviour
     /// <summary>The ladder the player is on, if any.</summary>
     public Ladder CurrentLadder => ladder;
 
+    float ladderLetGoUntil = -10f;
+
+    // Still within a ladder after jumping off it (and the moment's passed): back on.
+    void OnTriggerStay(Collider other)
+    {
+        if (ladder != null || Time.time < ladderLetGoUntil) return;
+        var l = other.GetComponent<Ladder>();
+        if (l != null && ladderContacts > 0) ladder = l;
+    }
+
     void OnTriggerEnter(Collider other)
     {
         var l = other.GetComponent<Ladder>();
         if (l == null) return;
+        if (Time.time < ladderLetGoUntil) { ladderContacts++; return; } // just jumped off: not yet
         if (ladderContacts == 0)
         {
             var tower = l.GetComponentInParent<Watchtower>();

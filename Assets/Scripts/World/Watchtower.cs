@@ -128,6 +128,7 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         LightsOff();
         if (hum != null) hum.Stop();
         ApplyVisuals();
+        SpawnSupplies(); // fresh supplies up top
     }
 
     void Update()
@@ -256,6 +257,7 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         BuildLadder(metal);
         BuildFloodlights(dark);
         BuildButton(metal);
+        BuildSupplies(wood);
     }
 
     Vector3 LegPoint(Vector2 corner, float y)
@@ -342,36 +344,114 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         fill.shadows = LightShadows.Soft; // the tower's legs and lattice cast long shadows round its foot
         fill.enabled = false;
 
-        for (int i = 0; i < 8; i++)
+        // The lamps themselves: two on each side, hung in yokes from a crossbar between the roof posts.
+        var metal = MaterialFactory.Lit(new Color(0.13f, 0.1f, 0.085f), 0.3f);
+        var chrome = MaterialFactory.Lit(new Color(0.55f, 0.56f, 0.58f), 0.8f);
+        const float barY = Height + 2.42f, pivotY = Height + 2.0f;
+        for (int side = 0; side < 4; side++)
         {
-            float yaw = i * 45f + 22.5f;
-            Quaternion facing = Quaternion.Euler(0f, yaw, 0f);
-            Vector3 pos = facing * new Vector3(0f, Height + 2.2f, DeckHalf + 0.2f);
+            Quaternion rot = Quaternion.Euler(0f, side * 90f, 0f);
+            Beam(metal, rot * new Vector3(-DeckHalf, barY, DeckHalf), rot * new Vector3(DeckHalf, barY, DeckHalf), 0.07f, false);
+            for (int k = -1; k <= 1; k += 2)
+            {
+                Quaternion yaw = Quaternion.Euler(0f, side * 90f + k * 18f, 0f); // splayed apart a little
+                Vector3 pivot = rot * new Vector3(k * 0.95f, pivotY, DeckHalf + 0.06f);
 
-            var mount = new GameObject("Floodlight").transform;
-            mount.SetParent(transform, false);
-            mount.localPosition = pos;
-            mount.localRotation = facing * Quaternion.Euler(35f, 0f, 0f);
+                // The yoke: two straps down from the bar to bolts on the lamp's sides, and its power cable.
+                foreach (float x in new[] { -0.36f, 0.36f })
+                    Beam(metal, pivot + yaw * new Vector3(x, 0f, 0f), pivot + yaw * new Vector3(x, barY - pivotY, 0f), 0.035f, false);
+                Beam(metal, pivot + yaw * new Vector3(-0.36f, barY - pivotY, 0f), pivot + yaw * new Vector3(0.36f, barY - pivotY, 0f), 0.04f, false);
+                Beam(housing, pivot + yaw * new Vector3(0.12f, -0.05f, -0.24f), pivot + yaw * new Vector3(0.3f, barY - pivotY, -0.04f), 0.02f, false);
 
-            var box = Box(housing, Vector3.zero, new Vector3(0.6f, 0.45f, 0.35f), false, mount);
-            box.localPosition = Vector3.zero;
-            var lens = Box(housing, new Vector3(0f, 0f, 0.18f), new Vector3(0.5f, 0.35f, 0.02f), false, mount);
-            lenses.Add(lens.GetComponent<Renderer>());
+                var head = new GameObject("Floodlight").transform;
+                head.SetParent(transform, false);
+                head.localPosition = pivot;
+                head.localRotation = yaw * Quaternion.Euler(35f, 0f, 0f); // tipped down over the forest
 
-            // The visible beam: a long, faint cone of light through the air.
-            var beam = new GameObject("Floodlight Beam");
-            beam.transform.SetParent(mount, false);
-            beam.transform.localPosition = new Vector3(0f, 0f, 0.2f);
-            float radius = beamLength * Mathf.Tan(beamHalfAngle * Mathf.Deg2Rad);
-            beam.transform.localScale = new Vector3(radius, radius, beamLength);
-            beam.AddComponent<MeshFilter>().sharedMesh = cone;
-            var beamRenderer = beam.AddComponent<MeshRenderer>();
-            beamRenderer.sharedMaterial = beamMaterial;
-            beamRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            beamRenderer.receiveShadows = false;
-            beamRenderer.enabled = false;
-            beams.Add(beamRenderer);
+                // A deep, square housing with a rounded back, cooling fins, a chrome bezel, the lens behind a
+                // wire guard, and bolts where it swings in the yoke.
+                Box(housing, Vector3.zero, new Vector3(0.6f, 0.44f, 0.3f), false, head);
+                Prim(PrimitiveType.Sphere, housing, head, new Vector3(0f, 0f, -0.13f), new Vector3(0.54f, 0.4f, 0.22f), Quaternion.identity);
+                for (int f = 0; f < 5; f++)
+                    Box(housing, new Vector3(0f, -0.16f + f * 0.08f, -0.2f), new Vector3(0.5f, 0.022f, 0.09f), false, head);
+                Box(chrome, new Vector3(0f, 0.235f, 0.16f), new Vector3(0.66f, 0.04f, 0.045f), false, head);
+                Box(chrome, new Vector3(0f, -0.235f, 0.16f), new Vector3(0.66f, 0.04f, 0.045f), false, head);
+                Box(chrome, new Vector3(0.31f, 0f, 0.16f), new Vector3(0.04f, 0.47f, 0.045f), false, head);
+                Box(chrome, new Vector3(-0.31f, 0f, 0.16f), new Vector3(0.04f, 0.47f, 0.045f), false, head);
+                var lens = Box(housing, new Vector3(0f, 0f, 0.165f), new Vector3(0.58f, 0.43f, 0.012f), false, head);
+                lenses.Add(lens.GetComponent<Renderer>());
+                foreach (float gy in new[] { -0.1f, 0.1f })
+                    Box(housing, new Vector3(0f, gy, 0.178f), new Vector3(0.58f, 0.012f, 0.012f), false, head);
+                Box(housing, new Vector3(0f, 0f, 0.178f), new Vector3(0.012f, 0.43f, 0.012f), false, head);
+                foreach (float x in new[] { -0.33f, 0.33f })
+                    Prim(PrimitiveType.Cylinder, chrome, head, new Vector3(x, 0f, 0f), new Vector3(0.07f, 0.02f, 0.07f), Quaternion.Euler(0f, 0f, 90f));
+
+                // The visible beam: a long, faint cone of light through the air.
+                var beam = new GameObject("Floodlight Beam");
+                beam.transform.SetParent(head, false);
+                beam.transform.localPosition = new Vector3(0f, 0f, 0.2f);
+                float radius = beamLength * Mathf.Tan(beamHalfAngle * Mathf.Deg2Rad);
+                beam.transform.localScale = new Vector3(radius, radius, beamLength);
+                beam.AddComponent<MeshFilter>().sharedMesh = cone;
+                var beamRenderer = beam.AddComponent<MeshRenderer>();
+                beamRenderer.sharedMaterial = beamMaterial;
+                beamRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                beamRenderer.receiveShadows = false;
+                beamRenderer.enabled = false;
+                beams.Add(beamRenderer);
+            }
         }
+    }
+
+    void Prim(PrimitiveType type, Material mat, Transform parent, Vector3 pos, Vector3 scale, Quaternion rot)
+    {
+        var go = GameObject.CreatePrimitive(type);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = pos;
+        go.transform.localRotation = rot;
+        go.transform.localScale = scale;
+        go.GetComponent<Renderer>().sharedMaterial = mat;
+        RemoveCollider(go);
+    }
+
+    // ---------------------------------------------------------------- Supplies
+
+    Transform crateTop, deckFloor;
+
+    /// <summary>A crate on the deck, in the back corner, with someone's supplies left on and round it.</summary>
+    void BuildSupplies(Material wood)
+    {
+        var crate = Box(wood, new Vector3(-1.25f, Height + 0.075f + 0.22f, -1.25f), new Vector3(0.75f, 0.44f, 0.55f), true);
+        crate.localRotation = Quaternion.Euler(0f, 8f, 0f);
+        var slat = MaterialFactory.Lit(new Color(0.11f, 0.08f, 0.06f), 0.05f);
+        foreach (float y in new[] { -0.3f, 0.3f })
+            Box(slat, new Vector3(0f, y, 0.505f), new Vector3(1.02f, 0.12f, 0.02f), false, crate);
+        crateTop = new GameObject("Crate Top").transform;
+        crateTop.SetParent(crate, false);
+        crateTop.localPosition = new Vector3(0f, 0.5f, 0f);
+        crateTop.localScale = new Vector3(1f / 0.75f, 1f / 0.44f, 1f / 0.55f); // (undo the crate's own scale)
+        deckFloor = new GameObject("Supplies").transform;
+        deckFloor.SetParent(transform, false);
+        deckFloor.localPosition = new Vector3(-1.2f, Height + 0.075f, -0.55f);
+        SpawnSupplies();
+    }
+
+    /// <summary>The map and the flare gun on the crate; glowsticks and batteries on the boards beside it.</summary>
+    void SpawnSupplies()
+    {
+        if (crateTop == null || deckFloor == null) return;
+        foreach (var root in new[] { crateTop, deckFloor })
+        {
+            foreach (var old in root.GetComponentsInChildren<ItemPickup>()) Destroy(old.gameObject);
+            foreach (var old in root.GetComponentsInChildren<BatteryPickup>()) Destroy(old.gameObject);
+        }
+        ItemPickup.CreateMap(crateTop, new Vector3(-0.12f, 0f, 0f), Random.Range(-15f, 15f));
+        ItemPickup.CreateFlareGun(crateTop, new Vector3(0.16f, 0f, 0.06f), Random.Range(0f, 360f));
+        ItemPickup.CreateGlowsticks(deckFloor, new Vector3(0.1f, 0.02f, 0f), Random.Range(0f, 360f));
+        ItemPickup.CreateGlowsticks(deckFloor, new Vector3(-0.15f, 0.02f, 0.25f), Random.Range(0f, 360f));
+        BatterySpawner.Create(deckFloor, new Vector3(0.35f, 0f, 0.2f), Random.Range(0f, 360f));
+        BatterySpawner.Create(deckFloor, new Vector3(0.45f, 0f, -0.05f), Random.Range(0f, 360f));
+        BatterySpawner.Create(deckFloor, new Vector3(0.25f, 0f, -0.2f), Random.Range(0f, 360f));
     }
 
     void BuildButton(Material metal)

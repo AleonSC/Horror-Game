@@ -21,6 +21,7 @@ public static class LampTrails
     {
         var old = parent.Find("Lamp Trails");
         if (old != null) Object.Destroy(old.gameObject);
+        TrailMap.Paths.Clear(); // (the map is drawn from these trails)
         if (lamps.Count < 2) return;
         // (Checked one by one, not just the array: with scripts not reloaded between plays the array outlives
         // its materials, which Unity destroys when play stops, and a destroyed material draws solid purple.)
@@ -118,6 +119,13 @@ public static class LampTrails
                 // Smoothed, so the steps round trunks are gentle swerves.
                 for (int i = 1; i < line.Count - 1; i++) line[i] = (line[i - 1] + line[i] * 2f + line[i + 1]) * 0.25f;
             }
+        }
+        {
+            // For the map: the whole way, post to post.
+            var sketch = new List<Vector3> { from };
+            sketch.AddRange(line);
+            sketch.Add(to);
+            TrailMap.AddPath(sketch);
         }
 
         // Where it's worn and where it fades into the forest floor: stretches of trail, then gaps, each end
