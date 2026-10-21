@@ -60,6 +60,7 @@ public class PauseMenu : MonoBehaviour
 
     void Update()
     {
+        if (MainMenu.Showing) return; // (no pausing the main menu)
         // (Esc closes the inventory first, if it's open.)
         if (HorrorInput.ReleaseCursorPressed && !InventoryScreen.IsOpen && !InventoryScreen.ClosedThisFrame) SetPaused(!IsPaused);
         UpdatePauseSong();

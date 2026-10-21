@@ -223,7 +223,7 @@ public class LampInteractor : MonoBehaviour
 
     void OnGUI()
     {
-        if (!showHud || GameOverScreen.IsActive || InventoryScreen.IsOpen) return;
+        if (!showHud || GameOverScreen.IsActive || InventoryScreen.IsOpen || MainMenu.Showing) return;
 
         if (labelStyle == null)
         {

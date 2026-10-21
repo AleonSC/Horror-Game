@@ -280,7 +280,7 @@ public class Flashlight : MonoBehaviour
 
     void OnGUI()
     {
-        if (!showBatteryBar || GameOverScreen.IsActive) return;
+        if (!showBatteryBar || GameOverScreen.IsActive || MainMenu.Showing) return;
 
         float unit = Mathf.Max(1f, Screen.height / 1080f);
         float w = 150f * unit, h = 34f * unit, margin = 24f * unit;

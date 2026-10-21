@@ -86,7 +86,7 @@ public class InventoryScreen : MonoBehaviour
             if (IsOpen) SetOpen(false);
             return;
         }
-        if (HorrorInput.InventoryPressed) SetOpen(!IsOpen);
+        if (HorrorInput.InventoryPressed && !MainMenu.Showing) SetOpen(!IsOpen);
         else if (IsOpen && HorrorInput.ReleaseCursorPressed) SetOpen(false);
     }
 

@@ -29,6 +29,7 @@ public class ScourClock : MonoBehaviour
 
     void Update()
     {
+        if (MainMenu.Showing) return; // (the clock starts with the game)
         if (GameOverScreen.IsActive || added >= maxExtra) return;
         runTime += Time.deltaTime;
         if (runTime < (added + 1) * interval) return;

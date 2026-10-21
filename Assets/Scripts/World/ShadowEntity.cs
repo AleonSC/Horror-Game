@@ -342,6 +342,7 @@ public class ShadowEntity : MonoBehaviour
 
     void Update()
     {
+        if (MainMenu.Showing) return; // (nothing comes for you while the main menu is up)
         if (target == null)
         {
             player = FindAnyObjectByType<FirstPersonController>();

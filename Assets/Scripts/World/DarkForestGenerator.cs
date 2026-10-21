@@ -127,6 +127,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnWeather = true;
     [Tooltip("Add IntroText (opening narration that fades in and out).")]
     public bool spawnIntro = true;
+    [Tooltip("Open on the main menu (once per Play; restarts go straight back in).")]
+    public bool showMainMenu = true;
     [Tooltip("Add Wildlife (beetles, rats, moths around lit lamps, bats overhead, owls in the trees, deer).")]
     public bool spawnWildlife = true;
     [Tooltip("Add FallingTreeEvent (every minute or so, a nearby tree snaps and falls).")]
@@ -311,6 +313,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Ground Mist").AddComponent<GroundMist>();
         if (spawnIntro && Application.isPlaying && FindAnyObjectByType<IntroText>() == null)
             new GameObject("Intro Text").AddComponent<IntroText>();
+        if (showMainMenu && Application.isPlaying && !MainMenu.ShownThisSession && FindAnyObjectByType<MainMenu>() == null)
+            new GameObject("Main Menu").AddComponent<MainMenu>(); // the game waits behind it until START
         if (spawnIntro && Application.isPlaying && FindAnyObjectByType<LampNarration>() == null)
             new GameObject("Lamp Narration").AddComponent<LampNarration>();
         if (Application.isPlaying && FindAnyObjectByType<PauseMenu>() == null)

@@ -750,7 +750,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 
     void OnGUI()
     {
-        if (GameOverScreen.IsActive) return;
+        if (GameOverScreen.IsActive || MainMenu.Showing) return;
         if (flashGlow > 0f) DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(1f, 1f, 1f, flashGlow * flashGlow * 0.9f)); // the flash in your own eyes
         if (!showHotbar || InventoryScreen.IsOpen) return; // the inventory shows the slots itself
 

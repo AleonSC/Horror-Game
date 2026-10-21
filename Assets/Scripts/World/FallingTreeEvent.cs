@@ -33,6 +33,7 @@ public class FallingTreeEvent : MonoBehaviour
 
     void Update()
     {
+        if (MainMenu.Showing) return; // (no trees fall behind the main menu)
         if (player == null)
         {
             player = FindAnyObjectByType<FirstPersonController>();

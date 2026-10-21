@@ -132,6 +132,34 @@ public class Wildlife : MonoBehaviour
     readonly List<Owl> owls = new List<Owl>();
     float owlCallTimer = -1f;
 
+    /// <summary>A deer that's out (for the main menu's shots), the nearest to a point.</summary>
+    public bool TryGetDeer(Vector3 near, out Transform deerRoot)
+    {
+        deerRoot = null;
+        float best = float.MaxValue;
+        foreach (var d in deer)
+        {
+            if (d == null || d.root == null || !d.root.gameObject.activeInHierarchy) continue;
+            float dist = (d.root.position - near).sqrMagnitude;
+            if (dist < best) { best = dist; deerRoot = d.root; }
+        }
+        return deerRoot != null;
+    }
+
+    /// <summary>An owl's head (for the main menu's shots), the nearest to a point.</summary>
+    public bool TryGetOwl(Vector3 near, out Transform head)
+    {
+        head = null;
+        float best = float.MaxValue;
+        foreach (var o in owls)
+        {
+            if (o == null || o.head == null || !o.head.gameObject.activeInHierarchy) continue;
+            float dist = (o.head.position - near).sqrMagnitude;
+            if (dist < best) { best = dist; head = o.head; }
+        }
+        return head != null;
+    }
+
     DarkForestGenerator generator;
     Transform player;
     float batTimer;

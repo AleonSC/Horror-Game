@@ -54,6 +54,7 @@ public static class StaticReset
         FirstPersonController.ResetStatics();
         GameOverScreen.ResetStatics();
         PauseMenu.ResetStatics();
+        MainMenu.ResetStatics();
         DevTools.ResetStatics();
         InventoryScreen.ResetStatics();
         IntroText.ResetStatics();

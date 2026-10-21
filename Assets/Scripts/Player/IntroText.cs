@@ -171,6 +171,7 @@ public class IntroText : MonoBehaviour
 
     void Update()
     {
+        if (MainMenu.Showing) return; // (the opening waits for Start)
         if (starts == null) PlanTiming();
         // Mid-game narration steps aside while a boss holds your view: it fades out, waits, and picks up
         // where it left off once the moment is over.
@@ -208,7 +209,7 @@ public class IntroText : MonoBehaviour
 
     void OnGUI()
     {
-        if (starts == null) return;
+        if (starts == null || MainMenu.Showing) return;
         GUI.depth = -500; // above the HUD, below the game over screen
 
         // Opening black screen.
@@ -473,6 +474,7 @@ public class LampNarration : MonoBehaviour
 
     void Update()
     {
+        if (MainMenu.Showing) return; // (no lamp narration behind the main menu)
         int count = Lamp.TimesLit;
         if (count < lastCount) // the run was reset
             for (int i = 0; i < played.Length; i++) played[i] = pending[i] = false;
