@@ -208,26 +208,30 @@ public class Shack : MonoBehaviour
             Vector3 w = transform.TransformPoint(new Vector3(DoorX, 0f, z));
             return generator.GetGroundHeight(w.x, w.z) - transform.position.y;
         }
-        float drop = floorY - Ground(front + run);
-        int steps = Mathf.Clamp(Mathf.CeilToInt(drop / maxRise), 1, 8);
-        float rise = drop / steps;
+        // Step down until the stairs meet the ground, wherever that is: on a slope it keeps falling away, so
+        // it's checked under each step rather than once by the door.
+        float rise = maxRise;
+        int steps = 1;
+        while (steps < 16 && floorY - steps * rise > Ground(front + (steps - 0.5f) * run) + 0.03f) steps++;
+        float drop = steps * rise;
         float width = DoorWidth + 0.2f;
 
         for (int i = 1; i <= steps; i++)
         {
             float top = floorY - i * rise;
             float z = front + (i - 0.5f) * run;
-            if (top < Ground(z) - 0.02f) break; // reached the ground
             var tread = Box(wood, new Vector3(DoorX, top - 0.025f, z), new Vector3(width, 0.05f, run + 0.03f), new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)), true);
             tread.name = "Step";
         }
 
-        // Stringers: two boards sloping from the doorway down to the ground either side of the treads.
-        float length = Mathf.Sqrt(drop * drop + (steps * run) * (steps * run));
-        float angle = Mathf.Atan2(drop, steps * run) * Mathf.Rad2Deg;
+        // Stringers: two boards sloping from the doorway down either side of the treads, carried on a step
+        // further so they run into the ground rather than stopping short of it.
+        float reach = (steps + 1) * run, fall = drop + rise;
+        float length = Mathf.Sqrt(fall * fall + reach * reach);
+        float angle = Mathf.Atan2(fall, reach) * Mathf.Rad2Deg;
         for (int side = -1; side <= 1; side += 2)
         {
-            Box(darkWood, new Vector3(DoorX + side * (width * 0.5f + 0.02f), floorY - drop * 0.5f - 0.08f, front + steps * run * 0.5f),
+            Box(darkWood, new Vector3(DoorX + side * (width * 0.5f + 0.02f), floorY - fall * 0.5f - 0.08f, front + reach * 0.5f),
                 new Vector3(0.05f, 0.18f, length), new Vector3(angle, 0f, 0f), false);
         }
     }
