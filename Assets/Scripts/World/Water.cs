@@ -50,6 +50,19 @@ public static class Water
         return false;
     }
 
+    /// <summary>How close a point is to a pond: 1 over the water, falling to 0 `margin` metres beyond its edge.</summary>
+    public static float NearPond(Vector3 p, float margin)
+    {
+        float best = 0f;
+        foreach (var pond in ponds)
+        {
+            Vector3 c = WorldWrap.NearestImage(pond.center, p);
+            float d = new Vector2(p.x - c.x, p.z - c.z).magnitude - pond.radius;
+            best = Mathf.Max(best, 1f - Mathf.Clamp01(d / Mathf.Max(margin, 0.01f)));
+        }
+        return best;
+    }
+
     /// <summary>How much wading slows you: knee-deep and more, a lot.</summary>
     public static float SpeedFactor(Vector3 feet) =>
         InWater(feet, out float depth) ? Mathf.Lerp(1f, 0.5f, Mathf.InverseLerp(0.1f, 0.6f, depth)) : 1f;

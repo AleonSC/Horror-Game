@@ -305,6 +305,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Ambience").AddComponent<AmbienceAudio>();
         if (spawnWeather && FindAnyObjectByType<WeatherSystem>() == null)
             new GameObject("Weather").AddComponent<WeatherSystem>();
+        if (spawnWeather && Application.isPlaying && FindAnyObjectByType<GroundMist>() == null)
+            new GameObject("Ground Mist").AddComponent<GroundMist>();
         if (spawnIntro && Application.isPlaying && FindAnyObjectByType<IntroText>() == null)
             new GameObject("Intro Text").AddComponent<IntroText>();
         if (spawnIntro && Application.isPlaying && FindAnyObjectByType<LampNarration>() == null)

@@ -69,6 +69,8 @@ public class FirstPersonController : MonoBehaviour
     public bool IsRunning { get; private set; }
     public bool IsCrouching { get; private set; }
     public float CurrentSpeed => moveVelocity.magnitude;
+    /// <summary>How fast and which way the player is walking (horizontal).</summary>
+    public Vector3 Velocity => moveVelocity;
 
     [Header("Dream Hallway")]
     [Tooltip("Field of view at the height of the dream effect (WatcherEvent drives it while the sky eye is open).")]

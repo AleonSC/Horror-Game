@@ -21,6 +21,9 @@ public static class ProceduralAudio
 
     /// <summary>Low, dull, beating drone. Loops seamlessly.</summary>
     public static AudioClip Drone => drone != null ? drone : (drone = MakeDrone());
+    /// <summary>The night's chorus: crickets chirping, each at its own pitch and pace, and a frog now and then. Loops.</summary>
+    public static AudioClip NightChorus => nightChorus != null ? nightChorus : (nightChorus = MakeNightChorus());
+    static AudioClip nightChorus;
     /// <summary>Gusting wind. Loops seamlessly.</summary>
     public static AudioClip Wind => wind != null ? wind : (wind = MakeWind());
     /// <summary>High, dissonant shimmer that fades in when an entity is near. Loops seamlessly.</summary>
@@ -1323,6 +1326,58 @@ public static class ProceduralAudio
             float crackle = rng.NextDouble() < 0.0006 ? White() * 2.5f : 0f;
             return music * signal + hiss * (0.12f + 0.25f * (1f - signal)) + crackle + crackleLp * 0.02f;
         }, 0.7f);
+    }
+
+    static AudioClip MakeNightChorus()
+    {
+        // A few crickets, each a pure, high tone chopped into quick pulses (two to four to a chirp), chirping
+        // at its own steady pace; under them, now and then, a frog's low, buzzing croak.
+        const int crickets = 5;
+        const float pulseSpacing = 0.045f, pulseLength = 0.03f;
+        var freq = new float[crickets];
+        var period = new float[crickets];
+        var offset = new float[crickets];
+        var pulses = new int[crickets];
+        var level = new float[crickets];
+        for (int c = 0; c < crickets; c++)
+        {
+            freq[c] = 3700f + c * 260f + White() * 120f;
+            period[c] = 0.4f + 0.3f * Mathf.Abs(White());
+            offset[c] = Mathf.Abs(White()) * period[c];
+            pulses[c] = 2 + rng.Next(3);
+            level[c] = 0.35f + 0.65f * Mathf.Abs(White());
+        }
+        float frogNext = 1.5f, frogStart = -10f, frogPitch = 1f, frogLength = 0.35f;
+        return Loop("Night Chorus", 16f, t =>
+        {
+            float s = 0f;
+            for (int c = 0; c < crickets; c++)
+            {
+                float local = (t + offset[c]) % period[c];
+                int pulse = (int)(local / pulseSpacing);
+                if (pulse >= pulses[c]) continue;
+                float into = local - pulse * pulseSpacing;
+                if (into >= pulseLength) continue;
+                s += level[c] * Mathf.Sin(Mathf.PI * into / pulseLength) * Mathf.Sin(TwoPi * freq[c] * t);
+            }
+
+            if (t >= frogNext)
+            {
+                frogStart = t;
+                frogNext = t + 2.5f + 5f * Mathf.Abs(White());
+                frogPitch = 0.8f + 0.4f * Mathf.Abs(White());
+                frogLength = 0.25f + 0.25f * Mathf.Abs(White());
+            }
+            float ft = t - frogStart;
+            if (ft < frogLength)
+            {
+                float buzz = 0.5f + 0.5f * Mathf.Sin(TwoPi * 26f * ft);
+                float f0 = 170f * frogPitch;
+                float tone = Mathf.Sin(TwoPi * f0 * ft) + 0.6f * Mathf.Sin(TwoPi * f0 * 2f * ft) + 0.3f * Mathf.Sin(TwoPi * f0 * 3f * ft);
+                s += 0.9f * Mathf.Sin(Mathf.PI * ft / frogLength) * buzz * buzz * tone;
+            }
+            return s;
+        }, 0.5f);
     }
 
     static AudioClip MakeRainLoop()

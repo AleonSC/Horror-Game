@@ -14,6 +14,14 @@ public class AmbienceAudio : MonoBehaviour
     [Range(0f, 1f)] public float tensionVolume = 0.28f;
     [Range(0f, 1f)] public float randomNoiseVolume = 0.7f;
 
+    [Range(0f, 1f)] public float chorusVolume = 0.14f;
+
+    [Header("Night Chorus")]
+    [Tooltip("Crickets and frogs fall silent this close to the blind one...")]
+    public float chorusSilentDistance = 30f;
+    [Tooltip("...and are back to full voice this far from it.")]
+    public float chorusFullDistance = 50f;
+
     [Header("Random Noises")]
     public float minNoiseInterval = 6f;
     public float maxNoiseInterval = 16f;
@@ -33,6 +41,10 @@ public class AmbienceAudio : MonoBehaviour
     public AudioClip[] randomNoiseClips;
 
     AudioSource drone, tension;
+    // The chorus all round you: a few voices, each out in its own direction, each falling quiet on its own
+    // as the blind one comes near it, so the silence spreads through the woods ahead of it.
+    readonly AudioSource[] chorus = new AudioSource[4];
+    readonly float[] chorusLevel = { 1f, 1f, 1f, 1f };
     AudioReverbZone reverb;
     float noiseTimer;
 
@@ -40,6 +52,15 @@ public class AmbienceAudio : MonoBehaviour
     {
         drone = StartLoop(droneClip != null ? droneClip : ProceduralAudio.Drone, droneVolume);
         tension = StartLoop(tensionClip != null ? tensionClip : ProceduralAudio.Tension, 0f);
+        for (int i = 0; i < chorus.Length; i++)
+        {
+            var voice = new GameObject("Night Chorus");
+            voice.transform.SetParent(transform, false);
+            chorus[i] = ProceduralAudio.AddSource(voice, ProceduralAudio.NightChorus, true, true, 0f, 6f, 60f);
+            chorus[i].pitch = Random.Range(0.94f, 1.06f);
+            chorus[i].time = Random.Range(0f, chorus[i].clip.length * 0.95f);
+            chorus[i].Play();
+        }
 
         if (forestReverb)
         {
@@ -88,12 +109,34 @@ public class AmbienceAudio : MonoBehaviour
         drone.pitch = Mathf.Lerp(1f, 0.92f, closeness);
         drone.volume = droneVolume * quiet;
 
+        UpdateChorus(listener, quiet);
+
         noiseTimer -= Time.deltaTime;
         if (noiseTimer <= 0f && (EntityDread.Silence > 0.3f || PortalDoor.RoomQuiet > 0.05f)) noiseTimer = 2f; // nothing stirs while it's close, or in the room
         if (noiseTimer <= 0f)
         {
             noiseTimer = Random.Range(minNoiseInterval, maxNoiseInterval);
             PlayRandomNoise(listener);
+        }
+    }
+
+    void UpdateChorus(Vector3 listener, float quiet)
+    {
+        for (int i = 0; i < chorus.Length; i++)
+        {
+            if (chorus[i] == null) continue;
+            float a = (i + 0.5f) / chorus.Length * Mathf.PI * 2f;
+            Vector3 at = listener + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 14f;
+            chorus[i].transform.position = at;
+
+            // Near the blind one, everything goes still: quickly as it comes, slowly back once it's gone.
+            float nearest = float.MaxValue;
+            foreach (var blind in BlindEntity.All)
+                if (blind != null && blind.isActiveAndEnabled)
+                    nearest = Mathf.Min(nearest, Vector3.Distance(WorldWrap.NearestImage(blind.transform.position, at), at));
+            float target = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(chorusSilentDistance, chorusFullDistance, nearest));
+            chorusLevel[i] = Mathf.MoveTowards(chorusLevel[i], target, Time.deltaTime / (target < chorusLevel[i] ? 1.5f : 10f));
+            chorus[i].volume = chorusVolume * chorusLevel[i] * quiet;
         }
     }
 
