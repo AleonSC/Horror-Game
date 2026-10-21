@@ -7,7 +7,9 @@ using UnityEngine.Rendering.Universal;
 /// down on the ground in front of you, and its slot becomes the remote. With the remote in hand, F flies it
 /// (from wherever you are): your view is its camera, looking out ahead of it with its little lamp on, and you
 /// stand where you are, deaf and blind to what's round you except for what you can hear. F again puts the
-/// remote down and the drone lands where it is, to be picked up again (it goes back to being the drone).
+/// remote down and the drone holds where it is, hovering, a red light flashing on it that can be seen across
+/// the sky (it shows on the ground too); bring it down to the ground before letting go and it lands there,
+/// to be picked up again (it goes back to being the drone).
 ///
 /// Flying: WASD, the mouse to turn and look, Space to climb, Ctrl (or C) to sink, Shift to go faster. The
 /// signal only reaches so far from you: the picture breaks up toward the edge of it and it won't go further.
@@ -28,7 +30,7 @@ public class DroneUnit : MonoBehaviour
     public float boostSpeed = 10f;
     public float climbSpeed = 3f;
     [Tooltip("How far from you the signal reaches.")]
-    public float range = 90f;
+    public float range = 300f;
     [Tooltip("How high above the ground it can climb.")]
     public float maxAltitude = 45f;
     public float lookSensitivity = 1f;
@@ -36,7 +38,15 @@ public class DroneUnit : MonoBehaviour
     public float buzzNoise = 9f;
     [Range(0f, 1f)] public float volume = 0.6f;
 
-    bool piloting, landing;
+    bool piloting, landing, hovering;
+    [Tooltip("Let go of it lower than this (metres above the ground) and it lands; higher, and it hovers there.")]
+    public float landBelow = 1.5f;
+    [Tooltip("Seconds between flashes of its beacon while it's left alone.")]
+    public float beaconEvery = 1.2f;
+    Transform beacon;
+    Material beaconMat;
+    Light beaconLight;
+    float beaconClock, hoverY;
     int startedFrame, stoppedFrame = -1;
     float yaw, camPitch, buzzTimer;
     Vector3 velocity;
@@ -103,10 +113,62 @@ public class DroneUnit : MonoBehaviour
         pickup = gameObject.AddComponent<ItemPickup>();
         pickup.item = Hotbar.Item.Drone;
         WorldWrap.RegisterDynamic(transform);
+        BuildBeacon();
+    }
+
+    /// <summary>The beacon: a soft red glow that flashes, kept the same size on screen however far off it is.</summary>
+    void BuildBeacon()
+    {
+        Shader glow = Shader.Find("Horror/Glow");
+        var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        quad.name = "Drone Beacon";
+        Destroy(quad.GetComponent<Collider>());
+        beacon = quad.transform;
+        beaconMat = glow != null ? new Material(glow) : MaterialFactory.NoFog(new Color(1f, 0.1f, 0.05f) * 3f);
+        beaconMat.SetColor("_Color", new Color(1f, 0.12f, 0.06f));
+        if (beaconMat.HasProperty("_Intensity")) beaconMat.SetFloat("_Intensity", 2.5f);
+        var r = quad.GetComponent<Renderer>();
+        r.sharedMaterial = beaconMat;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        quad.SetActive(false);
+
+        beaconLight = new GameObject("Beacon Light").AddComponent<Light>();
+        beaconLight.transform.SetParent(body, false);
+        beaconLight.transform.localPosition = Vector3.up * 0.06f;
+        beaconLight.type = LightType.Point;
+        beaconLight.color = new Color(1f, 0.12f, 0.06f);
+        beaconLight.range = 6f;
+        beaconLight.intensity = 2f;
+        beaconLight.shadows = LightShadows.None;
+        beaconLight.enabled = false;
+    }
+
+    /// <summary>Flashing while it's left alone, wherever it is; drawn nearer (and smaller) past the camera's reach.</summary>
+    void LateUpdate()
+    {
+        if (beacon == null) return;
+        var cam = Camera.main;
+        beaconClock += Time.deltaTime;
+        bool flash = !piloting && cam != null && Mathf.Repeat(beaconClock, beaconEvery) < 0.14f;
+        beacon.gameObject.SetActive(flash);
+        if (beaconLight != null) beaconLight.enabled = flash;
+        if (!flash) return;
+        Vector3 eye = cam.transform.position;
+        Vector3 at = body.position + body.up * 0.07f;
+        Vector3 to = at - eye;
+        float d = to.magnitude;
+        float reach = cam.farClipPlane * 0.85f;
+        if (d > reach) { at = eye + to * (reach / d); d = reach; }
+        beacon.position = at;
+        beacon.rotation = Quaternion.LookRotation(at - eye, cam.transform.up);
+        beacon.localScale = Vector3.one * Mathf.Max(0.25f, d * 0.02f);
     }
 
     void OnDestroy()
     {
+        if (beacon != null) Destroy(beacon.gameObject);
+        if (beaconMat != null) Destroy(beaconMat);
         if (piloting) StopPiloting();
         if (Deployed == this) Deployed = null;
     }
@@ -122,6 +184,7 @@ public class DroneUnit : MonoBehaviour
         if (mainCam == null) return;
         piloting = true;
         landing = false;
+        hovering = false;
         startedFrame = Time.frameCount;
         grab.enabled = false;
         lamp.enabled = true;
@@ -152,12 +215,15 @@ public class DroneUnit : MonoBehaviour
         ProceduralAudio.PlayAt(ProceduralAudio.FobClick, transform.position, 0.5f, 1.4f, 2f);
     }
 
-    /// <summary>Lets go of it: your view comes back, and it lands where it is.</summary>
+    /// <summary>Lets go of it: your view comes back, and it hovers where it is (or, low down, lands).</summary>
     public void StopPiloting()
     {
         if (!piloting) return;
         piloting = false;
-        landing = true;
+        float altitude = transform.position.y - Ground(transform.position);
+        landing = altitude < landBelow;
+        hovering = !landing;
+        hoverY = transform.position.y;
         stoppedFrame = Time.frameCount;
         if (view != null) view.enabled = false;
         if (mainCam != null) mainCam.cullingMask = mainMask;
@@ -168,7 +234,7 @@ public class DroneUnit : MonoBehaviour
         float dt = Time.deltaTime;
         if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
 
-        bool airborne = piloting || landing;
+        bool airborne = piloting || landing || hovering;
         float spin = airborne ? 1f : 0f;
         motors.volume = Mathf.MoveTowards(motors.volume, airborne ? volume : 0f, dt * 2f);
         cockpit.volume = Mathf.MoveTowards(cockpit.volume, piloting ? volume * 0.35f : 0f, dt * 3f);
@@ -188,12 +254,17 @@ public class DroneUnit : MonoBehaviour
                 return;
             }
             Fly(dt);
-            buzzTimer -= dt;
-            if (buzzTimer <= 0f)
-            {
-                buzzTimer = 1.5f;
-                Noise.Emit(transform.position, buzzNoise);
-            }
+            Buzz(dt);
+        }
+        else if (hovering)
+        {
+            // Holding its place in the air, bobbing a little in the wind, buzzing away.
+            velocity = Vector3.Lerp(velocity, Vector3.zero, 1f - Mathf.Exp(-2f * dt));
+            Vector3 p = transform.position + velocity * dt;
+            p.y = hoverY + Mathf.Sin(Time.time * 1.3f) * 0.08f;
+            transform.position = p;
+            body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.Euler(Mathf.Sin(Time.time * 0.9f) * 2f, 0f, Mathf.Sin(Time.time * 1.1f) * 2f), 1f - Mathf.Exp(-3f * dt));
+            Buzz(dt);
         }
         else if (landing)
         {
@@ -214,6 +285,15 @@ public class DroneUnit : MonoBehaviour
             transform.position = p;
             body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.identity, 1f - Mathf.Exp(-4f * dt));
         }
+    }
+
+    /// <summary>Its motors, heard by things listening.</summary>
+    void Buzz(float dt)
+    {
+        buzzTimer -= dt;
+        if (buzzTimer > 0f) return;
+        buzzTimer = 1.5f;
+        Noise.Emit(transform.position, buzzNoise);
     }
 
     void Fly(float dt)
