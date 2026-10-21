@@ -1,6 +1,6 @@
-// The ghost trail: a ribbon of spectral light along the ground (a LineRenderer, tiled UVs: uv.x runs along
-// it in widths, uv.y across). Additive and fog-free: a soft glowing band with a bright thread down its
-// middle, faint streaks flowing along it the way you walked, shimmering. Vertex colour alpha fades it.
+// A glowing trail (a LineRenderer or TrailRenderer, tiled UVs: uv.x runs along it, uv.y across): additive and
+// fog-free, a soft glowing band with a bright thread down its middle and faint streaks flowing along it,
+// shimmering. Vertex colour alpha fades it. Used for the flare's trail of fire.
 // Works in both the Built-in pipeline and URP. Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Trail"
 {

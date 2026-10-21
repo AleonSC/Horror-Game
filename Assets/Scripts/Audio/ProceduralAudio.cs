@@ -36,7 +36,7 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong, dispelBuild, dispel, taken, trailChime, blindGrowl, blindAlert;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong, dispelBuild, dispel, taken, flarePop, blindGrowl, blindAlert;
     /// <summary>The blind one, to itself: a long, low, wet growl rattling in its chest, rising and sinking (2.8s).</summary>
     public static AudioClip BlindGrowl => blindGrowl != null ? blindGrowl : (blindGrowl = MakeBlindGrowl());
     /// <summary>The blind one hearing something: a sharp sucked-in breath snapping into a short, ragged snarl.</summary>
@@ -55,8 +55,8 @@ public static class ProceduralAudio
     /// down, all sinking away into the dark.
     /// </summary>
     public static AudioClip Taken => taken != null ? taken : (taken = MakeTaken());
-    /// <summary>The ghost trail showing itself: a soft, airy shimmer, like a breath on glass.</summary>
-    public static AudioClip TrailChime => trailChime != null ? trailChime : (trailChime = MakeTrailChime());
+    /// <summary>A flare bursting at the top of its climb: a sharp crack, a deep thump, and a crackling hiss of sparks.</summary>
+    public static AudioClip FlarePop => flarePop != null ? flarePop : (flarePop = MakeFlarePop());
     /// <summary>
     /// The pause menu's song: a slow, music-box lullaby in a minor key on a warped old record, played down a
     /// bad radio line: wobbling, sagging, skipping, crackling, a hollow voice humming under it. Loops.
@@ -961,67 +961,20 @@ public static class ProceduralAudio
         }, 0.95f);
     }
 
-    static AudioClip MakeTrailChime()
+    static AudioClip MakeFlarePop()
     {
-        const float len = 2.2f;
-        float lp = 0f;
-        return Shot("Trail Chime", len, t =>
+        const float len = 2.4f;
+        float sub = 0f, lp = 0f, crackleLp = 0f;
+        return Shot("Flare Pop", len, t =>
         {
-            float env = Mathf.Clamp01(t / 0.25f) * Mathf.Exp(-t * 2.2f);
-            float shimmer = 0f;
-            float[] f = { 1318.5f, 1975.5f, 2637f, 3520f };
-            for (int k = 0; k < f.Length; k++)
-                shimmer += Mathf.Sin(TwoPi * f[k] * t + Mathf.Sin(TwoPi * (0.7f + k * 0.3f) * t) * 2f) * (0.5f + 0.5f * Mathf.Sin(TwoPi * (5f + k * 1.7f) * t));
-            lp += (White() - lp) * 0.15f;
-            return (shimmer * 0.25f + (White() - lp) * 0.15f) * env;
-        }, 0.6f);
-    }
-
-    /// <summary>A growling voice: a buzzing low fundamental, rattled (the throat flapping), through two vocal-ish resonances.</summary>
-    static System.Func<float, float> GrowlVoice(float baseHz, float rattleHz, float rattleDepth, System.Func<float, float> pitchCurve, System.Func<float, float> env)
-    {
-        float phase = 0f, lp1 = 0f, lp2 = 0f, bp = 0f, breath = 0f, jitter = 0f;
-        return t =>
-        {
-            jitter += (White() * 0.02f - jitter) * 0.002f;
-            float hz = baseHz * pitchCurve(t) * (1f + jitter);
-            phase += hz / Rate;
-            phase -= Mathf.Floor(phase);
-            float buzz = (phase * 2f - 1f) + 0.5f * Mathf.Sin(TwoPi * phase * 2f);
-            float rattle = 1f - rattleDepth * (0.5f + 0.5f * Mathf.Sin(TwoPi * rattleHz * t + Mathf.Sin(TwoPi * 3.1f * t) * 2f));
-            float voiced = buzz * rattle;
-            lp1 += (voiced - lp1) * 0.06f;   // the chest
-            lp2 += (lp1 - lp2) * 0.06f;
-            bp += (voiced - bp) * 0.25f;     // a rasp on top
-            breath += (White() - breath) * 0.1f;
-            return (lp2 * 1.8f + (bp - lp1) * 0.35f + breath * 0.12f * rattle) * env(t);
-        };
-    }
-
-    static AudioClip MakeBlindGrowl()
-    {
-        const float len = 2.8f;
-        var voice = GrowlVoice(62f, 24f, 0.7f,
-            t => 1f + 0.12f * Mathf.Sin(Mathf.PI * t / len) + 0.03f * Mathf.Sin(TwoPi * 0.9f * t),
-            t => Mathf.Clamp01(t / 0.5f) * Mathf.Clamp01((len - t) / 0.9f) * (0.75f + 0.25f * Mathf.Sin(TwoPi * 0.7f * t)));
-        return Shot("Blind Growl", len, t => Tanh(voice(t) * 1.5f), 0.85f);
-    }
-
-    static AudioClip MakeBlindAlert()
-    {
-        const float len = 1.2f, inhale = 0.18f;
-        float lp = 0f, hp = 0f;
-        var snarl = GrowlVoice(105f, 31f, 0.85f,
-            t => 1.25f - 0.35f * Mathf.Clamp01((t - inhale) / 0.9f),
-            t => t < inhale ? 0f : Mathf.Clamp01((t - inhale) / 0.03f) * Mathf.Exp(-(t - inhale) * 2.8f));
-        return Shot("Blind Alert", len, t =>
-        {
-            // The sharp sucked-in breath: rising, hissing noise.
-            float u = Mathf.Clamp01(t / inhale);
-            lp += (White() - lp) * Mathf.Lerp(0.1f, 0.5f, u);
-            hp += (lp - hp) * 0.08f;
-            float breath = t < inhale ? (lp - hp) * u * u * 1.4f : 0f;
-            return Tanh(breath + snarl(t) * 2.2f);
+            float crack = White() * Mathf.Exp(-t * 60f) * 1.6f;                    // the sharp crack
+            sub += TwoPi * (90f * Mathf.Exp(-t * 8f) + 40f) / Rate;
+            float thump = Mathf.Sin(sub) * Mathf.Exp(-t * 6f);                      // the thump
+            lp += (White() - lp) * 0.3f;
+            float hiss = lp * Mathf.Exp(-t * 1.6f) * 0.35f;                         // sparks hissing away
+            crackleLp *= 0.9f;
+            if (rng.NextDouble() < 0.004 * Mathf.Exp(-t * 1.2f)) crackleLp = White() * 1.2f; // and crackling
+            return Tanh(crack + thump + hiss + crackleLp);
         }, 0.95f);
     }
 
