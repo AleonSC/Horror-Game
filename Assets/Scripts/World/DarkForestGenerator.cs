@@ -1226,7 +1226,7 @@ public class DarkForestGenerator : MonoBehaviour
             go.transform.SetParent(parent, false);
             go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.05f, p.y);
             go.transform.localRotation = yaw * Quaternion.Euler(pitch, 0f, roll);
-            go.AddComponent<BrokenCar>().Build(rng);
+            go.AddComponent<BrokenCar>().Build(rng, this);
 
             CarClearings.Add(p);
             CarClearings.Add(p + new Vector2(fwd.x, fwd.z) * 9f); // keep the headlight beams fairly open

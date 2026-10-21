@@ -10,7 +10,8 @@ using UnityEngine;
 ///
 /// Also in it: a couple of batteries in the glove box; a portable radio on the back seat (CarRadio: turn it
 /// on and the blind one comes for it from anywhere); and in the trunk, a backpack with a camera whose flash
-/// drives the entities off for a while (three shots).
+/// drives the entities off for a while (three shots). All four doors open. Blood everywhere: pooled by the
+/// driver's door, spattered round, dragged off into the trees, smeared on the car and the driver's seat.
 /// DarkForestGenerator parks one somewhere at random.
 /// </summary>
 public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
@@ -40,7 +41,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
     const float CabinFront = 0.75f, CabinBack = -1.35f, DoorSplit = -0.4f;
     const float Squareness = 6f; // the body's cross-section: a rounded box
 
-    ShackDoor door, rearDoor, gloveBox, trunk;
+    ShackDoor door, rearDoor, passengerDoor, rearRightDoor, gloveBox, trunk;
     Transform gloveBoxInside, trunkInside;
     CarRadio radio;
     readonly List<Light> headlights = new List<Light>();
@@ -115,7 +116,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
     {
         LightsOn = false;
         Battery = 1f;
-        foreach (var d in new[] { door, rearDoor, gloveBox, trunk }) if (d != null) d.Close();
+        foreach (var d in new[] { door, rearDoor, passengerDoor, rearRightDoor, gloveBox, trunk }) if (d != null) d.Close();
         if (radio != null) radio.ResetRadio();
         StockItems();
     }
@@ -311,7 +312,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
     // ---------------------------------------------------------------- Building
 
     /// <summary>Builds the car around its pivot (on the ground, at the middle of the car).</summary>
-    public void Build(System.Random rng)
+    public void Build(System.Random rng, DarkForestGenerator generator = null)
     {
         float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
         const float Pi = Mathf.PI;
@@ -344,7 +345,8 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         // with the doors and the trunk lid as separate hinged pieces of the same shape.
         MeshPart(body, "Front", Loft(CabinFront, FrontZ, 30, 0f, 2f * Pi, 48, false, true, true, Vector3.zero), paint);
         MeshPart(body, "Rear Panel", Loft(-FrontZ, -FrontZ + 0.001f, 1, 0f, 2f * Pi, 48, false, true, false, Vector3.zero), paint);
-        MeshPart(body, "Right Side", Loft(-FrontZ, CabinFront, 60, -0.3f * Pi, 0.32f * Pi, 16, true, false, false, Vector3.zero), paint);
+        MeshPart(body, "Right Rear Quarter", Loft(-FrontZ, CabinBack, 16, -0.3f * Pi, 0.32f * Pi, 16, true, false, false, Vector3.zero), paint);
+        MeshPart(body, "Right Sill", Loft(CabinBack, CabinFront, 30, -0.3f * Pi, -0.12f * Pi, 4, true, false, false, Vector3.zero), paint);
         MeshPart(body, "Underside", Loft(-FrontZ, CabinFront, 60, 1.18f * Pi, 1.72f * Pi, 12, true, false, false, Vector3.zero), dark);
         MeshPart(body, "Left Rear Quarter", Loft(-FrontZ, CabinBack, 16, 0.68f * Pi, 1.2f * Pi, 16, true, false, false, Vector3.zero), paint);
         MeshPart(body, "Left Sill", Loft(CabinBack, CabinFront, 30, 1.12f * Pi, 1.2f * Pi, 3, true, false, false, Vector3.zero), paint);
@@ -352,17 +354,22 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         // Colliders: you can't walk through it, and you can't climb in.
         AddCollider(body, new Vector3(0f, 0.62f, (CabinFront + FrontZ) * 0.5f), new Vector3(1.8f, 0.6f, FrontZ - CabinFront));
         AddCollider(body, new Vector3(0f, 0.45f, (-FrontZ + CabinFront) * 0.5f), new Vector3(1.8f, 0.3f, FrontZ + CabinFront));
-        AddCollider(body, new Vector3(0.86f, 0.75f, (-FrontZ + CabinFront) * 0.5f), new Vector3(0.08f, 0.5f, FrontZ + CabinFront));
+        AddCollider(body, new Vector3(0.86f, 0.75f, (-FrontZ + CabinBack) * 0.5f), new Vector3(0.08f, 0.5f, FrontZ + CabinBack));
         AddCollider(body, new Vector3(-0.86f, 0.75f, (-FrontZ + CabinBack) * 0.5f), new Vector3(0.08f, 0.5f, FrontZ + CabinBack));
         AddCollider(body, new Vector3(0f, 0.75f, -FrontZ + 0.04f), new Vector3(1.8f, 0.5f, 0.08f));
         AddCollider(body, new Vector3(0f, 0.8f, CabinBack + 0.05f), new Vector3(1.6f, 0.6f, 0.1f)); // behind the back seat
 
         // ---- Doors, hinged at their front edges, and the trunk lid, hinged at its front edge.
         // Each door's window opening (belt and top, front and back), following the pillars and roof line.
-        door = Door(body, "Driver Door", DoorSplit, CabinFront, paint, chrome, glass, trim, false,
+        door = Door(body, "Driver Door", DoorSplit, CabinFront, paint, chrome, glass, trim, false, -1f,
             new Vector3(-0.75f, 0.98f, 0.7f), new Vector3(-0.69f, 1.43f, 0.2f), new Vector3(-0.72f, 1.43f, DoorSplit + 0.03f), new Vector3(-0.75f, 0.98f, DoorSplit + 0.03f));
-        rearDoor = Door(body, "Rear Door", CabinBack, DoorSplit, paint, chrome, glass, trim, true,
+        rearDoor = Door(body, "Rear Door", CabinBack, DoorSplit, paint, chrome, glass, trim, true, -1f,
             new Vector3(-0.75f, 0.98f, DoorSplit - 0.03f), new Vector3(-0.72f, 1.43f, DoorSplit - 0.03f), new Vector3(-0.7f, 1.42f, -1.02f), new Vector3(-0.75f, 0.98f, CabinBack + 0.06f));
+        // And the same on the other side (mirrored), the windows up.
+        passengerDoor = Door(body, "Passenger Door", DoorSplit, CabinFront, paint, chrome, glass, trim, true, 1f,
+            new Vector3(0.75f, 0.98f, 0.7f), new Vector3(0.69f, 1.43f, 0.2f), new Vector3(0.72f, 1.43f, DoorSplit + 0.03f), new Vector3(0.75f, 0.98f, DoorSplit + 0.03f));
+        rearRightDoor = Door(body, "Rear Right Door", CabinBack, DoorSplit, paint, chrome, glass, trim, true, 1f,
+            new Vector3(0.75f, 0.98f, DoorSplit - 0.03f), new Vector3(0.72f, 1.43f, DoorSplit - 0.03f), new Vector3(0.7f, 1.42f, -1.02f), new Vector3(0.75f, 0.98f, CabinBack + 0.06f));
         var lidPivot = new Vector3(0f, SectionTop(CabinBack), CabinBack);
         var lid = new GameObject("Trunk Lid").transform;
         lid.SetParent(body, false);
@@ -389,10 +396,8 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         roof.gameObject.AddComponent<BoxCollider>();
         Box(moss, roof, new Vector3(R(-0.3f, 0.3f), 0.041f, R(-0.3f, 0.3f)), new Vector3(R(0.3f, 0.6f), 0.005f, R(0.3f, 0.5f))); // moss and muck on the roof
         Box(grime, roof, new Vector3(R(-0.4f, 0.4f), 0.041f, R(-0.4f, 0.4f)), new Vector3(R(0.3f, 0.5f), 0.004f, R(0.2f, 0.4f)));
-        // Rear window and the passenger side windows: grimy glass; the rear quarter one cracked through.
+        // Rear window: grimy glass.
         Pane(glass, body, new Vector3(0.7f, 1.45f, -1.0f), new Vector3(-0.7f, 1.45f, -1.0f), new Vector3(-0.8f, 1.0f, CabinBack), new Vector3(0.8f, 1.0f, CabinBack));
-        Pane(glass, body, new Vector3(0.83f, 1.02f, 0.68f), new Vector3(0.83f, 1.02f, DoorSplit), new Vector3(0.74f, 1.43f, DoorSplit), new Vector3(0.7f, 1.43f, 0.22f));
-        Pane(glass, body, new Vector3(0.83f, 1.02f, DoorSplit), new Vector3(0.83f, 1.02f, CabinBack + 0.05f), new Vector3(0.72f, 1.42f, -1.02f), new Vector3(0.74f, 1.43f, DoorSplit));
         // What's left of the windscreen: jagged shards round the frame.
         for (int i = 0; i < 9; i++)
         {
@@ -448,19 +453,18 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         Box(chrome, body, new Vector3(0f, 0.93f, 1.95f), new Vector3(0.03f, 0.04f, 0.1f));
         var mirror = Box(chrome, body, new Vector3(-0.95f, 0.88f, 0.68f), new Vector3(0.04f, 0.1f, 0.16f));
         mirror.localRotation = Quaternion.Euler(0f, 0f, -55f); // hanging off by a wire
-        Box(chrome, body, new Vector3(0.905f, 0.88f, 0.1f), new Vector3(0.02f, 0.03f, 0.14f));
-        Box(chrome, body, new Vector3(0.905f, 0.88f, -0.85f), new Vector3(0.02f, 0.03f, 0.14f));
-        // Chrome trim along the sides, rust and dirt.
-        Box(dullChrome, body, new Vector3(0.905f, 0.68f, -0.6f), new Vector3(0.01f, 0.025f, 2.9f));
+        // Chrome trim along the side behind the doors, rust and dirt (not on the doors: they'd be left
+        // hanging in the air when they open).
+        Box(dullChrome, body, new Vector3(0.905f, 0.68f, (-FrontZ + CabinBack) * 0.5f + 0.03f), new Vector3(0.01f, 0.025f, FrontZ + CabinBack - 0.1f));
         for (int i = 0; i < 8; i++)
         {
             bool left = R(-1f, 1f) < 0f;
-            float z = R(-1.9f, 1.9f);
+            float z = R(0f, 1f) < 0.55f ? R(CabinFront + 0.3f, 1.9f) : R(-1.9f, CabinBack - 0.3f);
             Box(rust, body, new Vector3((left ? -1f : 1f) * (SectionHalfWidth(z) + 0.004f), R(0.38f, 0.6f), z), new Vector3(0.01f, R(0.06f, 0.2f), R(0.15f, 0.5f)));
         }
         foreach (float wz in new[] { 1.35f, -1.35f })
             foreach (float side in new[] { -1f, 1f })
-                Box(grime, body, new Vector3(side * (HalfWidth + 0.003f), 0.52f, wz + R(-0.5f, 0.5f)), new Vector3(0.01f, 0.18f, R(0.4f, 0.8f))); // mud thrown up off the wheels
+                Box(grime, body, new Vector3(side * (HalfWidth + 0.003f), 0.52f, wz > 0f ? wz + R(-0.3f, 0.3f) : wz - R(0.25f, 0.45f)), new Vector3(0.01f, 0.18f, R(0.3f, 0.5f))); // mud thrown up off the wheels
         Box(rust, body, new Vector3(R(-0.5f, 0.5f), SectionTop(1.3f) + 0.005f, R(1f, 1.6f)), new Vector3(R(0.3f, 0.6f), 0.01f, R(0.2f, 0.5f)));
 
         // ---- Wheels: tyres with sidewalls, steel rims and hubcaps (one missing), the front left one flat.
@@ -593,6 +597,8 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         pack.localPosition = new Vector3(0.05f, 0.1f, 0.22f);
         pack.localRotation = Quaternion.Euler(-90f, 0f, R(-15f, 15f)); // lying on its back
 
+        Blood(body, rng, generator != null ? generator : FindAnyObjectByType<DarkForestGenerator>());
+
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, 0.8f, 2f, 30f);
         chirp = ProceduralAudio.AddSource(gameObject, null, false, true, 1f, 8f, 180f); // carries a long way
         StockItems();
@@ -605,13 +611,17 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
     /// and armrest on the inside, and handles.
     /// </summary>
     ShackDoor Door(Transform body, string name, float z0, float z1, Material paint, Material chrome, Material glass, Material trim, bool withGlass,
-        Vector3 frontBelt, Vector3 frontTop, Vector3 backTop, Vector3 backBelt)
+        float side, Vector3 frontBelt, Vector3 frontTop, Vector3 backTop, Vector3 backBelt)
     {
-        var pivot = new Vector3(-SectionHalfWidth(z1), 0f, z1);
+        // side: -1 the left (driver's) side, +1 the right. The right's a mirror of the left.
+        float inward = -side;
+        var pivot = new Vector3(side * SectionHalfWidth(z1), 0f, z1);
         var hinge = new GameObject(name).transform;
         hinge.SetParent(body, false);
         hinge.localPosition = pivot;
-        var panel = MeshPart(hinge, "Panel", Loft(z0 + 0.01f, z1 - 0.01f, 12, 0.68f * Mathf.PI, 1.12f * Mathf.PI, 16, true, false, false, pivot), paint);
+        var panel = MeshPart(hinge, "Panel", side < 0f
+            ? Loft(z0 + 0.01f, z1 - 0.01f, 12, 0.68f * Mathf.PI, 1.12f * Mathf.PI, 16, true, false, false, pivot)
+            : Loft(z0 + 0.01f, z1 - 0.01f, 12, -0.12f * Mathf.PI, 0.32f * Mathf.PI, 16, true, false, false, pivot), paint);
         var block = panel.gameObject.AddComponent<BoxCollider>();
         // Taller than the panel, so a shut door blocks reaching in through the window too.
         block.center = new Vector3(block.center.x, 0.95f, block.center.z);
@@ -622,9 +632,9 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         Strut(paint, hinge, fb, ft, 0.035f);
         Strut(paint, hinge, ft, bt, 0.035f);
         Strut(paint, hinge, bt, bb, 0.035f);
-        Strut(trim, hinge, bb + new Vector3(0.01f, 0.01f, 0f), fb + new Vector3(0.01f, 0.01f, 0f), 0.03f); // rubber seal along the belt
+        Strut(trim, hinge, bb + new Vector3(inward * 0.01f, 0.01f, 0f), fb + new Vector3(inward * 0.01f, 0.01f, 0f), 0.03f); // rubber seal along the belt
         // The glass, set just inside the frame; wound down, only its top edge shows above the belt.
-        Vector3 inset = new Vector3(0.012f, 0f, 0f);
+        Vector3 inset = new Vector3(inward * 0.012f, 0f, 0f);
         Vector3 Toward(Vector3 from, Vector3 to, float d) => from + (to - from).normalized * d;
         if (withGlass)
             Pane(glass, hinge, Toward(fb, bb, 0.03f) + inset, Toward(bb, fb, 0.03f) + inset, Toward(bt, ft, 0.03f) + inset + Vector3.down * 0.02f, Toward(ft, bt, 0.03f) + inset + Vector3.down * 0.02f);
@@ -638,17 +648,186 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         // Inside: a dark trim panel, an armrest, the pull handle.
         float zMid = (z0 + z1) * 0.5f - z1, len = z1 - z0;
         // (Fitted inside the shell, which is 0.9 out at the middle and curls in to 0.73 at its top edge.)
-        float innerX = -0.84f - pivot.x;
+        float innerX = side * 0.84f - pivot.x;
         Box(trim, hinge, new Vector3(innerX, 0.69f, zMid), new Vector3(0.06f, 0.38f, len - 0.14f));
-        Box(trim, hinge, new Vector3(innerX + 0.05f, 0.82f, zMid - 0.05f), new Vector3(0.06f, 0.04f, len * 0.45f));
-        Box(chrome, hinge, new Vector3(innerX + 0.04f, 0.89f, z0 - z1 + 0.22f), new Vector3(0.015f, 0.025f, 0.09f));
+        Box(trim, hinge, new Vector3(innerX + inward * 0.05f, 0.82f, zMid - 0.05f), new Vector3(0.06f, 0.04f, len * 0.45f));
+        Box(chrome, hinge, new Vector3(innerX + inward * 0.04f, 0.89f, z0 - z1 + 0.22f), new Vector3(0.015f, 0.025f, 0.09f));
 
-        Box(chrome, hinge, new Vector3(-0.015f, 0.88f, z0 - z1 + 0.18f), new Vector3(0.03f, 0.03f, 0.14f)); // outside handle
+        Box(chrome, hinge, new Vector3(side * 0.015f, 0.88f, z0 - z1 + 0.18f), new Vector3(0.03f, 0.03f, 0.14f)); // outside handle
         var d = hinge.gameObject.AddComponent<ShackDoor>();
-        d.openAngle = 70f; // swings outward
+        d.openAngle = side < 0f ? 70f : -70f; // swings outward
         d.noun = "door";
         d.kind = ShackDoor.Kind.Car;
         return d;
+    }
+
+    // ---------------------------------------------------------------- Blood
+
+    /// <summary>
+    /// What happened here: a pool by the driver's door where someone was pulled out, spatter all round it,
+    /// a smeared trail where they were dragged off into the trees, more pooled at the trunk and by the front;
+    /// on the car, smeared hands down the driver's door, streaks on the rear quarters and the trunk lid, and
+    /// the driver's seat and the dash soaked and spattered. Wet blood shines; older blood is dark and dull.
+    /// </summary>
+    void Blood(Transform body, System.Random rng, DarkForestGenerator generator)
+    {
+        float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+        var wet = MaterialFactory.Lit(new Color(0.2f, 0.012f, 0.01f), 0.85f);
+        var dried = MaterialFactory.Lit(new Color(0.075f, 0.012f, 0.01f), 0.35f);
+        var group = new GameObject("Blood").transform;
+        group.SetParent(transform, false);
+
+        // Ground height under a point in the car's space (it sits tilted on the slope).
+        float GroundAt(Vector3 local)
+        {
+            if (generator == null) return 0f;
+            Vector3 w = transform.TransformPoint(local);
+            return transform.InverseTransformPoint(new Vector3(w.x, generator.GetGroundHeight(w.x, w.z), w.z)).y;
+        }
+        bool UnderCar(Vector3 p) => Mathf.Abs(p.x) < 0.95f && Mathf.Abs(p.z) < FrontZ + 0.05f;
+        void Drops(Vector3 around, float spread, int count, float maxSize)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 o = Random2(rng) * spread;
+                var spot = around + new Vector3(o.x, 0f, o.y);
+                if (UnderCar(spot)) continue;
+                float size = R(0.03f, maxSize) * Mathf.Lerp(1f, 0.5f, o.magnitude / Mathf.Max(spread, 0.01f));
+                Splat(group, spot, size, size * R(0.7f, 1.6f), R(0f, 360f), rng.NextDouble() < 0.5 ? wet : dried, rng, GroundAt, 10, 0.3f);
+            }
+        }
+
+        // The pool by the driver's door, and spatter thrown out round it.
+        var pool = new Vector3(-1.45f, 0f, R(-0.1f, 0.3f));
+        Splat(group, pool, R(0.7f, 0.85f), R(0.95f, 1.2f), R(-20f, 20f), wet, rng, GroundAt, 28, 0.35f);
+        Splat(group, pool + new Vector3(R(-0.4f, -0.2f), 0f, R(0.6f, 0.9f)), 0.35f, 0.25f, R(0f, 360f), dried, rng, GroundAt, 18, 0.45f);
+        Drops(pool, 2.6f, 26, 0.16f);
+
+        // The drag trail: smeared, broken, thinning as it goes, off into the trees away from the car.
+        float heading = R(-150f, -110f) * Mathf.Deg2Rad; // out from the driver's side, toward the back
+        Vector3 dir = new Vector3(Mathf.Sin(heading), 0f, Mathf.Cos(heading));
+        Vector3 at = pool + dir * 0.7f;
+        int smears = rng.Next(14, 20);
+        for (int i = 0; i < smears; i++)
+        {
+            float t = i / (float)smears;
+            // Wandering a little, as something heavy is hauled along.
+            heading += R(-0.18f, 0.18f);
+            dir = new Vector3(Mathf.Sin(heading), 0f, Mathf.Cos(heading));
+            at += dir * R(0.38f, 0.55f);
+            if (rng.NextDouble() < 0.12 && i > 3) continue; // a gap
+            float yaw = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg + 90f;
+            Splat(group, at, R(0.22f, 0.32f) * (1f - t * 0.5f), R(0.1f, 0.16f) * (1f - t * 0.55f), yaw, t < 0.45f ? wet : dried, rng, GroundAt, 16, 0.2f);
+            if (rng.NextDouble() < 0.5) Drops(at, 0.5f, 3, 0.06f);
+        }
+        Splat(group, at + dir * 0.4f, 0.22f, 0.2f, R(0f, 360f), dried, rng, GroundAt, 16, 0.4f); // where it ends, among the trees
+
+        // More: by the trunk, and by the front wheel on the other side.
+        var rear = new Vector3(R(-0.3f, 0.4f), 0f, -FrontZ - R(0.5f, 0.8f));
+        Splat(group, rear, R(0.4f, 0.55f), R(0.3f, 0.45f), R(0f, 360f), dried, rng, GroundAt, 22, 0.4f);
+        Drops(rear, 1.4f, 10, 0.1f);
+        var front = new Vector3(R(1.3f, 1.7f), 0f, R(0.9f, 1.6f));
+        Splat(group, front, R(0.3f, 0.45f), R(0.35f, 0.5f), R(0f, 360f), wet, rng, GroundAt, 20, 0.4f);
+        Drops(front, 1.6f, 12, 0.1f);
+        Drops(Vector3.zero, 5f, 20, 0.08f); // and flecks all round
+
+        // On the car. Things stuck to the doors go on the doors, so they swing with them.
+        void Smear(Transform parent, Vector3 pos, Vector3 size, Vector3 euler, Material mat)
+        {
+            var piece = Box(mat, parent, pos, size);
+            piece.localRotation = Quaternion.Euler(euler);
+            piece.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            piece.name = "Blood";
+        }
+        // Hands dragged down the driver's door, from the window to the sill.
+        for (int i = 0; i < 4; i++)
+        {
+            float z = -0.25f - i * 0.11f + R(-0.03f, 0.03f);
+            float top = R(0.78f, 0.84f), bottom = R(0.45f, 0.55f); // (where the side's flat: it curls in above)
+            Smear(door.transform, new Vector3(-0.004f, (top + bottom) * 0.5f, z), new Vector3(0.004f, top - bottom, R(0.035f, 0.06f)), new Vector3(R(-8f, 8f), 0f, 0f), i == 1 ? wet : dried);
+        }
+        Smear(door.transform, new Vector3(-0.005f, 0.78f, -0.4f), new Vector3(0.004f, 0.11f, 0.17f), new Vector3(R(-10f, 10f), 0f, 0f), wet); // the palm print at the top
+        // Spray up the rear quarters and the trunk lid.
+        foreach (float sideX in new[] { -1f, 1f })
+            for (int i = 0; i < 3; i++)
+            {
+                float z = R(-1.95f, CabinBack - 0.15f);
+                float h = R(0.04f, 0.09f); // (kept high, above the wheel arch)
+                Smear(body, new Vector3(sideX * (SectionHalfWidth(z) + 0.005f), R(0.8f, 0.87f), z), new Vector3(0.004f, h, R(0.03f, 0.12f)), new Vector3(R(-15f, 15f), 0f, 0f), rng.NextDouble() < 0.5 ? wet : dried);
+            }
+        if (trunk != null)
+        {
+            Transform lidT = trunk.transform;
+            for (int i = 0; i < 3; i++)
+            {
+                float z = R(-1.95f, -1.5f);
+                Vector3 local = new Vector3(R(-0.5f, 0.5f), SectionTop(z) - lidT.localPosition.y + 0.004f, z - lidT.localPosition.z);
+                Smear(lidT, local, new Vector3(R(0.04f, 0.1f), 0.003f, R(0.15f, 0.35f)), new Vector3(0f, R(-30f, 30f), 0f), dried);
+            }
+        }
+        // The driver's seat soaked, the seat back and the dash spattered.
+        Smear(body, new Vector3(-0.4f, 0.87f, -0.05f), new Vector3(0.36f, 0.004f, 0.32f), new Vector3(0f, R(0f, 40f), 0f), wet);
+        Smear(body, new Vector3(-0.4f, 1.1f, -0.36f) + Quaternion.Euler(-14f, 0f, 0f) * new Vector3(0f, -0.05f, 0.073f), new Vector3(0.3f, 0.35f, 0.004f), new Vector3(-14f, 0f, R(-10f, 10f)), dried);
+        for (int i = 0; i < 6; i++)
+            Smear(body, new Vector3(R(-0.75f, 0.2f), 1.103f, R(0.52f, 0.72f)), new Vector3(R(0.02f, 0.07f), 0.003f, R(0.02f, 0.06f)), new Vector3(0f, R(0f, 360f), 0f), rng.NextDouble() < 0.5 ? wet : dried);
+    }
+
+    static Vector2 Random2(System.Random rng)
+    {
+        float a = (float)rng.NextDouble() * Mathf.PI * 2f, d = Mathf.Sqrt((float)rng.NextDouble());
+        return new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d;
+    }
+
+    /// <summary>
+    /// A splat of blood lying on the ground: an irregular blob (rough by how much its edge wanders, with the
+    /// odd splash flung out of it) following the ground, just above it.
+    /// </summary>
+    static void Splat(Transform parent, Vector3 center, float rx, float rz, float yaw, Material mat, System.Random rng,
+        System.Func<Vector3, float> groundAt, int segments, float rough)
+    {
+        var verts = new List<Vector3>();
+        var tris = new List<int>();
+        Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
+        float seed = (float)rng.NextDouble() * 100f;
+        var edge = new float[segments];
+        for (int j = 0; j < segments; j++)
+        {
+            float a = j / (float)segments;
+            edge[j] = 1f + rough * (Mathf.PerlinNoise(seed, a * 6f) - 0.5f) * 2f;
+            if (rng.NextDouble() < 0.15) edge[j] += rough * 1.5f; // a splash thrown out
+        }
+        Vector3 Place(Vector3 local)
+        {
+            local.y = groundAt(local) + 0.035f;
+            return local;
+        }
+        verts.Add(Place(center));
+        float[] rings = { 0.45f, 0.8f, 1f };
+        foreach (float ring in rings)
+            for (int j = 0; j < segments; j++)
+            {
+                float a = j / (float)segments * Mathf.PI * 2f;
+                float r = ring < 1f ? Mathf.Lerp(1f, edge[j], ring) * ring : edge[j];
+                verts.Add(Place(center + rot * new Vector3(Mathf.Cos(a) * rx * r, 0f, Mathf.Sin(a) * rz * r)));
+            }
+        for (int j = 0; j < segments; j++)
+        {
+            int n = (j + 1) % segments;
+            tris.AddRange(new[] { 0, 1 + n, 1 + j });
+            for (int k = 0; k < rings.Length - 1; k++)
+            {
+                int a = 1 + k * segments + j, b = 1 + k * segments + n, c = a + segments, d = b + segments;
+                tris.AddRange(new[] { a, b, c, b, d, c });
+            }
+        }
+        var mesh = new Mesh { name = "Blood" };
+        mesh.SetVertices(verts);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        var t = MeshPart(parent, "Blood", mesh, mat);
+        var renderer = t.GetComponent<Renderer>();
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 
     /// <summary>A pillar: a thin box from one point to another.</summary>

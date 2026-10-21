@@ -122,7 +122,14 @@ public static class ProceduralAudio
             default: return blindChant3 != null ? blindChant3 : (blindChant3 = Take(nameof(blindChant3)) ?? MakeBlindChant3());
         }
     }
-    static AudioClip blindChant0, blindChant1, blindChant2, blindChant3;
+    static AudioClip blindChant0, blindChant1, blindChant2, blindChant3, giantChant;
+
+    /// <summary>
+    /// The giant, just landed, chanting: a few words, short and enormous, in a huge low choir of voices (a
+    /// fifth above ringing with them), the echo going on and on.
+    /// </summary>
+    public static AudioClip GiantChant => giantChant != null ? giantChant : (giantChant = Take(nameof(giantChant)) ?? MakeGiantChant());
+    static AudioClip MakeGiantChant() => MakeChant("Giant Chant", 777, true);
     static AudioClip MakeBlindChant0() => MakeChant("Blind Chant 0", 101);
     static AudioClip MakeBlindChant1() => MakeChant("Blind Chant 1", 202);
     static AudioClip MakeBlindChant2() => MakeChant("Blind Chant 2", 303);
@@ -1672,14 +1679,15 @@ public static class ProceduralAudio
     /// syllables to a word, a handful of words, in a slow, steady rhythm sinking in pitch as it goes; a
     /// little rasping, then echoing. seed picks the words.
     /// </summary>
-    static AudioClip MakeChant(string name, int seed)
+    static AudioClip MakeChant(string name, int seed, bool giant = false)
     {
         var pick = new System.Random(seed);
         float P(float a, float b) => a + (float)pick.NextDouble() * (b - a);
 
         // The words: syllables of (consonant before, vowel, how long), with a pause after each word.
         var plan = new System.Collections.Generic.List<(int consonant, int vowel, float length, bool pauseAfter)>();
-        int words = pick.Next(4, 7);
+        int words = giant ? 2 : pick.Next(4, 7);
+        float stretch = giant ? 1.5f : 1f; // the giant's words are slower, drawn out
         for (int w = 0; w < words; w++)
         {
             int syllables = pick.Next(2, 4);
@@ -1687,20 +1695,21 @@ public static class ProceduralAudio
             {
                 int consonant = pick.NextDouble() < 0.75 ? pick.Next(1, ConsonantCentre.Length) : 0;
                 bool last = sy == syllables - 1;
-                plan.Add((consonant, pick.Next(Vowels.Length), last ? P(0.45f, 0.65f) : P(0.26f, 0.36f), last));
+                plan.Add((consonant, pick.Next(Vowels.Length), (last ? P(0.45f, 0.65f) : P(0.26f, 0.36f)) * stretch * (giant && last && w == words - 1 ? 2f : 1f), last));
             }
         }
 
         const float consonantTime = 0.07f, pauseTime = 0.22f, lead = 0.3f;
         float total = lead;
         foreach (var p in plan) total += consonantTime + p.length + (p.pauseAfter ? pauseTime : 0f);
-        total += 2.2f; // the echo dying away
+        total += giant ? 4.5f : 2.2f; // the echo dying away
         int n = (int)(total * Rate);
         var dry = new float[n];
 
-        float basePitch = P(58f, 70f);
-        float[] voicePitch = { 1f, 1.007f, 0.993f, 0.5f };
-        float[] voiceLevel = { 1f, 0.7f, 0.7f, 0.6f };
+        float basePitch = giant ? P(38f, 42f) : P(58f, 70f);
+        float[] voicePitch = giant ? new[] { 1f, 1.006f, 0.994f, 1.012f, 0.5f, 0.503f, 1.5f, 1.497f } : new[] { 1f, 1.007f, 0.993f, 0.5f };
+        float[] voiceLevel = giant ? new[] { 1f, 0.8f, 0.8f, 0.6f, 0.8f, 0.6f, 0.45f, 0.4f } : new[] { 1f, 0.7f, 0.7f, 0.6f };
+        float formantScale = giant ? 0.8f : 1f; // a bigger throat
         var phase = new float[voicePitch.Length];
         float[] f = { 500f, 1500f, 2500f };
         var ry1 = new float[3];
@@ -1746,7 +1755,7 @@ public static class ProceduralAudio
 
             // The mouth moving: formants gliding toward this sound's (closed and low for a hum).
             float[] target = consonant == 6 && voiced > 0f ? HumFormants : Vowels[vowel];
-            for (int k = 0; k < 3; k++) f[k] += (target[k] - f[k]) * 0.0012f;
+            for (int k = 0; k < 3; k++) f[k] += (target[k] * formantScale - f[k]) * 0.0012f;
 
             // The voices: deep buzzes, slowly sinking through the chant, with a slight waver and rasp.
             float progress = t / total;
@@ -1760,7 +1769,7 @@ public static class ProceduralAudio
             }
             rasp += (White() - rasp) * 0.3f;
             float fry = 0.75f + 0.25f * Mathf.Sin(TwoPi * 31f * t + Mathf.Sin(t * 3f) * 4f); // a creak in the throat
-            srcLp += ((source * 0.3f + rasp * 0.25f) * fry * voiced - srcLp) * 0.35f;
+            srcLp += ((source * (giant ? 0.2f : 0.3f) + rasp * 0.25f) * fry * voiced - srcLp) * 0.35f;
 
             // Through the mouth: three resonances.
             float outV = 0f;
@@ -1791,9 +1800,9 @@ public static class ProceduralAudio
         }
 
         // A big, cold space round it.
-        var wet = Reverb(dry, 0.84f, 0.35f);
-        for (int i = 0; i < n; i++) dry[i] = Tanh((dry[i] + wet[i] * 1.6f) * 1.2f);
-        return Create(name, dry, 0.9f);
+        var wet = Reverb(dry, giant ? 0.9f : 0.84f, giant ? 0.25f : 0.35f);
+        for (int i = 0; i < n; i++) dry[i] = giant ? Tanh((dry[i] * 1.2f + wet[i] * 2.2f) * 1.6f) : Tanh((dry[i] + wet[i] * 1.6f) * 1.2f);
+        return Create(name, dry, giant ? 1f : 0.9f);
     }
 
     static AudioClip MakeNightChorus()

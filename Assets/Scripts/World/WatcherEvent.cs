@@ -188,6 +188,13 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     AudioSource audioSource;
     FirstPersonController player;
+    // Its chant after it lands: from its head, so you hear where it is (no fall-off: it's that loud).
+    AudioSource chantSource;
+    float chantDelay = -1f, chantTime = -1f;
+    [Tooltip("Seconds after it lands before it chants.")]
+    public float chantAfterLanding = 1.2f;
+    [Tooltip("How much the chant shakes the camera (degrees): just a tremble.")]
+    public float chantShake = 0.35f;
 
     void Awake()
     {
@@ -271,6 +278,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             }
         }
 
+        UpdateChant(dt);
         UpdateSearchlights(dt);
         UpdateEmptyChains();
         UpdateHaze();
@@ -591,6 +599,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             phase = Phase.GiantWalking;
             landedAt = new Vector3(basePos.x, ground, basePos.z);
             shockwaveTimer = shockwaveDelay;
+            chantDelay = chantAfterLanding;
             // Settle from however it landed into its walk, rather than snapping straight into it.
             for (int i = 0; i < 2; i++)
             {
@@ -603,6 +612,48 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             settle = 0f;
             stepDip = stepImpulse = 1.4f; // crouching into the landing
             leftFootDown = Mathf.Cos(stridePhase) < 0f;
+        }
+    }
+
+    /// <summary>
+    /// A moment after it lands it chants: a few huge, slow words, from its head, loud enough to carry over
+    /// everything. The air trembles with it (a little), and its eyes burn brighter while it does.
+    /// </summary>
+    void UpdateChant(float dt)
+    {
+        if (chantDelay > 0f)
+        {
+            chantDelay -= dt;
+            if (chantDelay <= 0f && giantHead != null)
+            {
+                if (chantSource == null)
+                {
+                    chantSource = ProceduralAudio.AddSource(giantHead.gameObject, null, false, true, 1f, 5000f, 10000f);
+                    chantSource.rolloffMode = AudioRolloffMode.Linear;
+                    chantSource.dopplerLevel = 0f;
+                    chantSource.spread = 20f;
+                    chantSource.priority = 0;
+                }
+                chantSource.clip = ProceduralAudio.GiantChant;
+                chantSource.pitch = 1f;
+                chantSource.Play();
+                chantTime = 0f;
+            }
+        }
+        if (chantTime < 0f || chantSource == null) return;
+
+        chantTime += dt;
+        chantSource.volume = 1f - PortalDoor.RoomQuiet;
+        float length = chantSource.clip != null ? chantSource.clip.length : 1f;
+        // How hard it's chanting: the words, not the echo after.
+        float strength = Mathf.Clamp01(chantTime / 0.4f) * Mathf.Clamp01((length - 4f - chantTime) / 1.2f + 1f);
+        strength = Mathf.Max(strength, 0f);
+        if (player != null && strength > 0.01f) player.AddCameraShake(chantShake * strength * (0.75f + 0.25f * Mathf.PerlinNoise(Time.time * 6f, 3.1f)));
+        if (giantEyeMaterial != null) giantEyeMaterial.SetColor("_Color", new Color(4f, 0.2f, 0.05f) * (1f + 1.5f * strength));
+        if (!chantSource.isPlaying)
+        {
+            chantTime = -1f;
+            if (giantEyeMaterial != null) giantEyeMaterial.SetColor("_Color", new Color(4f, 0.2f, 0.05f));
         }
     }
 
@@ -1285,6 +1336,9 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         shake = 0f;
         dream = 0f;
         shockwaveTimer = -1f;
+        chantDelay = chantTime = -1f;
+        if (chantSource != null) chantSource.Stop();
+        if (giantEyeMaterial != null) giantEyeMaterial.SetColor("_Color", new Color(4f, 0.2f, 0.05f));
         settle = 1f;
         Shockwave.Cancel();
         if (player != null) player.DreamStretch = 0f;
