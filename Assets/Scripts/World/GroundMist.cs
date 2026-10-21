@@ -352,7 +352,7 @@ public class GroundMist : MonoBehaviour
         {
             lightSearchTimer = 0.5f;
             nearLights.Clear();
-            foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None))
+            foreach (var l in FindObjectsByType<Light>())
             {
                 if (l.type != LightType.Point || !l.isActiveAndEnabled || l.intensity < 0.3f || l.range < 3f) continue;
                 if ((l.transform.position - at).sqrMagnitude > lampSearchRange * lampSearchRange) continue;

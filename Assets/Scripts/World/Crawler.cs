@@ -40,6 +40,7 @@ public class Crawler : MonoBehaviour
     readonly List<Transform> legs = new List<Transform>();
     Transform body;
     float timer, chitterTimer, noiseTimer, eyeGlow;
+    float twitchSeed;
     int presses;
     Vector3 fleeDir;
 
@@ -56,6 +57,7 @@ public class Crawler : MonoBehaviour
     void Awake()
     {
         Tuning.Apply(this);
+        twitchSeed = Random.Range(0f, 100f);
         voice = ProceduralAudio.AddSource(gameObject, null, false, true, volume, 1.5f, 40f);
         Build();
     }
@@ -148,7 +150,8 @@ public class Crawler : MonoBehaviour
                     voice.PlayOneShot(ProceduralAudio.Skitter, 0.25f * (1f - EntityDread.Hush));
                 }
                 // The legs twitch now and then.
-                foreach (var leg in legs) leg.localRotation = Quaternion.Euler(Mathf.PerlinNoise(leg.GetInstanceID() * 0.1f, Time.time * 0.5f) * 8f - 4f, 0f, 0f);
+                for (int i = 0; i < legs.Count; i++)
+                    legs[i].localRotation = Quaternion.Euler(Mathf.PerlinNoise(twitchSeed + i * 3.1f, Time.time * 0.5f) * 8f - 4f, 0f, 0f);
 
                 bool reachable = Mathf.Abs(you.y - me.y) < 1.2f && !player.IsCrouching && player.CurrentSpeed > 0.4f
                                  && !SafeZones.Contains(you) && !PortalDoor.PlayerInRoom && !GameOverScreen.IsActive
