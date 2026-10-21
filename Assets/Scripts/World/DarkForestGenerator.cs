@@ -78,6 +78,10 @@ public class DarkForestGenerator : MonoBehaviour
     [Header("Watchtower")]
     [Tooltip("Place one tall watchtower with floodlights somewhere on the map.")]
     public bool spawnWatchtower = true;
+    [Tooltip("One enormous old pine somewhere in the forest, tall enough to be seen over the trees from far off: a landmark to find your way by.")]
+    public bool spawnLandmarkTree = true;
+    [Tooltip("How big the landmark pine is, as a multiple of an ordinary one.")]
+    public float landmarkTreeSize = 7f;
     [Tooltip("Park a broken-down car with working headlights somewhere at random.")]
     public bool spawnCar = true;
     [Tooltip("Stand a lone open door somewhere, between two lamp posts, that leads to a vast dark room.")]
@@ -174,6 +178,9 @@ public class DarkForestGenerator : MonoBehaviour
     /// <summary>Position (x, z) of the lone door to the dark room, if there is one.</summary>
     public Vector2? PortalDoorPosition { get; private set; }
 
+    /// <summary>Position (x, z) of the landmark tree, if there is one.</summary>
+    public Vector2? LandmarkTreePosition { get; private set; }
+
     /// <summary>Position (x, z) of the watchtower, if there is one.</summary>
     public Vector2? WatchtowerPosition { get; private set; }
 
@@ -192,6 +199,7 @@ public class DarkForestGenerator : MonoBehaviour
             if (Near(boulder, flat, distance + 2f)) return true;
         foreach (var pond in ponds)
             if (Near(pond.center, flat, distance + pond.radius * 0.9f)) return true;
+        if (LandmarkTreePosition.HasValue && Near(LandmarkTreePosition.Value, flat, distance + 4f)) return true;
         return WatchtowerPosition.HasValue && Near(WatchtowerPosition.Value, flat, distance + 2f);
     }
 
@@ -282,6 +290,7 @@ public class DarkForestGenerator : MonoBehaviour
         CampsitePositions.Clear(); // before the others, so old camps don't count as obstacles
         CarClearings.Clear();
         PortalDoorPosition = null;
+        LandmarkTreePosition = null;
         BoulderSpots.Clear();
         PlaceShacks();
         PlaceWatchtower();
@@ -588,6 +597,7 @@ public class DarkForestGenerator : MonoBehaviour
         var grid = new Dictionary<Vector2Int, List<Vector2>>();
         float cell = Mathf.Max(minTreeSpacing, 0.1f);
         int attempts = treeCount * 15;
+        PlaceLandmarkTree(parent, half);
 
         for (int a = 0; a < attempts && placed.Count < treeCount; a++)
         {
@@ -661,11 +671,36 @@ public class DarkForestGenerator : MonoBehaviour
         return false;
     }
 
-    /// <summary>A pine. size above 1 makes one of the rare giants (taller, wider, and thicker in the trunk).</summary>
-    void BuildPineTree(Vector3 pos, Transform parent, float size = 1f)
+    /// <summary>
+    /// The landmark: one enormous old pine, far enough from the start to be a trek, clear of everything else,
+    /// rising high over the forest. It doesn't sway or fall, and (LandmarkTree) it shows as a dark shape
+    /// against the sky through the fog from anywhere on the map.
+    /// </summary>
+    void PlaceLandmarkTree(Transform parent, float half)
     {
-        float scale = Range(0.8f, 1.6f) * size;
-        float trunkHeight = Range(6f, 10f) * scale;
+        if (!spawnLandmarkTree) return;
+        for (int attempt = 0; attempt < 500; attempt++)
+        {
+            var p = new Vector2(Range(-half, half), Range(-half, half));
+            if (p.magnitude < 60f) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 25f)) continue;
+            var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.3f, p.y);
+            var tree = BuildPineTree(pos, parent, landmarkTreeSize, true);
+            tree.name = "Landmark Pine";
+            var sway = tree.transform.Find("Sway");
+            if (sway != null) SwayPivots.Remove(sway); // too big to sway in the wind, or to come down
+            tree.AddComponent<LandmarkTree>();
+            LandmarkTreePosition = p;
+            TreePositions.Add(p);
+            return;
+        }
+    }
+
+    /// <summary>A pine. size above 1 makes one of the rare giants (taller, wider, and thicker in the trunk); exact uses size as it is.</summary>
+    GameObject BuildPineTree(Vector3 pos, Transform parent, float size = 1f, bool exact = false)
+    {
+        float scale = exact ? size : Range(0.8f, 1.6f) * size;
+        float trunkHeight = exact ? 9.5f * scale : Range(6f, 10f) * scale;
         float trunkRadius = Range(0.18f, 0.3f) * scale * (size > 1f ? 1.15f : 1f);
 
         var tree = new GameObject("Pine");
@@ -744,6 +779,7 @@ public class DarkForestGenerator : MonoBehaviour
             Vector3 at = path[path.Length - 2];
             AddVine(sway, at, Range(1.5f, Mathf.Max(1.6f, at.y - 0.6f)));
         }
+        return tree;
     }
 
     void AddVine(Transform sway, Vector3 local, float length)
