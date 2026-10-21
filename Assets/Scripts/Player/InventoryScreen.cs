@@ -288,8 +288,8 @@ public class InventoryScreen : MonoBehaviour
             case Hotbar.Item.Camera: return count == 1 ? "1 shot left" : $"{count} shots left";
             case Hotbar.Item.KeyFob: return "For the car";
             case Hotbar.Item.Map: return "The trails, the lamps, the tower";
-            case Hotbar.Item.Drone: return "Set it down to fly it";
-            case Hotbar.Item.Remote: return DroneUnit.Deployed != null ? "The drone is waiting" : "";
+            case Hotbar.Item.Drone: return DroneUnit.Dead ? "Battery dead" : $"Battery {Mathf.CeilToInt(DroneUnit.Charge * 100f)}% · set it down to fly it";
+            case Hotbar.Item.Remote: return DroneUnit.Dead ? "The drone's battery is dead" : $"Drone battery {Mathf.CeilToInt(DroneUnit.Charge * 100f)}%";
             case Hotbar.Item.Stick: return "Dev tools";
         }
         return "";

@@ -341,6 +341,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         else if (Selected == Item.Remote)
         {
             if (DroneUnit.Deployed == null) Message("The drone's gone");
+            else if (DroneUnit.Dead) Message("Nothing. The drone's battery is dead.");
             else DroneUnit.Deployed.StartPiloting(GetComponent<FirstPersonController>());
         }
     }
@@ -1139,7 +1140,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         item == Item.Flashlight ? (flashlight != null ? flashlight.Battery : 1f) :
         item == Item.Torch ? TorchFuel :
         item == Item.Lighter ? LighterFuel :
-        item == Item.Camera ? CameraShots / (float)Mathf.Max(cameraShots, 1) : -1f;
+        item == Item.Camera ? CameraShots / (float)Mathf.Max(cameraShots, 1) :
+        item == Item.Drone || item == Item.Remote ? DroneUnit.Charge : -1f;
 
     void OnGUI()
     {

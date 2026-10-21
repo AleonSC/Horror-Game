@@ -15,7 +15,11 @@ using UnityEngine.Rendering.Universal;
 /// signal only reaches so far from you: the picture breaks up toward the edge of it and it won't go further.
 /// Its motors buzz, loud enough that things listening hear it (the blind one comes to it), and if something
 /// comes near you while you're flying, the screen warns you. Getting caught, grabbed, or a crawler on your
-/// face cuts the link at once.
+/// face cuts the link at once. While it's being flown, the blind one senses it from far off and goes for it.
+///
+/// Battery (Charge, kept with the drone when it's picked up): about flightTime of flying; left alone (set
+/// down or hovering) it trickles away at a tenth of that. When it runs out the drone dies: if it's in the
+/// air it drops out of the sky, and lies wherever it fell for you to find.
 /// </summary>
 public class DroneUnit : MonoBehaviour
 {
@@ -23,7 +27,16 @@ public class DroneUnit : MonoBehaviour
     public static DroneUnit Deployed { get; private set; }
     /// <summary>True while the player is flying it (their own body standing still).</summary>
     public static bool Piloting => Deployed != null && Deployed.piloting;
-    internal static void ResetStatics() { Deployed = null; StaticReset.Drop(ref staticTexture); }
+    internal static void ResetStatics() { Deployed = null; Charge = 1f; StaticReset.Drop(ref staticTexture); }
+
+    /// <summary>The drone's battery, 1 full to 0 dead (there's only the one drone; it keeps it when picked up).</summary>
+    public static float Charge = 1f;
+    public static bool Dead => Charge <= 0f;
+    [Tooltip("Seconds of flying on a full battery.")]
+    public float flightTime = 600f;
+    [Range(0f, 1f), Tooltip("Left alone, it drains at this fraction of the flying rate.")]
+    public float idleDrain = 0.1f;
+    bool falling;
 
     [Tooltip("Top speed, flying flat out (Shift: a good deal more).")]
     public float speed = 5f;
@@ -85,6 +98,7 @@ public class DroneUnit : MonoBehaviour
         Deployed.StopPiloting();
         Destroy(Deployed.gameObject);
         Deployed = null;
+        Charge = 1f; // (the run resets: a fresh drone, charged)
     }
 
     void Awake()
@@ -150,7 +164,7 @@ public class DroneUnit : MonoBehaviour
         if (beacon == null) return;
         var cam = Camera.main;
         beaconClock += Time.deltaTime;
-        bool flash = !piloting && cam != null && Mathf.Repeat(beaconClock, beaconEvery) < 0.14f;
+        bool flash = !piloting && !Dead && cam != null && Mathf.Repeat(beaconClock, beaconEvery) < 0.14f;
         beacon.gameObject.SetActive(flash);
         if (beaconLight != null) beaconLight.enabled = flash;
         if (!flash) return;
@@ -178,7 +192,7 @@ public class DroneUnit : MonoBehaviour
     /// <summary>Takes control of it from wherever the player is.</summary>
     public void StartPiloting(FirstPersonController pilot)
     {
-        if (piloting || pilot == null || Time.frameCount == stoppedFrame) return; // (the same F that let go)
+        if (piloting || pilot == null || Time.frameCount == stoppedFrame || Dead || falling) return; // (the same F that let go)
         player = pilot;
         mainCam = Camera.main;
         if (mainCam == null) return;
@@ -234,6 +248,14 @@ public class DroneUnit : MonoBehaviour
         float dt = Time.deltaTime;
         if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
 
+        // The battery: flying uses it; left alone it trickles away. Flat, it dies (and falls, if it's up).
+        if (!Dead && !PauseMenu.IsPaused)
+        {
+            Charge = Mathf.Max(0f, Charge - dt / Mathf.Max(flightTime, 1f) * (piloting ? 1f : idleDrain));
+            if (Dead) Die();
+        }
+        if (falling) Fall(dt);
+
         bool airborne = piloting || landing || hovering;
         float spin = airborne ? 1f : 0f;
         motors.volume = Mathf.MoveTowards(motors.volume, airborne ? volume : 0f, dt * 2f);
@@ -285,6 +307,46 @@ public class DroneUnit : MonoBehaviour
             transform.position = p;
             body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.identity, 1f - Mathf.Exp(-4f * dt));
         }
+    }
+
+    /// <summary>The battery's gone: the link drops, the motors stop, and down it comes (or just goes dark).</summary>
+    void Die()
+    {
+        StopPiloting();
+        hovering = landing = false;
+        lamp.enabled = false;
+        ProceduralAudio.PlayAt(ProceduralAudio.LampPowerDown, transform.position, 0.7f, 1.6f, 3f);
+        float altitude = transform.position.y - Ground(transform.position);
+        falling = altitude > 0.05f;
+        if (!falling) grab.enabled = true;
+    }
+
+    /// <summary>Dropping out of the sky, tumbling, until it hits the ground (or something on the way).</summary>
+    void Fall(float dt)
+    {
+        velocity += Vector3.down * 9.8f * dt;
+        velocity.x *= 1f - dt * 0.5f;
+        velocity.z *= 1f - dt * 0.5f;
+        Vector3 step = velocity * dt;
+        float ground = Ground(transform.position + step);
+        bool hitSomething = Physics.SphereCast(transform.position + Vector3.up * 0.12f, 0.15f, step.normalized, out var hit, step.magnitude + 0.02f, ~0, QueryTriggerInteraction.Ignore);
+        body.localRotation *= Quaternion.Euler(140f * dt, 60f * dt, 90f * dt); // tumbling
+        if (transform.position.y + step.y <= ground || (hitSomething && hit.normal.y > 0.5f))
+        {
+            Vector3 p = transform.position + step;
+            p.y = hitSomething && hit.normal.y > 0.5f ? Mathf.Max(hit.point.y, ground) : ground;
+            transform.position = p;
+            body.localRotation = Quaternion.Euler(Random.Range(-25f, 25f), Random.Range(0f, 360f), Random.Range(150f, 210f) * (Random.value < 0.5f ? 1f : 0f) + Random.Range(-20f, 20f));
+            body.localPosition = Vector3.up * 0.06f;
+            falling = false;
+            velocity = Vector3.zero;
+            grab.enabled = true;
+            ProceduralAudio.PlayAt(ProceduralAudio.TwigSnap, transform.position, 0.9f, 0.55f, 3f); // the crack as it lands
+            Noise.Emit(transform.position, 8f);
+            return;
+        }
+        if (hitSomething) velocity = Vector3.Reflect(velocity, hit.normal) * 0.3f; // glancing off a branch or a wall
+        else transform.position += step;
     }
 
     /// <summary>Its motors, heard by things listening.</summary>
@@ -414,6 +476,14 @@ public class DroneUnit : MonoBehaviour
         GUI.Label(new Rect(m + 14f * unit, m + 36f * unit, 400f * unit, 26f * unit), $"SIGNAL {new string('|', bars)}{new string('.', 4 - bars)}", hudStyle);
         GUI.Label(new Rect(w - m - 260f * unit, m + 10f * unit, 246f * unit, 26f * unit), $"ALT {alt:0}m", hudStyle);
         GUI.Label(new Rect(w - m - 260f * unit, m + 36f * unit, 246f * unit, 26f * unit), $"DIST {dist:0}m", hudStyle);
+        int minutesLeft = Mathf.FloorToInt(Charge * flightTime / 60f), secondsLeft = Mathf.FloorToInt(Charge * flightTime % 60f);
+        GUI.Label(new Rect(w - m - 260f * unit, m + 62f * unit, 246f * unit, 26f * unit), $"BATT {Mathf.CeilToInt(Charge * 100f)}%  {minutesLeft}:{secondsLeft:00}", hudStyle);
+        if (Charge < 0.15f)
+        {
+            GUI.color = new Color(1f, 0.4f, 0.2f, blink ? 0.95f : 0.4f);
+            GUI.Label(new Rect(0f, h * 0.36f, w, 40f * unit), "B A T T E R Y   L O W", bigStyle);
+            GUI.color = hud;
+        }
         GUI.Label(new Rect(m + 14f * unit, h - m - 36f * unit, w, 26f * unit), "WASD fly · SPACE / CTRL up and down · SHIFT fast · F let go", hudStyle);
 
         if (loss > 0.9f)

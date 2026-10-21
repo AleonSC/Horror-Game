@@ -222,6 +222,36 @@ public class BlindEntity : MonoBehaviour
 
     // ---------------------------------------------------------------- Behaviour
 
+    [Tooltip("How far off it can sense the drone while it's being flown.")]
+    public float droneSenseRange = 220f;
+    float droneSenseTimer;
+
+    /// <summary>
+    /// The drone, while it's being flown, it senses keenly from far off (the whine of it, the signal, who
+    /// knows): every moment or so it knows just where it is and goes for the ground under it.
+    /// </summary>
+    void SenseDrone(float dt)
+    {
+        if (!DroneUnit.Piloting || state == State.Taking || state == State.Appearing || state == State.Banished) return;
+        droneSenseTimer -= dt;
+        if (droneSenseTimer > 0f) return;
+        droneSenseTimer = 1.2f;
+        Vector3 at = WorldWrap.NearestImage(DroneUnit.Deployed.transform.position, transform.position);
+        Vector3 d = at - transform.position;
+        d.y = 0f;
+        if (d.magnitude > droneSenseRange) return;
+        Vector2 miss = Random.insideUnitCircle * 1.5f;
+        goal = Settle(at + new Vector3(miss.x, 0f, miss.y));
+        huntArea = lastHeardAt = goal;
+        lastHeardTime = Time.time;
+        if (state == State.Roaming || state == State.Searching)
+        {
+            state = State.Listening; // head snapping round to it, then off it goes
+            timer = Random.Range(0.25f, 0.5f);
+            PlaySound(ProceduralAudio.BlindAlert, Random.Range(0.9f, 1.05f), 0.8f);
+        }
+    }
+
     void Update()
     {
         if (player == null)
@@ -237,6 +267,7 @@ public class BlindEntity : MonoBehaviour
 
         UpdateHuntArea(dt, you);
         CatchUp(dt, you);
+        SenseDrone(dt);
 
         switch (state)
         {
