@@ -55,6 +55,7 @@ public class BlindEntity : MonoBehaviour
     float lastHeardTime = -999f;
     Vector3 lastHeardAt;
     float growlTimer = 4f;
+    float chantTimer = 15f, chantFade = 1f;
     bool Investigating => Time.time - lastHeardTime < investigateTime;
     [Tooltip("Moving at all within this distance of it, it hears you (even crouched).")]
     public float closeHearing = 4f;
@@ -83,7 +84,7 @@ public class BlindEntity : MonoBehaviour
     Transform body, head, mouth;
     readonly Transform[] legs = new Transform[2], arms = new Transform[2];
     readonly List<Renderer> renderers = new List<Renderer>();
-    AudioSource sfx, steps, roar, omen;
+    AudioSource sfx, steps, roar, omen, chant;
     float fadeIn;
     float scale;
 
@@ -122,6 +123,7 @@ public class BlindEntity : MonoBehaviour
         steps = ProceduralAudio.AddSource(gameObject, null, false, true, footstepVolume, 10f, footstepRange);
         roar = ProceduralAudio.AddSource(gameObject, null, false, true, 1f, 18f, 300f);
         omen = ProceduralAudio.AddSource(gameObject, null, false, false, 1f); // the ground, everywhere
+        chant = ProceduralAudio.AddSource(gameObject, null, false, true, 1f, 6f, 60f); // its chanting
         generator = FindAnyObjectByType<DarkForestGenerator>();
         WorldWrap.RegisterDynamic(transform);
     }
@@ -289,6 +291,7 @@ public class BlindEntity : MonoBehaviour
         Animate(dt);
         Clicks(dt);
         Growl(dt);
+        Chant(dt);
     }
 
     /// <summary>How far round its hunting area it roams now: wide at first, narrowing as it closes in.</summary>
@@ -615,6 +618,34 @@ public class BlindEntity : MonoBehaviour
         if (growlTimer > 0f) return;
         growlTimer = state == State.Searching || state == State.Listening ? Random.Range(4f, 8f) : Random.Range(6f, 14f);
         PlaySound(ProceduralAudio.BlindGrowl, Random.Range(0.85f, 1.1f), Random.Range(0.6f, 0.85f));
+    }
+
+    /// <summary>
+    /// While it wanders or hunts about, every so often it chants: deep voices droning something like words,
+    /// in no language. It breaks off (quickly) the moment it hears you and comes for you, takes you, or is
+    /// driven off; and it doesn't growl over itself.
+    /// </summary>
+    void Chant(float dt)
+    {
+        if (chant == null) return;
+        bool calm = state == State.Roaming || state == State.Searching;
+        if (chant.isPlaying)
+        {
+            chantFade = calm ? Mathf.MoveTowards(chantFade, 1f, dt) : Mathf.MoveTowards(chantFade, 0f, dt * 2.5f);
+            chant.volume = volume * 0.75f * chantFade;
+            if (chantFade <= 0f) chant.Stop();
+            growlTimer = Mathf.Max(growlTimer, 2f);
+            return;
+        }
+        if (!calm) return;
+        chantTimer -= dt;
+        if (chantTimer > 0f) return;
+        chantTimer = Random.Range(25f, 45f);
+        chantFade = 1f;
+        chant.clip = ProceduralAudio.BlindChant(Random.Range(0, 4));
+        chant.pitch = Random.Range(0.92f, 1.04f);
+        chant.volume = volume * 0.75f;
+        chant.Play();
     }
 
     // ---------------------------------------------------------------- Taking the player

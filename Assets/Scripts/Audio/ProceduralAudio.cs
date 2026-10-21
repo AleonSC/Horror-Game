@@ -108,6 +108,26 @@ public static class ProceduralAudio
     /// <summary>Moths round a light: soft, papery wingbeats, many at once, ticking against the lens. Loops.</summary>
     public static AudioClip MothFlutter => mothFlutter != null ? mothFlutter : (mothFlutter = Take(nameof(mothFlutter)) ?? MakeMothFlutter());
     static AudioClip mothFlutter;
+    /// <summary>
+    /// The blind one chanting: deep voices droning something like words in no language, slow and steady,
+    /// echoing. Four different chants (variant 0-3).
+    /// </summary>
+    public static AudioClip BlindChant(int variant)
+    {
+        switch (((variant % 4) + 4) % 4)
+        {
+            case 0: return blindChant0 != null ? blindChant0 : (blindChant0 = Take(nameof(blindChant0)) ?? MakeBlindChant0());
+            case 1: return blindChant1 != null ? blindChant1 : (blindChant1 = Take(nameof(blindChant1)) ?? MakeBlindChant1());
+            case 2: return blindChant2 != null ? blindChant2 : (blindChant2 = Take(nameof(blindChant2)) ?? MakeBlindChant2());
+            default: return blindChant3 != null ? blindChant3 : (blindChant3 = Take(nameof(blindChant3)) ?? MakeBlindChant3());
+        }
+    }
+    static AudioClip blindChant0, blindChant1, blindChant2, blindChant3;
+    static AudioClip MakeBlindChant0() => MakeChant("Blind Chant 0", 101);
+    static AudioClip MakeBlindChant1() => MakeChant("Blind Chant 1", 202);
+    static AudioClip MakeBlindChant2() => MakeChant("Blind Chant 2", 303);
+    static AudioClip MakeBlindChant3() => MakeChant("Blind Chant 3", 404);
+
     /// <summary>Gusting wind. Loops seamlessly.</summary>
     public static AudioClip Wind => wind != null ? wind : (wind = Take(nameof(wind)) ?? MakeWind());
     /// <summary>High, dissonant shimmer that fades in when an entity is near. Loops seamlessly.</summary>
@@ -1626,6 +1646,154 @@ public static class ProceduralAudio
             tap *= 0.985f;
             return lp * 0.25f + tap * Mathf.Sin(TwoPi * 2400f * t) * 0.3f;
         }, 0.6f);
+    }
+
+    // ---------------------------------------------------------------- Voices
+
+    // Vowels by their first three formants (Hz): the resonances of the mouth that make "ah" an "ah".
+    static readonly float[][] Vowels =
+    {
+        new[] { 730f, 1090f, 2440f },  // ah
+        new[] { 530f, 1840f, 2480f },  // eh
+        new[] { 300f, 2200f, 3000f },  // ee
+        new[] { 570f, 840f, 2410f },   // oh
+        new[] { 320f, 870f, 2240f },   // oo
+        new[] { 500f, 1400f, 2450f },  // uh
+    };
+    static readonly float[] HumFormants = { 260f, 1200f, 2300f };
+
+    // Consonants: 0 none, 1 'k' (stop, mid burst), 2 't' (stop, high burst), 3 's' (hiss), 4 'sh', 5 'h'
+    // (breath), 6 'm'/'n' (hummed, mouth nearly shut), 7 'r' (a rolled flutter).
+    static readonly float[] ConsonantCentre = { 0f, 1800f, 4200f, 6000f, 2600f, 1500f, 260f, 900f };
+
+    /// <summary>
+    /// A chant in no language: a few deep voices (and one an octave down) buzzing through the shapes of
+    /// vowels, gliding from one to the next, broken by stops and hisses and hums into syllables, two or three
+    /// syllables to a word, a handful of words, in a slow, steady rhythm sinking in pitch as it goes; a
+    /// little rasping, then echoing. seed picks the words.
+    /// </summary>
+    static AudioClip MakeChant(string name, int seed)
+    {
+        var pick = new System.Random(seed);
+        float P(float a, float b) => a + (float)pick.NextDouble() * (b - a);
+
+        // The words: syllables of (consonant before, vowel, how long), with a pause after each word.
+        var plan = new System.Collections.Generic.List<(int consonant, int vowel, float length, bool pauseAfter)>();
+        int words = pick.Next(4, 7);
+        for (int w = 0; w < words; w++)
+        {
+            int syllables = pick.Next(2, 4);
+            for (int sy = 0; sy < syllables; sy++)
+            {
+                int consonant = pick.NextDouble() < 0.75 ? pick.Next(1, ConsonantCentre.Length) : 0;
+                bool last = sy == syllables - 1;
+                plan.Add((consonant, pick.Next(Vowels.Length), last ? P(0.45f, 0.65f) : P(0.26f, 0.36f), last));
+            }
+        }
+
+        const float consonantTime = 0.07f, pauseTime = 0.22f, lead = 0.3f;
+        float total = lead;
+        foreach (var p in plan) total += consonantTime + p.length + (p.pauseAfter ? pauseTime : 0f);
+        total += 2.2f; // the echo dying away
+        int n = (int)(total * Rate);
+        var dry = new float[n];
+
+        float basePitch = P(58f, 70f);
+        float[] voicePitch = { 1f, 1.007f, 0.993f, 0.5f };
+        float[] voiceLevel = { 1f, 0.7f, 0.7f, 0.6f };
+        var phase = new float[voicePitch.Length];
+        float[] f = { 500f, 1500f, 2500f };
+        var ry1 = new float[3];
+        var ry2 = new float[3];
+        float cy1 = 0f, cy2 = 0f, srcLp = 0f, rasp = 0f;
+
+        int segment = 0;
+        float segStart = lead;
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+            // Where in the chant we are.
+            while (segment < plan.Count && t > segStart + consonantTime + plan[segment].length + (plan[segment].pauseAfter ? pauseTime : 0f))
+            {
+                segStart += consonantTime + plan[segment].length + (plan[segment].pauseAfter ? pauseTime : 0f);
+                segment++;
+            }
+            float voiced = 0f, noise = 0f;
+            int consonant = 0, vowel = 5;
+            if (segment < plan.Count && t >= lead)
+            {
+                var syl = plan[segment];
+                float u = t - segStart;
+                consonant = syl.consonant;
+                vowel = syl.vowel;
+                if (u < consonantTime)
+                {
+                    // The consonant: a stop is a gap and a burst, a hiss is noise, a hum is the voice muffled.
+                    float c = u / consonantTime;
+                    if (consonant == 1 || consonant == 2) { voiced = 0f; noise = c > 0.6f ? (1f - c) * 2.5f : 0f; }
+                    else if (consonant >= 3 && consonant <= 5) { voiced = consonant == 5 ? 0.2f : 0.1f; noise = Mathf.Sin(Mathf.PI * c) * (consonant == 5 ? 0.6f : 0.9f); }
+                    else if (consonant == 6) voiced = 0.45f;
+                    else if (consonant == 7) voiced = 0.6f * (0.5f + 0.5f * Mathf.Sin(TwoPi * 28f * u));
+                    else voiced = Mathf.Clamp01(c * 2f);
+                }
+                else
+                {
+                    // The vowel, swelling in and tailing off.
+                    float v = (u - consonantTime) / syl.length;
+                    voiced = v < 1f ? Mathf.Sin(Mathf.PI * Mathf.Min(1f, v * 1.6f) * 0.5f) * (v > 0.75f ? (1f - v) * 4f : 1f) : 0f;
+                }
+            }
+
+            // The mouth moving: formants gliding toward this sound's (closed and low for a hum).
+            float[] target = consonant == 6 && voiced > 0f ? HumFormants : Vowels[vowel];
+            for (int k = 0; k < 3; k++) f[k] += (target[k] - f[k]) * 0.0012f;
+
+            // The voices: deep buzzes, slowly sinking through the chant, with a slight waver and rasp.
+            float progress = t / total;
+            float pitch = basePitch * (1f - 0.12f * progress) * (1f + 0.004f * Mathf.Sin(TwoPi * 4.5f * t));
+            float source = 0f;
+            for (int k = 0; k < phase.Length; k++)
+            {
+                phase[k] += pitch * voicePitch[k] / Rate;
+                phase[k] -= Mathf.Floor(phase[k]);
+                source += (1f - 2f * phase[k]) * voiceLevel[k];
+            }
+            rasp += (White() - rasp) * 0.3f;
+            float fry = 0.75f + 0.25f * Mathf.Sin(TwoPi * 31f * t + Mathf.Sin(t * 3f) * 4f); // a creak in the throat
+            srcLp += ((source * 0.3f + rasp * 0.25f) * fry * voiced - srcLp) * 0.35f;
+
+            // Through the mouth: three resonances.
+            float outV = 0f;
+            for (int k = 0; k < 3; k++)
+            {
+                float bw = 80f + k * 60f;
+                float r = Mathf.Exp(-Mathf.PI * bw / Rate);
+                float c1 = 2f * r * Mathf.Cos(TwoPi * f[k] / Rate), c2 = -r * r;
+                float y = (1f - r) * srcLp + c1 * ry1[k] + c2 * ry2[k];
+                ry2[k] = ry1[k];
+                ry1[k] = y;
+                outV += y * (k == 0 ? 1f : k == 1 ? 0.7f : 0.35f);
+            }
+
+            // The consonant's own noise, through its resonance.
+            float cOut = 0f;
+            if (noise > 0f)
+            {
+                float cf = ConsonantCentre[Mathf.Clamp(consonant, 1, ConsonantCentre.Length - 1)];
+                float r = Mathf.Exp(-Mathf.PI * 600f / Rate);
+                float c1 = 2f * r * Mathf.Cos(TwoPi * cf / Rate), c2 = -r * r;
+                float y = (1f - r) * White() * noise + c1 * cy1 + c2 * cy2;
+                cy2 = cy1;
+                cy1 = y;
+                cOut = y * 0.6f;
+            }
+            dry[i] = outV * 6f + cOut;
+        }
+
+        // A big, cold space round it.
+        var wet = Reverb(dry, 0.84f, 0.35f);
+        for (int i = 0; i < n; i++) dry[i] = Tanh((dry[i] + wet[i] * 1.6f) * 1.2f);
+        return Create(name, dry, 0.9f);
     }
 
     static AudioClip MakeNightChorus()
