@@ -13,12 +13,12 @@ using UnityEngine;
 /// </summary>
 public class GroundMist : MonoBehaviour
 {
-    public int bankCount = 90;
+    public int bankCount = 80;
     public float radius = 45f;
     [Tooltip("Mist colour in the dark (a little lighter than the fog)...")]
-    public Color darkColor = new Color(0.055f, 0.063f, 0.075f, 0.6f);
+    public Color darkColor = new Color(0.055f, 0.063f, 0.075f, 0.42f);
     [Tooltip("...and where the flashlight lights it.")]
-    public Color litColor = new Color(0.34f, 0.35f, 0.36f, 0.75f);
+    public Color litColor = new Color(0.34f, 0.35f, 0.36f, 0.5f);
     [Tooltip("Size of the areas the mist gathers in, or avoids (smaller = bigger areas).")]
     public float noiseScale = 0.018f;
 
