@@ -14,8 +14,8 @@ public class ShackDoor : MonoBehaviour
     public Vector3 axis = Vector3.up;
     [Tooltip("What it's called in the prompt (\"Open the ...\", with E).")]
     public string noun = "door";
-    /// <summary>What it sounds like: a wooden door, a car's metal door (or trunk), or a plastic glove box.</summary>
-    public enum Kind { Wood, Car, Plastic }
+    /// <summary>What it sounds like: a wooden door, a car's metal door (or trunk), a plastic glove box, or a tent's canvas flap.</summary>
+    public enum Kind { Wood, Car, Plastic, Canvas }
     public Kind kind = Kind.Wood;
     bool shutPending; // swinging shut: the bang comes as it lands
 
@@ -58,12 +58,23 @@ public class ShackDoor : MonoBehaviour
         if (audioSource != null)
         {
             audioSource.pitch = Random.Range(0.92f, 1.06f);
-            if (IsOpen)
+            if (kind == Kind.Canvas)
+                audioSource.PlayOneShot(ProceduralAudio.BushRustle, 0.7f); // a rustle and flap of canvas, either way
+            else if (IsOpen)
                 audioSource.PlayOneShot(kind == Kind.Wood ? ProceduralAudio.DoorOpen : kind == Kind.Car ? ProceduralAudio.CarDoorOpen : ProceduralAudio.GloveBoxOpen);
             else if (kind == Kind.Wood)
                 audioSource.PlayOneShot(ProceduralAudio.DoorClose, 0.8f);
         }
         shutPending = !IsOpen;
+    }
+
+    /// <summary>Sets it open or shut at once, with no swing and no sound (for how it's left when built).</summary>
+    public void SetOpenInstant(bool open)
+    {
+        IsOpen = open;
+        shutPending = false;
+        angle = open ? openAngle : 0f;
+        transform.localRotation = Quaternion.AngleAxis(angle, axis);
     }
 
     /// <summary>Shuts the door instantly (used when the run resets).</summary>
@@ -84,7 +95,7 @@ public class ShackDoor : MonoBehaviour
         if (shutPending && !IsOpen && Mathf.Approximately(angle, 0f))
         {
             shutPending = false;
-            if (audioSource != null)
+            if (audioSource != null && kind != Kind.Canvas)
             {
                 audioSource.pitch = Random.Range(0.94f, 1.06f);
                 audioSource.PlayOneShot(kind == Kind.Wood ? ProceduralAudio.DoorShut : kind == Kind.Car ? ProceduralAudio.CarDoorShut : ProceduralAudio.GloveBoxShut);

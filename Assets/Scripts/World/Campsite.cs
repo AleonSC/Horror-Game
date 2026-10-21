@@ -61,18 +61,36 @@ public class Campsite : MonoBehaviour
         var sooty = generator.RockMaterial != null ? new Material(generator.RockMaterial) : MaterialFactory.Lit(new Color(0.15f, 0.15f, 0.15f));
         MaterialFactory.SetColor(sooty, new Color(0.45f, 0.43f, 0.42f)); // blackened by the fire
 
-        // ---- The tent: a proper canvas A-frame, sides sagging between the poles, back closed, one door flap
-        // tied open, guy ropes out to pegs. Tilted to sit on the slope.
-        var tent = AnchorOnGround("Tent", new Vector3(-1.7f, 0f, 0.6f), R(-25f, 25f), 1f, 1.4f, Ground);
-        const float tentWidth = 0.95f, tentHeight = 1.15f, tentLength = 2.2f;
-        MeshPart(tent, "Canvas", BuildTentMesh(tentWidth, tentHeight, tentLength, R(0.08f, 0.16f)), canvas);
-        // Door: the left flap hangs closed, the right one is pulled back and tied open.
-        MeshPart(tent, "Door Flap", Triangle(new Vector3(-tentWidth, 0f, tentLength * 0.5f), new Vector3(0f, 0f, tentLength * 0.5f + 0.05f), new Vector3(0f, tentHeight, tentLength * 0.5f)), canvas);
-        var flapHinge = new GameObject("Open Flap").transform;
-        flapHinge.SetParent(tent, false);
-        flapHinge.localPosition = new Vector3(tentWidth, 0f, tentLength * 0.5f);
-        flapHinge.localRotation = Quaternion.AngleAxis(-R(55f, 80f), new Vector3(-tentWidth, tentHeight, 0f).normalized);
-        MeshPart(flapHinge, "Flap", Triangle(Vector3.zero, new Vector3(-tentWidth, tentHeight, 0f), new Vector3(-tentWidth, 0f, 0.03f)), canvas);
+        // ---- The tent: a proper canvas A-frame, sides sagging a little between the poles, back closed, two
+        // door flaps (open, or shut with E), guy ropes out to pegs. Tilted to sit on the slope. Big enough to
+        // crawl into: crouched, you fit under the ridge; standing, your head's against the canvas.
+        var tent = AnchorOnGround("Tent", new Vector3(-1.7f, 0f, 0.6f), R(-25f, 25f), 1.3f, 1.5f, Ground);
+        const float tentWidth = 1.25f, tentHeight = 1.5f, tentLength = 2.6f;
+        MeshPart(tent, "Canvas", BuildTentMesh(tentWidth, tentHeight, tentLength, R(0.04f, 0.08f)), canvas);
+        // The door: two flaps, each hinged down its outer edge, swinging back along the sides when open.
+        var flaps = new ShackDoor[2];
+        for (int f = 0; f < 2; f++)
+        {
+            float sgn = f == 0 ? -1f : 1f;
+            var hinge = new GameObject("Tent Flap").transform;
+            hinge.SetParent(tent, false);
+            hinge.localPosition = new Vector3(sgn * tentWidth, 0f, tentLength * 0.5f);
+            var flap = MeshPart(hinge, "Flap", Triangle(Vector3.zero, new Vector3(-sgn * tentWidth, tentHeight, 0f), new Vector3(-sgn * tentWidth, 0f, 0.03f)), canvas);
+            var aim = flap.gameObject.AddComponent<BoxCollider>(); // (for E to find it; you walk through canvas)
+            aim.isTrigger = true;
+            aim.center = new Vector3(-sgn * tentWidth * 0.55f, tentHeight * 0.35f, 0f);
+            aim.size = new Vector3(tentWidth * 0.9f, tentHeight * 0.7f, 0.15f);
+            var door = hinge.gameObject.AddComponent<ShackDoor>();
+            door.axis = new Vector3(-sgn * tentWidth, tentHeight, 0f).normalized;
+            door.openAngle = -sgn * 100f;
+            door.swingSpeed = 220f;
+            door.noun = "tent flap";
+            door.kind = ShackDoor.Kind.Canvas;
+            flaps[f] = door;
+        }
+        flaps[0].linked = flaps[1];
+        flaps[1].linked = flaps[0];
+        foreach (var door in flaps) door.SetOpenInstant(true);
         // Poles at each end and the ridge.
         for (int end = -1; end <= 1; end += 2)
             Part(PrimitiveType.Cylinder, pole, tent, new Vector3(0f, tentHeight * 0.5f, end * tentLength * 0.5f), new Vector3(0.025f, tentHeight * 0.5f, 0.025f));
@@ -90,9 +108,23 @@ public class Campsite : MonoBehaviour
             Part(PrimitiveType.Cylinder, rope, tent, (from + to) * 0.5f, new Vector3(0.008f, d.magnitude * 0.5f, 0.008f)).localRotation = Quaternion.FromToRotation(Vector3.up, d);
             Part(PrimitiveType.Cylinder, pole, tent, to + Vector3.up * 0.04f, new Vector3(0.015f, 0.06f, 0.015f)); // peg
         }
-        var tentCollider = tent.gameObject.AddComponent<BoxCollider>();
-        tentCollider.center = new Vector3(0f, 0.55f, 0f);
-        tentCollider.size = new Vector3(1.7f, 1.1f, 2.2f);
+        // Solid where the canvas is: its two sloping sides and the closed back (the front's open, past the
+        // flaps), so you can crawl in but not walk in upright.
+        float slant = Mathf.Sqrt(tentWidth * tentWidth + tentHeight * tentHeight);
+        float lean = Mathf.Atan2(tentWidth, tentHeight) * Mathf.Rad2Deg;
+        for (int sgn = -1; sgn <= 1; sgn += 2)
+        {
+            var wall = new GameObject("Tent Side").transform;
+            wall.SetParent(tent, false);
+            wall.localPosition = new Vector3(sgn * tentWidth * 0.5f, tentHeight * 0.5f, 0f);
+            wall.localRotation = Quaternion.Euler(0f, 0f, sgn * lean);
+            var box = wall.gameObject.AddComponent<BoxCollider>();
+            box.center = new Vector3(sgn * 0.03f, 0f, 0f); // its inner face on the canvas
+            box.size = new Vector3(0.06f, slant, tentLength);
+        }
+        var back = tent.gameObject.AddComponent<BoxCollider>();
+        back.center = new Vector3(0f, tentHeight * 0.5f, -tentLength * 0.5f - 0.03f);
+        back.size = new Vector3(tentWidth * 2f, tentHeight, 0.06f);
 
         // ---- The burnt-out campfire: a low mound of ash sinking into the dirt, ringed close with
         // soot-blackened stones (real rock shapes) bedded into the ground; charred logs, burnt down to points,
