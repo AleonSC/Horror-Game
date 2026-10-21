@@ -116,7 +116,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     GUIStyle nameStyle, numberStyle, messageStyle;
 
     static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob", "Map", "Drone", "Remote", "Stick of Truth" };
-    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel, droneModel, remoteModel, stickModel;
+    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel, droneModel, remoteModel, stickModel, remoteDot, remoteYou;
     Light flashLight;
     float flashGlow, flashReady;
 
@@ -370,6 +370,34 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         Selected = Item.Flashlight; // (so selecting the remote below counts as a change)
         Select(Item.Remote);
         Message("Drone set down. With the remote in hand, F flies it from wherever you are.");
+    }
+
+    /// <summary>
+    /// The remote's little screen tracks the drone: a dot where it is from you (ahead is up the screen),
+    /// nearer the edge the further off it is, blinking; pinned to the edge, past what the screen covers.
+    /// </summary>
+    void UpdateRemoteScreen()
+    {
+        if (remoteDot == null) return;
+        var drone = DroneUnit.Deployed;
+        var cam = Camera.main;
+        bool show = drone != null && cam != null && Mathf.Repeat(Time.time, 0.8f) < 0.6f;
+        remoteDot.gameObject.SetActive(show);
+        if (!show) return;
+        Vector3 you = cam.transform.position;
+        Vector3 to = WorldWrap.NearestImage(drone.transform.position, you) - you;
+        to.y = 0f;
+        Vector3 forward = cam.transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f) forward = transform.forward;
+        Vector3 local = Quaternion.Inverse(Quaternion.LookRotation(forward.normalized)) * to;
+        float dist = local.magnitude;
+        Vector2 dir = dist > 0.01f ? new Vector2(local.x, local.z) / dist : Vector2.zero;
+        float reach = dist / (dist + 25f); // close in near the middle, the far end squeezed toward the edge
+        const float halfW = 0.027f, halfH = 0.0155f;
+        Vector2 spot = dir * reach;
+        spot = new Vector2(spot.x * halfW, spot.y * halfH);
+        remoteDot.localPosition = new Vector3(spot.x, 0.0149f, 0.022f + spot.y);
     }
 
     /// <summary>Puts one item in another's slot (the drone becoming its remote, and back).</summary>
@@ -841,6 +869,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         fobModel.gameObject.SetActive(Selected == Item.KeyFob);
         droneModel.gameObject.SetActive(Selected == Item.Drone);
         remoteModel.gameObject.SetActive(Selected == Item.Remote);
+        if (Selected == Item.Remote) UpdateRemoteScreen();
         stickModel.gameObject.SetActive(Selected == Item.Stick);
         // The fob's little LED lights while the button's pressed.
         fobLedTimer -= Time.deltaTime;
@@ -945,6 +974,14 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             HeldPart(PrimitiveType.Sphere, grip, remoteModel, new Vector3(x * 0.6f, 0.032f, 0.0f), Vector3.one * 0.016f, Vector3.zero);
         }
         HeldPart(PrimitiveType.Cube, screen, remoteModel, new Vector3(0f, 0.0135f, 0.022f), new Vector3(0.06f, 0.002f, 0.035f), Vector3.zero);
+        // On the screen: you, a faint mark in the middle, and the drone, a bright dot where it is from you.
+        remoteYou = new GameObject("Screen You").transform;
+        remoteYou.SetParent(remoteModel, false);
+        remoteYou.localPosition = new Vector3(0f, 0.0148f, 0.022f);
+        HeldPart(PrimitiveType.Cube, MaterialFactory.NoFog(new Color(0.5f, 0.9f, 0.8f) * 0.9f), remoteYou, Vector3.zero, new Vector3(0.003f, 0.0005f, 0.003f), Vector3.zero);
+        remoteDot = new GameObject("Screen Drone").transform;
+        remoteDot.SetParent(remoteModel, false);
+        HeldPart(PrimitiveType.Cube, MaterialFactory.NoFog(new Color(1f, 0.2f, 0.12f) * 3f), remoteDot, Vector3.zero, new Vector3(0.004f, 0.0006f, 0.004f), Vector3.zero);
         HeldPart(PrimitiveType.Cylinder, grip, remoteModel, new Vector3(0.06f, 0.01f, 0.07f), new Vector3(0.006f, 0.05f, 0.006f), new Vector3(70f, 0f, 0f)); // the aerial
         remoteModel.gameObject.SetActive(false);
     }
