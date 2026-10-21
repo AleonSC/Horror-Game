@@ -248,7 +248,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
         // A slow blink, like a radio mast: a quick flare, fading away.
         float t = Mathf.Repeat(Time.time + markerPhase, Mathf.Max(markerPeriod, 0.1f));
-        float glow = Mathf.Exp(-t * 3.5f);
+        float glow = Mathf.Exp(-t * 2.6f);
         var cam = Camera.main;
         float dist = cam != null ? Vector3.Distance(cam.transform.position, marker.position) : 10f;
 
@@ -258,10 +258,13 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
         float fade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(markerFadeNear, markerFadeFar, flat.magnitude));
         markerFade = Mathf.MoveTowards(markerFade, fade, Time.deltaTime * 1.5f);
         marker.GetComponent<Renderer>().enabled = markerFade > 0.01f;
-        MaterialFactory.SetColor(markerMat, markerColor * (0.25f + 4f * glow) * markerFade);
+        // The last couple of lamps left dark burn a little brighter and bigger, so the end of a run isn't a
+        // long hunt in the dark (still easy to miss behind the trees).
+        float lastOnes = DarkCount <= 2 ? 1.4f : 1f;
+        MaterialFactory.SetColor(markerMat, markerColor * (0.4f + 4.5f * glow) * markerFade * lastOnes);
 
         // Kept big enough to see from far off.
-        marker.localScale = Vector3.one * Mathf.Max(0.12f, dist * 0.006f);
+        marker.localScale = Vector3.one * Mathf.Max(0.14f, dist * 0.0075f) * Mathf.Lerp(1f, lastOnes, 0.6f);
 
         // Now and then the buzz crackles.
         buzz.volume = buzzVolume;
