@@ -667,8 +667,11 @@ public class DarkForestGenerator : MonoBehaviour
 
         var shape = new TrunkShape(this, trunkHeight, trunkRadius, 0.45f, scale);
         float foliageStart = trunkHeight * Range(0.3f, 0.45f);
+        float foliageSpan = trunkHeight * 1.02f - foliageStart;
+        float baseRadius = Range(1.7f, 2.5f) * scale;
         bool hasVines = Range(0f, 1f) < vineTreeChance;
         var vineLimbs = new List<Vector3[]>();
+        var boughs = new List<Vector3[]>();
 
         Transform sway = AddTrunk(tree.transform, shape, barkMat, "Trunk", bark =>
         {
@@ -694,24 +697,37 @@ public class DarkForestGenerator : MonoBehaviour
                 dir = (dir + Vector3.up * Range(-0.3f, 0.25f)).normalized;
                 AddLimb(bark, shape, y, dir, Range(0.25f, 0.7f) * scale, shape.RadiusAt(y) * Range(0.2f, 0.32f), 0f, 0);
             }
+
+            // The crown: whorls of real branches up the top of the trunk, long at the bottom and short at the
+            // top, each reaching out, rising a little and then sagging at its tip, with open air between them.
+            int whorls = rng.Next(6, 10);
+            for (int w = 0; w < whorls; w++)
+            {
+                float t = w / (float)(whorls - 1);
+                float y = foliageStart + foliageSpan * 0.93f * t + Range(-0.15f, 0.15f) * scale;
+                float reach = baseRadius * Mathf.Lerp(1f, 0.18f, Mathf.Pow(t, 0.85f));
+                int count = rng.Next(4, 6);
+                float spin = Range(0f, 360f);
+                for (int b = 0; b < count; b++)
+                {
+                    float yaw = spin + b * 360f / count + Range(-20f, 20f);
+                    Vector3 dir = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+                    dir = (dir + Vector3.up * Mathf.Lerp(0.05f, 0.6f, t) * Range(0.7f, 1.3f)).normalized; // younger ones reach up
+                    float length = reach * Range(0.75f, 1.15f);
+                    boughs.Add(AddBough(bark, shape, y, dir, length, shape.RadiusAt(y) * Range(0.14f, 0.22f) + 0.01f));
+                }
+            }
         });
 
-        // Layers of drooping, star-shaped boughs, starting high so the lower trunk is bare and creepy.
-        var foliage = new MeshBuilder();
-        int layers = rng.Next(5, 9);
-        float foliageSpan = trunkHeight * 1.05f - foliageStart;
-        float baseRadius = Range(1.6f, 2.4f) * scale;
-        for (int i = 0; i < layers; i++)
-        {
-            float t = i / (float)layers;
-            float y = foliageStart + foliageSpan * t;
-            float radius = baseRadius * Mathf.Lerp(1f, 0.25f, Mathf.Pow(t, 0.9f)) * Range(0.85f, 1.15f);
-            float height = foliageSpan / layers * Range(1.5f, 2.1f);
-            AddBoughLayer(foliage, shape.Center(y), radius, height, Range(-6f, 6f), Range(-6f, 6f));
-        }
+        // Their needles: sprays along the outer part of every branch and side shoot, and a tuft on the leader,
+        // in clumps with gaps between, so light comes through the crown in shafts and patches.
+        var leaves = new LeafBuilder();
+        foreach (var bough in boughs) AddNeedleSprays(leaves, bough, scale);
+        Vector3 leader = shape.Center(trunkHeight * 1.02f);
+        for (int k = 0; k < 3; k++) leaves.AddCluster(leader + Vector3.down * (k * 0.35f * scale), 0.35f * scale, 9, 0.22f * scale, Vector3.up, rng);
         var foliageObject = new GameObject("Foliage");
         foliageObject.transform.SetParent(sway, false);
-        foliageObject.AddComponent<MeshFilter>().sharedMesh = foliage.ToMesh("Foliage", false);
+        foliageObject.AddComponent<MeshFilter>().sharedMesh = leaves.ToMesh("Foliage");
         foliageObject.AddComponent<MeshRenderer>().sharedMaterial = foliageMats[rng.Next(foliageMats.Length)];
 
         // The vines, each hanging from near the end of its branch.
@@ -911,57 +927,131 @@ public class DarkForestGenerator : MonoBehaviour
     Vector3 Random3() => new Vector3(Range(-1f, 1f), Range(-1f, 1f), Range(-1f, 1f));
 
     /// <summary>
-    /// One layer of pine boughs: a ring of branch tips drooping at the ends with gaps between them, sloping up
-    /// to the trunk, with a hollow underside (what you see looking up into the canopy). Needles run outward.
+    /// A pine branch: out from the trunk, rising a little and sagging toward its tip, tapering to a point,
+    /// with a couple of thin side shoots. Returns its path (and its side shoots' paths after it, each starting
+    /// with a NaN marker) for the needles to be hung on.
     /// </summary>
-    void AddBoughLayer(MeshBuilder mesh, Vector3 center, float radius, float height, float tiltX, float tiltZ)
+    Vector3[] AddBough(MeshBuilder mesh, TrunkShape shape, float y, Vector3 dir, float length, float thickness)
     {
-        int tips = rng.Next(7, 12);
-        int points = tips * 2;
-        float rotation = Range(0f, Mathf.PI * 2f);
-        Quaternion tilt = Quaternion.Euler(tiltX, 0f, tiltZ);
-
-        var tipRadius = new float[points + 1];
-        var tipDroop = new float[points + 1];
-        for (int k = 0; k < points; k++)
+        Vector3 flat = new Vector3(dir.x, 0f, dir.z).normalized;
+        Vector3 start = shape.Center(y) + flat * shape.RadiusAt(y) * 0.5f;
+        float sag = length * Range(0.12f, 0.3f);
+        const int steps = 5;
+        var path = new Vector3[steps];
+        var widths = new float[steps];
+        for (int i = 0; i < steps; i++)
         {
-            bool tip = k % 2 == 0;
-            tipRadius[k] = tip ? Range(0.85f, 1.15f) : Range(0.5f, 0.65f);
-            tipDroop[k] = tip ? Range(0.08f, 0.22f) * radius : -0.04f * radius;
+            float t = i / (float)(steps - 1);
+            path[i] = start + dir * (length * t) + Vector3.down * (sag * t * t);
+            widths[i] = thickness * (1f - 0.9f * t) + 0.004f;
         }
-        tipRadius[points] = tipRadius[0];
-        tipDroop[points] = tipDroop[0];
+        mesh.AddTube(path, (i, a) => widths[i], 4, 1, 1.2f);
 
-        // Rings from the outer edge inward: (fraction of each point's radius, height above the layer base).
-        Vector3 Point(int k, float radial, float up, float droop)
+        var all = new List<Vector3>(path);
+        int shoots = rng.Next(1, 3);
+        for (int k = 0; k < shoots; k++)
         {
-            float a = rotation + k / (float)points * Mathf.PI * 2f;
-            float r = radius * Mathf.Lerp(radial, tipRadius[k] * radial, radial);
-            return center + tilt * new Vector3(Mathf.Cos(a) * r, up - tipDroop[k] * droop, Mathf.Sin(a) * r);
+            float t = Range(0.35f, 0.75f);
+            int i = Mathf.Min(steps - 2, Mathf.FloorToInt(t * (steps - 1)));
+            Vector3 from = Vector3.Lerp(path[i], path[i + 1], t * (steps - 1) - i);
+            Vector3 along = (path[i + 1] - path[i]).normalized;
+            Vector3 side = Vector3.Cross(Vector3.up, along).normalized * (rng.Next(2) == 0 ? -1f : 1f);
+            Vector3 shootDir = (along * 0.6f + side + Vector3.up * Range(-0.1f, 0.25f)).normalized;
+            float shootLength = length * Range(0.25f, 0.4f);
+            var shoot = new[] { from, from + shootDir * shootLength * 0.5f, from + shootDir * shootLength + Vector3.down * shootLength * 0.12f };
+            float w = Mathf.Lerp(widths[i], widths[i + 1], 0.5f) * 0.55f;
+            mesh.AddTube(shoot, (j, a) => w * (1f - 0.8f * j / 2f) + 0.003f, 3, 1, 1.2f);
+            all.Add(new Vector3(float.NaN, 0f, 0f));
+            all.AddRange(shoot);
         }
-        var top = new[] { (1f, 0f, 1f), (0.55f, height * 0.45f, 0.3f), (0f, height, 0f) };
-        var under = new[] { (1f, 0f, 1f), (0.45f, height * 0.2f, 0.2f), (0f, height * 0.4f, 0f) };
-
-        AddSurface(mesh, Point, top, points, tips, radius, false);
-        AddSurface(mesh, Point, under, points, tips, radius, true);
+        return all.ToArray();
     }
 
-    static void AddSurface(MeshBuilder mesh, System.Func<int, float, float, float, Vector3> point, (float radial, float up, float droop)[] rings,
-        int points, int tips, float radius, bool flip)
+    /// <summary>Clumps of needles along the outer part of a branch and its side shoots (paths split by NaN markers).</summary>
+    void AddNeedleSprays(LeafBuilder leaves, Vector3[] paths, float scale)
     {
-        int first = mesh.vertices.Count;
-        foreach (var ring in rings)
+        int start = 0;
+        bool main = true;
+        for (int i = 0; i <= paths.Length; i++)
         {
-            for (int k = 0; k <= points; k++)
+            if (i < paths.Length && !float.IsNaN(paths[i].x)) continue;
+            int end = i; // [start, end)
+            if (end - start >= 2)
             {
-                mesh.vertices.Add(point(k, ring.radial, ring.up, ring.droop));
-                // Each bough is one width of texture; v runs in toward the trunk.
-                mesh.uvs.Add(new Vector2(k / (float)points * tips, (1f - ring.radial) * radius / 1.2f));
+                // From partway out to the tip: a few clumps on the main branch, one or two on a side shoot.
+                int clumps = main ? rng.Next(2, 5) : 1;
+                for (int c = 0; c < clumps; c++)
+                {
+                    float t = clumps == 1 ? 1f : Mathf.Lerp(main ? 0.4f : 0.5f, 1f, c / (float)(clumps - 1));
+                    float f = t * (end - start - 1);
+                    int a = start + Mathf.Min(end - start - 2, Mathf.FloorToInt(f));
+                    Vector3 at = Vector3.Lerp(paths[a], paths[a + 1], f - (a - start));
+                    Vector3 along = (paths[a + 1] - paths[a]).normalized;
+                    float size = Range(0.28f, 0.42f) * scale * (main ? 1f : 0.8f);
+                    leaves.AddCluster(at, size, rng.Next(5, 8), size * 0.8f, along, rng);
+                }
             }
-            if (mesh.vertices.Count - first > points + 1) mesh.seams.Add((mesh.vertices.Count - points - 1, mesh.vertices.Count - 1));
+            start = i + 1;
+            main = false;
         }
-        mesh.seams.Add((first, first + points));
-        mesh.AddGrid(first, rings.Length, points, flip);
+    }
+
+    /// <summary>
+    /// Leaves (here, little sprays of needles) as real geometry: no cut-out textures, which builds can strip.
+    /// Each leaf is a thin sliver, drawn from both sides, its normal pointing out from the middle of its clump
+    /// so the clump lights as a soft, rounded tuft.
+    /// </summary>
+    class LeafBuilder
+    {
+        readonly List<Vector3> vertices = new List<Vector3>();
+        readonly List<Vector3> normals = new List<Vector3>();
+        readonly List<Vector2> uvs = new List<Vector2>();
+        readonly List<int> triangles = new List<int>();
+
+        /// <summary>A clump of count slivers round center (spread over radius), each about length long, fanning along dir.</summary>
+        public void AddCluster(Vector3 center, float radius, int count, float length, Vector3 dir, System.Random rng)
+        {
+            float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+            for (int n = 0; n < count; n++)
+            {
+                var offset = new Vector3(R(-1f, 1f), R(-0.45f, 0.45f), R(-1f, 1f)) * radius * 0.5f;
+                Vector3 basePoint = center + offset;
+                Vector3 outward = (offset.normalized + dir * 0.7f + new Vector3(R(-0.4f, 0.4f), R(-0.35f, 0.15f), R(-0.4f, 0.4f))).normalized;
+                if (outward.sqrMagnitude < 0.01f) outward = dir;
+                Vector3 across = Vector3.Cross(outward, Vector3.up);
+                if (across.sqrMagnitude < 0.01f) across = Vector3.right;
+                across = across.normalized * (length * R(0.16f, 0.26f)); // a broad sliver: a spray of needles, not one
+                float len = length * R(0.75f, 1.2f);
+                Vector3 tip = basePoint + outward * len + Vector3.down * len * R(0.05f, 0.25f); // sagging a touch
+                Vector3 normal = (offset.normalized + Vector3.up * 0.6f).normalized;
+                float u = R(0f, 0.7f);
+                for (int side = 0; side < 2; side++)
+                {
+                    int i = vertices.Count;
+                    vertices.Add(basePoint - across);
+                    vertices.Add(basePoint + across);
+                    vertices.Add(tip);
+                    for (int k = 0; k < 3; k++) normals.Add(normal);
+                    uvs.Add(new Vector2(u, 0f));
+                    uvs.Add(new Vector2(u + 0.3f, 0f));
+                    uvs.Add(new Vector2(u + 0.15f, 1f));
+                    if (side == 0) triangles.AddRange(new[] { i, i + 2, i + 1 });
+                    else triangles.AddRange(new[] { i, i + 1, i + 2 });
+                }
+            }
+        }
+
+        public Mesh ToMesh(string name)
+        {
+            var mesh = new Mesh { name = name };
+            if (vertices.Count > 65000) mesh.indexFormat = IndexFormat.UInt32;
+            mesh.SetVertices(vertices);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateBounds();
+            return mesh;
+        }
     }
 
     /// <summary>Collects vertices and triangles for a procedural mesh (tubes for trunks and branches, bough layers).</summary>
