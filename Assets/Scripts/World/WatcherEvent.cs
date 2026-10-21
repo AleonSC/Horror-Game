@@ -68,7 +68,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     [Tooltip("Seconds per full stride (two steps). Longer legs, slower steps.")]
     public float strideTime = 12f;
     [Tooltip("Camera shake from its footsteps: far off, and when it's nearly on you (degrees).")]
-    public float farStepShake = 0.9f, nearStepShake = 5f;
+    public float farStepShake = 0.9f, nearStepShake = 3.8f;
     [Tooltip("Seconds after it lands before the shockwave goes out across the forest.")]
     public float shockwaveDelay = 2.5f;
     [Tooltip("How fast the shockwave travels (m/s).")]
