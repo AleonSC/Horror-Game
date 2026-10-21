@@ -295,6 +295,8 @@ public class DarkForestGenerator : MonoBehaviour
         if (spawnPlayer) SpawnPlayer();
         if (spawnEntity && FindAnyObjectByType<ShadowEntity>() == null)
             ShadowEntity.Spawn(ShadowEntity.FirstEntityDelay); // a minute of calm before it starts
+        if (spawnEntity && Application.isPlaying && FindAnyObjectByType<CrawlerSpawner>() == null)
+            new GameObject("Crawler Spawner").AddComponent<CrawlerSpawner>(); // things in the mist, from the 2nd lamp
         if (spawnEntity && Application.isPlaying && FindAnyObjectByType<ScourClock>() == null)
             new GameObject("Scour Clock").AddComponent<ScourClock>(); // one more every minute, for ten minutes
         if (spawnLamps && FindAnyObjectByType<LampSpawner>() == null)

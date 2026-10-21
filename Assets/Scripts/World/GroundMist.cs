@@ -163,6 +163,9 @@ public class GroundMist : MonoBehaviour
     }
 
     /// <summary>How much mist gathers here, 0-1: in its patches, deeper in hollows, over and round the ponds.</summary>
+    /// <summary>How much mist gathers at a point, 0-1 (before the storm thins it). Crawlers hide where it's thick.</summary>
+    public float MistAt(float x, float z) => generator != null ? Mistiness(x, z, generator.GetGroundHeight(x, z)) * Mathf.Lerp(1f, atFullStorm, RainDrops.Storm) : 0f;
+
     float Mistiness(float x, float z, float ground)
     {
         float patches = Mathf.PerlinNoise((x + noiseOffset.x) * patchScale, (z + noiseOffset.y) * patchScale);

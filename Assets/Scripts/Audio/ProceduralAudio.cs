@@ -105,6 +105,9 @@ public static class ProceduralAudio
     public static AudioClip GloveBoxShut => gloveBoxShut != null ? gloveBoxShut : (gloveBoxShut = Take(nameof(gloveBoxShut)) ?? MakeGloveBoxShut());
     static AudioClip doorOpen, doorClose, doorShut, doorRattle, carDoorOpen, carDoorShut, gloveBoxOpen, gloveBoxShut;
 
+    /// <summary>Moths round a light: soft, papery wingbeats, many at once, ticking against the lens. Loops.</summary>
+    public static AudioClip MothFlutter => mothFlutter != null ? mothFlutter : (mothFlutter = Take(nameof(mothFlutter)) ?? MakeMothFlutter());
+    static AudioClip mothFlutter;
     /// <summary>Gusting wind. Loops seamlessly.</summary>
     public static AudioClip Wind => wind != null ? wind : (wind = Take(nameof(wind)) ?? MakeWind());
     /// <summary>High, dissonant shimmer that fades in when an entity is near. Loops seamlessly.</summary>
@@ -1589,6 +1592,40 @@ public static class ProceduralAudio
             lp += (s - lp) * 0.18f;
             return Tanh(lp * 1.6f);
         }, 0.9f);
+    }
+
+    static AudioClip MakeMothFlutter()
+    {
+        // A dozen moths, each a burst of wingbeats (papery noise chopped at its own buzzing rate) drifting
+        // nearer and further, and now and then one tapping into the glass.
+        const int moths = 12;
+        var rate = new float[moths];
+        var phase = new float[moths];
+        var drift = new float[moths];
+        for (int m = 0; m < moths; m++)
+        {
+            rate[m] = 28f + 22f * Mathf.Abs(White());
+            phase[m] = Mathf.Abs(White()) * 10f;
+            drift[m] = 1 + rng.Next(3); // whole cycles per loop, so it wraps cleanly
+        }
+        float hp = 0f, lp = 0f, tap = 0f;
+        return Loop("Moth Flutter", 8f, t =>
+        {
+            float n = White();
+            hp += (n - hp) * 0.25f;
+            float paper = n - hp; // the hiss of wings, lows taken out
+            float beats = 0f;
+            for (int m = 0; m < moths; m++)
+            {
+                float flap = Mathf.Max(0f, Mathf.Sin(TwoPi * rate[m] * t + phase[m]));
+                float near = 0.5f + 0.5f * Mathf.Sin(TwoPi * drift[m] * t / 8f + phase[m]);
+                beats += flap * flap * near * near;
+            }
+            lp += (paper * beats - lp) * 0.35f;
+            if (rng.NextDouble() < 0.0004) tap = 1f;
+            tap *= 0.985f;
+            return lp * 0.25f + tap * Mathf.Sin(TwoPi * 2400f * t) * 0.3f;
+        }, 0.6f);
     }
 
     static AudioClip MakeNightChorus()

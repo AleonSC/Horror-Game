@@ -32,6 +32,7 @@ public static class StaticReset
         ItemPickup.ResetStatics();
         Glowstick.ResetStatics();
         Polaroid.ResetStatics();
+        Crawler.ResetStatics();
         SafeZones.ResetStatics();
         Shockwave.ResetStatics();
         GroundLeaves.ResetStatics();

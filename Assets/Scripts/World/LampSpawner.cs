@@ -158,5 +158,6 @@ public class LampSpawner : MonoBehaviour
         if (player.GetComponent<Hotbar>() == null) player.gameObject.AddComponent<Hotbar>();
         if (player.GetComponent<Footsteps>() == null) player.gameObject.AddComponent<Footsteps>();
         if (player.GetComponent<BreathFog>() == null) player.gameObject.AddComponent<BreathFog>();
+        if (player.GetComponent<FlashlightMoths>() == null) player.gameObject.AddComponent<FlashlightMoths>();
     }
 }

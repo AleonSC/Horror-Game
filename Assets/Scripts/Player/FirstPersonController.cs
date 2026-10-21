@@ -69,6 +69,8 @@ public class FirstPersonController : MonoBehaviour
     public bool IsRunning { get; private set; }
     public bool IsCrouching { get; private set; }
     public float CurrentSpeed => moveVelocity.magnitude;
+    /// <summary>Held fast by something (a crawler has your ankle): no walking or jumping until it's cleared.</summary>
+    public bool Snared { get; set; }
     /// <summary>How fast and which way the player is walking (horizontal).</summary>
     public Vector3 Velocity => moveVelocity;
 
@@ -194,6 +196,7 @@ public class FirstPersonController : MonoBehaviour
         ladder = null;
         ladderContacts = 0;
         wakeTimer = wakeTime; // waking up again
+        Snared = false;
     }
 
     void Update()
@@ -328,7 +331,7 @@ public class FirstPersonController : MonoBehaviour
     {
         bool grounded = controller.isGrounded;
 
-        Vector2 input = Vector2.ClampMagnitude(HorrorInput.Move, 1f);
+        Vector2 input = Snared ? Vector2.zero : Vector2.ClampMagnitude(HorrorInput.Move, 1f); // held fast by the ankle: nowhere to go
         bool hasInput = input.sqrMagnitude > 0.01f;
 
         IsRunning = HorrorInput.RunHeld && !IsCrouching && hasInput && input.y > 0f && Grogginess < 0.3f; // can't run yet
@@ -353,7 +356,7 @@ public class FirstPersonController : MonoBehaviour
             if (grounded && verticalVelocity < 0f)
                 verticalVelocity = -2f; // keep the controller snapped to the ground
 
-            if (grounded && !IsCrouching && HorrorInput.JumpPressed)
+            if (grounded && !IsCrouching && !Snared && HorrorInput.JumpPressed)
                 verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
 
             verticalVelocity += gravity * Time.deltaTime;
