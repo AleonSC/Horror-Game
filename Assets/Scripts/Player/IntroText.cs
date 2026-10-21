@@ -22,10 +22,9 @@ public class IntroText : MonoBehaviour
         "*WAKE UP.* THERE IS LITTLE TIME.",
         "YOU *MUST* MOVE.",
         "**HE** IS AWARE OF YOUR INTRUSION.",
-        "THERE IS A CHANCE...",
-        "*...MAYBE.*",
+        "FIND THE *DOOR.*",
         "KEEP THE FOREST *BRIGHT.*",
-        "THEY DON'T LIKE THE *LIGHT.*",
+        "THEY DON'T LIKE BEING *SEEN.*",
         "BUT BE CAREFUL...",
         "...THEY LIKE **YOU** EVEN LESS.",
     };
@@ -448,16 +447,14 @@ public class LampNarration : MonoBehaviour
             "\"FOR -HE- HAS SEEN YOU!!!\"",
             "\"LIGHT THE REMAINING!!!!\"",
             "\"FIND THE DOOR!!!\"",
-            "\"IT IS YOUR ONLY HOPE!!!\"",
         }),
         (7, "LampText7", true, new[]
         {
             "\"...\"",
             "\"I do not know of this entity.\"",
             "\"I have never witnessed it.\"",
-            "\"I must go, for my own safety.\"",
-            "\"Please understand.\"",
-            "\"Remember, the door.\"",
+            "\"I must seek safety, please understand.\"",
+            "\"Good luck.\"",
         }),
     };
 

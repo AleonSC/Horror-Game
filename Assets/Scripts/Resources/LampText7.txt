@@ -1,6 +1,5 @@
 "..."
 "I do not know of this entity."
 "I have never witnessed it."
-"I must go, for my own safety."
-"Please understand."
-"Remember, the door."
+"I must seek safety, please understand."
+"Good luck."
