@@ -1,11 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// A torch fixed in place, unlit: a tall standing one staked in the ground at a campsite, or one in an iron
-/// bracket on the outside wall of a shack. Click it with a lighter in your pocket and it catches (using a
+/// A fire fixed in place, unlit: a torch in an iron bracket on the inside wall of a shack, or a camp's
+/// campfire. Click it with a lighter in your pocket and it catches (using a
 /// little of the lighter's fuel): real fire, warm flickering light, the crackle of it, and a circle round it
 /// the entities won't come into, like a lamp's. It burns for burnTime, then gutters out for good (until
-/// the run restarts). Campsite and Shack build these; LampInteractor clicks them.
+/// the run restarts). Its light casts shadows, so it doesn't shine through walls. Campsite and Shack build
+/// these; LampInteractor clicks them.
 /// </summary>
 public class LightableTorch : MonoBehaviour, SafeZones.ISource
 {
@@ -16,6 +17,8 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
     [Range(0f, 1f), Tooltip("Share of the lighter's fuel it takes to light it.")]
     public float lightingCost = 0.05f;
     public Color fireColor = new Color(1f, 0.55f, 0.18f);
+    [Tooltip("What it's called in the prompts (\"Light the ...\").")]
+    public string noun = "torch";
 
     public bool IsLit { get; private set; }
     public bool BurntOut { get; private set; }
@@ -37,9 +40,15 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
     void OnDisable() => SafeZones.Unregister(this);
 
     public string Prompt =>
-        BurntOut ? "The torch has burned out" :
-        IsLit ? $"The torch is burning ({Mathf.CeilToInt(fuel * burnTime)}s)" :
-        "Light the torch (lighter)";
+        BurntOut ? $"The {noun} has burned out" :
+        IsLit ? $"The {noun} is burning ({BurnLeft()})" :
+        $"Light the {noun} (lighter)";
+
+    string BurnLeft()
+    {
+        int seconds = Mathf.CeilToInt(fuel * burnTime);
+        return seconds >= 60 ? $"{seconds / 60}:{seconds % 60:00}" : $"{seconds}s";
+    }
 
     public bool CanLight => !IsLit && !BurntOut;
 
@@ -103,6 +112,22 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
 
     // ---------------------------------------------------------------- Building
 
+    /// <summary>
+    /// A campfire's fire, laid in the pit (pivot at the middle of the pit, on the ash): a big fire that burns
+    /// for burnTime (ten minutes by default) with a wide circle of light and safety round it.
+    /// </summary>
+    public static LightableTorch Campfire(Transform parent, Vector3 localPos, float burnSeconds = 600f)
+    {
+        var torch = Make(parent, "Campfire Fire", localPos, Quaternion.identity);
+        torch.noun = "campfire";
+        torch.burnTime = burnSeconds;
+        torch.safeRadius = 7f;
+        torch.lightingCost = 0.08f;
+        torch.baseIntensity = 4f;
+        torch.Finish(torch.transform, 1.1f, new Vector3(0f, 0.35f, 0f), new Vector3(1.3f, 0.8f, 1.3f), 0.55f, 18f);
+        return torch;
+    }
+
     /// <summary>A tall torch staked in the ground (pivot on the ground), standing about head height.</summary>
     public static LightableTorch Standing(Transform parent, Vector3 localPos, float yaw)
     {
@@ -159,7 +184,7 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
     }
 
     /// <summary>The fire (unlit), its light and sounds, and an easy-to-click box round it.</summary>
-    void Finish(Transform head, float fireSize, Vector3 aimCenter, Vector3 aimSize)
+    void Finish(Transform head, float fireSize, Vector3 aimCenter, Vector3 aimSize, float lightHeight = 0.2f, float lightRange = 0f)
     {
         flameAt = new GameObject("Flame").transform;
         flameAt.SetParent(head, false);
@@ -168,12 +193,18 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
 
         glow = new GameObject("Torch Light").AddComponent<Light>();
         glow.transform.SetParent(flameAt, false);
-        glow.transform.localPosition = Vector3.up * 0.2f;
+        glow.transform.localPosition = Vector3.up * lightHeight;
         glow.type = LightType.Point;
         glow.color = new Color(1f, 0.62f, 0.3f);
-        glow.range = safeRadius * 1.8f;
+        glow.range = lightRange > 0f ? lightRange : safeRadius * 1.8f;
         glow.intensity = baseIntensity;
-        glow.shadows = LightShadows.None;
+        // Shadows, so it lights the room it's in and not through the walls (needs the URP asset's
+        // Additional Lights > Cast Shadows ticked).
+        glow.shadows = LightShadows.Soft;
+        glow.shadowBias = 0.03f;
+        glow.shadowNormalBias = 0f; // (any more and thin planks let the light through)
+        glow.shadowNearPlane = 0.1f;
+        WarnIfNoShadows();
         glow.enabled = false;
 
         crackle = ProceduralAudio.AddSource(flameAt.gameObject, ProceduralAudio.FireLoop, true, true, 0f, 2f, 18f);
@@ -183,6 +214,17 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
         aim.isTrigger = true;
         aim.center = aimCenter;
         aim.size = aimSize;
+    }
+
+    static bool warned;
+
+    static void WarnIfNoShadows()
+    {
+        if (warned) return;
+        warned = true;
+        var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+        if (urp != null && !urp.supportsAdditionalLightShadows)
+            Debug.LogWarning("Fire light shines through walls: tick Additional Lights > Cast Shadows on the URP asset (Project Settings > Graphics/Quality > Render Pipeline Asset > Lighting).");
     }
 
     static Transform Part(PrimitiveType type, Material mat, Transform parent, Vector3 pos, Vector3 scale, Vector3 euler, bool keepCollider)

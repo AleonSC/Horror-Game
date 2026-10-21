@@ -66,6 +66,8 @@ public class DarkForestGenerator : MonoBehaviour
     public int shackCount = 3;
     [Tooltip("Keep shacks at least this far apart.")]
     public float minShackSpacing = 60f;
+    [Tooltip("Make one of the shacks a bigger cabin with rooms (off: all ordinary shacks).")]
+    public bool bigCabin = true;
 
     [Header("Campsites")]
     [Tooltip("Abandoned campsites, each with a smoking campfire and a backpack with a flare gun.")]
@@ -1153,11 +1155,12 @@ public class DarkForestGenerator : MonoBehaviour
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), minShackSpacing)) continue;
             ShackPositions.Add(p);
 
-            var go = new GameObject("Shack");
+            bool cabin = bigCabin && ShackPositions.Count == 1; // the first one, if wanted
+            var go = new GameObject(cabin ? "Cabin" : "Shack");
             go.transform.SetParent(parent, false);
             go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
             go.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
-            go.AddComponent<Shack>().Build(this, rng);
+            go.AddComponent<Shack>().Build(this, rng, cabin);
         }
     }
 
