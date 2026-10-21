@@ -166,7 +166,7 @@ public class GroundMist : MonoBehaviour
             float dist = flat.magnitude;
             float alpha = b.density * b.fade
                           * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius, radius * 0.75f, dist))
-                          * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 3f, dist)) // (a little thinner round your legs);
+                          * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 3f, dist)); // (a little thinner round your legs)
 
             // Lit where the beam falls on it.
             float lit = 0f;
