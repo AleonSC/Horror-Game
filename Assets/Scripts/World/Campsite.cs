@@ -64,9 +64,9 @@ public class Campsite : MonoBehaviour
         // ---- The tent: a proper canvas A-frame, sides sagging a little between the poles, back closed, two
         // door flaps (open, or shut with E), guy ropes out to pegs. Tilted to sit on the slope. Big enough to
         // crawl into: crouched, you fit under the ridge; standing, your head's against the canvas.
-        var tent = AnchorOnGround("Tent", new Vector3(-1.7f, 0f, 0.6f), R(-25f, 25f), 1.3f, 1.5f, Ground);
+        var tent = AnchorOnGround("Tent", new Vector3(-1.9f, 0f, 0.6f), R(-25f, 25f), 1.5f, 1.6f, Ground);
         tent.gameObject.AddComponent<Refuge>(); // shelter: the entities keep 5m off it
-        const float tentWidth = 1.25f, tentHeight = 1.5f, tentLength = 2.6f;
+        const float tentWidth = 1.45f, tentHeight = 1.7f, tentLength = 3f;
         MeshPart(tent, "Canvas", BuildTentMesh(tentWidth, tentHeight, tentLength, R(0.04f, 0.08f)), canvas);
         // The door: two flaps, each hinged down its outer edge, swinging back along the sides when open.
         var flaps = new ShackDoor[2];
@@ -126,6 +126,33 @@ public class Campsite : MonoBehaviour
         var back = tent.gameObject.AddComponent<BoxCollider>();
         back.center = new Vector3(0f, tentHeight * 0.5f, -tentLength * 0.5f - 0.03f);
         back.size = new Vector3(tentWidth * 2f, tentHeight, 0.06f);
+
+        // ---- Inside, made cosy: a groundsheet, a thick quilted blanket spread over it with its corner
+        // turned back, pillows along both sides, and a tiny lantern hanging from the ridge pole.
+        var groundsheet = MaterialFactory.Lit(new Color(0.07f, 0.075f, 0.06f), 0.15f);
+        Color[] quilts = { new Color(0.32f, 0.08f, 0.06f), new Color(0.12f, 0.16f, 0.24f), new Color(0.3f, 0.22f, 0.1f), new Color(0.16f, 0.2f, 0.12f) };
+        var quilt = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, quilts[rng.Next(quilts.Length)], 0.04f);
+        var lining = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, new Color(0.55f, 0.5f, 0.42f), 0.04f);
+        Box(groundsheet, tent, new Vector3(0f, 0.008f, 0f), new Vector3(tentWidth * 1.85f, 0.012f, tentLength - 0.05f), false);
+        var blanket = MeshPart(tent, "Blanket", PropModels.SoftBox(new Vector3(1.55f, 0.06f, 1.9f), 0.25f, 0f, 0.1f, 0.012f, rng.Next(), 0.3f), quilt);
+        blanket.localPosition = new Vector3(R(-0.05f, 0.05f), 0.035f, -0.25f);
+        blanket.localRotation = Quaternion.Euler(0f, R(-4f, 4f), 0f);
+        var corner = MeshPart(tent, "Turned Corner", PropModels.SoftBox(new Vector3(0.55f, 0.04f, 0.45f), 0.3f, 0f, 0.05f, 0.008f, rng.Next(), 0.3f), lining);
+        corner.localPosition = new Vector3(0.45f, 0.075f, 0.55f);
+        corner.localRotation = Quaternion.Euler(0f, 35f, 4f);
+        Color[] pillowColors = { new Color(0.62f, 0.56f, 0.46f), new Color(0.45f, 0.3f, 0.24f), new Color(0.38f, 0.4f, 0.45f) };
+        for (int side = -1; side <= 1; side += 2)
+        {
+            var pillowMat = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, pillowColors[rng.Next(pillowColors.Length)], 0.05f);
+            // A long one along the side, and a smaller one propped against it.
+            var pillow = MeshPart(tent, "Pillow", PropModels.SoftBox(new Vector3(0.4f, 0.16f, 0.62f), 0.45f, 0f, 0.25f, 0.01f, rng.Next(), 0.2f), pillowMat);
+            pillow.localPosition = new Vector3(side * 0.98f, 0.1f, R(-0.75f, -0.45f));
+            pillow.localRotation = Quaternion.Euler(0f, R(-10f, 10f), side * -18f); // leaning on the sloping canvas
+            var cushion = MeshPart(tent, "Cushion", PropModels.SoftBox(new Vector3(0.32f, 0.12f, 0.32f), 0.5f, 0f, 0.3f, 0.008f, rng.Next(), 0.2f), pillowMat);
+            cushion.localPosition = new Vector3(side * 0.95f, 0.09f, R(0.1f, 0.5f));
+            cushion.localRotation = Quaternion.Euler(R(-8f, 8f), R(0f, 360f), side * -12f);
+        }
+        lantern = TentLantern.Build(tent, new Vector3(0f, tentHeight - 0.03f, -0.25f));
 
         // ---- The burnt-out campfire: a low mound of ash sinking into the dirt, ringed close with
         // soot-blackened stones (real rock shapes) bedded into the ground; charred logs, burnt down to points,
@@ -258,7 +285,9 @@ public class Campsite : MonoBehaviour
         SpawnItems();
         if (radio != null) radio.ResetRadio();
         if (campfire != null) campfire.ResetTorch();
+        if (lantern != null) lantern.SetOn(false);
     }
+    TentLantern lantern;
 
     [Range(0f, 1f), Tooltip("Chance of a portable radio on the log (the blind one comes for it when it plays).")]
     public float radioChance = 0.3f;
