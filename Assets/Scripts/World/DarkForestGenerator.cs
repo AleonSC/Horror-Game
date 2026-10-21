@@ -668,7 +668,7 @@ public class DarkForestGenerator : MonoBehaviour
         var shape = new TrunkShape(this, trunkHeight, trunkRadius, 0.45f, scale);
         float foliageStart = trunkHeight * Range(0.3f, 0.45f);
         float foliageSpan = trunkHeight * 1.02f - foliageStart;
-        float baseRadius = Range(1.7f, 2.5f) * scale;
+        float baseRadius = Range(2.6f, 3.6f) * scale; // a broad crown
         bool hasVines = Range(0f, 1f) < vineTreeChance;
         var vineLimbs = new List<Vector3[]>();
         var boughs = new List<Vector3[]>();
@@ -705,8 +705,8 @@ public class DarkForestGenerator : MonoBehaviour
             {
                 float t = w / (float)(whorls - 1);
                 float y = foliageStart + foliageSpan * 0.93f * t + Range(-0.15f, 0.15f) * scale;
-                float reach = baseRadius * Mathf.Lerp(1f, 0.18f, Mathf.Pow(t, 0.85f));
-                int count = rng.Next(4, 6);
+                float reach = baseRadius * Mathf.Lerp(1f, 0.25f, Mathf.Pow(t, 1.1f)); // (wide most of the way up)
+                int count = rng.Next(5, 8);
                 float spin = Range(0f, 360f);
                 for (int b = 0; b < count; b++)
                 {
@@ -948,7 +948,7 @@ public class DarkForestGenerator : MonoBehaviour
         mesh.AddTube(path, (i, a) => widths[i], 4, 1, 1.2f);
 
         var all = new List<Vector3>(path);
-        int shoots = rng.Next(1, 3);
+        int shoots = rng.Next(2, 4);
         for (int k = 0; k < shoots; k++)
         {
             float t = Range(0.35f, 0.75f);
@@ -957,7 +957,7 @@ public class DarkForestGenerator : MonoBehaviour
             Vector3 along = (path[i + 1] - path[i]).normalized;
             Vector3 side = Vector3.Cross(Vector3.up, along).normalized * (rng.Next(2) == 0 ? -1f : 1f);
             Vector3 shootDir = (along * 0.6f + side + Vector3.up * Range(-0.1f, 0.25f)).normalized;
-            float shootLength = length * Range(0.25f, 0.4f);
+            float shootLength = length * Range(0.3f, 0.5f);
             var shoot = new[] { from, from + shootDir * shootLength * 0.5f, from + shootDir * shootLength + Vector3.down * shootLength * 0.12f };
             float w = Mathf.Lerp(widths[i], widths[i + 1], 0.5f) * 0.55f;
             mesh.AddTube(shoot, (j, a) => w * (1f - 0.8f * j / 2f) + 0.003f, 3, 1, 1.2f);
@@ -979,16 +979,16 @@ public class DarkForestGenerator : MonoBehaviour
             if (end - start >= 2)
             {
                 // From partway out to the tip: a few clumps on the main branch, one or two on a side shoot.
-                int clumps = main ? rng.Next(2, 5) : 1;
+                int clumps = main ? rng.Next(3, 6) : rng.Next(1, 3);
                 for (int c = 0; c < clumps; c++)
                 {
-                    float t = clumps == 1 ? 1f : Mathf.Lerp(main ? 0.4f : 0.5f, 1f, c / (float)(clumps - 1));
+                    float t = clumps == 1 ? 1f : Mathf.Lerp(main ? 0.3f : 0.4f, 1f, c / (float)(clumps - 1));
                     float f = t * (end - start - 1);
                     int a = start + Mathf.Min(end - start - 2, Mathf.FloorToInt(f));
                     Vector3 at = Vector3.Lerp(paths[a], paths[a + 1], f - (a - start));
                     Vector3 along = (paths[a + 1] - paths[a]).normalized;
-                    float size = Range(0.28f, 0.42f) * scale * (main ? 1f : 0.8f);
-                    leaves.AddCluster(at, size, rng.Next(5, 8), size * 0.8f, along, rng);
+                    float size = Range(0.5f, 0.75f) * scale * (main ? 1f : 0.8f); // big, bushy clumps
+                    leaves.AddCluster(at, size, rng.Next(8, 12), size * 0.85f, along, rng);
                 }
             }
             start = i + 1;
@@ -1020,7 +1020,7 @@ public class DarkForestGenerator : MonoBehaviour
                 if (outward.sqrMagnitude < 0.01f) outward = dir;
                 Vector3 across = Vector3.Cross(outward, Vector3.up);
                 if (across.sqrMagnitude < 0.01f) across = Vector3.right;
-                across = across.normalized * (length * R(0.16f, 0.26f)); // a broad sliver: a spray of needles, not one
+                across = across.normalized * (length * R(0.2f, 0.3f)); // a broad sliver: a spray of needles, not one
                 float len = length * R(0.75f, 1.2f);
                 Vector3 tip = basePoint + outward * len + Vector3.down * len * R(0.05f, 0.25f); // sagging a touch
                 Vector3 normal = (offset.normalized + Vector3.up * 0.6f).normalized;
