@@ -14,6 +14,10 @@ public class ShackDoor : MonoBehaviour
     public Vector3 axis = Vector3.up;
     [Tooltip("What it's called in the prompt (\"Open the ...\", with E).")]
     public string noun = "door";
+    /// <summary>What it sounds like: a wooden door, a car's metal door (or trunk), or a plastic glove box.</summary>
+    public enum Kind { Wood, Car, Plastic }
+    public Kind kind = Kind.Wood;
+    bool shutPending; // swinging shut: the bang comes as it lands
 
     public bool IsOpen { get; private set; }
 
@@ -42,9 +46,8 @@ public class ShackDoor : MonoBehaviour
             // The handle turns, the door shudders in its frame, and doesn't give.
             if (audioSource != null)
             {
-                audioSource.pitch = Random.Range(1.5f, 1.8f);
-                audioSource.PlayOneShot(ProceduralAudio.DoorCreak, 0.5f);
-                audioSource.PlayOneShot(ProceduralAudio.LampClick, 0.6f);
+                audioSource.pitch = Random.Range(0.92f, 1.08f);
+                audioSource.PlayOneShot(kind == Kind.Wood ? ProceduralAudio.DoorRattle : ProceduralAudio.GloveBoxShut, 0.8f);
             }
             Noise.Emit(transform.position, 6f);
             return;
@@ -54,15 +57,20 @@ public class ShackDoor : MonoBehaviour
         Noise.Emit(transform.position, 13f); // a creaking hinge carries
         if (audioSource != null)
         {
-            audioSource.pitch = IsOpen ? Random.Range(0.9f, 1.05f) : Random.Range(0.75f, 0.9f);
-            audioSource.PlayOneShot(ProceduralAudio.DoorCreak);
+            audioSource.pitch = Random.Range(0.92f, 1.06f);
+            if (IsOpen)
+                audioSource.PlayOneShot(kind == Kind.Wood ? ProceduralAudio.DoorOpen : kind == Kind.Car ? ProceduralAudio.CarDoorOpen : ProceduralAudio.GloveBoxOpen);
+            else if (kind == Kind.Wood)
+                audioSource.PlayOneShot(ProceduralAudio.DoorClose, 0.8f);
         }
+        shutPending = !IsOpen;
     }
 
     /// <summary>Shuts the door instantly (used when the run resets).</summary>
     public void Close()
     {
         IsOpen = false;
+        shutPending = false;
         angle = 0f;
         transform.localRotation = Quaternion.identity;
     }
@@ -72,6 +80,16 @@ public class ShackDoor : MonoBehaviour
         float target = IsOpen ? openAngle : 0f;
         if (Mathf.Approximately(angle, target)) return;
         angle = Mathf.MoveTowards(angle, target, swingSpeed * Time.deltaTime);
+        // Landing in its frame.
+        if (shutPending && !IsOpen && Mathf.Approximately(angle, 0f))
+        {
+            shutPending = false;
+            if (audioSource != null)
+            {
+                audioSource.pitch = Random.Range(0.94f, 1.06f);
+                audioSource.PlayOneShot(kind == Kind.Wood ? ProceduralAudio.DoorShut : kind == Kind.Car ? ProceduralAudio.CarDoorShut : ProceduralAudio.GloveBoxShut);
+            }
+        }
         transform.localRotation = Quaternion.AngleAxis(angle, axis);
     }
 }

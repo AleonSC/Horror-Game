@@ -375,6 +375,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         trunk.openAngle = 68f;
         trunk.swingSpeed = 90f;
         trunk.noun = "trunk";
+        trunk.kind = ShackDoor.Kind.Car;
 
         // ---- Greenhouse: pillars, a rounded roof, glass (the windscreen smashed in, the driver's window down).
         foreach (float side in new[] { -1f, 1f })
@@ -570,6 +571,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         gloveBox.openAngle = -80f;
         gloveBox.swingSpeed = 200f;
         gloveBox.noun = "glove box";
+        gloveBox.kind = ShackDoor.Kind.Plastic;
 
         // The radio on the back seat, behind the driver.
         var radioGo = new GameObject("Radio");
@@ -645,6 +647,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         var d = hinge.gameObject.AddComponent<ShackDoor>();
         d.openAngle = 70f; // swings outward
         d.noun = "door";
+        d.kind = ShackDoor.Kind.Car;
         return d;
     }
 

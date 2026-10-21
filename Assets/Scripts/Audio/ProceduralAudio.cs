@@ -86,6 +86,25 @@ public static class ProceduralAudio
     /// <summary>One heartbeat, heard from inside: a deep, soft "lub" and a quicker, lighter "dub".</summary>
     public static AudioClip Heartbeat => heartbeat != null ? heartbeat : (heartbeat = Take(nameof(heartbeat)) ?? MakeHeartbeat());
     static AudioClip heartbeat;
+    // Doors: wooden ones (shacks, the lone door), the car's metal doors and trunk, and its plastic glove box.
+    /// <summary>A wooden door opening: the latch clacks back, then the hinge creaks as it swings.</summary>
+    public static AudioClip DoorOpen => doorOpen != null ? doorOpen : (doorOpen = Take(nameof(doorOpen)) ?? MakeDoorOpen());
+    /// <summary>A wooden door swinging shut: a lower, quicker creak (DoorShut is the bang as it lands).</summary>
+    public static AudioClip DoorClose => doorClose != null ? doorClose : (doorClose = Take(nameof(doorClose)) ?? MakeDoorClose());
+    /// <summary>A wooden door landing in its frame: a heavy, hollow thud and the latch dropping in.</summary>
+    public static AudioClip DoorShut => doorShut != null ? doorShut : (doorShut = Take(nameof(doorShut)) ?? MakeDoorShut());
+    /// <summary>A locked door: the handle rattling, the door knocking against its frame, not giving.</summary>
+    public static AudioClip DoorRattle => doorRattle != null ? doorRattle : (doorRattle = Take(nameof(doorRattle)) ?? MakeDoorRattle());
+    /// <summary>A car door unlatching: a metallic pop and a little squeak of the hinge.</summary>
+    public static AudioClip CarDoorOpen => carDoorOpen != null ? carDoorOpen : (carDoorOpen = Take(nameof(carDoorOpen)) ?? MakeCarDoorOpen());
+    /// <summary>A car door slammed: a heavy metal thunk and the panel ringing.</summary>
+    public static AudioClip CarDoorShut => carDoorShut != null ? carDoorShut : (carDoorShut = Take(nameof(carDoorShut)) ?? MakeCarDoorShut());
+    /// <summary>The glove box dropping open: a plastic click and a soft flop.</summary>
+    public static AudioClip GloveBoxOpen => gloveBoxOpen != null ? gloveBoxOpen : (gloveBoxOpen = Take(nameof(gloveBoxOpen)) ?? MakeGloveBoxOpen());
+    /// <summary>The glove box snapped shut.</summary>
+    public static AudioClip GloveBoxShut => gloveBoxShut != null ? gloveBoxShut : (gloveBoxShut = Take(nameof(gloveBoxShut)) ?? MakeGloveBoxShut());
+    static AudioClip doorOpen, doorClose, doorShut, doorRattle, carDoorOpen, carDoorShut, gloveBoxOpen, gloveBoxShut;
+
     /// <summary>Gusting wind. Loops seamlessly.</summary>
     public static AudioClip Wind => wind != null ? wind : (wind = Take(nameof(wind)) ?? MakeWind());
     /// <summary>High, dissonant shimmer that fades in when an entity is near. Loops seamlessly.</summary>
@@ -555,6 +574,141 @@ public static class ProceduralAudio
         }, 0.7f);
     }
 
+    // ---------------------------------------------------------------- Doors
+
+    /// <summary>A struck resonance starting at `start`: a sine at f dying away at `decay` per second.</summary>
+    static float Ring(float t, float start, float f, float decay)
+    {
+        float u = t - start;
+        return u < 0f ? 0f : Mathf.Sin(TwoPi * f * u) * Mathf.Exp(-u * decay) * Mathf.Clamp01(u * 2000f);
+    }
+
+    /// <summary>A short burst of noise at `start`, `length` long, sharp at the front.</summary>
+    static float Burst(float t, float start, float length)
+    {
+        float u = t - start;
+        return u < 0f || u > length ? 0f : White() * (1f - u / length) * (1f - u / length);
+    }
+
+    /// <summary>
+    /// A hinge creaking from `start` to `end`: stick-slip friction (a train of clicks speeding up and slowing
+    /// down as it swings) ringing a squeaky metal pair and a woody body. Its state lives in the arrays given.
+    /// </summary>
+    static float Creak(float t, float start, float end, float slowest, float fastest, float squeak, float[] s)
+    {
+        if (t < start || t > end) return 0f;
+        float p = (t - start) / (end - start);
+        float rateHz = Mathf.Lerp(slowest, fastest, Mathf.Sin(Mathf.PI * Mathf.Pow(p, 0.8f))) * (1f + 0.25f * White());
+        s[0] += rateHz / Rate;
+        float x = 0f;
+        if (s[0] >= 1f) { s[0] -= 1f; x = 1f; }
+        // Two narrow metal resonances (the squeal), two broad wooden ones (the door's body), in the state slots.
+        float Reso(int i, float f, float r)
+        {
+            float c = 2f * r * Mathf.Cos(TwoPi * f / Rate);
+            float y = c * s[i] - r * r * s[i + 1] + x;
+            s[i + 1] = s[i];
+            s[i] = y;
+            return y;
+        }
+        float metal = Reso(1, squeak, 0.995f) + 0.6f * Reso(3, squeak * 1.83f, 0.993f);
+        float wood = Reso(5, 210f, 0.985f) * 0.8f + Reso(7, 470f, 0.98f) * 0.5f;
+        float env = Mathf.Sin(Mathf.PI * p) * (0.6f + 0.4f * Mathf.Sin(TwoPi * 1.7f * (t - start)));
+        return (metal * 0.012f + wood * 0.02f) * env;
+    }
+
+    static AudioClip MakeDoorOpen()
+    {
+        var s = new float[9];
+        float air = 0f;
+        return Shot("Door Open", 1.7f, t =>
+        {
+            // The latch: a clack, the bolt springing back.
+            float latch = Burst(t, 0f, 0.012f) * 0.6f + Ring(t, 0f, 2600f, 70f) * 0.35f + Ring(t, 0.004f, 4100f, 90f) * 0.2f
+                          + Burst(t, 0.055f, 0.008f) * 0.35f + Ring(t, 0.055f, 3100f, 80f) * 0.2f;
+            float knock = Ring(t, 0f, 180f, 30f) * 0.3f; // the door shifting in its frame
+            air += (White() - air) * 0.02f;
+            float whoosh = air * Mathf.Sin(Mathf.PI * Mathf.Clamp01((t - 0.15f) / 1.4f)) * 0.5f;
+            return latch + knock + whoosh + Creak(t, 0.12f, 1.6f, 25f, 95f, 780f, s);
+        }, 0.8f);
+    }
+
+    static AudioClip MakeDoorClose()
+    {
+        var s = new float[9];
+        return Shot("Door Close", 0.9f, t => Creak(t, 0f, 0.85f, 20f, 70f, 620f, s), 0.7f);
+    }
+
+    static AudioClip MakeDoorShut()
+    {
+        float lp = 0f;
+        return Shot("Door Shut", 0.8f, t =>
+        {
+            // The bang: a deep, hollow thud of wood on wood, the frame ringing dully.
+            float thud = Ring(t, 0f, 68f, 14f) * 1.2f + Ring(t, 0f, 132f, 18f) * 0.6f
+                         + Ring(t, 0f, 190f, 26f) * 0.5f + Ring(t, 0f, 410f, 40f) * 0.3f + Ring(t, 0f, 760f, 60f) * 0.15f;
+            lp += (Burst(t, 0f, 0.05f) - lp) * 0.2f;
+            // The latch dropping in, and a little rattle.
+            float latch = Burst(t, 0.035f, 0.006f) * 0.4f + Ring(t, 0.035f, 2800f, 90f) * 0.25f
+                          + Ring(t, 0.11f, 3300f, 120f) * 0.08f;
+            return Tanh((thud + lp * 1.5f + latch) * 1.3f);
+        }, 0.9f);
+    }
+
+    static AudioClip MakeDoorRattle()
+    {
+        float[] at = { 0f, 0.085f, 0.15f, 0.29f, 0.37f, 0.45f };
+        return Shot("Door Rattle", 0.75f, t =>
+        {
+            float s = 0f;
+            for (int k = 0; k < at.Length; k++)
+            {
+                float level = k % 2 == 0 ? 1f : 0.65f;
+                s += (Burst(t, at[k], 0.006f) * 0.4f + Ring(t, at[k], 2300f + k * 170f, 100f) * 0.22f
+                      + Ring(t, at[k], 160f + k * 9f, 35f) * 0.45f) * level; // the handle, and the door knocking its frame
+            }
+            return Tanh(s * 1.4f);
+        }, 0.8f);
+    }
+
+    static AudioClip MakeCarDoorOpen()
+    {
+        var s = new float[9];
+        return Shot("Car Door Open", 0.6f, t =>
+        {
+            float pop = Burst(t, 0f, 0.008f) * 0.5f + Ring(t, 0f, 2200f, 45f) * 0.3f + Ring(t, 0f, 3700f, 60f) * 0.2f
+                        + Ring(t, 0f, 120f, 25f) * 0.4f;
+            return pop + Creak(t, 0.12f, 0.55f, 40f, 120f, 1800f, s) * 0.6f;
+        }, 0.75f);
+    }
+
+    static AudioClip MakeCarDoorShut()
+    {
+        float lp = 0f;
+        return Shot("Car Door Shut", 0.9f, t =>
+        {
+            // Heavy metal: a deep thunk, the panel ringing tinnily, the latch catching.
+            float thunk = Ring(t, 0f, 86f, 12f) * 1.2f + Ring(t, 0f, 172f, 18f) * 0.5f;
+            float panel = Ring(t, 0f, 380f, 8f) * 0.25f + Ring(t, 0f, 910f, 14f) * 0.15f + Ring(t, 0f, 1730f, 22f) * 0.08f;
+            lp += (Burst(t, 0f, 0.04f) - lp) * 0.25f;
+            float latch = Burst(t, 0.02f, 0.005f) * 0.35f + Ring(t, 0.02f, 3000f, 80f) * 0.2f;
+            return Tanh((thunk + panel + lp * 1.4f + latch) * 1.4f);
+        }, 0.9f);
+    }
+
+    static AudioClip MakeGloveBoxOpen()
+    {
+        return Shot("Glove Box Open", 0.45f, t =>
+            Burst(t, 0f, 0.004f) * 0.5f + Ring(t, 0f, 1650f, 140f) * 0.3f
+            + Ring(t, 0.13f, 160f, 30f) * 0.5f + Ring(t, 0.13f, 330f, 45f) * 0.25f + Burst(t, 0.13f, 0.02f) * 0.15f, 0.7f);
+    }
+
+    static AudioClip MakeGloveBoxShut()
+    {
+        return Shot("Glove Box Shut", 0.3f, t =>
+            Burst(t, 0f, 0.005f) * 0.6f + Ring(t, 0f, 2200f, 160f) * 0.3f + Ring(t, 0f, 300f, 50f) * 0.45f, 0.75f);
+    }
+
     static AudioClip MakePickup()
     {
         float lp = 0f;
@@ -973,31 +1127,54 @@ public static class ProceduralAudio
 
     static AudioClip MakeDispel()
     {
-        const float len = 2.6f;
-        float sub = 0f, lp = 0f, lp2 = 0f;
-        float[] bell = { 1f, 2.76f, 5.4f };
-        // A crude echo: the exhale repeated, quieter, a few times.
-        var exhale = new float[(int)(len * Rate)];
-        int[] taps = { (int)(0.23f * Rate), (int)(0.41f * Rate), (int)(0.67f * Rate) };
-        int i = 0;
+        // Not a chime: something being torn out of the world. A sharp, sucking inhale; then it glitches out
+        // in a shriek that stutters and crushes as it collapses in pitch, crackling with black lightning, over
+        // a deep drop; and a dark, choked breath dying away under it.
+        const float len = 2.4f, at = 0.14f;
+        float inhaleLp = 0f, shriekPhase = 0f, held = 0f, sub = 0f, crack = 0f, tailLp = 0f, tailHp = 0f;
+        int hold = 0;
         return Shot("Dispel", len, t =>
         {
-            // The whump: a soft, deep drop.
-            sub += TwoPi * (55f * Mathf.Exp(-t * 6f) + 28f) / Rate;
-            float whump = Mathf.Sin(sub) * Mathf.Exp(-t * 7f) * 1.2f;
-            // The exhale: airy noise, falling in brightness, echoing.
-            lp += (White() - lp) * Mathf.Lerp(0.35f, 0.05f, Mathf.Clamp01(t / 0.8f));
-            lp2 += (lp - lp2) * 0.02f;
-            float breath = (lp - lp2) * Mathf.Exp(-t * 3f) * Mathf.Clamp01(t / 0.03f);
-            if (i < exhale.Length) exhale[i] = breath;
-            float echo = 0f;
-            for (int k = 0; k < taps.Length; k++) if (i - taps[k] >= 0) echo += exhale[i - taps[k]] * (0.45f / (k + 1));
-            i++;
-            // The ring: high, glassy, dying away slowly.
-            float ring = 0f;
-            for (int k = 0; k < bell.Length; k++) ring += Mathf.Sin(TwoPi * 1180f * bell[k] * t) * Mathf.Exp(-t * (2f + k * 2.5f)) / (k + 1);
-            return whump + breath * 1.4f + echo + ring * 0.18f;
-        }, 0.85f);
+            float u = t - at;
+
+            // The inhale: noise swelling and brightening, sucked in, cut off as it goes.
+            float inhaleEnv = t < at ? Mathf.Pow(t / at, 3f) : Mathf.Exp(-u * 45f);
+            inhaleLp += (White() - inhaleLp) * Mathf.Lerp(0.03f, 0.45f, Mathf.Clamp01(t / at));
+            float inhale = inhaleLp * inhaleEnv * 1.3f;
+
+            float shriek = 0f, boom = 0f, tail = 0f;
+            if (u >= 0f)
+            {
+                // The shriek: a harsh buzz falling from a scream to a groan, chopped by a stutter that slows,
+                // with a vowel-ish edge, crushed to a few levels and held in coarse steps (digital, wrong).
+                float f = 170f + 760f * Mathf.Exp(-u * 3.2f);
+                shriekPhase += f / Rate;
+                float saw = (shriekPhase - Mathf.Floor(shriekPhase)) * 2f - 1f;
+                float edge = Mathf.Sin(TwoPi * f * 2.6f * u) * 0.45f;
+                float stutter = Mathf.Sin(TwoPi * (34f - 18f * Mathf.Clamp01(u / 1.2f)) * u) > -0.1f ? 1f : 0.1f;
+                float env = Mathf.Exp(-u * 2f) * Mathf.Clamp01(u / 0.006f);
+                float raw = (saw * 0.75f + edge) * stutter * env;
+                if (--hold <= 0) { held = raw; hold = 4 + (int)(u * 28f); }
+                shriek = Mathf.Round(held * 5f) / 5f;
+
+                // The drop.
+                sub += TwoPi * (64f * Mathf.Exp(-u * 4f) + 23f) / Rate;
+                boom = Mathf.Sin(sub) * Mathf.Exp(-u * 2.6f) * 1.3f;
+
+                // A choked breath going out under it all, low and dark.
+                tailLp += (White() - tailLp) * 0.05f;
+                tailHp += (tailLp - tailHp) * 0.01f;
+                tail = (tailLp - tailHp) * Mathf.Clamp01(u / 0.3f) * Mathf.Exp(-u * 1.4f) * 1.4f;
+            }
+
+            // Black lightning: sharp, ragged crackles, thickest as it goes and dying away.
+            float crackChance = u >= 0f ? 0.004f * Mathf.Exp(-u * 2.2f) : 0.0006f * inhaleEnv;
+            if (rng.NextDouble() < crackChance) crack = White() >= 0f ? 1f : -1f;
+            crack *= 0.93f;
+            float crackle = crack * White() * 0.9f;
+
+            return Tanh((inhale + shriek * 0.7f + boom + tail + crackle) * 1.35f);
+        }, 0.9f);
     }
 
     static AudioClip MakeTaken()

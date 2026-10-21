@@ -428,6 +428,9 @@ public class BlindEntity : MonoBehaviour
         timer = seconds;
     }
 
+    /// <summary>True while it has the player.</summary>
+    public bool IsTaking => state == State.Taking;
+
     /// <summary>True when it's out in the world, where it can be seen (and flashed).</summary>
     public bool IsPresent => state != State.Banished && (state != State.Appearing || fadeIn > 0.3f);
 

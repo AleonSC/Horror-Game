@@ -5,7 +5,7 @@ using UnityEngine;
 /// wind, distant noises and even your own footsteps fade almost to nothing (the other audio scripts read
 /// Silence), and slow, heavy breathing starts up just behind your head.
 ///
-/// And when a scour is close enough to take you (or has you), your heartbeat takes over: it starts up and
+/// And when a scour (or the blind one) is close enough to take you, your heartbeat takes over: it starts up and
 /// quickens as it closes in, while everything else, music included, fades almost to nothing (Hush).
 /// When you get away (or it's driven off), the world comes back slowly.
 /// DarkForestGenerator adds this automatically.
@@ -25,6 +25,8 @@ public class EntityDread : MonoBehaviour
     [Header("Heartbeat")]
     [Tooltip("Your heartbeat starts when a scour is this close...")]
     public float heartbeatDistance = 9f;
+    [Tooltip("The blind one's bigger: the heartbeat starts when it's this close.")]
+    public float blindHeartbeatDistance = 16f;
     [Tooltip("...and is pounding (and the rest of the world almost silent) by the time it's within reach.")]
     [Range(0f, 1f)] public float heartbeatVolume = 0.9f;
     [Tooltip("How much the rest of the world fades at worst (1 = to nothing).")]
@@ -76,6 +78,14 @@ public class EntityDread : MonoBehaviour
             Vector3 d = entity.transform.position - listener;
             d.y = 0f;
             worst = Mathf.Max(worst, Mathf.InverseLerp(heartbeatDistance, entity.killDistance + 0.3f, d.magnitude));
+        }
+        foreach (var blind in BlindEntity.All)
+        {
+            if (blind == null || !blind.IsPresent) continue;
+            if (blind.IsTaking) { taken = true; return 1f; }
+            Vector3 d = blind.transform.position - listener;
+            d.y = 0f;
+            worst = Mathf.Max(worst, Mathf.InverseLerp(blindHeartbeatDistance, blind.grabDistance + 0.5f, d.magnitude));
         }
         return worst;
     }
