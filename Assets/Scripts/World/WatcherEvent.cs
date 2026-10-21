@@ -644,6 +644,21 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         if (player != null) player.DreamStretch = 0f;
     }
 
+    // Reaching for the player as a scour carries them up to it (ReachFor, called every frame of the flight).
+    Vector3 reachTarget;
+    float reachUntil = -1f, reach;
+
+    /// <summary>
+    /// Its hands come up and reach out for this point (the player being carried to it). Call every frame
+    /// while it should reach: it stops where it is, and its arms lift toward the point, easing back down
+    /// shortly after the calls stop.
+    /// </summary>
+    public void ReachFor(Vector3 point)
+    {
+        reachTarget = point;
+        reachUntil = Time.time + 0.3f;
+    }
+
     public void PushBack()
     {
         if (phase != Phase.GiantWalking) return;
@@ -662,9 +677,11 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         }
         if (!searchPausing) giantDistance = Mathf.Max(0f, giantDistance - giantSpeed * dt);
 
+        bool reaching = Time.time < reachUntil;
         Vector3 p = player.transform.position + giantBearing * giantDistance;
         p.y = Ground(p);
-        giant.SetPositionAndRotation(p, Quaternion.LookRotation(-giantBearing));
+        // (While it reaches for someone being carried up to it, it stands where it is.)
+        if (!reaching) giant.SetPositionAndRotation(p, Quaternion.LookRotation(-giantBearing));
         // Far off, it's scaled up so it always looms over the treeline; it shrinks to its true size as it nears.
         giant.localScale = Vector3.one * WalkingScale(giantDistance);
         UpdateChain(Vector3.zero, 1f, true);
@@ -676,7 +693,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // Just landed: it straightens up out of the landing first, then sets off.
         settle = Mathf.MoveTowards(settle, 1f, dt / Mathf.Max(landingSettleTime, 0.01f));
         float blend = Mathf.SmoothStep(0f, 1f, settle);
-        if (!searchPausing && settle >= 1f) stridePhase += dt * Mathf.PI * 2f / strideTime;
+        if (!searchPausing && !reaching && settle >= 1f) stridePhase += dt * Mathf.PI * 2f / strideTime;
         float scaleRig = giantHeight / 2.4f;
         for (int i = 0; i < 2; i++)
         {
@@ -690,6 +707,22 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             // The arm goes back as the leg on its side goes forward, trailing a little behind it.
             giantArms[i].localRotation = Quaternion.Slerp(landArms[i], Quaternion.Euler(14f * Mathf.Sin(legPhase - 0.5f) + 4f, 0f, (i == 0 ? -1f : 1f) * 4f), blend);
         }
+        // Reaching: both arms lift and stretch out toward what's being brought to it, a little apart, as if
+        // to take it in both hands, trembling with eagerness.
+        reach = Mathf.MoveTowards(reach, reaching ? 1f : 0f, dt / (reaching ? 1.4f : 2f));
+        if (reach > 0.001f)
+            for (int i = 0; i < 2; i++)
+            {
+                Transform arm = giantArms[i];
+                if (arm == null || arm.parent == null) continue;
+                Vector3 aim = reachTarget + giant.right * (i == 0 ? -1f : 1f) * giantHeight * 0.04f;
+                Vector3 local = Quaternion.Inverse(arm.parent.rotation) * (aim - arm.position);
+                if (local.sqrMagnitude < 0.01f) continue;
+                Vector3 hangs = new Vector3((i == 0 ? -1f : 1f) * 0.06f, -1.5f, 0.18f).normalized; // shoulder to fingertips, at rest
+                Quaternion toward = Quaternion.FromToRotation(hangs, local.normalized)
+                                    * Quaternion.Euler(Mathf.Sin(Time.time * 9f + i) * 1.5f, 0f, Mathf.Sin(Time.time * 7f + i * 2f) * 1.5f);
+                arm.localRotation = Quaternion.Slerp(arm.localRotation, toward, Mathf.SmoothStep(0f, 1f, reach));
+            }
         stepDip = Mathf.MoveTowards(stepDip, 0f, dt * 0.6f);
         float rise = Mathf.Cos(2f * stridePhase);               // highest as the legs pass, lowest at full stride
         var bodyPivot = giant.GetChild(0);

@@ -1061,6 +1061,8 @@ public class ShadowEntity : MonoBehaviour
         float f = Mathf.Clamp01((t - tFly) / 2.5f);
         flightVelocity = Vector3.MoveTowards(flightVelocity, flightDir * flightSpeed * f * f, flightSpeed * dt);
         target.position += flightVelocity * dt;
+        // The giant stops, and its hands come up to take you.
+        if (WatcherEvent.Instance != null) WatcherEvent.Instance.ReachFor(target.position);
         // It carries you from behind; you're held facing where you're being taken.
         transform.position = target.position - flatDir * 0.6f + Vector3.up * (1.7f - eye);
         transform.rotation = Quaternion.LookRotation(flightDir);
