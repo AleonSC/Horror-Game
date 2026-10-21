@@ -36,7 +36,11 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong, dispelBuild, dispel, taken, trailChime;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong, dispelBuild, dispel, taken, trailChime, blindGrowl, blindAlert;
+    /// <summary>The blind one, to itself: a long, low, wet growl rattling in its chest, rising and sinking (2.8s).</summary>
+    public static AudioClip BlindGrowl => blindGrowl != null ? blindGrowl : (blindGrowl = MakeBlindGrowl());
+    /// <summary>The blind one hearing something: a sharp sucked-in breath snapping into a short, ragged snarl.</summary>
+    public static AudioClip BlindAlert => blindAlert != null ? blindAlert : (blindAlert = MakeBlindAlert());
     /// <summary>
     /// A scour being faced down (2.5s, pitched to the crescendo's length): a ghostly cluster of glassy tones
     /// rising and trembling faster and faster over a long, breathy inhale.
@@ -971,6 +975,54 @@ public static class ProceduralAudio
             lp += (White() - lp) * 0.15f;
             return (shimmer * 0.25f + (White() - lp) * 0.15f) * env;
         }, 0.6f);
+    }
+
+    /// <summary>A growling voice: a buzzing low fundamental, rattled (the throat flapping), through two vocal-ish resonances.</summary>
+    static System.Func<float, float> GrowlVoice(float baseHz, float rattleHz, float rattleDepth, System.Func<float, float> pitchCurve, System.Func<float, float> env)
+    {
+        float phase = 0f, lp1 = 0f, lp2 = 0f, bp = 0f, breath = 0f, jitter = 0f;
+        return t =>
+        {
+            jitter += (White() * 0.02f - jitter) * 0.002f;
+            float hz = baseHz * pitchCurve(t) * (1f + jitter);
+            phase += hz / Rate;
+            phase -= Mathf.Floor(phase);
+            float buzz = (phase * 2f - 1f) + 0.5f * Mathf.Sin(TwoPi * phase * 2f);
+            float rattle = 1f - rattleDepth * (0.5f + 0.5f * Mathf.Sin(TwoPi * rattleHz * t + Mathf.Sin(TwoPi * 3.1f * t) * 2f));
+            float voiced = buzz * rattle;
+            lp1 += (voiced - lp1) * 0.06f;   // the chest
+            lp2 += (lp1 - lp2) * 0.06f;
+            bp += (voiced - bp) * 0.25f;     // a rasp on top
+            breath += (White() - breath) * 0.1f;
+            return (lp2 * 1.8f + (bp - lp1) * 0.35f + breath * 0.12f * rattle) * env(t);
+        };
+    }
+
+    static AudioClip MakeBlindGrowl()
+    {
+        const float len = 2.8f;
+        var voice = GrowlVoice(62f, 24f, 0.7f,
+            t => 1f + 0.12f * Mathf.Sin(Mathf.PI * t / len) + 0.03f * Mathf.Sin(TwoPi * 0.9f * t),
+            t => Mathf.Clamp01(t / 0.5f) * Mathf.Clamp01((len - t) / 0.9f) * (0.75f + 0.25f * Mathf.Sin(TwoPi * 0.7f * t)));
+        return Shot("Blind Growl", len, t => Tanh(voice(t) * 1.5f), 0.85f);
+    }
+
+    static AudioClip MakeBlindAlert()
+    {
+        const float len = 1.2f, inhale = 0.18f;
+        float lp = 0f, hp = 0f;
+        var snarl = GrowlVoice(105f, 31f, 0.85f,
+            t => 1.25f - 0.35f * Mathf.Clamp01((t - inhale) / 0.9f),
+            t => t < inhale ? 0f : Mathf.Clamp01((t - inhale) / 0.03f) * Mathf.Exp(-(t - inhale) * 2.8f));
+        return Shot("Blind Alert", len, t =>
+        {
+            // The sharp sucked-in breath: rising, hissing noise.
+            float u = Mathf.Clamp01(t / inhale);
+            lp += (White() - lp) * Mathf.Lerp(0.1f, 0.5f, u);
+            hp += (lp - hp) * 0.08f;
+            float breath = t < inhale ? (lp - hp) * u * u * 1.4f : 0f;
+            return Tanh(breath + snarl(t) * 2.2f);
+        }, 0.95f);
     }
 
     static AudioClip MakePoof()

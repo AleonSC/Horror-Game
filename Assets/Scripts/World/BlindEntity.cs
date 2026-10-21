@@ -42,6 +42,18 @@ public class BlindEntity : MonoBehaviour
     [Tooltip("How far from the player it comes up when it does.")]
     public float catchUpDistance = 35f;
     float farTimer;
+
+    [Header("Hearing You")]
+    [Tooltip("Once it's heard you, it searches only round the last place it heard you for this many seconds (it can't follow someone who's gone quiet).")]
+    public float investigateTime = 45f;
+    [Tooltip("How widely it searches round that spot.")]
+    public float investigateRadius = 10f;
+    [Tooltip("Ordinary walking footsteps only give you away this close (crouching, only within closeHearing).")]
+    public float walkingHearing = 5f;
+    float lastHeardTime = -999f;
+    Vector3 lastHeardAt;
+    float growlTimer = 4f;
+    bool Investigating => Time.time - lastHeardTime < investigateTime;
     [Tooltip("Moving at all within this distance of it, it hears you (even crouched).")]
     public float closeHearing = 4f;
     [Tooltip("Within this distance it takes the player.")]
@@ -175,17 +187,22 @@ public class BlindEntity : MonoBehaviour
         d.y = 0f;
         float dist = d.magnitude;
         if (dist > radius) return;
+        // Quiet sounds (ordinary walking, a door, a click) only carry to it from close by.
+        if (radius <= 7.5f && dist > walkingHearing) return;
 
-        // It knows roughly where: the further off, the rougher its guess.
+        // It knows roughly where: the further off, the rougher its guess. That spot is all it knows: go quiet
+        // and it can only search round the last place it heard you.
         Vector2 miss = Random.insideUnitCircle * dist * 0.12f;
         goal = Settle(at + new Vector3(miss.x, 0f, miss.y));
-        huntArea = goal; // it'll search round where it heard you from now on
+        huntArea = lastHeardAt = goal;
+        lastHeardTime = Time.time;
+        closing = Mathf.Min(closing, 0.4f);
         if (state != State.Rushing)
         {
-            // A sharp turn of the head toward it, a beat of stillness, then it goes.
+            // A sharp turn of the head toward it, a snarl, a beat of stillness, then it goes.
             state = State.Listening;
-            timer = Random.Range(0.25f, 0.6f);
-            PlaySound(ProceduralAudio.Creep, 0.6f, 1f);
+            timer = Random.Range(0.35f, 0.7f);
+            PlaySound(ProceduralAudio.BlindAlert, Random.Range(0.9f, 1.05f), 1f);
         }
     }
 
@@ -268,10 +285,11 @@ public class BlindEntity : MonoBehaviour
 
         Animate(dt);
         Clicks(dt);
+        Growl(dt);
     }
 
     /// <summary>How far round its hunting area it roams now: wide at first, narrowing as it closes in.</summary>
-    float RoamRange => Mathf.Lerp(roamRadius, closeRoamRadius, Mathf.SmoothStep(0f, 1f, closing));
+    float RoamRange => Investigating ? investigateRadius : Mathf.Lerp(roamRadius, closeRoamRadius, Mathf.SmoothStep(0f, 1f, closing));
 
     /// <summary>
     /// The slow tightening of the net. While it's wandering (not chasing a sound), the area it searches
@@ -282,6 +300,12 @@ public class BlindEntity : MonoBehaviour
     {
         if (player == null) return;
         huntArea = WorldWrap.NearestImage(huntArea, you);
+        if (Investigating)
+        {
+            // Searching round the last place it heard you, and nowhere else: it can't track you by silence.
+            huntArea = WorldWrap.NearestImage(lastHeardAt, you);
+            return;
+        }
         if (state == State.Roaming || state == State.Searching)
             closing = Mathf.Clamp01(closing + dt / Mathf.Max(closeInTime, 1f));
         float creep = Mathf.Lerp(0.4f, 1.6f, closing); // metres a second: never quicker than you can walk
@@ -576,6 +600,16 @@ public class BlindEntity : MonoBehaviour
     }
 
     void Click() => PlaySound(ProceduralAudio.TwigSnap, Random.Range(2.2f, 2.8f), 0.35f);
+
+    /// <summary>Now and then, as it goes, a long low growl rattling in its chest.</summary>
+    void Growl(float dt)
+    {
+        if (state == State.Taking || state == State.Appearing || state == State.Banished) return;
+        growlTimer -= dt;
+        if (growlTimer > 0f) return;
+        growlTimer = state == State.Searching || state == State.Listening ? Random.Range(4f, 8f) : Random.Range(6f, 14f);
+        PlaySound(ProceduralAudio.BlindGrowl, Random.Range(0.85f, 1.1f), Random.Range(0.6f, 0.85f));
+    }
 
     // ---------------------------------------------------------------- Taking the player
 
