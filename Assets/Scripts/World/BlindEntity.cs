@@ -35,6 +35,13 @@ public class BlindEntity : MonoBehaviour
     public float keepAway = 7f;
     Vector3 huntArea;
     float closing; // 0 (just arrived, or just lost you) to 1 (closed right in round where you are)
+    [Tooltip("If the player stays further than this from it...")]
+    public float tooFarDistance = 90f;
+    [Tooltip("...for this many seconds, it sinks into the ground and comes up again somewhere near them.")]
+    public float tooFarTime = 60f;
+    [Tooltip("How far from the player it comes up when it does.")]
+    public float catchUpDistance = 35f;
+    float farTimer;
     [Tooltip("Moving at all within this distance of it, it hears you (even crouched).")]
     public float closeHearing = 4f;
     [Tooltip("Within this distance it takes the player.")]
@@ -104,7 +111,28 @@ public class BlindEntity : MonoBehaviour
         WorldWrap.RegisterDynamic(transform);
     }
 
-    void Place(Vector3 near)
+    /// <summary>
+    /// Left too far behind for too long (a minute more than 90m away), it doesn't trudge all that way: it
+    /// sinks into the earth and rises again quietly somewhere round the player, not too close, any side.
+    /// Not while it's chasing a sound or a radio, or taking someone.
+    /// </summary>
+    void CatchUp(float dt, Vector3 you)
+    {
+        bool wandering = state == State.Roaming || state == State.Searching || state == State.Listening;
+        Vector3 d = WorldWrap.NearestImage(transform.position, you) - you;
+        d.y = 0f;
+        if (!wandering || d.magnitude < tooFarDistance || PortalDoor.PlayerInRoom) { farTimer = 0f; return; }
+        farTimer += dt;
+        if (farTimer < tooFarTime) return;
+        farTimer = 0f;
+        quietReturn = true;
+        Place(you, catchUpDistance, false);
+    }
+
+    void Place(Vector3 near) => Place(near, entranceDistance, true);
+
+    /// <summary>Puts it somewhere a distance from a point, rising up out of the ground: in view (in front) or anywhere round.</summary>
+    void Place(Vector3 near, float distance, bool inView)
     {
         if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
         if (player == null) player = FindAnyObjectByType<FirstPersonController>();
@@ -118,8 +146,8 @@ public class BlindEntity : MonoBehaviour
         Vector3 p = near;
         for (int i = 0; i < 30; i++)
         {
-            float spread = i < 20 ? 40f : 180f; // fall back to anywhere if nothing in front will do
-            Vector3 d = Quaternion.Euler(0f, Random.Range(-spread, spread), 0f) * ahead * entranceDistance * Random.Range(0.85f, 1.15f);
+            float spread = inView && i < 20 ? 40f : 180f; // fall back to anywhere if nothing in front will do
+            Vector3 d = Quaternion.Euler(0f, Random.Range(-spread, spread), 0f) * ahead * distance * Random.Range(0.85f, 1.15f);
             p = Settle(near + d);
             if (!SafeZones.Contains(p)) break;
         }
@@ -177,6 +205,7 @@ public class BlindEntity : MonoBehaviour
         toYou.y = 0f;
 
         UpdateHuntArea(dt, you);
+        CatchUp(dt, you);
 
         switch (state)
         {
