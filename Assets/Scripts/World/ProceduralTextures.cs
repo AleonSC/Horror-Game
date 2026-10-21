@@ -493,7 +493,7 @@ public static class ProceduralTextures
 
     // ---------------------------------------------------------------- Dirt
 
-    const int DirtSize = 1024;
+    const int DirtSize = 2048; // about 5.7m of ground (DarkForestGenerator's UVs), so the grass patches don't visibly repeat
 
     /// <summary>
     /// Realistic bare soil, like a photo of a forest floor: fine, even brown earth with soft darker damp
@@ -517,9 +517,9 @@ public static class ProceduralTextures
             for (int x = 0; x < n; x++)
             {
                 float u = x / (float)n, v = y / (float)n;
-                float patches = Fbm(u, v, 3, 3, 211);
-                float dryness = TileNoise(u * 7f, v * 7f, 7, 212);
-                float fine = TileNoise(u * 180f, v * 180f, 180, 213) * 0.5f + TileNoise(u * 360f, v * 360f, 360, 214) * 0.5f;
+                float patches = Fbm(u, v, 6, 3, 211);
+                float dryness = TileNoise(u * 14f, v * 14f, 14, 212);
+                float fine = TileNoise(u * 360f, v * 360f, 360, 213) * 0.5f + TileNoise(u * 720f, v * 720f, 720, 214) * 0.5f;
                 float speck = Hash(x, y, 215);
 
                 Color c = Color.Lerp(damp, soil, Ramp(0.25f, 0.65f, patches));
@@ -591,16 +591,49 @@ public static class ProceduralTextures
                 }
             }
         }
-        Pebbles(70, 12f, 22f);
-        Pebbles(1300, 5f, 11f);
-        Pebbles(11000, 1.6f, 4.5f);
+        Pebbles(280, 12f, 22f);
+        Pebbles(5200, 5f, 11f);
+        Pebbles(44000, 1.6f, 4.5f);
 
+        // Over it all, ragged patches of short, dark grass: bigger mats and smaller tufts with soil between,
+        // matted dead grass round their edges, and the soil a little darker where it meets them.
+        var deep = new Color(0.04f, 0.055f, 0.03f);
+        var lit = new Color(0.1f, 0.12f, 0.06f);
+        var faded = new Color(0.12f, 0.115f, 0.07f);
+        var thatch = new Color(0.25f, 0.22f, 0.17f);
         var albedo = new Color32[n * n];
-        for (int i = 0; i < n * n; i++)
+        for (int y = 0; y < n; y++)
         {
-            Color c = col[i] * (1f - shadow[i]);
-            c.a = 1f;
-            albedo[i] = c;
+            for (int x = 0; x < n; x++)
+            {
+                int i = y * n + x;
+                float u = x / (float)n, v = y / (float)n;
+                float cover = Fbm(u, v, 4, 4, 301);
+                float ragged = TileNoise(u * 96f, v * 96f, 96, 302) - 0.5f;
+                float g = cover + ragged * 0.1f;
+                float grass = Ramp(0.5f, 0.56f, g);
+
+                // Short blades: fine streaks running every which way.
+                float bladeA = TileNoise2(u * 900f, v * 220f, 900, 220, 303);
+                float bladeB = TileNoise2(u * 220f, v * 900f, 220, 900, 304);
+                float bladeC = TileNoise(u * 600f, v * 600f, 600, 305);
+                float blade = Mathf.Max(Mathf.Max(bladeA, bladeB), bladeC * 0.9f);
+                blade = Mathf.Pow(blade, 1.6f);
+
+                Color c = col[i] * (1f - shadow[i]);
+                float edge = Ramp(0.4f, 0.5f, g) * (1f - grass);
+                c *= 1f - 0.25f * edge; // damp, shaded soil at the grass's edge
+                float straw = Ramp(0.62f, 0.8f, Mathf.Max(bladeA, bladeB)) * Ramp(0.36f, 0.5f, g) * (1f - grass);
+                c = Color.Lerp(c, thatch * (0.8f + 0.4f * bladeC), straw * 0.55f); // dead grass lying on the soil
+
+                Color grassCol = Color.Lerp(deep, lit, blade);
+                grassCol = Color.Lerp(grassCol, faded, Ramp(0.55f, 0.8f, TileNoise(u * 10f, v * 10f, 10, 306)) * 0.6f); // tired, yellowing mats
+                grassCol *= 0.85f + 0.3f * TileNoise(u * 40f, v * 40f, 40, 307);
+                c = Color.Lerp(c, grassCol, grass * (0.85f + 0.15f * blade)); // the odd glimpse of soil through it
+                c.a = 1f;
+                albedo[i] = c;
+                height[i] = Mathf.Lerp(height[i], 0.22f + blade * 0.12f, grass);
+            }
         }
 
         dirt = new Texture2D(n, n, TextureFormat.RGBA32, true, false)

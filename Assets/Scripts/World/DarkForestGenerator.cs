@@ -504,7 +504,7 @@ public class DarkForestGenerator : MonoBehaviour
                 float wz = -half + z * step;
                 verts[i] = new Vector3(wx, GetGroundHeight(wx, wz), wz);
                 normals[i] = GroundNormal(wx, wz); // computed from the height function so tile edges shade seamlessly
-                uvs[i] = new Vector2(wx, wz) * 0.35f; // the soil texture repeats about every 3m
+                uvs[i] = new Vector2(wx, wz) * 0.175f; // the soil texture (dirt and patchy grass) repeats about every 5.7m
             }
         }
 
