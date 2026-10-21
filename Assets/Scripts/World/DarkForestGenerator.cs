@@ -48,7 +48,7 @@ public class DarkForestGenerator : MonoBehaviour
     public GameObject[] treePrefabs;
 
     [Header("Grass")]
-    public int grassPatchCount = 16000;
+    public int grassPatchCount = 10000;
     [Tooltip("Grass clumps gathered round the base of each tree (0 for none).")]
     public int minTreeBaseClumps = 4;
     public int maxTreeBaseClumps = 10;
@@ -1459,24 +1459,32 @@ public class DarkForestGenerator : MonoBehaviour
         parent.SetParent(root, false);
         GrassPivots.Clear();
 
-        // A handful of shared clump shapes, from short and sparse to tall and thick.
+        // A handful of shared clump shapes, from short to tall, all thick: dense, broad, curving blades
+        // fanning out from the middle over a carpet of short ones.
         var variants = new Mesh[8];
         for (int i = 0; i < variants.Length; i++)
         {
             float t = i / (float)(variants.Length - 1);
             variants[i] = BuildGrassMesh(
-                blades: Mathf.RoundToInt(Mathf.Lerp(12f, 40f, t)),
-                radius: Mathf.Lerp(0.2f, 0.5f, Range(0f, 1f)),
-                height: Mathf.Lerp(0.25f, 0.8f, t),
-                width: Mathf.Lerp(0.015f, 0.04f, Range(0f, 1f)));
+                blades: Mathf.RoundToInt(Mathf.Lerp(30f, 70f, t)),
+                radius: Mathf.Lerp(0.18f, 0.4f, Range(0f, 1f)),
+                height: Mathf.Lerp(0.3f, 0.85f, t),
+                width: Mathf.Lerp(0.035f, 0.07f, Range(0f, 1f)));
         }
 
-        var materials = new Material[3];
+        // Each clump in two shades: dark at the roots, paler toward the tips (submeshes 0 and 1).
+        var materials = new Material[3][];
         for (int i = 0; i < materials.Length; i++)
         {
+            float v = Range(0.8f, 1.2f);
+            Color gc = grassColor;
             materials[i] = grassMaterial != null
-                ? grassMaterial
-                : MaterialFactory.Lit(grassColor * Range(0.75f, 1.25f), 0f);
+                ? new[] { grassMaterial, grassMaterial }
+                : new[]
+                {
+                    MaterialFactory.Lit(gc * 0.7f * v, 0f),
+                    MaterialFactory.Lit(new Color(gc.r * 2.1f, gc.g * 2f, gc.b * 1.4f) * v, 0.05f),
+                };
         }
 
         float half = areaSize * 0.5f;
@@ -1484,21 +1492,23 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
 
-            // Grass grows all over, thickest in meadows and drifts.
+            // Gathered into thick meadows and drifts, with only the odd tuft out on the bare forest floor
+            // between them.
             float n = Mathf.PerlinNoise((p.x + noiseOffset.x) * grassNoiseScale, (p.y + noiseOffset.y) * grassNoiseScale);
-            if (Range(0f, 1f) > 0.4f + n * n * 2f) continue;
+            float meadow = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.42f, 0.68f, n));
+            if (Range(0f, 1f) > 0.06f + meadow * 0.94f) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 3.5f)) continue;
 
             var patch = new GameObject("Grass Patch");
             patch.transform.SetParent(parent, false);
             patch.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.02f, p.y);
             patch.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
-            float thickness = Range(0.7f, 1.5f);
-            patch.transform.localScale = new Vector3(thickness, Range(0.6f, 1.8f), thickness);
+            float thickness = Range(0.8f, 1.6f) * Mathf.Lerp(0.8f, 1.15f, meadow);
+            patch.transform.localScale = new Vector3(thickness, Range(0.6f, 1.6f) * Mathf.Lerp(0.8f, 1.1f, meadow), thickness);
 
             patch.AddComponent<MeshFilter>().sharedMesh = variants[rng.Next(variants.Length)];
             var renderer = patch.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = materials[rng.Next(materials.Length)];
+            renderer.sharedMaterials = materials[rng.Next(materials.Length)];
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             GrassPivots.Add(patch.transform);
         }
@@ -1510,10 +1520,11 @@ public class DarkForestGenerator : MonoBehaviour
     /// Tufts of grass round the foot of every tree, nestled against the trunk,
     /// so the trunk grows up out of the undergrowth. One merged mesh per tree; these don't sway.
     /// </summary>
-    void AddTreeBaseGrass(Transform parent, Mesh[] variants, Material[] materials)
+    void AddTreeBaseGrass(Transform parent, Mesh[] variants, Material[][] materials)
     {
         if (maxTreeBaseClumps <= 0) return;
         var combine = new List<CombineInstance>();
+        var tips = new List<CombineInstance>();
         foreach (var pivot in SwayPivots)
         {
             if (pivot == null || pivot.parent == null) continue;
@@ -1523,6 +1534,7 @@ public class DarkForestGenerator : MonoBehaviour
             float baseY = GetGroundHeight(center.x, center.z);
 
             combine.Clear();
+            tips.Clear();
             int clumps = rng.Next(minTreeBaseClumps, maxTreeBaseClumps + 1);
             float start = Range(0f, Mathf.PI * 2f);
             for (int i = 0; i < clumps; i++)
@@ -1534,57 +1546,98 @@ public class DarkForestGenerator : MonoBehaviour
                 float y = GetGroundHeight(center.x + x, center.z + z) - baseY - 0.03f;
                 float thickness = Range(0.8f, 1.6f);
                 var scale = new Vector3(thickness, Range(0.7f, 1.6f), thickness);
-                combine.Add(new CombineInstance
-                {
-                    mesh = variants[rng.Next(variants.Length)],
-                    transform = Matrix4x4.TRS(new Vector3(x, y, z), Quaternion.Euler(0f, Range(0f, 360f), 0f), scale),
-                });
+                var variant = variants[rng.Next(variants.Length)];
+                var matrix = Matrix4x4.TRS(new Vector3(x, y, z), Quaternion.Euler(0f, Range(0f, 360f), 0f), scale);
+                combine.Add(new CombineInstance { mesh = variant, subMeshIndex = 0, transform = matrix });
+                tips.Add(new CombineInstance { mesh = variant, subMeshIndex = 1, transform = matrix });
             }
 
+            // The dark roots and the pale tips, merged separately, then as the two parts of one mesh.
+            var roots = new Mesh();
+            roots.CombineMeshes(combine.ToArray(), true, true);
+            var tipMesh = new Mesh();
+            tipMesh.CombineMeshes(tips.ToArray(), true, true);
             var mesh = new Mesh { name = "Tree Base Grass" };
-            mesh.CombineMeshes(combine.ToArray(), true, true);
+            mesh.CombineMeshes(new[]
+            {
+                new CombineInstance { mesh = roots, transform = Matrix4x4.identity },
+                new CombineInstance { mesh = tipMesh, transform = Matrix4x4.identity },
+            }, false, false);
+            Destroy(roots);
+            Destroy(tipMesh);
             var go = new GameObject("Tree Base Grass");
             go.transform.SetParent(parent, false);
             go.transform.localPosition = new Vector3(center.x, baseY, center.z);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = materials[rng.Next(materials.Length)];
+            renderer.sharedMaterials = materials[rng.Next(materials.Length)];
             renderer.shadowCastingMode = ShadowCastingMode.Off;
         }
     }
 
-    /// <summary>A clump of curved, tapering blades, visible from both sides.</summary>
+    /// <summary>
+    /// A thick clump of grass: broad blades fanning out from the middle, curving over (a few drooping at the
+    /// tip), drawn from both sides, over a carpet of short blades hiding the soil. Submesh 0 is the dark lower
+    /// half of every blade (and the carpet), submesh 1 the paler tips. Normals point up, so the clump lights
+    /// as one soft mass rather than blade by blade.
+    /// </summary>
     Mesh BuildGrassMesh(int blades, float radius, float height, float width)
     {
         var verts = new List<Vector3>();
-        var tris = new List<int>();
+        var roots = new List<int>();
+        var tipsTris = new List<int>();
+
+        void TwoSided(List<int> tris, params int[] front)
+        {
+            tris.AddRange(front);
+            for (int k = front.Length - 1; k >= 0; k--) tris.Add(front[k]);
+        }
 
         for (int b = 0; b < blades; b++)
         {
-            Vector2 at = Random2(radius);
-            var basePos = new Vector3(at.x, 0f, at.y);
-            float h = height * Range(0.5f, 1.2f);
-            float w = width * Range(0.6f, 1.4f);
-            float yaw = Range(0f, Mathf.PI * 2f);
-            var across = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw)) * (w * 0.5f);
-            var lean = new Vector3(-Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)) * (h * Range(0.1f, 0.4f));
+            // Packed toward the middle, leaning outward from it.
+            float a = Range(0f, Mathf.PI * 2f), r = Mathf.Pow(Range(0f, 1f), 0.9f) * radius;
+            var basePos = new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r);
+            Vector3 outward = r > 0.01f ? basePos / r : new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            outward = Quaternion.Euler(0f, Range(-35f, 35f), 0f) * outward;
+            float h = height * Range(0.55f, 1.15f);
+            float w = width * Range(0.7f, 1.3f);
+            bool droop = Range(0f, 1f) < 0.25f;
+            float bend = h * (droop ? Range(0.45f, 0.7f) : Range(0.12f, 0.4f));
+            var across = Vector3.Cross(Vector3.up, outward) * (w * 0.5f);
 
             int i = verts.Count;
             verts.Add(basePos - across);
             verts.Add(basePos + across);
-            verts.Add(basePos - across * 0.6f + Vector3.up * (h * 0.55f) + lean * 0.3f);
-            verts.Add(basePos + across * 0.6f + Vector3.up * (h * 0.55f) + lean * 0.3f);
-            verts.Add(basePos + Vector3.up * h + lean);
+            Vector3 mid = basePos + Vector3.up * (h * 0.5f) + outward * (bend * 0.25f);
+            verts.Add(mid - across * 0.75f);
+            verts.Add(mid + across * 0.75f);
+            verts.Add(basePos + Vector3.up * (h * (droop ? 0.8f : 1f)) + outward * bend);
+            TwoSided(roots, i, i + 2, i + 1, i + 1, i + 2, i + 3);
+            TwoSided(tipsTris, i + 2, i + 4, i + 3);
+        }
 
-            int[] front = { i, i + 2, i + 1, i + 1, i + 2, i + 3, i + 2, i + 4, i + 3 };
-            tris.AddRange(front);
-            for (int k = front.Length - 1; k >= 0; k--) tris.Add(front[k]); // back faces
+        // The carpet underneath: short, broad blades, thick enough that no soil shows through.
+        int carpet = Mathf.RoundToInt(blades * 0.6f);
+        for (int b = 0; b < carpet; b++)
+        {
+            Vector2 at = Random2(radius * 1.15f);
+            var basePos = new Vector3(at.x, 0f, at.y);
+            float yaw = Range(0f, Mathf.PI * 2f);
+            var across = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw)) * (width * Range(0.8f, 1.6f));
+            var lean = new Vector3(-Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)) * Range(0.02f, 0.08f);
+            int i = verts.Count;
+            verts.Add(basePos - across);
+            verts.Add(basePos + across);
+            verts.Add(basePos + Vector3.up * (height * Range(0.15f, 0.3f)) + lean);
+            TwoSided(roots, i, i + 2, i + 1);
         }
 
         var mesh = new Mesh { name = "Grass Clump" };
         mesh.SetVertices(verts);
-        mesh.SetTriangles(tris, 0);
-        // Normals point up so both sides of every blade are lit like the ground beneath.
+        mesh.subMeshCount = 2;
+        mesh.SetTriangles(roots, 0);
+        mesh.SetTriangles(tipsTris, 1);
         var normals = new Vector3[verts.Count];
         for (int n = 0; n < normals.Length; n++) normals[n] = Vector3.up;
         mesh.normals = normals;
