@@ -132,6 +132,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     readonly Transform[] giantEyes = new Transform[2];
     float searchTimer = -1f;
     bool searchPausing;
+    float gait = 1f, stepImpulse; // how much it's walking (eases to a stop and back); the jolt of its last footfall
 
     bool searchlightsOn;
     Vector3 searchlightTarget;
@@ -510,7 +511,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             landBody = giant.GetChild(0).localRotation;
             landBodyPos = giant.GetChild(0).localPosition;
             settle = 0f;
-            stepDip = 1.4f; // crouching into the landing
+            stepDip = stepImpulse = 1.4f; // crouching into the landing
             leftFootDown = Mathf.Cos(stridePhase) < 0f;
         }
     }
@@ -675,13 +676,21 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             searchPausing = !searchPausing;
             searchTimer = searchPausing ? Random.Range(searchPauseMin, searchPauseMax) : Random.Range(searchWalkMin, searchWalkMax);
         }
-        if (!searchPausing) giantDistance = Mathf.Max(0f, giantDistance - giantSpeed * dt);
-
         bool reaching = Time.time < reachUntil;
+        // Its walk eases to a stop and back up to pace (it used to freeze mid-stride and lurch off again).
+        gait = Mathf.MoveTowards(gait, searchPausing || reaching ? 0f : 1f, dt / 1.4f);
+        float g = Mathf.SmoothStep(0f, 1f, gait);
+        giantDistance = Mathf.Max(0f, giantDistance - giantSpeed * g * dt);
+
         Vector3 p = player.transform.position + giantBearing * giantDistance;
         p.y = Ground(p);
-        // (While it reaches for someone being carried up to it, it stands where it is.)
-        if (!reaching) giant.SetPositionAndRotation(p, Quaternion.LookRotation(-giantBearing));
+        // (While it reaches for someone being carried up to it, it stands where it is.) Eased toward where it
+        // should be, so the player's own every step and jump doesn't jog it about.
+        if (!reaching)
+        {
+            Vector3 walkTo = Vector3.Distance(giant.position, p) < 200f ? Vector3.Lerp(giant.position, p, 1f - Mathf.Exp(-2.5f * dt)) : p;
+            giant.SetPositionAndRotation(walkTo, Quaternion.LookRotation(-giantBearing));
+        }
         // Far off, it's scaled up so it always looms over the treeline; it shrinks to its true size as it nears.
         giant.localScale = Vector3.one * WalkingScale(giantDistance);
         UpdateChain(Vector3.zero, 1f, true);
@@ -693,19 +702,20 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // Just landed: it straightens up out of the landing first, then sets off.
         settle = Mathf.MoveTowards(settle, 1f, dt / Mathf.Max(landingSettleTime, 0.01f));
         float blend = Mathf.SmoothStep(0f, 1f, settle);
-        if (!searchPausing && !reaching && settle >= 1f) stridePhase += dt * Mathf.PI * 2f / strideTime;
+        if (settle >= 1f) stridePhase += dt * Mathf.PI * 2f / strideTime * g;
+        float stride = Mathf.Lerp(0.3f, 1f, g); // coming to a halt, its legs settle under it rather than freezing mid-air
         float scaleRig = giantHeight / 2.4f;
         for (int i = 0; i < 2; i++)
         {
             float legPhase = stridePhase + i * Mathf.PI;
             float swing = Mathf.Sin(legPhase);                          // +1: leg furthest forward
             float swinging = Mathf.Max(0f, Mathf.Cos(legPhase));        // moving forward through the air
-            float hip = -24f * swing - 6f * swinging;            // forward is negative
-            float knee = 8f + 55f * Mathf.Pow(swinging, 1.5f);   // folds as it swings through, nearly straight planted
+            float hip = (-24f * swing - 6f * swinging) * stride;            // forward is negative
+            float knee = 8f + 55f * Mathf.Pow(swinging, 1.5f) * stride;   // folds as it swings through, nearly straight planted
             giantLegs[i].localRotation = Quaternion.Slerp(landLegs[i], Quaternion.Euler(hip, 0f, (i == 0 ? 1f : -1f) * 2f), blend);
             giantKnees[i].localRotation = Quaternion.Slerp(landKnees[i], Quaternion.Euler(knee, 0f, 0f), blend);
             // The arm goes back as the leg on its side goes forward, trailing a little behind it.
-            giantArms[i].localRotation = Quaternion.Slerp(landArms[i], Quaternion.Euler(14f * Mathf.Sin(legPhase - 0.5f) + 4f, 0f, (i == 0 ? -1f : 1f) * 4f), blend);
+            giantArms[i].localRotation = Quaternion.Slerp(landArms[i], Quaternion.Euler(14f * Mathf.Sin(legPhase - 0.5f) * stride + 4f, 0f, (i == 0 ? -1f : 1f) * 4f), blend);
         }
         // Reaching: both arms lift and stretch out toward what's being brought to it, a little apart, as if
         // to take it in both hands, trembling with eagerness.
@@ -723,11 +733,13 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
                                     * Quaternion.Euler(Mathf.Sin(Time.time * 9f + i) * 1.5f, 0f, Mathf.Sin(Time.time * 7f + i * 2f) * 1.5f);
                 arm.localRotation = Quaternion.Slerp(arm.localRotation, toward, Mathf.SmoothStep(0f, 1f, reach));
             }
-        stepDip = Mathf.MoveTowards(stepDip, 0f, dt * 0.6f);
-        float rise = Mathf.Cos(2f * stridePhase);               // highest as the legs pass, lowest at full stride
+        // Each footfall jolts it down: quickly, but over a moment, not in a single frame.
+        stepImpulse = Mathf.MoveTowards(stepImpulse, 0f, dt * 0.6f);
+        stepDip = Mathf.Lerp(stepDip, stepImpulse, 1f - Mathf.Exp(-8f * dt));
+        float rise = Mathf.Cos(2f * stridePhase) * stride;      // highest as the legs pass, lowest at full stride
         var bodyPivot = giant.GetChild(0);
         Vector3 bodyPos = Vector3.up * ((rise * 0.025f * blend - stepDip * 0.05f) * scaleRig);
-        Quaternion bodyRot = Quaternion.Euler(6f + stepDip * 6f + Mathf.Sin(2f * stridePhase) * 1.5f, Mathf.Sin(stridePhase) * 4f, Mathf.Sin(stridePhase) * 3.5f);
+        Quaternion bodyRot = Quaternion.Euler(6f + stepDip * 6f + Mathf.Sin(2f * stridePhase) * 1.5f * stride, Mathf.Sin(stridePhase) * 4f * stride, Mathf.Sin(stridePhase) * 3.5f * stride);
         bodyPivot.localPosition = Vector3.Lerp(landBodyPos, bodyPos, blend);
         bodyPivot.localRotation = Quaternion.Slerp(landBody, bodyRot, blend);
 
@@ -746,7 +758,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // A footfall each time a foot plants out in front: a boom, the body jolting down, the ground heaving.
         float closeness = Mathf.InverseLerp(giantStartDistance, giantCatchDistance, giantDistance);
         bool leftDown = Mathf.Cos(stridePhase) < 0f; // the left leg has finished swinging forward
-        if (leftDown != leftFootDown && !searchPausing && settle >= 1f)
+        if (leftDown != leftFootDown && g > 0.5f && settle >= 1f)
         {
             leftFootDown = leftDown;
             // Each step sends a smaller shockwave out through the forest from where the foot came down.
@@ -754,10 +766,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             audioSource.pitch = Random.Range(0.9f, 1.05f);
             audioSource.PlayOneShot(ProceduralAudio.GiantStep, Mathf.Lerp(0.45f, 1f, closeness));
             shake = Mathf.Max(shake, Mathf.Lerp(farStepShake, nearStepShake, closeness));
-            stepDip = 1f;
+            stepImpulse = 1f;
         }
         // And a tremor underfoot all the while it walks, growing as it nears.
-        if (!searchPausing) player.AddCameraShake(Mathf.Lerp(0.15f, 0.9f, closeness));
+        player.AddCameraShake(Mathf.Lerp(0.15f, 0.9f, closeness) * g);
 
         if (giantDistance <= giantCatchDistance)
         {
@@ -1190,6 +1202,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         TurnOffSearchlights();
         searchTimer = -1f;
         searchPausing = false;
+        gait = 1f;
+        stepImpulse = 0f;
         // It's back up on its chain, somewhere new.
         hangBearingAngle = Random.Range(0f, 360f);
         foreach (var c in emptyChainList) c.bottomElevation = Random.Range(EmptyChainLow, EmptyChainHigh); // and so are the empty ones

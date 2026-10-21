@@ -45,7 +45,7 @@ public class FirstPersonController : MonoBehaviour
 
     [Header("Waking Up")]
     [Tooltip("Seconds after spawning that the player is groggy: slow, heavy movement and blurred, swaying vision, clearing as it wears off.")]
-    public float wakeTime = 5f;
+    public float wakeTime = 8f;
     [Range(0f, 1f), Tooltip("Movement speed at the start, as a fraction of normal.")]
     public float wakeSpeed = 0.35f;
     [Range(0f, 1f), Tooltip("How blurred the view is at the start.")]
