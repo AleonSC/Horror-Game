@@ -93,6 +93,9 @@ public class LampSpawner : MonoBehaviour
             lamps.Add(lamp);
             WorldWrap.RegisterStatic(lamp.transform);
         }
+
+        // Old trails worn between them, coming and going.
+        LampTrails.Build(transform, lamps, generator);
     }
 
     /// <summary>Copies the Lamp Settings onto a lamp.</summary>
