@@ -678,6 +678,10 @@ public class TreeFall : MonoBehaviour
     /// </summary>
     Vector2 TrunkAt(List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources, float at, float guessRadius, out float trunkRadius)
     {
+        // What the trunk should be here, from its taper: the measurement is only trusted near this, since the
+        // branches (lots of vertices, reaching metres out) would otherwise swamp it.
+        float expected = guessRadius * Mathf.Lerp(1f, 0.45f, Mathf.Clamp01(at / Mathf.Max(height, 0.01f)));
+        trunkRadius = expected;
         var near = new List<Vector2>();
         foreach (var (mesh, toSway, mat) in sources)
         {
@@ -685,23 +689,27 @@ public class TreeFall : MonoBehaviour
             foreach (var v in mesh.vertices)
             {
                 Vector3 p = toSway.MultiplyPoint3x4(v);
-                if (Mathf.Abs(p.y - at) < 0.35f) near.Add(new Vector2(p.x, p.z));
+                if (Mathf.Abs(p.y - at) < 0.3f && new Vector2(p.x, p.z).magnitude < expected * 3f + 0.1f) near.Add(new Vector2(p.x, p.z));
             }
         }
-        trunkRadius = guessRadius * Mathf.Lerp(1f, 0.45f, Mathf.Clamp01(at / Mathf.Max(height, 0.01f)));
         if (near.Count < 6) return Vector2.zero;
 
-        // The middle: the average of what's close to the axis (branches left out), then its radius: a low
-        // percentile of the distances, which is the trunk's surface rather than a bough's tip.
+        // The middle: the average of what's close in; then its surface: the middle of the distances from there,
+        // kept within reason of what the taper says.
         Vector2 centre = Vector2.zero;
         int n = 0;
         foreach (var p in near)
-            if (p.magnitude < guessRadius * 2f) { centre += p; n++; }
+            if (p.magnitude < expected * 1.8f + 0.05f) { centre += p; n++; }
         if (n > 0) centre /= n;
         var dist = new List<float>(near.Count);
-        foreach (var p in near) dist.Add((p - centre).magnitude);
+        foreach (var p in near)
+        {
+            float d = (p - centre).magnitude;
+            if (d < expected * 2f + 0.05f) dist.Add(d);
+        }
+        if (dist.Count < 4) return centre;
         dist.Sort();
-        trunkRadius = Mathf.Max(dist[Mathf.Clamp(Mathf.RoundToInt(dist.Count * 0.4f), 0, dist.Count - 1)], 0.03f);
+        trunkRadius = Mathf.Clamp(dist[dist.Count / 2], expected * 0.5f, expected * 1.5f);
         return centre;
     }
 
