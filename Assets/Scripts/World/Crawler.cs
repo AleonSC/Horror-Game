@@ -308,7 +308,6 @@ public class CrawlerSpawner : MonoBehaviour
 {
     void Awake() => Tuning.Apply(this);
 
-    public int lampsToStart = 2;
     public int count = 4;
     public float minDistance = 14f, maxDistance = 45f;
     [Tooltip("A crawler further than this from the player is moved somewhere nearer.")]
@@ -326,8 +325,8 @@ public class CrawlerSpawner : MonoBehaviour
         if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
         if (mist == null) mist = FindAnyObjectByType<GroundMist>();
 
-        int wanted = Mathf.Max(1, Mathf.RoundToInt(count * Difficulty.Crawlers));
-        bool active = Lamp.TimesLit >= Mathf.Max(1, lampsToStart + Difficulty.CrawlerLampOffset) && !GameOverScreen.IsActive;
+        int wanted = Mathf.RoundToInt(count * Difficulty.Crawlers);
+        bool active = wanted > 0 && Lamp.TimesLit >= Difficulty.CrawlerStartLamp && !GameOverScreen.IsActive;
         if (!active)
         {
             foreach (var c in crawlers) if (c != null && c.gameObject.activeSelf && Crawler.Holding != c) c.gameObject.SetActive(false);

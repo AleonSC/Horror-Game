@@ -147,7 +147,7 @@ public class Flashlight : MonoBehaviour
     void Update()
     {
         ApplyFeather(); // live: picks up changes to the edge settings during play
-        if (PauseMenu.IsPaused) return;
+        if (PauseMenu.IsPaused || MainMenu.Showing) return; // (no switching it on behind the main menu)
         if (HorrorInput.FlashlightPressed && Equipped && !InventoryScreen.IsOpen)
             Toggle();
 

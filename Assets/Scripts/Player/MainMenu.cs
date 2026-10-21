@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// The main menu, shown when the game starts (once per Play, not on restarts), in the pause menu's style:
-/// the title and START / DIFFICULTY / QUIT on the left over the cinematic bars, and behind it a slow film of the forest
+/// the title and START / DIFFICULTY (with a page of sliders for Custom) / QUIT on the left over the cinematic bars, and behind it a slow film of the forest
 /// itself: shots drifting high over the treetops, craning down onto a camp or a lamp, closing in on a
 /// grazing deer or an owl on its branch, panning slowly across the trees, creeping low through the mist. Each
 /// holds for a while and dips to black into the next; the arrow at the bottom right skips ahead. No monster
@@ -299,6 +299,7 @@ public class MainMenu : MonoBehaviour
         float left = Mathf.Max(70f, vw * 0.07f);
         float top = vh * 0.13f + 70f;
         hovered = -1;
+        if (customPage) { DrawCustom(left, top); DrawNext(); return; }
 
         // The title: big, spaced, with a red rule under it.
         string spaced = string.Join(" ", title.ToUpperInvariant().ToCharArray()).Replace("   ", "     ");
@@ -310,12 +311,18 @@ public class MainMenu : MonoBehaviour
         float y = top + 150f;
         if (Item(0, "START", left, y)) { starting = true; Tick(0.5f, 1.2f); }
         y += 64f;
-        // Difficulty: click to go round Easy, Normal, Hard (remembered).
+        // Difficulty: click to go round Easy, Normal, Hard, Custom (remembered).
         if (Item(2, "DIFFICULTY:  " + Difficulty.Name, left, y))
-            Difficulty.Current = (Difficulty.Level)(((int)Difficulty.Current + 1) % 3);
+            Difficulty.Current = (Difficulty.Level)(((int)Difficulty.Current + 1) % 4);
         smallStyle.normal.textColor = new Color(ItemColor.r, ItemColor.g, ItemColor.b, 0.6f);
         GUI.Label(S(new Rect(left, y + 44f, 900f, 30f)), Difficulty.Description, smallStyle);
-        y += 110f;
+        y += 92f;
+        if (Difficulty.Current == Difficulty.Level.Custom)
+        {
+            if (Item(3, "CUSTOMIZE  \u203a", left + 24f, y)) customPage = true;
+            y += 70f;
+        }
+        else y += 18f;
         if (Item(1, "QUIT", left, y))
         {
 #if UNITY_EDITOR
@@ -325,7 +332,12 @@ public class MainMenu : MonoBehaviour
 #endif
         }
 
-        // The next-shot arrow, bottom right.
+        DrawNext();
+    }
+
+    /// <summary>The next-shot arrow, bottom right (and the hover tick for the whole page).</summary>
+    void DrawNext()
+    {
         var arrow = new Rect(vw - 150f, vh - vh * 0.13f - 70f, 110f, 46f);
         bool over = arrow.Contains(Mouse);
         if (over) hovered = 10;
@@ -345,6 +357,65 @@ public class MainMenu : MonoBehaviour
             if (hovered >= 0) Tick(0.2f, 1.6f);
             lastHovered = hovered;
         }
+    }
+
+    // ---------------------------------------------------------------- Custom difficulty
+
+    bool customPage;
+    int draggingSlider = -1;
+
+    /// <summary>Every difficulty setting on its own slider, in two columns, with a reset and a way back.</summary>
+    void DrawCustom(float left, float top)
+    {
+        itemStyle.normal.textColor = HoverColor;
+        GUI.Label(S(new Rect(left, top - 10f, 1200f, 60f)), "C U S T O M", itemStyle);
+        Fill(S(new Rect(left, top + 44f, 200f, 3f)), AccentColor);
+
+        const float width = 330f, step = 62f, column = 520f;
+        float y0 = top + 80f;
+        int perColumn = Mathf.CeilToInt(Difficulty.Settings.Length / 2f);
+        bool changed = false;
+        for (int i = 0; i < Difficulty.Settings.Length; i++)
+        {
+            var setting = Difficulty.Settings[i];
+            float x = left + (i / perColumn) * column, y = y0 + (i % perColumn) * step;
+            float current = Difficulty.CustomValue(i);
+            float next = Slider(i, setting.label, setting.Format(current), x, y, width, current, setting.min, setting.max);
+            if (!Mathf.Approximately(next, current)) { Difficulty.SetCustom(i, next); changed = true; }
+        }
+        if (changed && Event.current.type == EventType.MouseUp) Difficulty.SaveCustom();
+
+        float y2 = y0 + perColumn * step + 20f;
+        if (Item(20, "RESET TO NORMAL", left, y2)) Difficulty.ResetCustom();
+        if (Item(21, "BACK", left + column, y2)) { customPage = false; Difficulty.SaveCustom(); }
+    }
+
+    /// <summary>A slider, like the pause menu's: a label, a thin track filling with a red handle, its value beside it.</summary>
+    float Slider(int id, string label, string value, float x, float y, float width, float current, float min, float max)
+    {
+        var track = new Rect(x, y + 30f, width, 14f);
+        Vector2 mouse = Mouse;
+        bool over = new Rect(x - 10f, y - 2f, width + 120f, 48f).Contains(mouse);
+        if (over) hovered = 100 + id;
+        smallStyle.normal.textColor = over || draggingSlider == id ? HoverColor : ItemColor;
+        GUI.Label(S(new Rect(x, y, width + 100f, 28f)), label, smallStyle);
+        GUI.Label(S(new Rect(x + width + 16f, y + 22f, 110f, 28f)), value, smallStyle);
+
+        float t = Mathf.InverseLerp(min, max, current);
+        Fill(S(new Rect(track.x, track.y + 6f, track.width, 2f)), new Color(1f, 1f, 1f, 0.2f));
+        Fill(S(new Rect(track.x, track.y + 6f, track.width * t, 2f)), new Color(HoverColor.r, HoverColor.g, HoverColor.b, 0.85f));
+        Fill(S(new Rect(track.x + track.width * t - 2f, track.y, 4f, 14f)), AccentColor);
+
+        var e = Event.current;
+        var grab = new Rect(track.x - 8f, track.y - 8f, track.width + 16f, track.height + 16f);
+        if (e.type == EventType.MouseDown && e.button == 0 && grab.Contains(mouse)) { draggingSlider = id; e.Use(); }
+        if (draggingSlider == id && (e.type == EventType.MouseDrag || e.type == EventType.MouseDown))
+        {
+            current = Mathf.Lerp(min, max, Mathf.Clamp01((mouse.x - track.x) / track.width));
+            e.Use();
+        }
+        if (draggingSlider == id && e.type == EventType.MouseUp) { draggingSlider = -1; e.Use(); Tick(0.3f, 1.3f); Difficulty.SaveCustom(); }
+        return current;
     }
 
     /// <summary>A menu entry, like the pause menu's: brightens, gains a red mark and slides right under the pointer.</summary>

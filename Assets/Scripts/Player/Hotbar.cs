@@ -144,7 +144,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     void Update()
     {
         SyncSlots();
-        if (PauseMenu.IsPaused || InventoryScreen.IsOpen) return;
+        if (PauseMenu.IsPaused || InventoryScreen.IsOpen || MainMenu.Showing) return;
         int slot = HorrorInput.SlotPressed;
         if (slot > 0 && slots[slot - 1] >= 0) Select((Item)slots[slot - 1]);
 
