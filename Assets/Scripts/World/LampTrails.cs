@@ -20,7 +20,11 @@ public static class LampTrails
         var old = parent.Find("Lamp Trails");
         if (old != null) Object.Destroy(old.gameObject);
         if (lamps.Count < 2) return;
-        if (materials == null)
+        // (Checked one by one, not just the array: with scripts not reloaded between plays the array outlives
+        // its materials, which Unity destroys when play stops, and a destroyed material draws solid purple.)
+        bool stale = materials == null;
+        if (!stale) foreach (var m in materials) if (m == null) { stale = true; break; }
+        if (stale)
         {
             materials = new Material[Levels];
             for (int k = 0; k < Levels; k++)
