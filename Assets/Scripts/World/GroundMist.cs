@@ -299,7 +299,10 @@ public class GroundMist : MonoBehaviour
         float outer = Mathf.Cos(beam.spotAngle * 0.5f * Mathf.Deg2Rad);
         float inner = Mathf.Cos(Mathf.Min(beam.innerSpotAngle, beam.spotAngle - 1f) * 0.5f * Mathf.Deg2Rad);
         mat.SetVector("_SpotDir", new Vector4(t.forward.x, t.forward.y, t.forward.z, outer));
-        Color c = beam.color * beam.intensity * flashlightStrength;
+        // How bright the beam is as a share of a normal flashlight (dimming as the battery runs down), never
+        // more: turn the flashlight's own brightness right up and the mist mustn't blaze white with it.
+        float level = Mathf.Clamp(beam.intensity / 12f, 0f, 1.2f);
+        Color c = beam.color * (12f * level * flashlightStrength);
         mat.SetVector("_SpotColor", new Vector4(c.r, c.g, c.b, inner));
     }
 
@@ -327,7 +330,7 @@ public class GroundMist : MonoBehaviour
             if (l == null || !l.isActiveAndEnabled) continue;
             Vector3 p = l.transform.position;
             pointPos[count] = new Vector4(p.x, p.y, p.z, Mathf.Min(l.range, 14f));
-            Color c = l.color * l.intensity * lampStrength;
+            Color c = l.color * Mathf.Min(l.intensity, 8f) * lampStrength;
             pointColor[count] = new Vector4(c.r, c.g, c.b, 0f);
             count++;
         }

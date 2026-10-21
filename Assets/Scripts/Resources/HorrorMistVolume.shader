@@ -94,7 +94,7 @@ Shader "Horror/MistVolume"
                     float a = saturate(1 - dl / max(_PointPos[k].w, 0.001));
                     c += _PointColor[k].rgb * a * a;
                 }
-                return c;
+                return min(c, 0.45); // however many lights pile up, lit mist stays mist, never a white blaze
             }
 
             float4 frag(v2f i) : SV_Target
