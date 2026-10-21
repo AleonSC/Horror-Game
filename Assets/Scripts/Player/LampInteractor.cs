@@ -49,7 +49,8 @@ public class LampInteractor : MonoBehaviour
         if (cam == null) return;
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
 
-        Collider target = FindTarget(cam.transform);
+        Collider target = DirectTarget(cam.transform);
+        if (target == null) target = FindTarget(cam.transform);
         if (target != null)
         {
             focused = target.GetComponentInParent<Lamp>();
@@ -118,6 +119,32 @@ public class LampInteractor : MonoBehaviour
                 bestScore = score;
                 best = col;
             }
+        }
+        return best;
+    }
+
+    static readonly RaycastHit[] directHits = new RaycastHit[32];
+
+    /// <summary>
+    /// Something small you're looking straight at, close by (an item, a battery, a radio): a fat ray along the
+    /// crosshair. Taken over the general search, which can miss things lying tucked against others (a
+    /// bundle of glowsticks by a backpack) when its line-of-sight checks graze what's beside them.
+    /// </summary>
+    Collider DirectTarget(Transform cam)
+    {
+        int count = Physics.SphereCastNonAlloc(cam.position, 0.18f, cam.forward, directHits, 2.6f, ~0, QueryTriggerInteraction.Collide);
+        Collider best = null;
+        float bestDist = float.MaxValue;
+        for (int i = 0; i < count; i++)
+        {
+            var col = directHits[i].collider;
+            if (col == null) continue;
+            Component owner = Owner(col);
+            if (!(owner is ItemPickup || owner is BatteryPickup || owner is CarRadio)) continue;
+            var shack = owner.GetComponentInParent<Shack>();
+            if (shack != null && !shack.Contains(cam.position)) continue; // not through a shack's walls
+            float d = directHits[i].distance;
+            if (d < bestDist) { bestDist = d; best = col; }
         }
         return best;
     }
