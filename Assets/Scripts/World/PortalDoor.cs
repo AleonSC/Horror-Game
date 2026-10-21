@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// A door standing on its own in the forest, shut and locked, between two lit lamp posts. It unlocks once
 /// lampsToUnlock (10) different lamps have been lit (with a heavy clunk heard wherever you are); then
-/// click it to open it (and again to shut it). Through the doorway there's no forest: there's a vast, dark room. Walk round the
+/// press E at it to open it (and again to shut it). Through the doorway there's no forest: there's a vast, dark room. Walk round the
 /// back of it, or past its sides, and it's just a door frame in the trees. Step through and you're in the room: black floor, black walls, black pillars
 /// receding into the dark, one dim light. The door stands in the middle of it, and through it you can see
 /// the forest; look round the back of it and there's only more room. Step back through to leave. Both
@@ -149,7 +149,7 @@ public class PortalDoor : MonoBehaviour
             Part(PrimitiveType.Cube, pale, door, new Vector3(0f, -0.3f, -0.5f), new Vector3(DoorWidth + 0.5f, 0.64f, 0.4f), false);
         }
 
-        // The door itself, shut, hinged on the right post. Click it to swing it open. Painted, with four
+        // The door itself, shut, hinged on the right post. Press E at it to swing it open. Painted, with four
         // raised panels each side, iron strap hinges, a brass knob, keyhole and knocker.
         var hinge = new GameObject("Hinge").transform;
         hinge.SetParent(door, false);

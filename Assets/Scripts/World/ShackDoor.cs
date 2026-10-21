@@ -12,7 +12,7 @@ public class ShackDoor : MonoBehaviour
     public float swingSpeed = 120f;
     [Tooltip("Local axis it swings about: up for a door, sideways for a lid or a flap.")]
     public Vector3 axis = Vector3.up;
-    [Tooltip("What it's called in the prompt (\"Click to open the ...\").")]
+    [Tooltip("What it's called in the prompt (\"Open the ...\", with E).")]
     public string noun = "door";
 
     public bool IsOpen { get; private set; }

@@ -14,6 +14,8 @@ using UnityEngine.InputSystem;
 ///   Space          - jump
 ///   Left Ctrl / C  - crouch
 ///   F              - use the item in hand (flashlight on/off, light torch, flick lighter)
+///   E              - open / close doors (shacks, the car's doors and glove box, the lone door)
+///   Left click     - everything else: crank lamps, pick things up, switches
 ///   1 / 2 / 3 / 4  - hotbar: flashlight / torch / lighter / flare gun
 ///   Esc            - pause menu
 /// </summary>
@@ -63,6 +65,8 @@ public static class HorrorInput
     public static bool ReleaseCursorPressed => Kb != null && Kb.escapeKey.wasPressedThisFrame;
     public static bool InventoryPressed => Kb != null && Kb.tabKey.wasPressedThisFrame;
     public static bool ClickPressed => Ms != null && Ms.leftButton.wasPressedThisFrame;
+    /// <summary>E: open and close doors (and the car's doors and glove box).</summary>
+    public static bool InteractPressed => Kb != null && Kb.eKey.wasPressedThisFrame;
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
     public static float Scroll => Ms != null ? Ms.scroll.ReadValue().y : 0f;
 #else
@@ -90,6 +94,8 @@ public static class HorrorInput
     public static bool ReleaseCursorPressed => Input.GetKeyDown(KeyCode.Escape);
     public static bool InventoryPressed => Input.GetKeyDown(KeyCode.Tab);
     public static bool ClickPressed => Input.GetMouseButtonDown(0);
+    /// <summary>E: open and close doors (and the car's doors and glove box).</summary>
+    public static bool InteractPressed => Input.GetKeyDown(KeyCode.E);
     /// <summary>Mouse wheel this frame: positive scrolled up, negative down, 0 none.</summary>
     public static float Scroll => Input.mouseScrollDelta.y;
 #endif

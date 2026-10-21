@@ -63,7 +63,17 @@ public class LampInteractor : MonoBehaviour
             focusedTorch = target.GetComponentInParent<LightableTorch>();
         }
 
-        if (!HorrorInput.ClickPressed || Cursor.lockState != CursorLockMode.Locked) return;
+        bool click = HorrorInput.ClickPressed, use = HorrorInput.InteractPressed;
+        if ((!click && !use) || Cursor.lockState != CursorLockMode.Locked) return;
+
+        // Doors (shacks, the car's doors and glove box, the lone door) open and shut with E, never a click,
+        // so clicking away at a lamp or grabbing things in a hurry can't swing a door open by accident.
+        if (DoorIsTarget)
+        {
+            if (use) focusedDoor.Toggle();
+            return;
+        }
+        if (!click) return;
 
         if (focusedTorch != null)
             focusedTorch.TryLight(hotbar);
@@ -75,13 +85,15 @@ public class LampInteractor : MonoBehaviour
             focusedSwitch.car.ToggleLights();
         else if (focusedItem != null)
             focusedItem.PickUp(hotbar);
-        else if (focusedDoor != null)
-            focusedDoor.Toggle();
         else if (focused != null && !focused.IsLit)
             focused.AddCharge();
         else if (focusedBattery != null)
             focusedBattery.PickUp(hotbar);
     }
+
+    /// <summary>True when the thing being looked at is a door (nothing ahead of it in the order things are picked).</summary>
+    bool DoorIsTarget => focusedDoor != null && focusedTorch == null && focusedButton == null && focusedRadio == null
+                         && (focusedSwitch == null || focusedSwitch.car == null) && focusedItem == null;
 
     /// <summary>
     /// Picks the interactable nearest to the line of sight, within reach and aimRadius of it,
@@ -269,7 +281,7 @@ public class LampInteractor : MonoBehaviour
         {
             bool clickable = focused == null ? !(focusedRadio != null && (focusedRadio.IsBroken || focusedRadio.Charge <= 0f)) && !(focusedTorch != null && !focusedTorch.CanLight)
                 : !focused.IsLit && !focused.IsCoolingDown;
-            DrawPrompt(prompt, cx, cy + (focused != null ? 62f : 34f) * unit, unit, Ease(promptAge / 0.25f), clickable);
+            DrawPrompt(prompt, cx, cy + (focused != null ? 62f : 34f) * unit, unit, Ease(promptAge / 0.25f), clickable, DoorIsTarget);
         }
 
         DrawLampCounter();
@@ -309,7 +321,7 @@ public class LampInteractor : MonoBehaviour
     /// ends, a fine rule underneath drawing out from the middle as it appears, and a mouse-button mark when
     /// clicking will do something.
     /// </summary>
-    void DrawPrompt(string text, float cx, float y, float unit, float a, bool clickable)
+    void DrawPrompt(string text, float cx, float y, float unit, float a, bool clickable, bool withE = false)
     {
         promptStyle.fontSize = Mathf.RoundToInt(15f * unit);
         string spaced = Spaced(text);
@@ -329,7 +341,8 @@ public class LampInteractor : MonoBehaviour
         float side = w * 0.5f + 18f * unit;
         Diamond(cx - side, y, 3.5f * unit, new Color(Ember.r, Ember.g, Ember.b, a));
         Diamond(cx + side, y, 3.5f * unit, new Color(Ember.r, Ember.g, Ember.b, a));
-        if (clickable) MouseMark(cx - side - 22f * unit, y, unit, a);
+        if (clickable && withE) KeyMark("E", cx - side - 22f * unit, y, unit, a);
+        else if (clickable) MouseMark(cx - side - 22f * unit, y, unit, a);
 
         // The text, with a shadow.
         var r = new Rect(cx - w * 0.5f - 10f, y - h * 0.5f, w + 20f, h);
@@ -346,6 +359,26 @@ public class LampInteractor : MonoBehaviour
             float edge = 1f - Mathf.Abs(f - 0.5f) * 2f;
             DrawRect(new Rect(cx - ruleW * 0.5f + ruleW * f, y + h * 0.42f, ruleW / 16f + 0.5f, Mathf.Max(1f, unit)), new Color(Ember.r, Ember.g, Ember.b, 0.7f * edge * a));
         }
+    }
+
+    /// <summary>A little key cap with its letter: "press E".</summary>
+    void KeyMark(string key, float x, float y, float unit, float a)
+    {
+        float s = 18f * unit, t = Mathf.Max(1f, unit);
+        var cap = new Rect(x - s * 0.5f, y - s * 0.5f, s, s);
+        Color line = new Color(Cream.r, Cream.g, Cream.b, 0.8f * a);
+        DrawRect(cap, new Color(0f, 0f, 0f, 0.35f * a));
+        DrawRect(new Rect(cap.x, cap.y, cap.width, t), line);
+        DrawRect(new Rect(cap.x, cap.yMax - t, cap.width, t * 2f), line); // a deeper lower edge, like a key
+        DrawRect(new Rect(cap.x, cap.y, t, cap.height), line);
+        DrawRect(new Rect(cap.xMax - t, cap.y, t, cap.height), line);
+        int size = promptStyle.fontSize;
+        var color = promptStyle.normal.textColor;
+        promptStyle.fontSize = Mathf.RoundToInt(12f * unit);
+        promptStyle.normal.textColor = new Color(Ember.r, Ember.g, Ember.b, a);
+        GUI.Label(new Rect(cap.x, cap.y - t, cap.width, cap.height), key, promptStyle);
+        promptStyle.fontSize = size;
+        promptStyle.normal.textColor = color;
     }
 
     /// <summary>A little mouse with its left button lit: "click".</summary>
