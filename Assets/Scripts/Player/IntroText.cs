@@ -32,12 +32,16 @@ public class IntroText : MonoBehaviour
     [Header("Timing (seconds)")]
     public float startDelay = 3f;
     public float fadeInTime = 2f;
-    public float holdTime = 2.5f;
+    public float holdTime = 2f;
     public float fadeOutTime = 2f;
     public float gapBetweenLines = 0.4f;
     [Tooltip("How long the opening black screen takes to fade away (starts with the first line).")]
     public float blackScreenFadeTime = 6f;
+    [Tooltip("How long the screen stays fully black after the first line starts, before it begins to fade.")]
+    public float blackScreenHoldTime = 2f;
     public bool showBlackScreen = true;
+    [Tooltip("The narrator's whispering hum under each line (0 = silent).")]
+    [Range(0f, 1f)] public float whisperVolume = 0.45f;
     [Tooltip("How long ***marked*** words take to fade; the next line waits for them.")]
     public float longLingerTime = 7f;
 
@@ -178,9 +182,10 @@ public class IntroText : MonoBehaviour
         bool held = !isOpening && FirstPersonController.AttentionHeld;
         hush = Mathf.MoveTowards(hush, held ? 0f : 1f, Time.deltaTime / 0.4f);
         if (!held) timer += Time.deltaTime;
-        if (showBlackScreen) BlackScreen = 1f - Mathf.Clamp01((timer - startDelay) / Mathf.Max(blackScreenFadeTime, 0.01f));
+        if (showBlackScreen) BlackScreen = BlackAmount;
+        Whisper();
         if (IsFinished && isOpening) Playing = false;
-        if (IsFinished && (!showBlackScreen || timer > startDelay + blackScreenFadeTime))
+        if (IsFinished && (!showBlackScreen || timer > startDelay + blackScreenHoldTime + blackScreenFadeTime) && (voice == null || !voice.isPlaying))
         {
             if (isOpening) Destroy(this);
             else Destroy(gameObject);
@@ -188,6 +193,35 @@ public class IntroText : MonoBehaviour
     }
 
     float hush = 1f;
+
+    /// <summary>How black the opening screen is: fully, until a little after the first line starts, then fading.</summary>
+    float BlackAmount => 1f - Mathf.Clamp01((timer - startDelay - blackScreenHoldTime) / Mathf.Max(blackScreenFadeTime, 0.01f));
+
+    AudioSource voice;
+    int voiced = -1;
+
+    /// <summary>
+    /// As each line comes in, the narrator whispers it: breathy, half-heard words over a soft hum, stretched
+    /// or hurried a little to fit the line (and quick and high when it's frantic).
+    /// </summary>
+    void Whisper()
+    {
+        if (starts == null || whisperVolume <= 0f) return;
+        if (voice == null)
+        {
+            voice = gameObject.AddComponent<AudioSource>();
+            voice.playOnAwake = false;
+            voice.spatialBlend = 0f;
+        }
+        voice.volume = whisperVolume * hush * (1f - PortalDoor.RoomQuiet * 0.5f);
+        float t = timer - startDelay;
+        if (voiced + 1 >= starts.Length || t < starts[voiced + 1]) return;
+        while (voiced + 1 < starts.Length && t >= starts[voiced + 1]) voiced++;
+        float lineTime = fadeInTime + holdTime + fadeOutTime * 0.4f;
+        voice.pitch = frantic ? 1.35f : Mathf.Clamp(ProceduralAudio.WhisperWords / lineTime, 0.8f, 1.25f);
+        voice.clip = ProceduralAudio.NarratorWhisper(Random.Range(0, 4) + (isOpening ? voiced : 0));
+        voice.Play();
+    }
 
     float LineDuration => fadeInTime + holdTime + fadeOutTime + gapBetweenLines;
 
@@ -215,7 +249,7 @@ public class IntroText : MonoBehaviour
         // Opening black screen.
         if (showBlackScreen)
         {
-            float black = 1f - Mathf.Clamp01((timer - startDelay) / Mathf.Max(blackScreenFadeTime, 0.01f));
+            float black = BlackAmount;
             if (black > 0f)
             {
                 GUI.color = new Color(0f, 0f, 0f, Smooth(black));

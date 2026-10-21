@@ -1805,6 +1805,140 @@ public static class ProceduralAudio
         return Create(name, dry, giant ? 1f : 0.9f);
     }
 
+    /// <summary>
+    /// The narrator's voice under a line of narration: a breathy whisper shaping words you can't quite make
+    /// out (noise, not voice, through the mouth's resonances), over a low, soft hum, close in your ear. Four
+    /// different ones (variant 0-3), about four seconds each.
+    /// </summary>
+    public static AudioClip NarratorWhisper(int variant)
+    {
+        switch (((variant % 4) + 4) % 4)
+        {
+            case 0: return narratorWhisper0 != null ? narratorWhisper0 : (narratorWhisper0 = Take(nameof(narratorWhisper0)) ?? MakeNarratorWhisper0());
+            case 1: return narratorWhisper1 != null ? narratorWhisper1 : (narratorWhisper1 = Take(nameof(narratorWhisper1)) ?? MakeNarratorWhisper1());
+            case 2: return narratorWhisper2 != null ? narratorWhisper2 : (narratorWhisper2 = Take(nameof(narratorWhisper2)) ?? MakeNarratorWhisper2());
+            default: return narratorWhisper3 != null ? narratorWhisper3 : (narratorWhisper3 = Take(nameof(narratorWhisper3)) ?? MakeNarratorWhisper3());
+        }
+    }
+    static AudioClip narratorWhisper0, narratorWhisper1, narratorWhisper2, narratorWhisper3;
+    static AudioClip MakeNarratorWhisper0() => MakeWhisper("Narrator Whisper 0", 11);
+    static AudioClip MakeNarratorWhisper1() => MakeWhisper("Narrator Whisper 1", 22);
+    static AudioClip MakeNarratorWhisper2() => MakeWhisper("Narrator Whisper 2", 33);
+    static AudioClip MakeNarratorWhisper3() => MakeWhisper("Narrator Whisper 3", 44);
+
+    /// <summary>The length of the words in a narrator whisper (the clip runs on a little after, echoing).</summary>
+    public const float WhisperWords = 3.4f;
+
+    static AudioClip MakeWhisper(string name, int seed)
+    {
+        var pick = new System.Random(seed);
+        float P(float a, float b) => a + (float)pick.NextDouble() * (b - a);
+
+        // Syllables filling WhisperWords: (consonant, vowel, length), a short pause after each word.
+        var plan = new System.Collections.Generic.List<(int consonant, int vowel, float length, float pause)>();
+        const float consonantTime = 0.09f, lead = 0.15f;
+        float used = 0f;
+        while (true)
+        {
+            int syllables = pick.Next(1, 4);
+            float wordLength = 0f;
+            var word = new System.Collections.Generic.List<(int, int, float, float)>();
+            for (int sy = 0; sy < syllables; sy++)
+            {
+                int consonant = pick.NextDouble() < 0.8 ? pick.Next(1, ConsonantCentre.Length) : 0;
+                float length = sy == syllables - 1 ? P(0.22f, 0.34f) : P(0.13f, 0.2f);
+                float pause = sy == syllables - 1 ? P(0.1f, 0.22f) : 0f;
+                word.Add((consonant, pick.Next(Vowels.Length), length, pause));
+                wordLength += consonantTime + length + pause;
+            }
+            if (used + wordLength > WhisperWords && plan.Count > 0) break;
+            plan.AddRange(word);
+            used += wordLength;
+        }
+
+        float total = lead + used + 1.2f;
+        int n = (int)(total * Rate);
+        var dry = new float[n];
+        float[] f = { 500f, 1500f, 2500f };
+        var ry1 = new float[3];
+        var ry2 = new float[3];
+        float cy1 = 0f, cy2 = 0f, breath = 0f, humPhase = 0f, humPhase2 = 0f, humLp = 0f;
+        float humPitch = P(96f, 108f);
+
+        int segment = 0;
+        float segStart = lead;
+        float SegLength(int k) => consonantTime + plan[k].length + plan[k].pause;
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+            while (segment < plan.Count && t > segStart + SegLength(segment)) { segStart += SegLength(segment); segment++; }
+            float whispered = 0f, hiss = 0f;
+            int consonant = 0, vowel = 5;
+            if (segment < plan.Count && t >= lead)
+            {
+                var syl = plan[segment];
+                float u = t - segStart;
+                consonant = syl.consonant;
+                vowel = syl.vowel;
+                if (u < consonantTime)
+                {
+                    float c = u / consonantTime;
+                    if (consonant == 1 || consonant == 2) hiss = c > 0.55f ? (1f - c) * 2f : 0f;              // a soft click
+                    else if (consonant >= 3 && consonant <= 5) { hiss = Mathf.Sin(Mathf.PI * c) * 0.8f; whispered = 0.2f; } // s, sh, h
+                    else whispered = 0.4f;                                                                       // m, r: breath through a near-shut mouth
+                }
+                else
+                {
+                    float v = (u - consonantTime) / syl.length;
+                    whispered = v < 1f ? Mathf.Sin(Mathf.PI * Mathf.Min(1f, v * 1.4f) * 0.5f) * (v > 0.7f ? (1f - v) / 0.3f : 1f) : 0f;
+                }
+            }
+
+            // The whisper: breath (noise) through the moving mouth, softer and wider than a voice's resonances.
+            float[] target = consonant == 6 ? HumFormants : Vowels[vowel];
+            for (int k = 0; k < 3; k++) f[k] += (target[k] * 1.15f - f[k]) * 0.002f; // (a smaller, nearer mouth)
+            breath += (White() * whispered - breath) * 0.6f;
+            float outW = 0f;
+            for (int k = 0; k < 3; k++)
+            {
+                float bw = 160f + k * 120f;
+                float r = Mathf.Exp(-Mathf.PI * bw / Rate);
+                float c1 = 2f * r * Mathf.Cos(TwoPi * f[k] / Rate), c2 = -r * r;
+                float y = (1f - r) * breath + c1 * ry1[k] + c2 * ry2[k];
+                ry2[k] = ry1[k];
+                ry1[k] = y;
+                outW += y * (k == 0 ? 0.8f : k == 1 ? 1f : 0.6f);
+            }
+            float cOut = 0f;
+            if (hiss > 0f)
+            {
+                float cf = ConsonantCentre[Mathf.Clamp(consonant, 1, ConsonantCentre.Length - 1)];
+                float r = Mathf.Exp(-Mathf.PI * 900f / Rate);
+                float c1 = 2f * r * Mathf.Cos(TwoPi * cf / Rate), c2 = -r * r;
+                float y = (1f - r) * White() * hiss + c1 * cy1 + c2 * cy2;
+                cy2 = cy1;
+                cy1 = y;
+                cOut = y * 0.5f;
+            }
+
+            // The hum underneath: a low closed-mouth "mmm", two voices beating slowly, swelling in with the
+            // words and dying away after them.
+            float swell = Mathf.Clamp01(t / 0.6f) * Mathf.Clamp01((lead + used + 0.4f - t) / 0.9f);
+            humPhase += humPitch * (1f + 0.003f * Mathf.Sin(TwoPi * 5f * t)) / Rate;
+            humPhase2 += humPitch * 1.005f / Rate;
+            humPhase -= Mathf.Floor(humPhase);
+            humPhase2 -= Mathf.Floor(humPhase2);
+            float hum = Mathf.Sin(TwoPi * humPhase) + 0.6f * Mathf.Sin(TwoPi * humPhase2) + 0.25f * Mathf.Sin(TwoPi * humPhase * 2f);
+            humLp += (hum - humLp) * 0.08f; // muffled
+            dry[i] = outW * 9f + cOut + humLp * 0.12f * swell;
+        }
+
+        // A little room round it, close and dark.
+        var wet = Reverb(dry, 0.72f, 0.5f);
+        for (int i = 0; i < n; i++) dry[i] = Tanh((dry[i] + wet[i] * 0.6f) * 1.4f);
+        return Create(name, dry, 0.8f);
+    }
+
     static AudioClip MakeNightChorus()
     {
         // A few crickets, each a pure, high tone chopped into quick pulses (two to four to a chirp), chirping
