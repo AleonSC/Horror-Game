@@ -786,6 +786,8 @@ public class BlindEntity : MonoBehaviour
         Part(mouth, hole, PrimitiveType.Sphere, Vector3.zero, new Vector3(0.05f, 0.24f, 0.03f) * s, Quaternion.identity);
         mouth.localScale = new Vector3(1f, 0.25f, 1f); // a thin split, until it opens
 
+        // Each part that moves as one (torso, each leg, each arm, the head) drawn as a single mesh.
+        MeshMerge.MergeEach(body, legs[0], legs[1], arms[0], arms[1], head);
         foreach (var r in GetComponentsInChildren<Renderer>()) renderers.Add(r);
     }
 

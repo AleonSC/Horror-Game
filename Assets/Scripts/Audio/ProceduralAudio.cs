@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Synthesizes all of the game's sounds in code, so it works without any audio files.
-/// Each clip is generated once on first use and then shared.
+/// Each clip is generated once and then shared: in the background, all at once, as Play starts (Prepare),
+/// so they're ready by the time anything asks; anything asked for before its turn is made there and then.
 /// Every script that plays these also has AudioClip slots for swapping in real recordings.
 /// </summary>
 public static class ProceduralAudio
@@ -10,8 +11,66 @@ public static class ProceduralAudio
     const int Rate = 44100;
     const float TwoPi = Mathf.PI * 2f;
 
-    static readonly System.Random rng = new System.Random(1234);
+    // One random generator per thread: sounds are made on several background threads at once.
+    [System.ThreadStatic] static System.Random threadRng;
+    static System.Random rng => threadRng ?? (threadRng = new System.Random(1234 + System.Threading.Thread.CurrentThread.ManagedThreadId));
     static float White() => (float)(rng.NextDouble() * 2.0 - 1.0);
+
+    // ---------------------------------------------------------------- Made in the background
+
+    // Samples made on a background thread, waiting to be turned into clips (which only the main thread may
+    // do), by the name of the field they're for.
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string name, float[] data)> prepared =
+        new System.Collections.Concurrent.ConcurrentDictionary<string, (string, float[])>();
+    // Set on a background thread while it makes a sound: Create hands the samples over instead of making a clip.
+    [System.ThreadStatic] static System.Collections.Generic.List<(string name, float[] data)> capture;
+    static System.Threading.Tasks.Task preparing;
+
+    /// <summary>
+    /// Starts making every sound's samples on background threads, all at once. Each becomes a clip the first
+    /// time it's asked for. Called as Play starts (after StaticReset).
+    /// </summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void Prepare()
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+        var jobs = new System.Collections.Generic.List<(string field, System.Reflection.MethodInfo make)>();
+        foreach (var method in typeof(ProceduralAudio).GetMethods(flags))
+        {
+            if (!method.Name.StartsWith("Make") || method.Name.Length < 5 || method.GetParameters().Length != 0 || method.ReturnType != typeof(AudioClip)) continue;
+            string field = char.ToLowerInvariant(method.Name[4]) + method.Name.Substring(5);
+            var f = typeof(ProceduralAudio).GetField(field, flags);
+            if (f != null && f.FieldType == typeof(AudioClip) && f.GetValue(null) as AudioClip == null) jobs.Add((field, method));
+        }
+        preparing = System.Threading.Tasks.Task.Run(() =>
+            System.Threading.Tasks.Parallel.ForEach(jobs, job =>
+            {
+                try
+                {
+                    capture = new System.Collections.Generic.List<(string, float[])>();
+                    job.make.Invoke(null, null);
+                    if (capture.Count == 1) prepared[job.field] = capture[0];
+                }
+                catch (System.Exception) { /* made on the main thread when it's asked for instead */ }
+                finally { capture = null; }
+            }));
+    }
+
+    /// <summary>The clip for a field, if its samples are ready (made into a clip now, on the main thread); else null.</summary>
+    static AudioClip Take(string field)
+    {
+        if (!prepared.TryRemove(field, out var made)) return null;
+        var clip = AudioClip.Create(made.name, made.data.Length, 1, Rate, false);
+        clip.SetData(made.data, 0);
+        return clip;
+    }
+
+    /// <summary>Forgets samples made for an earlier play (StaticReset calls this).</summary>
+    internal static void ResetStatics()
+    {
+        prepared.Clear();
+        preparing = null;
+    }
 
     static AudioClip drone, wind, tension, whisper, materialize, crescendo, poof, creep, screech, twigSnap, moan,
         lampClick, lampIgnite, lampHum, leaves, bushRustle, breath, thunder, owlHoot, owlScreech, deerGrunt, deerBleat, deerSnort, treeCreak, flashlightClick, batteryInsert, squeak, skitter, wingFlaps, deerAlarm, gallop, caw,
@@ -20,16 +79,16 @@ public static class ProceduralAudio
     // ---------------------------------------------------------------- Ambience
 
     /// <summary>Low, dull, beating drone. Loops seamlessly.</summary>
-    public static AudioClip Drone => drone != null ? drone : (drone = MakeDrone());
+    public static AudioClip Drone => drone != null ? drone : (drone = Take(nameof(drone)) ?? MakeDrone());
     /// <summary>The night's chorus: crickets chirping, each at its own pitch and pace, and a frog now and then. Loops.</summary>
-    public static AudioClip NightChorus => nightChorus != null ? nightChorus : (nightChorus = MakeNightChorus());
+    public static AudioClip NightChorus => nightChorus != null ? nightChorus : (nightChorus = Take(nameof(nightChorus)) ?? MakeNightChorus());
     static AudioClip nightChorus;
     /// <summary>Gusting wind. Loops seamlessly.</summary>
-    public static AudioClip Wind => wind != null ? wind : (wind = MakeWind());
+    public static AudioClip Wind => wind != null ? wind : (wind = Take(nameof(wind)) ?? MakeWind());
     /// <summary>High, dissonant shimmer that fades in when an entity is near. Loops seamlessly.</summary>
-    public static AudioClip Tension => tension != null ? tension : (tension = MakeTension());
-    public static AudioClip TwigSnap => twigSnap != null ? twigSnap : (twigSnap = MakeTwigSnap());
-    public static AudioClip Moan => moan != null ? moan : (moan = MakeMoan());
+    public static AudioClip Tension => tension != null ? tension : (tension = Take(nameof(tension)) ?? MakeTension());
+    public static AudioClip TwigSnap => twigSnap != null ? twigSnap : (twigSnap = Take(nameof(twigSnap)) ?? MakeTwigSnap());
+    public static AudioClip Moan => moan != null ? moan : (moan = Take(nameof(moan)) ?? MakeMoan());
 
     // ---------------------------------------------------------------- Player
 
@@ -44,44 +103,44 @@ public static class ProceduralAudio
     /// Moving through water: a soft, continuous swish and lap round the legs, surging and easing (loops).
     /// Footsteps plays it under the wading steps, as loud as you're moving through it.
     /// </summary>
-    public static AudioClip WadeLoop => wadeLoop != null ? wadeLoop : (wadeLoop = MakeWadeLoop());
+    public static AudioClip WadeLoop => wadeLoop != null ? wadeLoop : (wadeLoop = Take(nameof(wadeLoop)) ?? MakeWadeLoop());
     /// <summary>The blind one, to itself: a long, low, wet growl rattling in its chest, rising and sinking (2.8s).</summary>
-    public static AudioClip BlindGrowl => blindGrowl != null ? blindGrowl : (blindGrowl = MakeBlindGrowl());
+    public static AudioClip BlindGrowl => blindGrowl != null ? blindGrowl : (blindGrowl = Take(nameof(blindGrowl)) ?? MakeBlindGrowl());
     /// <summary>The blind one hearing something: a sharp sucked-in breath snapping into a short, ragged snarl.</summary>
-    public static AudioClip BlindAlert => blindAlert != null ? blindAlert : (blindAlert = MakeBlindAlert());
+    public static AudioClip BlindAlert => blindAlert != null ? blindAlert : (blindAlert = Take(nameof(blindAlert)) ?? MakeBlindAlert());
     /// <summary>
     /// A scour being faced down (2.5s, pitched to the crescendo's length): a ghostly cluster of glassy tones
     /// rising and trembling faster and faster over a long, breathy inhale.
     /// </summary>
-    public static AudioClip DispelBuild => dispelBuild != null ? dispelBuild : (dispelBuild = MakeDispelBuild());
+    public static AudioClip DispelBuild => dispelBuild != null ? dispelBuild : (dispelBuild = Take(nameof(dispelBuild)) ?? MakeDispelBuild());
     /// <summary>
     /// A scour driven off: a deep, soft whump, a ghostly exhale echoing away, and a high glassy ring dying.
     /// </summary>
-    public static AudioClip Dispel => dispel != null ? dispel : (dispel = MakeDispel());
+    public static AudioClip Dispel => dispel != null ? dispel : (dispel = Take(nameof(dispel)) ?? MakeDispel());
     /// <summary>
     /// Caught: a heavy low impact under a swelling, dissonant cluster of strings, a metallic scrape sliding
     /// down, all sinking away into the dark.
     /// </summary>
-    public static AudioClip Taken => taken != null ? taken : (taken = MakeTaken());
+    public static AudioClip Taken => taken != null ? taken : (taken = Take(nameof(taken)) ?? MakeTaken());
     /// <summary>A flare bursting at the top of its climb: a sharp crack, a deep thump, and a crackling hiss of sparks.</summary>
-    public static AudioClip FlarePop => flarePop != null ? flarePop : (flarePop = MakeFlarePop());
+    public static AudioClip FlarePop => flarePop != null ? flarePop : (flarePop = Take(nameof(flarePop)) ?? MakeFlarePop());
     /// <summary>
     /// The pause menu's song: a slow, music-box lullaby in a minor key on a warped old record, played down a
     /// bad radio line: wobbling, sagging, skipping, crackling, a hollow voice humming under it. Loops.
     /// </summary>
-    public static AudioClip PauseSong => pauseSong != null ? pauseSong : (pauseSong = MakePauseSong());
+    public static AudioClip PauseSong => pauseSong != null ? pauseSong : (pauseSong = Take(nameof(pauseSong)) ?? MakePauseSong());
     /// <summary>A tornado far off: a low, endless, rushing roar, swelling and fading. Loops.</summary>
-    public static AudioClip TornadoRoar => tornadoRoar != null ? tornadoRoar : (tornadoRoar = MakeTornadoRoar());
+    public static AudioClip TornadoRoar => tornadoRoar != null ? tornadoRoar : (tornadoRoar = Take(nameof(tornadoRoar)) ?? MakeTornadoRoar());
     /// <summary>A car answering its key fob: two sharp, bright chirps.</summary>
-    public static AudioClip CarChirp => carChirp != null ? carChirp : (carChirp = MakeCarChirp());
+    public static AudioClip CarChirp => carChirp != null ? carChirp : (carChirp = Take(nameof(carChirp)) ?? MakeCarChirp());
     /// <summary>The little click of a key fob's button.</summary>
-    public static AudioClip FobClick => fobClick != null ? fobClick : (fobClick = MakeFobClick());
+    public static AudioClip FobClick => fobClick != null ? fobClick : (fobClick = Take(nameof(fobClick)) ?? MakeFobClick());
     /// <summary>Light rain on the forest: a soft hiss and a patter of drops on leaves and ground. Loops.</summary>
-    public static AudioClip RainLoop => rainLoop != null ? rainLoop : (rainLoop = MakeRainLoop());
+    public static AudioClip RainLoop => rainLoop != null ? rainLoop : (rainLoop = Take(nameof(rainLoop)) ?? MakeRainLoop());
     /// <summary>An old radio on a bad station: a scratchy minor waltz through hiss and crackle, drifting in and out. Loops.</summary>
-    public static AudioClip RadioBroadcast => radioBroadcast != null ? radioBroadcast : (radioBroadcast = MakeRadioBroadcast());
+    public static AudioClip RadioBroadcast => radioBroadcast != null ? radioBroadcast : (radioBroadcast = Take(nameof(radioBroadcast)) ?? MakeRadioBroadcast());
     /// <summary>A film camera's flash: the shutter's clack, the pop of the bulb, and the whine of it charging again.</summary>
-    public static AudioClip CameraFlash => cameraFlash != null ? cameraFlash : (cameraFlash = MakeCameraFlash());
+    public static AudioClip CameraFlash => cameraFlash != null ? cameraFlash : (cameraFlash = Take(nameof(cameraFlash)) ?? MakeCameraFlash());
 
     const int WaterStepVariants = 6;
     static readonly AudioClip[] wades = new AudioClip[WaterStepVariants], puddleSteps = new AudioClip[WaterStepVariants];
@@ -110,107 +169,107 @@ public static class ProceduralAudio
     // ---------------------------------------------------------------- Flashlight
 
     /// <summary>Plasticky switch click.</summary>
-    public static AudioClip FlashlightClick => flashlightClick != null ? flashlightClick : (flashlightClick = MakeFlashlightClick());
+    public static AudioClip FlashlightClick => flashlightClick != null ? flashlightClick : (flashlightClick = Take(nameof(flashlightClick)) ?? MakeFlashlightClick());
     /// <summary>Battery sliding in and snapping into place, with a little charge-up whine.</summary>
-    public static AudioClip BatteryInsert => batteryInsert != null ? batteryInsert : (batteryInsert = MakeBatteryInsert());
+    public static AudioClip BatteryInsert => batteryInsert != null ? batteryInsert : (batteryInsert = Take(nameof(batteryInsert)) ?? MakeBatteryInsert());
 
     // ---------------------------------------------------------------- Shacks & fire
 
     /// <summary>Old hinges groaning as a door swings.</summary>
-    public static AudioClip DoorCreak => doorCreak != null ? doorCreak : (doorCreak = MakeDoorCreak());
+    public static AudioClip DoorCreak => doorCreak != null ? doorCreak : (doorCreak = Take(nameof(doorCreak)) ?? MakeDoorCreak());
     /// <summary>Something picked up and stuffed in a pocket.</summary>
-    public static AudioClip Pickup => pickup != null ? pickup : (pickup = MakePickup());
+    public static AudioClip Pickup => pickup != null ? pickup : (pickup = Take(nameof(pickup)) ?? MakePickup());
     /// <summary>Flint wheel rasp, then the flame catching.</summary>
-    public static AudioClip LighterFlick => lighterFlick != null ? lighterFlick : (lighterFlick = MakeLighterFlick());
+    public static AudioClip LighterFlick => lighterFlick != null ? lighterFlick : (lighterFlick = Take(nameof(lighterFlick)) ?? MakeLighterFlick());
     /// <summary>A torch head catching with a whoomph.</summary>
-    public static AudioClip TorchIgnite => torchIgnite != null ? torchIgnite : (torchIgnite = MakeTorchIgnite());
+    public static AudioClip TorchIgnite => torchIgnite != null ? torchIgnite : (torchIgnite = Take(nameof(torchIgnite)) ?? MakeTorchIgnite());
     /// <summary>Crackling, popping flame. Loops seamlessly.</summary>
-    public static AudioClip FireLoop => fireLoop != null ? fireLoop : (fireLoop = MakeFireLoop());
+    public static AudioClip FireLoop => fireLoop != null ? fireLoop : (fireLoop = Take(nameof(fireLoop)) ?? MakeFireLoop());
     /// <summary>A heavy relay slamming shut and a big light buzzing to life.</summary>
-    public static AudioClip Floodlight => floodlight != null ? floodlight : (floodlight = MakeFloodlight());
+    public static AudioClip Floodlight => floodlight != null ? floodlight : (floodlight = Take(nameof(floodlight)) ?? MakeFloodlight());
     /// <summary>A flare gun firing: a hard pop and a rising whoosh.</summary>
-    public static AudioClip FlareShot => flareShot != null ? flareShot : (flareShot = MakeFlareShot());
+    public static AudioClip FlareShot => flareShot != null ? flareShot : (flareShot = Take(nameof(flareShot)) ?? MakeFlareShot());
     /// <summary>A flare burning: an angry fizzing hiss with crackles. Loops seamlessly.</summary>
-    public static AudioClip FlareBurn => flareBurn != null ? flareBurn : (flareBurn = MakeFlareBurn());
+    public static AudioClip FlareBurn => flareBurn != null ? flareBurn : (flareBurn = Take(nameof(flareBurn)) ?? MakeFlareBurn());
     /// <summary>A flame sputtering out.</summary>
-    public static AudioClip BurnOut => burnOut != null ? burnOut : (burnOut = MakeBurnOut());
+    public static AudioClip BurnOut => burnOut != null ? burnOut : (burnOut = Take(nameof(burnOut)) ?? MakeBurnOut());
 
     // ---------------------------------------------------------------- The Watcher
 
     /// <summary>A long, anguished human scream from somewhere in the trees.</summary>
-    public static AudioClip Scream => scream != null ? scream : (scream = MakeScream());
+    public static AudioClip Scream => scream != null ? scream : (scream = Take(nameof(scream)) ?? MakeScream());
     /// <summary>A vast, low, dissonant swell as the eye in the sky opens.</summary>
-    public static AudioClip EyeOpen => eyeOpen != null ? eyeOpen : (eyeOpen = MakeEyeOpen());
+    public static AudioClip EyeOpen => eyeOpen != null ? eyeOpen : (eyeOpen = Take(nameof(eyeOpen)) ?? MakeEyeOpen());
     /// <summary>Thunder-like rumbling from far away.</summary>
-    public static AudioClip DistantRumble => distantRumble != null ? distantRumble : (distantRumble = MakeDistantRumble());
+    public static AudioClip DistantRumble => distantRumble != null ? distantRumble : (distantRumble = Take(nameof(distantRumble)) ?? MakeDistantRumble());
     /// <summary>Thunder: a ripping crack, then a long, rolling, uneven rumble that dies away.</summary>
-    public static AudioClip Thunder => thunder != null ? thunder : (thunder = MakeThunder());
+    public static AudioClip Thunder => thunder != null ? thunder : (thunder = Take(nameof(thunder)) ?? MakeThunder());
     /// <summary>One colossal footfall: a deep boom with a long rolling tail.</summary>
-    public static AudioClip GiantStep => giantStep != null ? giantStep : (giantStep = MakeGiantStep());
+    public static AudioClip GiantStep => giantStep != null ? giantStep : (giantStep = Take(nameof(giantStep)) ?? MakeGiantStep());
 
     // ---------------------------------------------------------------- Wildlife
 
     /// <summary>A rat's quick, high chirps.</summary>
-    public static AudioClip Squeak => squeak != null ? squeak : (squeak = MakeSqueak());
+    public static AudioClip Squeak => squeak != null ? squeak : (squeak = Take(nameof(squeak)) ?? MakeSqueak());
     /// <summary>Tiny claws scrabbling over leaves.</summary>
-    public static AudioClip Skitter => skitter != null ? skitter : (skitter = MakeSkitter());
+    public static AudioClip Skitter => skitter != null ? skitter : (skitter = Take(nameof(skitter)) ?? MakeSkitter());
     /// <summary>Leathery wing beats passing overhead.</summary>
-    public static AudioClip WingFlaps => wingFlaps != null ? wingFlaps : (wingFlaps = MakeWingFlaps());
+    public static AudioClip WingFlaps => wingFlaps != null ? wingFlaps : (wingFlaps = Take(nameof(wingFlaps)) ?? MakeWingFlaps());
     /// <summary>A crow's harsh, rasping caw.</summary>
-    public static AudioClip Caw => caw != null ? caw : (caw = MakeCaw());
+    public static AudioClip Caw => caw != null ? caw : (caw = Take(nameof(caw)) ?? MakeCaw());
     /// <summary>A deer's low, short grunt: a couple of throaty pulses.</summary>
-    public static AudioClip DeerGrunt => deerGrunt != null ? deerGrunt : (deerGrunt = MakeDeerGrunt());
+    public static AudioClip DeerGrunt => deerGrunt != null ? deerGrunt : (deerGrunt = Take(nameof(deerGrunt)) ?? MakeDeerGrunt());
     /// <summary>A deer's nasal bleat, rising then cracking.</summary>
-    public static AudioClip DeerBleat => deerBleat != null ? deerBleat : (deerBleat = MakeDeerBleat());
+    public static AudioClip DeerBleat => deerBleat != null ? deerBleat : (deerBleat = Take(nameof(deerBleat)) ?? MakeDeerBleat());
     /// <summary>A sharp snort through the nose, a blast of air.</summary>
-    public static AudioClip DeerSnort => deerSnort != null ? deerSnort : (deerSnort = MakeDeerSnort());
+    public static AudioClip DeerSnort => deerSnort != null ? deerSnort : (deerSnort = Take(nameof(deerSnort)) ?? MakeDeerSnort());
     /// <summary>A tawny owl's call: a low hoot, a pause, then a long wavering hoo-hoo-hooo.</summary>
-    public static AudioClip OwlHoot => owlHoot != null ? owlHoot : (owlHoot = MakeOwlHoot());
+    public static AudioClip OwlHoot => owlHoot != null ? owlHoot : (owlHoot = Take(nameof(owlHoot)) ?? MakeOwlHoot());
     /// <summary>A barn owl's screech: a harsh, breathy rasp that trails off.</summary>
-    public static AudioClip OwlScreech => owlScreech != null ? owlScreech : (owlScreech = MakeOwlScreech());
+    public static AudioClip OwlScreech => owlScreech != null ? owlScreech : (owlScreech = Take(nameof(owlScreech)) ?? MakeOwlScreech());
     /// <summary>A deer's sharp alarm snort.</summary>
-    public static AudioClip DeerAlarm => deerAlarm != null ? deerAlarm : (deerAlarm = MakeDeerAlarm());
+    public static AudioClip DeerAlarm => deerAlarm != null ? deerAlarm : (deerAlarm = Take(nameof(deerAlarm)) ?? MakeDeerAlarm());
     /// <summary>Hooves drumming the ground at a gallop. Loops seamlessly.</summary>
-    public static AudioClip Gallop => gallop != null ? gallop : (gallop = MakeGallop());
+    public static AudioClip Gallop => gallop != null ? gallop : (gallop = Take(nameof(gallop)) ?? MakeGallop());
 
     // ---------------------------------------------------------------- Weather
 
     /// <summary>Leaves and needles rustling in the wind. Loops seamlessly.</summary>
-    public static AudioClip Leaves => leaves != null ? leaves : (leaves = MakeLeaves());
+    public static AudioClip Leaves => leaves != null ? leaves : (leaves = Take(nameof(leaves)) ?? MakeLeaves());
     /// <summary>Pushing through a bush: a few leafy swishes and the odd twig snapping.</summary>
-    public static AudioClip BushRustle => bushRustle != null ? bushRustle : (bushRustle = MakeBushRustle());
+    public static AudioClip BushRustle => bushRustle != null ? bushRustle : (bushRustle = Take(nameof(bushRustle)) ?? MakeBushRustle());
     /// <summary>A trunk cracking through: a sharp report, then splintering.</summary>
-    public static AudioClip TreeSnap => treeSnap != null ? treeSnap : (treeSnap = MakeTreeSnap());
+    public static AudioClip TreeSnap => treeSnap != null ? treeSnap : (treeSnap = Take(nameof(treeSnap)) ?? MakeTreeSnap());
     /// <summary>A tree crashing to the ground: deep thud and smashing branches.</summary>
-    public static AudioClip TreeImpact => treeImpact != null ? treeImpact : (treeImpact = MakeTreeImpact());
+    public static AudioClip TreeImpact => treeImpact != null ? treeImpact : (treeImpact = Take(nameof(treeImpact)) ?? MakeTreeImpact());
     /// <summary>A trunk groaning as it bends.</summary>
-    public static AudioClip TreeCreak => treeCreak != null ? treeCreak : (treeCreak = MakeTreeCreak());
+    public static AudioClip TreeCreak => treeCreak != null ? treeCreak : (treeCreak = Take(nameof(treeCreak)) ?? MakeTreeCreak());
 
     // ---------------------------------------------------------------- Entity
 
     /// <summary>Breathy whisper with a low growl underneath. Loops seamlessly.</summary>
-    public static AudioClip Whisper => whisper != null ? whisper : (whisper = MakeWhisper());
-    public static AudioClip Materialize => materialize != null ? materialize : (materialize = MakeMaterialize());
-    public static AudioClip Crescendo => crescendo != null ? crescendo : (crescendo = MakeCrescendo());
-    public static AudioClip Poof => poof != null ? poof : (poof = MakePoof());
+    public static AudioClip Whisper => whisper != null ? whisper : (whisper = Take(nameof(whisper)) ?? MakeWhisper());
+    public static AudioClip Materialize => materialize != null ? materialize : (materialize = Take(nameof(materialize)) ?? MakeMaterialize());
+    public static AudioClip Crescendo => crescendo != null ? crescendo : (crescendo = Take(nameof(crescendo)) ?? MakeCrescendo());
+    public static AudioClip Poof => poof != null ? poof : (poof = Take(nameof(poof)) ?? MakePoof());
     /// <summary>Rustle and crackle of something moving through the undergrowth.</summary>
-    public static AudioClip Creep => creep != null ? creep : (creep = MakeCreep());
+    public static AudioClip Creep => creep != null ? creep : (creep = Take(nameof(creep)) ?? MakeCreep());
     /// <summary>Slow, heavy breathing with a rasp: a long inhale, a pause, a ragged exhale. Loops seamlessly.</summary>
-    public static AudioClip Breath => breath != null ? breath : (breath = MakeBreath());
-    public static AudioClip Screech => screech != null ? screech : (screech = MakeScreech());
+    public static AudioClip Breath => breath != null ? breath : (breath = Take(nameof(breath)) ?? MakeBreath());
+    public static AudioClip Screech => screech != null ? screech : (screech = Take(nameof(screech)) ?? MakeScreech());
     /// <summary>Pounding heartbeat under a deep, swelling groan: something is coming. Loops seamlessly.</summary>
-    public static AudioClip Advance => advance != null ? advance : (advance = MakeAdvance());
+    public static AudioClip Advance => advance != null ? advance : (advance = Take(nameof(advance)) ?? MakeAdvance());
 
     // ---------------------------------------------------------------- Lamps
 
-    public static AudioClip LampClick => lampClick != null ? lampClick : (lampClick = MakeLampClick());
-    public static AudioClip LampIgnite => lampIgnite != null ? lampIgnite : (lampIgnite = MakeLampIgnite());
+    public static AudioClip LampClick => lampClick != null ? lampClick : (lampClick = Take(nameof(lampClick)) ?? MakeLampClick());
+    public static AudioClip LampIgnite => lampIgnite != null ? lampIgnite : (lampIgnite = Take(nameof(lampIgnite)) ?? MakeLampIgnite());
     /// <summary>Electrical mains hum. Loops seamlessly.</summary>
-    public static AudioClip LampHum => lampHum != null ? lampHum : (lampHum = MakeLampHum());
+    public static AudioClip LampHum => lampHum != null ? lampHum : (lampHum = Take(nameof(lampHum)) ?? MakeLampHum());
     /// <summary>Short electrical crackle when the lamp flickers.</summary>
-    public static AudioClip LampSpark => lampSpark != null ? lampSpark : (lampSpark = MakeLampSpark());
+    public static AudioClip LampSpark => lampSpark != null ? lampSpark : (lampSpark = Take(nameof(lampSpark)) ?? MakeLampSpark());
     /// <summary>Buzz winding down to a clunk as the lamp dies.</summary>
-    public static AudioClip LampPowerDown => lampPowerDown != null ? lampPowerDown : (lampPowerDown = MakeLampPowerDown());
+    public static AudioClip LampPowerDown => lampPowerDown != null ? lampPowerDown : (lampPowerDown = Take(nameof(lampPowerDown)) ?? MakeLampPowerDown());
 
     // ---------------------------------------------------------------- Playback helpers
 
@@ -284,6 +343,7 @@ public static class ProceduralAudio
         float gain = peak / max;
         for (int i = 0; i < data.Length; i++) data[i] *= gain;
 
+        if (capture != null) { capture.Add((name, data)); return null; } // (in the background: just the samples)
         var clip = AudioClip.Create(name, data.Length, 1, Rate, false);
         clip.SetData(data, 0);
         return clip;

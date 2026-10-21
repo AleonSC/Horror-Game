@@ -156,6 +156,7 @@ public class Campsite : MonoBehaviour
         emberLight.range = 2.2f;
         emberLight.shadows = LightShadows.None;
         emberLight.intensity = 0.5f;
+        MeshMerge.Merge(fire); // (before the smoke puffs, which move on their own, are added to it)
 
         // ---- A log to sit on: bark all round, sawn ends showing their rings, lying along the ground.
         var seat = AnchorOnGround("Log Seat", new Vector3(1.4f, 0f, 1.2f), R(-30f, 30f), 0.85f, 0.25f, Ground);
@@ -216,6 +217,7 @@ public class Campsite : MonoBehaviour
             torches.Add(LightableTorch.Standing(transform, at, R(0f, 360f)));
         }
 
+        MeshMerge.MergeEach(tent, seat);
         SpawnItems();
     }
 

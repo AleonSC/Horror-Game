@@ -545,7 +545,7 @@ public static class ProceduralTextures
         var soil = new Color(0.23f, 0.18f, 0.145f);
         var damp = new Color(0.15f, 0.115f, 0.095f);
         var dry = new Color(0.27f, 0.215f, 0.175f);
-        for (int y = 0; y < n; y++)
+        System.Threading.Tasks.Parallel.For(0, n, y => // (rows on every core at once: nothing here is shared between them)
         {
             for (int x = 0; x < n; x++)
             {
@@ -564,7 +564,7 @@ public static class ProceduralTextures
                 col[y * n + x] = c;
                 height[y * n + x] = patches * 0.15f + fine * 0.12f;
             }
-        }
+        });
 
         var rng = new System.Random(4242);
         float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
@@ -635,7 +635,7 @@ public static class ProceduralTextures
         var faded = new Color(0.12f, 0.115f, 0.07f);
         var thatch = new Color(0.25f, 0.22f, 0.17f);
         var albedo = new Color32[n * n];
-        for (int y = 0; y < n; y++)
+        System.Threading.Tasks.Parallel.For(0, n, y => // (rows on every core at once: nothing here is shared between them)
         {
             for (int x = 0; x < n; x++)
             {
@@ -667,7 +667,7 @@ public static class ProceduralTextures
                 albedo[i] = c;
                 height[i] = Mathf.Lerp(height[i], 0.22f + blade * 0.12f, grass);
             }
-        }
+        });
 
         dirt = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
         {
@@ -678,7 +678,7 @@ public static class ProceduralTextures
 
         var normals = new Color32[n * n];
         const float strength = 9f;
-        for (int y = 0; y < n; y++)
+        System.Threading.Tasks.Parallel.For(0, n, y => // (rows on every core at once: nothing here is shared between them)
         {
             for (int x = 0; x < n; x++)
             {
@@ -687,7 +687,7 @@ public static class ProceduralTextures
                 var nv = new Vector3(-dx * strength, -dy * strength, 1f).normalized;
                 normals[y * n + x] = new Color(nv.x * 0.5f + 0.5f, nv.y * 0.5f + 0.5f, nv.z * 0.5f + 0.5f, 1f);
             }
-        }
+        });
         dirtNormal = new Texture2D(n, n, TextureFormat.RGBA32, true, true)
         {
             name = "Dirt Normal", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,

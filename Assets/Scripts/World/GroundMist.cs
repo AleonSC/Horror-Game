@@ -206,7 +206,8 @@ public class GroundMist : MonoBehaviour
         }
 
         var px = new Color32[n * n * n];
-        for (int z = 0; z < n; z++)
+        System.Threading.Tasks.Parallel.For(0, n, z => // (slices on every core at once)
+        {
             for (int y = 0; y < n; y++)
                 for (int x = 0; x < n; x++)
                 {
@@ -223,6 +224,7 @@ public class GroundMist : MonoBehaviour
                     byte b = (byte)Mathf.Clamp(Mathf.RoundToInt(sum / norm * 255f), 0, 255);
                     px[(z * n + y) * n + x] = new Color32(b, b, b, 255);
                 }
+        });
         var tex = new Texture3D(n, n, n, TextureFormat.RGBA32, false)
         {
             name = "Mist Noise", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear,

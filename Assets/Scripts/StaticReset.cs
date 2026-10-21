@@ -59,6 +59,7 @@ public static class StaticReset
         // Cached assets made at runtime.
         DropAllStatic(typeof(ProceduralTextures));
         DropAllStatic(typeof(ProceduralAudio));
+        ProceduralAudio.ResetStatics();
         LampTrails.ResetStatics();
         LampPaths.ResetStatics();
         LampGarden.ResetStatics();

@@ -279,6 +279,7 @@ public class PortalDoor : MonoBehaviour
         }
 
         BuildMaze(room, black, rng);
+        MeshMerge.Merge(room); // floor, walls, pillars and maze: a few draws instead of hundreds (colliders stay)
 
         // The one light: high above the door, dim and cold. Enough to make out shapes nearby.
         var light = new GameObject("Room Light").AddComponent<Light>();
