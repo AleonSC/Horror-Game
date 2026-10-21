@@ -396,7 +396,9 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     void UpdateDroneGhost()
     {
         bool holding = Selected == Item.Drone && HasDrone && !DroneUnit.Piloting;
-        bool valid = holding && TryDroneSpot(out Vector3 spot, out float facing);
+        Vector3 spot = Vector3.zero;
+        float facing = 0f;
+        bool valid = holding && TryDroneSpot(out spot, out facing);
         droneGhostValid = valid;
         if (!valid)
         {
