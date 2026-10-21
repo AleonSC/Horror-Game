@@ -71,7 +71,8 @@ public class ItemPickup : MonoBehaviour
     public static ItemPickup CreateKeyFob(Transform parent, Vector3 localPos, float yaw)
     {
         var pickup = Create("Key Fob Pickup", Hotbar.Item.KeyFob, parent, localPos, yaw);
-        PropModels.KeyFob(pickup.transform, true, out _);
+        PropModels.KeyFob(pickup.transform, true, out Renderer led).localScale = Vector3.one * 1.4f; // (a bit bigger, to be found)
+        pickup.gameObject.AddComponent<FobBeacon>().led = led;
         return pickup;
     }
 
@@ -128,3 +129,81 @@ public class ItemPickup : MonoBehaviour
         else DestroyImmediate(col);
     }
 }
+
+/// <summary>
+/// Makes a dropped key fob findable: its little red LED blinks every couple of seconds, bright enough to see
+/// through the dark and the fog and throwing a faint red glow on the ground round it, and every so often,
+/// when you're near, it gives a tiny electronic double beep (a low battery warning) you can follow.
+/// </summary>
+public class FobBeacon : MonoBehaviour
+{
+    public Renderer led;
+    public float blinkEvery = 2f, blinkLength = 0.18f;
+    [Tooltip("It beeps every so often when the player is within this distance.")]
+    public float beepRange = 18f;
+    public float beepEvery = 9f;
+    [Range(0f, 1f)] public float beepVolume = 0.25f;
+
+    Material on, off;
+    Light glow;
+    AudioSource source;
+    float clock, beepTimer;
+    Transform player;
+
+    void Start()
+    {
+        clock = Random.Range(0f, blinkEvery);
+        beepTimer = Random.Range(2f, beepEvery);
+        if (led != null)
+        {
+            off = led.sharedMaterial;
+            on = MaterialFactory.NoFog(new Color(1f, 0.08f, 0.04f) * 4f); // ignores fog: a red pinprick across the camp
+        }
+        glow = new GameObject("Fob Glow").AddComponent<Light>();
+        glow.transform.SetParent(led != null ? led.transform : transform, false);
+        glow.transform.position = (led != null ? led.transform.position : transform.position) + Vector3.up * 0.05f;
+        glow.type = LightType.Point;
+        glow.color = new Color(1f, 0.1f, 0.05f);
+        glow.range = 1.6f;
+        glow.intensity = 0f;
+        glow.shadows = LightShadows.None;
+        source = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FobClick, false, true, beepVolume, 1.5f, beepRange);
+    }
+
+    void Update()
+    {
+        clock += Time.deltaTime;
+        bool lit = Mathf.Repeat(clock, blinkEvery) < blinkLength;
+        if (led != null && on != null) led.sharedMaterial = lit ? on : off;
+        if (glow != null) glow.intensity = lit ? 1.2f : 0f;
+
+        if (player == null)
+        {
+            var controller = FindAnyObjectByType<FirstPersonController>();
+            if (controller != null) player = controller.transform;
+        }
+        beepTimer -= Time.deltaTime;
+        if (beepTimer <= 0f)
+        {
+            beepTimer = beepEvery * Random.Range(0.8f, 1.2f);
+            if (player != null && (player.position - transform.position).sqrMagnitude < beepRange * beepRange && source != null)
+            {
+                // Two tiny high beeps.
+                source.pitch = 2.2f;
+                source.PlayOneShot(ProceduralAudio.FobClick, beepVolume);
+                Invoke(nameof(SecondBeep), 0.14f);
+            }
+        }
+    }
+
+    void SecondBeep()
+    {
+        if (source != null) source.PlayOneShot(ProceduralAudio.FobClick, beepVolume);
+    }
+
+    void OnDestroy()
+    {
+        if (on != null) Destroy(on);
+    }
+}
+
