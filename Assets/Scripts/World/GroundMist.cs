@@ -13,19 +13,19 @@ using UnityEngine;
 /// </summary>
 public class GroundMist : MonoBehaviour
 {
-    public int bankCount = 70;
+    public int bankCount = 90;
     public float radius = 45f;
     [Tooltip("Mist colour in the dark (a little lighter than the fog)...")]
-    public Color darkColor = new Color(0.05f, 0.058f, 0.07f, 0.3f);
+    public Color darkColor = new Color(0.055f, 0.063f, 0.075f, 0.6f);
     [Tooltip("...and where the flashlight lights it.")]
-    public Color litColor = new Color(0.32f, 0.33f, 0.34f, 0.42f);
+    public Color litColor = new Color(0.34f, 0.35f, 0.36f, 0.75f);
     [Tooltip("Size of the areas the mist gathers in, or avoids (smaller = bigger areas).")]
     public float noiseScale = 0.018f;
 
-    const int Layers = 3;
-    static readonly float[] layerHeight = { 0.12f, 0.45f, 0.85f };
-    static readonly float[] layerAlpha = { 1f, 0.7f, 0.4f };
-    static readonly float[] layerSize = { 1f, 0.9f, 0.75f };
+    const int Layers = 5;
+    static readonly float[] layerHeight = { 0.1f, 0.3f, 0.55f, 0.8f, 1.1f };
+    static readonly float[] layerAlpha = { 1f, 0.9f, 0.75f, 0.55f, 0.3f };
+    static readonly float[] layerSize = { 1f, 0.95f, 0.9f, 0.8f, 0.7f };
 
     class Bank
     {
@@ -91,7 +91,7 @@ public class GroundMist : MonoBehaviour
             around += generator.GetGroundHeight(p.x + Mathf.Cos(a) * 8f, p.z + Mathf.Sin(a) * 8f);
         }
         float hollow = Mathf.Clamp01((around * 0.25f - ground) / 0.8f); // lower than the ground round it
-        float m = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 0.7f, patches)) + hollow * 0.8f + Water.NearPond(p, 10f);
+        float m = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.4f, 0.62f, patches)) + hollow * 0.8f + Water.NearPond(p, 10f);
         return Mathf.Clamp01(m);
     }
 
@@ -106,7 +106,7 @@ public class GroundMist : MonoBehaviour
             var p = center + new Vector3(dir.x, 0f, dir.y) * dist;
             float m = Mistiness(p);
             if (Random.value > m) continue;
-            b.width = Random.Range(6f, 12f);
+            b.width = Random.Range(7f, 14f);
             b.pos = new Vector3(p.x, generator.GetGroundHeight(p.x, p.z), p.z);
             // Lying along the slope under it, turned any way.
             float hw = b.width * 0.4f;
@@ -116,7 +116,7 @@ public class GroundMist : MonoBehaviour
             b.t.rotation = Quaternion.FromToRotation(Vector3.up, normal) * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
             b.t.localScale = new Vector3(b.width, 1f, b.width);
             b.seed = Random.Range(0f, 100f);
-            b.density = Mathf.Lerp(0.5f, 1f, m);
+            b.density = Mathf.Lerp(0.7f, 1f, m);
             b.fade = 0f; // fades in, so nothing pops into view
             if (!b.t.gameObject.activeSelf) b.t.gameObject.SetActive(true);
             return;
