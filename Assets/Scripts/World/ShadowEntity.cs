@@ -49,13 +49,18 @@ public class ShadowEntity : MonoBehaviour
     {
         for (int i = 0; i < count; i++)
         {
-            var entity = Spawn(0.3f + i * Random.Range(0.15f, 0.4f));
+            var entity = Spawn(0.3f + i * Random.Range(0.1f, 0.25f));
             entity.crowdMember = true;
+            // Two ranks: one standing right at the rim of the light, silhouetted against it, and one just
+            // behind, so you're walled in wherever you look.
+            entity.crowdOffset = i % 2 == 0 ? Random.Range(-0.9f, -0.2f) : Random.Range(0.8f, 2.2f);
         }
     }
 
     /// <summary>Part of the crowd round the giant's searchlights: it always rematerializes at the light's edge.</summary>
     [HideInInspector] public bool crowdMember;
+    /// <summary>Where in the crowd it stands: metres outside (+) or inside (-) the edge of the light.</summary>
+    [HideInInspector] public float crowdOffset = 1.5f;
 
     [Tooltip("Who to watch. Found automatically if left empty.")]
     public Transform target;
@@ -582,7 +587,7 @@ public class ShadowEntity : MonoBehaviour
     void CircleLight(SafeZones.ISource light)
     {
         Vector3 center = light.Center;
-        float ring = light.Radius + ringMargin;
+        float ring = light.Radius + (crowdMember ? crowdOffset : ringMargin);
 
         Vector3 offset = transform.position - center;
         offset.y = 0f;
@@ -591,7 +596,7 @@ public class ShadowEntity : MonoBehaviour
 
         // Head in to the edge of the light, then walk around it.
         if (r > ring + 0.2f)
-            r = Mathf.MoveTowards(r, ring, circleSpeed * Time.deltaTime);
+            r = Mathf.MoveTowards(r, ring, (crowdMember ? 4f : circleSpeed) * Time.deltaTime); // the crowd keeps up with the moving light
         else
         {
             r = ring;
@@ -1443,7 +1448,7 @@ public class ShadowEntity : MonoBehaviour
         for (int attempt = 0; attempt < 10; attempt++)
         {
             float angle = Random.Range(0f, Mathf.PI * 2f);
-            p = light.Center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * (light.Radius + ringMargin + Random.Range(0f, 2.5f));
+            p = light.Center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * (light.Radius + crowdOffset);
             p.y = GroundHeight(p);
             if (!Blocked(p)) return p;
         }

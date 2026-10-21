@@ -102,7 +102,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     public Color searchlightColor = new Color(1f, 0.85f, 0.8f);
     public float searchlightIntensity = 12f;
     [Tooltip("How many scours come out of the dark to crowd round the light.")]
-    public int crowdSize = 20;
+    public int crowdSize = 32;
 
     [Header("Atmosphere")]
     public Color redFog = new Color(0.11f, 0.015f, 0.015f);
@@ -136,7 +136,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     bool searchlightsOn;
     Vector3 searchlightTarget;
     Light searchlight;
-    readonly Transform[] beams = new Transform[3]; // a thin shaft from each eye, and the cone down onto the pool
+    readonly Transform[] beams = new Transform[3]; // a beam from each eye down to the pool, and the column of light over it
+    Transform poolGlow;
+    readonly System.Collections.Generic.List<Transform> motes = new System.Collections.Generic.List<Transform>();
+    readonly System.Collections.Generic.List<Vector3> moteSeeds = new System.Collections.Generic.List<Vector3>();
     bool searchlightLost;
     float reacquireTimer;
 
@@ -910,22 +913,43 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // Its head turns to stare down along the beams.
         giantHead.rotation = Quaternion.Slerp(giantHead.rotation, Quaternion.LookRotation(searchlightTarget - giantHead.position), 1f - Mathf.Exp(-2f * dt));
 
-        // What you see: a faint thin shaft from each eye, and a cone of light coming down onto the pool from
-        // high above it, like the flier's beam (a cone kilometres long, seen from inside, looked bad).
-        const float coneLength = 70f;
-        Vector3 coneTop = searchlightTarget - fromGiant * coneLength;
+        // What you see: a long beam from each eye, widening all the way down onto the pool (the two
+        // converging on you), a brighter column of light hanging over the pool out of the dark, a soft glow
+        // on the ground there, and dust drifting in the light.
+        Vector3 across = Vector3.Cross(Vector3.up, fromGiant).normalized;
         for (int i = 0; i < 2; i++)
         {
             Vector3 from = giantEyes[i].position;
-            Vector3 d = coneTop - from;
+            Vector3 to = searchlightTarget + across * (i == 0 ? -1.5f : 1.5f) + Vector3.up * 0.3f;
+            Vector3 d = to - from;
+            float endRadius = searchlightRadius * 0.8f;
             beams[i].position = from;
             beams[i].rotation = Quaternion.LookRotation(d);
-            beams[i].localScale = new Vector3(2.5f, 2.5f, d.magnitude);
+            beams[i].localScale = new Vector3(endRadius, endRadius, d.magnitude);
         }
-        Vector3 down = searchlightTarget + Vector3.up * 0.3f - coneTop;
-        beams[2].position = coneTop;
+        const float columnHeight = 32f;
+        Vector3 columnTop = searchlightTarget - fromGiant * columnHeight;
+        Vector3 down = searchlightTarget + Vector3.up * 0.3f - columnTop;
+        float columnRadius = searchlightRadius * 1.05f;
+        beams[2].position = columnTop;
         beams[2].rotation = Quaternion.LookRotation(down);
-        beams[2].localScale = new Vector3(searchlightRadius * 1.1f, searchlightRadius * 1.1f, down.magnitude);
+        beams[2].localScale = new Vector3(columnRadius, columnRadius, down.magnitude);
+
+        poolGlow.position = searchlightTarget + Vector3.up * 0.12f;
+        poolGlow.rotation = Quaternion.Euler(90f, 0f, 0f);
+        poolGlow.localScale = Vector3.one * searchlightRadius * 2.6f;
+
+        float tm = Time.time;
+        for (int i = 0; i < motes.Count; i++)
+        {
+            Vector3 s = moteSeeds[i];
+            float h = Mathf.Repeat(s.y + tm * 0.25f * s.z, 12f) + 0.3f; // drifting slowly up through the light
+            float a = s.x + tm * 0.08f * s.z;
+            float r = searchlightRadius * 0.85f * Mathf.Sqrt(Mathf.Repeat(s.x * 7.3f, 1f));
+            motes[i].position = searchlightTarget + new Vector3(Mathf.Cos(a) * r, h, Mathf.Sin(a) * r);
+            if (Camera.main != null) motes[i].rotation = Camera.main.transform.rotation;
+            motes[i].localScale = Vector3.one * 0.035f * (0.6f + 0.4f * Mathf.Sin(tm * 2f + s.x * 5f));
+        }
     }
 
     void TurnOnSearchlights()
@@ -937,6 +961,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         if (searchlight == null) BuildSearchlights();
         searchlight.enabled = true;
         foreach (var beam in beams) beam.gameObject.SetActive(true);
+        poolGlow.gameObject.SetActive(true);
+        foreach (var mote in motes) mote.gameObject.SetActive(true);
 
         audioSource.pitch = 0.5f;
         audioSource.PlayOneShot(ProceduralAudio.Floodlight, 1f);
@@ -952,6 +978,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         searchlightsOn = false;
         if (searchlight != null) searchlight.enabled = false;
         foreach (var beam in beams) if (beam != null) beam.gameObject.SetActive(false);
+        if (poolGlow != null) poolGlow.gameObject.SetActive(false);
+        foreach (var mote in motes) if (mote != null) mote.gameObject.SetActive(false);
     }
 
     void BuildSearchlights()
@@ -971,18 +999,52 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             m.SetColor("_Color", new Color(searchlightColor.r, searchlightColor.g, searchlightColor.b, alpha));
             return m;
         }
-        Material shaft = Beam(0.05f), pool = Beam(0.12f);
+        Material shaft = Beam(0.045f), column = Beam(0.14f);
+        column.SetFloat("_FadeIn", 0.55f); // hangs out of the dark rather than starting at a point
         Mesh cone = BuildBeamMesh();
         for (int i = 0; i < 3; i++)
         {
-            var go = new GameObject(i < 2 ? "Eye Shaft" : "Searchlight Cone");
+            var go = new GameObject(i < 2 ? "Eye Beam" : "Searchlight Column");
             go.transform.SetParent(transform, false);
             go.AddComponent<MeshFilter>().sharedMesh = cone;
             var renderer = go.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = i < 2 ? shaft : pool;
+            renderer.sharedMaterial = i < 2 ? shaft : column;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             beams[i] = go.transform;
+        }
+
+        // A soft glow on the ground under it, so the edge of the pool reads from inside it.
+        var glow = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        glow.name = "Searchlight Pool";
+        Destroy(glow.GetComponent<Collider>());
+        glow.transform.SetParent(transform, false);
+        Shader glowShader = Shader.Find("Horror/Glow");
+        var glowRenderer = glow.GetComponent<Renderer>();
+        if (glowShader != null)
+        {
+            var gm = new Material(glowShader);
+            gm.SetColor("_Color", searchlightColor);
+            gm.SetFloat("_Intensity", 0.22f);
+            glowRenderer.sharedMaterial = gm;
+        }
+        else glowRenderer.enabled = false;
+        glowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        poolGlow = glow.transform;
+
+        // Dust in the light.
+        var dust = MaterialFactory.NoFog(searchlightColor * 0.9f);
+        for (int i = 0; i < 40; i++)
+        {
+            var mote = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            mote.name = "Dust";
+            Destroy(mote.GetComponent<Collider>());
+            mote.transform.SetParent(transform, false);
+            var r = mote.GetComponent<Renderer>();
+            r.sharedMaterial = dust;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            motes.Add(mote.transform);
+            moteSeeds.Add(new Vector3(Random.Range(0f, 100f), Random.Range(0f, 12f), Random.Range(0.5f, 1.5f)));
         }
     }
 
