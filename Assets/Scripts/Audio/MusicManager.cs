@@ -315,7 +315,7 @@ public class MusicManager : MonoBehaviour
             deckGain[i] = Mathf.MoveTowards(deckGain[i], deckTarget[i], deckFadeSpeed[i] * dt);
             // A deck carries the mood it was started for; the active one is the current mood.
             float moodVolume = MoodVolume(CurrentMood);
-            decks[i].volume = PauseMenu.MasterVolume * volume * moodVolume * deckGain[i] * duck;
+            decks[i].volume = PauseMenu.MasterVolume * volume * moodVolume * deckGain[i] * duck * (1f - EntityDread.Hush);
             if (deckGain[i] <= 0f && i != activeDeck && decks[i].isPlaying) decks[i].Stop();
         }
     }

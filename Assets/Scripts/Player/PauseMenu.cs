@@ -14,6 +14,8 @@ using UnityEngine.Rendering.Universal;
 public class PauseMenu : MonoBehaviour
 {
     public static bool IsPaused { get; private set; }
+    /// <summary>The sound effects volume from the settings (the listener's volume, before anything ducks it).</summary>
+    public static float ListenerVolume { get; private set; } = 1f;
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => IsPaused = false;
 
@@ -145,7 +147,8 @@ public class PauseMenu : MonoBehaviour
         if (player != null) player.mouseSensitivity = sensitivity;
         // The listener volume carries the sound effects; the music ignores it and uses MasterVolume itself.
         MasterVolume = volume;
-        AudioListener.volume = volume * effectsVolume;
+        ListenerVolume = volume * effectsVolume;
+        AudioListener.volume = ListenerVolume * (1f - EntityDread.Hush); // (kept up to date by EntityDread while one is on you)
         // Not while the dream hallway has the view stretched: it picks this up when it lets go.
         var cam = player != null ? player.GetComponentInChildren<Camera>() : Camera.main;
         if (cam != null && (player == null || player.DreamStretch <= 0f)) cam.fieldOfView = fieldOfView;

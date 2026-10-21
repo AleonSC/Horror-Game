@@ -129,7 +129,7 @@ public class MusicCue : MonoBehaviour
         bool playing = source.isPlaying || requestedAt >= 0f;
         var music = MusicManager.Instance;
         float musicVolume = music != null ? music.Volume : 0.6f;
-        source.volume = PauseMenu.MasterVolume * musicVolume * volume * fade * (1f - PortalDoor.RoomQuiet);
+        source.volume = PauseMenu.MasterVolume * musicVolume * volume * fade * (1f - PortalDoor.RoomQuiet) * (1f - EntityDread.Hush);
         float tail = source.isPlaying && source.clip != null ? Mathf.Clamp01((source.clip.length - source.time) / 6f) : 1f;
         duck = playing ? fade * tail : 0f;
     }

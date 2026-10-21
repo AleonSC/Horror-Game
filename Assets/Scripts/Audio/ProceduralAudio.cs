@@ -83,6 +83,9 @@ public static class ProceduralAudio
     /// <summary>The night's chorus: crickets chirping, each at its own pitch and pace, and a frog now and then. Loops.</summary>
     public static AudioClip NightChorus => nightChorus != null ? nightChorus : (nightChorus = Take(nameof(nightChorus)) ?? MakeNightChorus());
     static AudioClip nightChorus;
+    /// <summary>One heartbeat, heard from inside: a deep, soft "lub" and a quicker, lighter "dub".</summary>
+    public static AudioClip Heartbeat => heartbeat != null ? heartbeat : (heartbeat = Take(nameof(heartbeat)) ?? MakeHeartbeat());
+    static AudioClip heartbeat;
     /// <summary>Gusting wind. Loops seamlessly.</summary>
     public static AudioClip Wind => wind != null ? wind : (wind = Take(nameof(wind)) ?? MakeWind());
     /// <summary>High, dissonant shimmer that fades in when an entity is near. Loops seamlessly.</summary>
@@ -1386,6 +1389,29 @@ public static class ProceduralAudio
             float crackle = rng.NextDouble() < 0.0006 ? White() * 2.5f : 0f;
             return music * signal + hiss * (0.12f + 0.25f * (1f - signal)) + crackle + crackleLp * 0.02f;
         }, 0.7f);
+    }
+
+    static AudioClip MakeHeartbeat()
+    {
+        // Two thumps: each a low sine sagging in pitch as it dies away, with a muffled knock of noise on its
+        // front, all heavily low-passed, as if felt through your own chest.
+        float lp = 0f;
+        float Thump(float t, float start, float f0, float decay, float level)
+        {
+            float u = t - start;
+            if (u < 0f) return 0f;
+            float env = (1f - Mathf.Exp(-u * 300f)) * Mathf.Exp(-u * decay);
+            float f = f0 * (1f + 0.6f * Mathf.Exp(-u * 30f));
+            return level * env * Mathf.Sin(TwoPi * f * u);
+        }
+        return Shot("Heartbeat", 0.6f, t =>
+        {
+            float s = Thump(t, 0f, 46f, 14f, 1f) + Thump(t, 0.17f, 58f, 20f, 0.7f);
+            float knock = (t < 0.03f ? 1f - t / 0.03f : 0f) + (t > 0.17f && t < 0.19f ? 0.6f * (1f - (t - 0.17f) / 0.02f) : 0f);
+            s += White() * knock * 0.25f;
+            lp += (s - lp) * 0.18f;
+            return Tanh(lp * 1.6f);
+        }, 0.9f);
     }
 
     static AudioClip MakeNightChorus()
