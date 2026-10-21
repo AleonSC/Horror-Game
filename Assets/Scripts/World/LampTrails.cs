@@ -10,15 +10,22 @@ using UnityEngine;
 /// </summary>
 public static class LampTrails
 {
-    static Material material;
+    // The same worn-dirt material at a range of opacities, so a trail can fade smoothly in and out along
+    // its length (the lit material can't fade along a mesh by itself): Levels steps, faint to full.
+    const int Levels = 10;
+    static Material[] materials;
 
     public static void Build(Transform parent, List<Lamp> lamps, DarkForestGenerator generator)
     {
         var old = parent.Find("Lamp Trails");
         if (old != null) Object.Destroy(old.gameObject);
         if (lamps.Count < 2) return;
-        if (material == null)
-            material = MaterialFactory.LitTransparent(ProceduralTextures.TrailDirt, Color.white, 0.05f);
+        if (materials == null)
+        {
+            materials = new Material[Levels];
+            for (int k = 0; k < Levels; k++)
+                materials[k] = MaterialFactory.LitTransparent(ProceduralTextures.TrailDirt, new Color(1f, 1f, 1f, (k + 1) / (float)Levels), 0.05f);
+        }
 
         var root = new GameObject("Lamp Trails").transform;
         root.SetParent(parent, false);
@@ -77,7 +84,7 @@ public static class LampTrails
         // The line: a lazy bend and smaller wanders, then pushed round the trunks it would run into.
         float bend = Random.Range(-0.18f, 0.18f) * span;
         float phase = Random.Range(0f, 100f);
-        int steps = Mathf.Max(2, Mathf.CeilToInt(span / 1f));
+        int steps = Mathf.Max(2, Mathf.CeilToInt(span / 0.5f));
         var line = new List<Vector3>(steps + 1);
         for (int i = 0; i <= steps; i++)
         {
@@ -107,9 +114,12 @@ public static class LampTrails
             }
         }
 
-        // Where it's worn and where it fades into the forest floor: stretches of trail, then gaps.
+        // Where it's worn and where it fades into the forest floor: stretches of trail, then gaps, each end
+        // of a stretch fading away over several metres (the width stays; it's the wear that fades).
         var widths = new float[line.Count];
-        float along = 0f;
+        var fades = new float[line.Count];
+        float along = 0f, total = 0f;
+        for (int i = 1; i < line.Count; i++) total += Vector3.Distance(line[i], line[i - 1]);
         bool worn = Random.value < 0.8f;
         float sectionEnd = Random.Range(8f, 25f);
         float sectionStart = 0f;
@@ -120,38 +130,43 @@ public static class LampTrails
             {
                 worn = !worn;
                 sectionStart = sectionEnd;
-                sectionEnd += worn ? Random.Range(10f, 30f) : Random.Range(5f, 14f);
+                sectionEnd += worn ? Random.Range(12f, 30f) : Random.Range(5f, 14f);
             }
-            float width = Mathf.Lerp(1.4f, 2.4f, Mathf.PerlinNoise(phase + 7f, along * 0.07f));
-            // Tapering in and out over a few metres at each end of a worn stretch.
-            float taper = Mathf.Clamp01((along - sectionStart) / 3f) * Mathf.Clamp01((sectionEnd - along) / 3f);
-            widths[i] = worn ? width * Mathf.SmoothStep(0f, 1f, taper) : 0f;
+            widths[i] = Mathf.Lerp(1.5f, 2.4f, Mathf.PerlinNoise(phase + 7f, along * 0.07f));
+            float fadeIn = Mathf.Clamp01((along - sectionStart) / 5f), fadeOut = Mathf.Clamp01((sectionEnd - along) / 5f);
+            float ends = Mathf.Clamp01(along / 2.5f) * Mathf.Clamp01((total - along) / 2.5f); // melting into the lamp's ring
+            float patchy = Mathf.Lerp(0.75f, 1f, Mathf.PerlinNoise(phase + 31f, along * 0.12f)); // worn more in places
+            fades[i] = worn ? Mathf.SmoothStep(0f, 1f, Mathf.Min(fadeIn, fadeOut)) * ends * patchy : 0f;
         }
 
-        // Each worn stretch as its own strip.
+        // One mesh, one submesh per opacity step; each short segment drawn at its own fade.
         var verts = new List<Vector3>();
         var uvs = new List<Vector2>();
-        var tris = new List<int>();
+        var trisByLevel = new List<int>[Levels];
+        for (int k = 0; k < Levels; k++) trisByLevel[k] = new List<int>();
         Vector3 pivot = (start + end) * 0.5f;
         pivot.y = generator != null ? generator.GetGroundHeight(pivot.x, pivot.z) : from.y;
         int runStart = -1;
         for (int i = 0; i <= line.Count; i++)
         {
-            bool on = i < line.Count && widths[i] > 0.02f;
+            bool on = i < line.Count && fades[i] > 0.02f;
             if (on && runStart < 0) runStart = Mathf.Max(0, i - 1);
             if (!on && runStart >= 0)
             {
-                AddStrip(line, widths, runStart, Mathf.Min(i, line.Count - 1), pivot, generator, verts, uvs, tris);
+                AddStrip(line, widths, fades, runStart, Mathf.Min(i, line.Count - 1), pivot, generator, verts, uvs, trisByLevel);
                 runStart = -1;
             }
         }
-        if (tris.Count == 0) return;
+        bool any = false;
+        foreach (var list in trisByLevel) if (list.Count > 0) any = true;
+        if (!any) return;
 
         var mesh = new Mesh { name = "Lamp Trail" };
         if (verts.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(verts);
         mesh.SetUVs(0, uvs);
-        mesh.SetTriangles(tris, 0);
+        mesh.subMeshCount = Levels;
+        for (int k = 0; k < Levels; k++) mesh.SetTriangles(trisByLevel[k], k);
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         var go = new GameObject("Trail");
@@ -159,17 +174,18 @@ public static class LampTrails
         go.transform.position = pivot;
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         var renderer = go.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = material;
+        renderer.sharedMaterials = materials;
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         WorldWrap.RegisterStatic(go.transform);
     }
 
     /// <summary>
     /// A strip along part of the line, five vertices across (so it hugs the ground's bumps), just above the
-    /// ground, relative to the pivot. u runs across, v along (one texture length per 2.5m).
+    /// ground, relative to the pivot. u runs across, v along (one texture length per 2.5m). Each segment goes
+    /// in the submesh for its opacity (the average fade of its two ends).
     /// </summary>
-    static void AddStrip(List<Vector3> line, float[] widths, int from, int to, Vector3 pivot, DarkForestGenerator generator,
-        List<Vector3> verts, List<Vector2> uvs, List<int> tris)
+    static void AddStrip(List<Vector3> line, float[] widths, float[] fades, int from, int to, Vector3 pivot, DarkForestGenerator generator,
+        List<Vector3> verts, List<Vector2> uvs, List<int>[] trisByLevel)
     {
         if (to - from < 1) return;
         const int across = 5;
@@ -191,11 +207,17 @@ public static class LampTrails
             }
         }
         for (int i = 0; i < to - from; i++)
+        {
+            float fade = (fades[from + i] + fades[from + i + 1]) * 0.5f;
+            int level = Mathf.RoundToInt(fade * Levels) - 1;
+            if (level < 0) continue; // too faint to draw
+            var tris = trisByLevel[Mathf.Min(level, Levels - 1)];
             for (int k = 0; k < across - 1; k++)
             {
                 int a = first + i * across + k, b = a + across, c = a + 1, d = b + 1;
                 tris.Add(a); tris.Add(b); tris.Add(c);
                 tris.Add(c); tris.Add(b); tris.Add(d);
             }
+        }
     }
 }
