@@ -26,7 +26,7 @@ public class ShadowEntity : MonoBehaviour
     // Static state is cleared when Play starts, so nothing carries over from the last session if the
     // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics() { All.Clear(); Capturing = null; }
+    static void ResetStatics() { All.Clear(); Capturing = null; blackout = 0f; }
 
     /// <summary>Seconds before the first entity of a run appears.</summary>
     public const float FirstEntityDelay = 60f;
@@ -182,10 +182,12 @@ public class ShadowEntity : MonoBehaviour
 
     [Header("Crescendo & Poof")]
     public float crescendoTime = 2.5f;
-    [Tooltip("Once its eyes have burned blue, seconds it glitches (jumping, stretching, flickering out)...")]
-    public float glitchTime = 0.75f;
-    [Tooltip("...then it's gone in a crackle of small black lightning, lasting this long.")]
-    public float boltTime = 0.4f;
+    [Tooltip("Once its eyes have burned blue, it goes dead still and silent for this long, its head slowly twisting round too far...")]
+    public float breakStillTime = 0.7f;
+    [Tooltip("...then it shrieks and lunges at your face this fast (seconds), and bursts apart in front of you.")]
+    public float lungeTime = 0.18f;
+    [Range(0f, 1f), Tooltip("Share of the flashlight's battery it costs to face one down.")]
+    public float dismissCost = 0.1f;
     [Tooltip("Each lamp the player has lit makes the crescendo this much faster (0.15 = 15% of the base speed per lamp).")]
     public float crescendoSpeedupPerLamp = 0.15f;
     [Tooltip("However many lamps are lit, the crescendo never gets shorter than this.")]
@@ -339,7 +341,6 @@ public class ShadowEntity : MonoBehaviour
     void OnDestroy()
     {
         if (fragmentRoot != null) Destroy(fragmentRoot.gameObject);
-        ClearBolts();
     }
 
     void Update()
@@ -419,8 +420,7 @@ public class ShadowEntity : MonoBehaviour
         SetPose(Pose.Neutral, 1);
         if (wingRoot != null) wingRoot.gameObject.SetActive(false);
         if (Capturing == this) Capturing = null;
-        glitchTimer = -1f;
-        ClearBolts();
+        breakTimer = -1f;
     }
 
     void StartMaterialize()
@@ -694,13 +694,15 @@ public class ShadowEntity : MonoBehaviour
         if (CurrentState == State.Hidden) timer = Mathf.Min(timer, Random.Range(0.5f, 2.5f));
     }
 
-    float glitchTimer = -1f, glitchStep;
+    float breakTimer = -1f;
+    Vector3 lungeFrom;
+    bool lunged;
 
     void StartCrescendo()
     {
         CurrentState = State.Crescendo;
         timer = 0f;
-        glitchTimer = -1f;
+        breakTimer = -1f;
         // Carry on from exactly how the eyes looked a moment ago (brightness, eyeshine tint, glow), no jump.
         crescendoStartBrightness = Mathf.Max(eyeBrightness, eyeIntensity);
         crescendoStartShine = eyeshine;
@@ -856,11 +858,11 @@ public class ShadowEntity : MonoBehaviour
 
     /// <summary>
     /// Facing it down: held in the light, it shudders harder and harder, stretching, its mouth splitting
-    /// wider, its eyes burning from red to blue. Then it breaks (Glitch).
+    /// wider, its eyes burning from red to blue. Then it breaks (UpdateBreak).
     /// </summary>
     void UpdateCrescendo()
     {
-        if (glitchTimer >= 0f) { UpdateGlitch(); return; }
+        if (breakTimer >= 0f) { UpdateBreak(); return; }
         FacePlayer();
         if (player != null) player.SetApproachLimit(this, transform.position, reactDistance, stopDistance);
 
@@ -884,153 +886,104 @@ public class ShadowEntity : MonoBehaviour
 
         if (player != null) player.AddCameraShake(maxCameraShake * e);
 
-        if (c >= 1f)
-        {
-            glitchTimer = 0f;
-            glitchStep = 0f;
-        }
+        if (c >= 1f) StartBreak();
+    }
+
+    /// <summary>The light has beaten it: everything stops.</summary>
+    void StartBreak()
+    {
+        breakTimer = 0f;
+        lunged = false;
+        whisper.Stop();
+        advanceSource.Stop();
+        ResetVisual();
+        SetPose(Pose.Neutral, 1);
+        // A crack, like a neck going.
+        sfx.pitch = 2.1f;
+        sfx.PlayOneShot(ProceduralAudio.TreeSnap, volume * 0.35f);
     }
 
     /// <summary>
-    /// It breaks like a bad signal. First it glitches: it holds still, then jumps to a slightly wrong
-    /// place, stretched or squashed, flickers out for a frame and back, again and again, faster and
-    /// faster, its blue eyes burning. Then it's gone: a crack, and a few small, jagged bolts of black
-    /// lightning snapping out from where it stood, flickering, then nothing.
+    /// Driven off, and it lets you know it. It goes dead still and silent, blue eyes blazing, and its head
+    /// turns slowly round, too far, cracking. Then it shrieks and lunges at your face, arms out, mouth
+    /// gaping, filling your view, and bursts into black right in front of you: the screen goes dark for a
+    /// moment, and it's gone. Facing it down costs some of the flashlight's battery.
     /// </summary>
-    void UpdateGlitch()
+    void UpdateBreak()
     {
         float dt = Time.deltaTime;
-        glitchTimer += dt;
-        mouthTarget = 1.5f;
-        whisper.volume = volume * crescendoVolume;
+        breakTimer += dt;
+        Transform cam = Camera.main != null ? Camera.main.transform : target;
 
-        if (glitchTimer < glitchTime)
+        if (breakTimer < breakStillTime)
         {
-            float g = glitchTimer / glitchTime;
-            glitchStep -= dt;
-            if (glitchStep <= 0f)
+            // Dead still. Only the head moves: slowly twisting round, too far.
+            float u = Mathf.SmoothStep(0f, 1f, breakTimer / breakStillTime);
+            poseHead = Quaternion.Euler(-15f * u, 25f * u, 150f * u);
+            headTarget = Quaternion.identity;
+            twitchTimer = 1f; // no twitching now: it's utterly still
+            visual.localPosition = Vector3.zero;
+            visual.localRotation = Quaternion.identity;
+            SetEyes(maxEyeWiden * 2f, spawnEyeIntensity * 2f, 0f, 1f);
+            mouthTarget = 0.4f;
+            if (u > 0.5f && Random.value < dt * 6f)
             {
-                // A new wrong frame: held until the next one (stepped, not smooth).
-                glitchStep = Mathf.Lerp(0.11f, 0.035f, g) * Random.Range(0.6f, 1.3f);
-                Vector3 jump = Vector3.Scale(Random.insideUnitSphere, new Vector3(1f, 0.25f, 1f)) * Mathf.Lerp(0.12f, 0.4f, g) * scale;
-                visual.localPosition = jump;
-                visual.localRotation = Quaternion.Euler(0f, Random.Range(-12f, 12f), Random.Range(-6f, 6f));
-                float wide = Random.value < 0.5f ? Random.Range(1.3f, 1.9f) : Random.Range(0.35f, 0.75f);
-                visual.localScale = new Vector3(wide, Random.Range(0.85f, 1.15f), Mathf.Lerp(1f, wide, 0.5f));
-                SetVisible(Random.value > Mathf.Lerp(0.15f, 0.45f, g)); // flickering out, more and more
-                SetEyes(maxEyeWiden * Random.Range(1.4f, 2.2f), spawnEyeIntensity * Random.Range(1.2f, 2.2f), 0f, 1f);
-                eyeLight.intensity = spawnEyeIntensity * eyeLightStrength * (1f + dismissGlow) * Random.Range(0.4f, 1f);
-                sfx.pitch = Random.Range(1.6f, 2.6f);
-                sfx.PlayOneShot(ProceduralAudio.LampSpark, volume * 0.25f);
-                if (player != null) player.AddCameraShake(maxCameraShake * 0.5f);
+                sfx.pitch = Random.Range(1.8f, 2.4f);
+                sfx.PlayOneShot(ProceduralAudio.TwigSnap, volume * 0.2f);
             }
+            lungeFrom = transform.position;
             return;
         }
 
-        // Gone, in black lightning.
-        if (bolts.Count == 0)
+        if (!lunged)
         {
-            SetVisible(false);
-            whisper.Stop();
-            StartFragments(converge: false);
-            PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof, 0.7f);
-            sfx.pitch = 0.8f;
-            sfx.PlayOneShot(ProceduralAudio.LampSpark, volume * 0.8f);
-            if (player != null) player.AddCameraShake(maxCameraShake);
-            MakeBolts();
+            lunged = true;
+            SetPose(Pose.Lunge, 1);
+            poseHead = Quaternion.Euler(-30f, 0f, 20f);
+            PlaySound(ProceduralAudio.Screech, 1.15f, 1.2f);
+            if (player != null) player.AddCameraShake(maxCameraShake * 1.5f);
         }
-        float b = (glitchTimer - glitchTime) / Mathf.Max(boltTime, 0.01f);
-        glitchStep -= dt;
-        if (glitchStep <= 0f)
-        {
-            glitchStep = Random.Range(0.04f, 0.08f);
-            bool show = Random.value < Mathf.Lerp(0.9f, 0.35f, b);
-            foreach (var bolt in bolts)
-            {
-                bolt.enabled = show;
-                if (show) Jag(bolt);
-            }
-        }
-        if (b < 1f) return;
 
-        ClearBolts();
-        glitchTimer = -1f;
+        // At your face.
+        float l = Mathf.Clamp01((breakTimer - breakStillTime) / Mathf.Max(lungeTime, 0.01f));
+        Vector3 ahead = Vector3.ProjectOnPlane(cam.forward, Vector3.up);
+        ahead = ahead.sqrMagnitude > 0.001f ? ahead.normalized : transform.forward;
+        Vector3 face = cam.position + ahead * 0.9f;
+        face.y = cam.position.y - 2.15f * scale * growth; // its eyes level with yours
+        transform.position = Vector3.Lerp(lungeFrom, face, l * l);
+        FacePlayer();
+        mouthTarget = 1.8f;
+        SetEyes(maxEyeWiden * 2.2f, spawnEyeIntensity * 2.5f, 0f, 1f);
+        if (l < 1f) return;
+
+        // Gone, in a burst of black, the light paying for it.
+        StartFragments(converge: false);
+        PlaySound(poofSound != null ? poofSound : ProceduralAudio.Poof, 0.6f);
+        if (player != null) player.AddCameraShake(maxCameraShake * 2f);
+        blackout = 1f;
+        if (flashlight != null) flashlight.Drain(dismissCost);
+        breakTimer = -1f;
         ResetVisual();
         whisper.pitch = Random.Range(0.85f, 1.1f);
         Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
     }
 
-    // ---------------------------------------------------------------- Black lightning
+    // A moment of black over the screen when one bursts in your face (drawn once, by whichever scour is first).
+    static float blackout;
 
-    readonly List<LineRenderer> bolts = new List<LineRenderer>();
-    readonly List<(Vector3 from, Vector3 to)> boltEnds = new List<(Vector3 from, Vector3 to)>();
-    static Material boltCore, boltRim;
-
-    /// <summary>A few short bolts from where it stood, out and up into the dark: each a black core with a faint blue edge.</summary>
-    void MakeBolts()
+    void OnGUI()
     {
-        if (boltCore == null)
-        {
-            boltCore = MaterialFactory.NoFog(Color.black);
-            boltRim = MaterialFactory.NoFog(new Color(0.12f, 0.25f, 0.6f));
-        }
-        boltEnds.Clear();
-        int count = Random.Range(3, 6);
-        for (int i = 0; i < count; i++)
-        {
-            Vector3 from = transform.position + Vector3.up * Random.Range(0.4f, 2.2f) * scale;
-            Vector3 dir = (Random.onUnitSphere + Vector3.up * 0.7f).normalized;
-            Vector3 to = from + dir * Random.Range(1.2f, 2.8f) * scale;
-            boltEnds.Add((from, to));
-            foreach (bool rim in new[] { true, false })
-            {
-                var lr = new GameObject(rim ? "Black Bolt Edge" : "Black Bolt").AddComponent<LineRenderer>();
-                lr.transform.SetParent(transform.parent, true);
-                lr.sharedMaterial = rim ? boltRim : boltCore;
-                lr.widthMultiplier = rim ? 0.07f : 0.035f;
-                lr.positionCount = 7;
-                lr.useWorldSpace = true;
-                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                lr.receiveShadows = false;
-                lr.sortingOrder = rim ? 0 : 1;
-                bolts.Add(lr);
-            }
-        }
-        foreach (var bolt in bolts) Jag(bolt);
+        if (blackout <= 0f || Event.current.type != EventType.Repaint) return;
+        if (All.Count > 0 && All[0] != this) return;
+        GUI.depth = -500;
+        GUI.color = new Color(0f, 0f, 0f, Mathf.Clamp01(blackout * 1.4f));
+        GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+        GUI.color = Color.white;
     }
 
-    /// <summary>A fresh jagged path for a bolt (its core and edge share a path, the edge drawn first, wider).</summary>
-    void Jag(LineRenderer bolt)
+    void LateUpdate()
     {
-        int index = bolts.IndexOf(bolt);
-        if (index < 0 || index / 2 >= boltEnds.Count) return;
-        if (index % 2 == 1) { bolt.SetPositions(BoltPath(bolts[index - 1])); return; } // the core follows its edge
-        var (from, to) = boltEnds[index / 2];
-        var path = new Vector3[bolt.positionCount];
-        Vector3 side = Vector3.Cross(to - from, Vector3.up).normalized;
-        if (side.sqrMagnitude < 0.01f) side = Vector3.right;
-        Vector3 other = Vector3.Cross(to - from, side).normalized;
-        for (int k = 0; k < path.Length; k++)
-        {
-            float u = k / (float)(path.Length - 1);
-            float off = (k == 0 || k == path.Length - 1) ? 0f : 0.25f * scale;
-            path[k] = Vector3.Lerp(from, to, u) + side * Random.Range(-off, off) + other * Random.Range(-off, off);
-        }
-        bolt.SetPositions(path);
-    }
-
-    static Vector3[] BoltPath(LineRenderer bolt)
-    {
-        var path = new Vector3[bolt.positionCount];
-        bolt.GetPositions(path);
-        return path;
-    }
-
-    void ClearBolts()
-    {
-        foreach (var bolt in bolts) if (bolt != null) Destroy(bolt.gameObject);
-        bolts.Clear();
-        boltEnds.Clear();
+        if (blackout > 0f && (All.Count == 0 || All[0] == this)) blackout = Mathf.MoveTowards(blackout, 0f, Time.deltaTime / 0.35f);
     }
 
     void Poof()

@@ -248,10 +248,13 @@ public class Flashlight : MonoBehaviour
         return true;
     }
 
-    /// <summary>Full battery and back to the starting on/off state (used when the run resets).</summary>
+    /// <summary>Takes charge out of the battery (0-1): facing a scour down costs some.</summary>
+    public void Drain(float amount) => Battery = Mathf.Clamp01(Battery - amount);
+
     /// <summary>Tops the battery up to at least this much (after being caught).</summary>
     public void EnsureCharge(float atLeast) => Battery = Mathf.Max(Battery, Mathf.Clamp01(atLeast));
 
+    /// <summary>Full battery and back to the starting on/off state (used when the run resets).</summary>
     public void ResetBattery()
     {
         Battery = 1f;

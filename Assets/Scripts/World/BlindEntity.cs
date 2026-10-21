@@ -27,6 +27,14 @@ public class BlindEntity : MonoBehaviour
     public float rushSpeed = 5.2f;
     [Tooltip("It roams within this distance of the player.")]
     public float roamRadius = 40f;
+    [Header("Closing In")]
+    [Tooltip("Left alone, the area it roams drifts toward wherever the player is and tightens: over this many seconds it narrows from roamRadius down to closeRoamRadius.")]
+    public float closeInTime = 150f;
+    public float closeRoamRadius = 12f;
+    [Tooltip("However close it's closed in, it never picks somewhere to walk to within this distance of the player: it finds you by hearing you, not by heading for you.")]
+    public float keepAway = 7f;
+    Vector3 huntArea;
+    float closing; // 0 (just arrived, or just lost you) to 1 (closed right in round where you are)
     [Tooltip("Moving at all within this distance of it, it hears you (even crouched).")]
     public float closeHearing = 4f;
     [Tooltip("Within this distance it takes the player.")]
@@ -116,6 +124,8 @@ public class BlindEntity : MonoBehaviour
             if (!SafeZones.Contains(p)) break;
         }
         transform.position = p;
+        huntArea = p;  // it starts hunting from where it comes up, and closes in from there
+        closing = 0f;
         Vector3 toNear = near - p;
         toNear.y = 0f;
         if (toNear.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(toNear);
@@ -141,6 +151,7 @@ public class BlindEntity : MonoBehaviour
         // It knows roughly where: the further off, the rougher its guess.
         Vector2 miss = Random.insideUnitCircle * dist * 0.12f;
         goal = Settle(at + new Vector3(miss.x, 0f, miss.y));
+        huntArea = goal; // it'll search round where it heard you from now on
         if (state != State.Rushing)
         {
             // A sharp turn of the head toward it, a beat of stillness, then it goes.
@@ -165,6 +176,8 @@ public class BlindEntity : MonoBehaviour
         Vector3 toYou = you - me;
         toYou.y = 0f;
 
+        UpdateHuntArea(dt, you);
+
         switch (state)
         {
             case State.Appearing:
@@ -182,8 +195,8 @@ public class BlindEntity : MonoBehaviour
                 return;
 
             case State.Roaming:
-                // Never strays far from where the player is; drifts after them.
-                if ((goal - you).sqrMagnitude > roamRadius * roamRadius * 1.5f) PickRoamGoal();
+                // The area it roams creeps toward wherever the player is and tightens round it, slowly.
+                if ((goal - huntArea).sqrMagnitude > RoamRange * RoamRange * 2.25f) PickRoamGoal();
                 if (MoveToward(goal, roamSpeed, dt))
                 {
                     state = State.Searching;
@@ -228,14 +241,41 @@ public class BlindEntity : MonoBehaviour
         Clicks(dt);
     }
 
+    /// <summary>How far round its hunting area it roams now: wide at first, narrowing as it closes in.</summary>
+    float RoamRange => Mathf.Lerp(roamRadius, closeRoamRadius, Mathf.SmoothStep(0f, 1f, closing));
+
+    /// <summary>
+    /// The slow tightening of the net. While it's wandering (not chasing a sound), the area it searches
+    /// creeps toward the player, faster the longer it's gone without hearing them, and narrows round where
+    /// they are. It never walks straight to them: it just ends up searching closer and closer by.
+    /// </summary>
+    void UpdateHuntArea(float dt, Vector3 you)
+    {
+        if (player == null) return;
+        huntArea = WorldWrap.NearestImage(huntArea, you);
+        if (state == State.Roaming || state == State.Searching)
+            closing = Mathf.Clamp01(closing + dt / Mathf.Max(closeInTime, 1f));
+        float creep = Mathf.Lerp(0.4f, 1.6f, closing); // metres a second: never quicker than you can walk
+        Vector3 toYou = you - huntArea;
+        toYou.y = 0f;
+        float stopShort = keepAway * 0.5f;
+        if (toYou.magnitude > stopShort)
+            huntArea += toYou.normalized * Mathf.Min(creep * dt, toYou.magnitude - stopShort);
+    }
+
     void PickRoamGoal()
     {
         Vector3 you = player != null ? player.transform.position : transform.position;
-        for (int i = 0; i < 10; i++)
+        float range = RoamRange;
+        for (int i = 0; i < 14; i++)
         {
-            Vector2 d = Random.insideUnitCircle * roamRadius;
-            Vector3 p = Settle(you + new Vector3(d.x, 0f, d.y));
-            if (!SafeZones.Contains(p)) { goal = p; return; }
+            Vector2 d = Random.insideUnitCircle * range;
+            Vector3 p = Settle(huntArea + new Vector3(d.x, 0f, d.y));
+            Vector3 fromYou = p - you;
+            fromYou.y = 0f;
+            if (SafeZones.Contains(p) || fromYou.magnitude < keepAway) continue; // never right to where you are
+            goal = p;
+            return;
         }
         goal = transform.position;
     }
