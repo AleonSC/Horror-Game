@@ -37,6 +37,13 @@ public class GroundMist : MonoBehaviour
     [Tooltip("How thick it is right round you, compared with further off.")]
     [Range(0f, 1f)] public float clearAmount = 0.15f;
 
+    [Header("Round The Lamps")]
+    [Tooltip("The mist is thinner round the lamps: thinnest within the first distance, back to full by the second.")]
+    public float lampClearNear = 3f, lampClearFar = 11f;
+    [Tooltip("How thick it is right by a lamp, compared with elsewhere.")]
+    [Range(0f, 1f)] public float lampClearAmount = 0.45f;
+    readonly Vector4[] clearPos = new Vector4[4];
+
     [Header("Storm")]
     [Tooltip("As the storm builds (the rain getting heavier as lamps are lit), the mist thins out to this much of itself by the heaviest rain.")]
     [Range(0f, 1f)] public float atFullStorm = 0.1f;
@@ -277,6 +284,30 @@ public class GroundMist : MonoBehaviour
 
         UpdateFlashlight();
         UpdateLamps(at);
+        UpdateLampClearings(at);
+    }
+
+    /// <summary>The four nearest lamps, lit or not: the mist thins out round each.</summary>
+    void UpdateLampClearings(Vector3 at)
+    {
+        for (int k = 0; k < 4; k++) clearPos[k] = Vector4.zero;
+        var best = new float[] { float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue };
+        foreach (var lamp in Lamp.All)
+        {
+            if (lamp == null) continue;
+            Vector3 p = WorldWrap.NearestImage(lamp.transform.position, at);
+            float d = (p - at).sqrMagnitude;
+            for (int k = 0; k < 4; k++)
+            {
+                if (d >= best[k]) continue;
+                for (int m = 3; m > k; m--) { best[m] = best[m - 1]; clearPos[m] = clearPos[m - 1]; }
+                best[k] = d;
+                clearPos[k] = new Vector4(p.x, p.y, p.z, 1f);
+                break;
+            }
+        }
+        mat.SetVectorArray("_ClearPos", clearPos);
+        mat.SetVector("_LampClear", new Vector4(lampClearNear, Mathf.Max(lampClearFar, lampClearNear + 0.1f), lampClearAmount, 0f));
     }
 
     IEnumerator BuildAndSwap(Vector2 center)

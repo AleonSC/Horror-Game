@@ -44,6 +44,8 @@ Shader "Horror/MistVolume"
             float4 _PointPos[4];        // xyz position, w range
             float4 _PointColor[4];      // rgb colour * strength
             float _PointCount;
+            float4 _ClearPos[4];        // the nearest lamps: xyz position, w 1 if used
+            float4 _LampClear;          // x: clearest within this distance, y: back to full by this, z: how thin (0-1)
 
             struct v2f
             {
@@ -72,7 +74,15 @@ Shader "Horror/MistVolume"
                 float n1 = tex3Dlod(_Noise, float4(p * _NoiseScale + _Wind.xyz, 0)).r;
                 float n2 = tex3Dlod(_Noise, float4(p * _NoiseScale * 3.1 + _Wind.xyz * 1.7, 0)).r;
                 float shape = saturate((n1 * 0.7 + n2 * 0.3) * 1.8 - 0.6 + m.g * 0.55);
-                return shape * lerp(_Patchiness, 1, m.g) * height * _Density;
+                // Thinner round the lamps.
+                float lamps = 1;
+                for (int k = 0; k < 4; k++)
+                {
+                    if (_ClearPos[k].w < 0.5) continue;
+                    float dl = distance(p.xz, _ClearPos[k].xz);
+                    lamps = min(lamps, lerp(_LampClear.z, 1, smoothstep(_LampClear.x, _LampClear.y, dl)));
+                }
+                return shape * lerp(_Patchiness, 1, m.g) * height * _Density * lamps;
             }
 
             float3 Lighting(float3 p)
