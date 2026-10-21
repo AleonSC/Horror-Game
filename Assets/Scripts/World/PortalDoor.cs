@@ -32,6 +32,13 @@ public class PortalDoor : MonoBehaviour
     public int lampsToUnlock = 10;
     [Tooltip("How far below the door the room is built.")]
     public float roomDepth = 400f;
+    [Header("Maze")]
+    [Tooltip("Cells across (and deep) of the small maze out in the room, in front of the door.")]
+    public int mazeCells = 7;
+    public float mazeCellSize = 3.2f;
+    public float mazeWallHeight = 3.4f;
+    [Tooltip("How far in front of the door the maze's entrance is.")]
+    public float mazeDistance = 12f;
     [Tooltip("Width and length of the room.")]
     public float roomSize = 120f;
     public float roomHeight = 16f;
@@ -264,9 +271,12 @@ public class PortalDoor : MonoBehaviour
             for (float z = -half + spacing * 0.5f; z < half; z += spacing)
             {
                 if (Mathf.Abs(x) < 8f && Mathf.Abs(z) < 8f) continue;
+                if (InMaze(x, z, 2f)) continue; // (none in the maze)
                 Part(PrimitiveType.Cube, black, room, new Vector3(x, roomHeight * 0.5f, z), new Vector3(1.4f, roomHeight, 1.4f), true);
             }
         }
+
+        BuildMaze(room, black, rng);
 
         // The one light: high above the door, dim and cold. Enough to make out shapes nearby.
         var light = new GameObject("Room Light").AddComponent<Light>();
@@ -277,6 +287,84 @@ public class PortalDoor : MonoBehaviour
         light.range = 55f;
         light.intensity = 1.4f;
         light.shadows = LightShadows.Soft;
+    }
+
+    /// <summary>True if a point (room space) is within the maze's footprint, give or take margin.</summary>
+    bool InMaze(float x, float z, float margin)
+    {
+        float size = mazeCells * mazeCellSize;
+        return Mathf.Abs(x) < size * 0.5f + margin && z > mazeDistance - margin && z < mazeDistance + size + margin;
+    }
+
+    /// <summary>
+    /// A small maze out in the dark in front of the door: black walls a little over head height, open
+    /// above to the room's blackness, its way in facing the door. Carved fresh each run (a winding maze
+    /// with no loops), and at its heart a single faint, cold light to walk toward.
+    /// </summary>
+    void BuildMaze(Transform room, Material wallMat, System.Random rng)
+    {
+        int n = Mathf.Max(3, mazeCells);
+        float cell = mazeCellSize, size = n * cell;
+        float x0 = -size * 0.5f, z0 = mazeDistance;
+        // Walls still standing: east of each cell, and north of each cell (the outer south and west edges separately).
+        var east = new bool[n, n];
+        var north = new bool[n, n];
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
+                east[i, j] = north[i, j] = true;
+
+        // Carve it: a random walk that backtracks when it's boxed in, visiting every cell once.
+        var visited = new bool[n, n];
+        var stack = new System.Collections.Generic.Stack<Vector2Int>();
+        var start = new Vector2Int(n / 2, 0);
+        visited[start.x, start.y] = true;
+        stack.Push(start);
+        var options = new System.Collections.Generic.List<Vector2Int>(4);
+        while (stack.Count > 0)
+        {
+            var c = stack.Peek();
+            options.Clear();
+            if (c.x > 0 && !visited[c.x - 1, c.y]) options.Add(new Vector2Int(c.x - 1, c.y));
+            if (c.x < n - 1 && !visited[c.x + 1, c.y]) options.Add(new Vector2Int(c.x + 1, c.y));
+            if (c.y > 0 && !visited[c.x, c.y - 1]) options.Add(new Vector2Int(c.x, c.y - 1));
+            if (c.y < n - 1 && !visited[c.x, c.y + 1]) options.Add(new Vector2Int(c.x, c.y + 1));
+            if (options.Count == 0) { stack.Pop(); continue; }
+            var next = options[rng.Next(options.Count)];
+            if (next.x != c.x) east[Mathf.Min(c.x, next.x), c.y] = false;
+            else north[c.x, Mathf.Min(c.y, next.y)] = false;
+            visited[next.x, next.y] = true;
+            stack.Push(next);
+        }
+
+        const float thick = 0.3f;
+        float h = mazeWallHeight;
+        void Wall(Vector3 center, Vector3 scale) => Part(PrimitiveType.Cube, wallMat, room, center + Vector3.up * h * 0.5f, scale, true);
+
+        // Outer walls: south (toward the door) with the way in, then west.
+        for (int i = 0; i < n; i++)
+        {
+            if (i != start.x) Wall(new Vector3(x0 + (i + 0.5f) * cell, 0f, z0), new Vector3(cell + thick, h, thick));
+            Wall(new Vector3(x0, 0f, z0 + (i + 0.5f) * cell), new Vector3(thick, h, cell + thick));
+        }
+        // Inner walls, and the north and east edges.
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
+                if (east[i, j]) Wall(new Vector3(x0 + (i + 1) * cell, 0f, z0 + (j + 0.5f) * cell), new Vector3(thick, h, cell + thick));
+                if (north[i, j]) Wall(new Vector3(x0 + (i + 0.5f) * cell, 0f, z0 + (j + 1) * cell), new Vector3(cell + thick, h, thick));
+            }
+        }
+
+        // At its heart, a faint, cold light.
+        var heart = new GameObject("Maze Heart Light").AddComponent<Light>();
+        heart.transform.SetParent(room, false);
+        heart.transform.localPosition = new Vector3(x0 + (n / 2 + 0.5f) * cell, h + 0.8f, z0 + (n / 2 + 0.5f) * cell);
+        heart.type = LightType.Point;
+        heart.color = new Color(0.6f, 0.7f, 0.95f);
+        heart.range = cell * 2.2f;
+        heart.intensity = 0.9f;
+        heart.shadows = LightShadows.None;
     }
 
     /// <summary>The surface that fills a doorway with the view from the other side.</summary>
