@@ -208,6 +208,10 @@ public class TreeFall : MonoBehaviour
                 if (mat != barkMaterial) foliageReach = Mathf.Max(foliageReach, Mathf.Max(part.bounds.extents.x, part.bounds.extents.z));
             }
 
+            // Its broken ends: torn wood, so a break never shows the trunk as an empty tube.
+            AddBreakEnd(piece.transform, lo, radius, false);
+            if (i < count - 1) AddBreakEnd(piece.transform, hi, radius, true);
+
             // Collision: the trunk section, plus a fatter core where there are boughs (crushed when it lands).
             float bottom = Mathf.Max(lo, StumpHeight), top = Mathf.Min(hi, height);
             float sectionRadius = radius * Mathf.Lerp(1f, 0.45f, (bottom + top) * 0.5f / height);
@@ -565,6 +569,70 @@ public class TreeFall : MonoBehaviour
             var cylinder = stumpCollider.GetComponent<Renderer>();
             if (cylinder != null) cylinder.enabled = false;
         }
+    }
+
+    /// <summary>
+    /// A broken end of a fallen section, at a height up the trunk (its local space), facing up (the top of the
+    /// section) or down (its foot): a short sleeve of bark torn into a jagged crown of splinters round a pale
+    /// face of broken wood, sized to the trunk there.
+    /// </summary>
+    void AddBreakEnd(Transform section, float at, float baseRadius, bool facingUp)
+    {
+        float r = baseRadius * Mathf.Lerp(1f, 0.45f, Mathf.Clamp01(at / Mathf.Max(height, 0.01f))) * 1.06f;
+        float dir = facingUp ? 1f : -1f;
+        const int around = 10;
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var barkTris = new List<int>();
+        var woodTris = new List<int>();
+        float[] jag = new float[around + 1];
+        for (int j = 0; j < around; j++) jag[j] = (j % 2 == 0 ? Random.Range(0.05f, 0.2f) : Random.Range(-0.02f, 0.05f)) * Mathf.Max(r / 0.25f, 0.6f);
+        jag[around] = jag[0];
+        // The sleeve: from a little inside the section out to the jagged rim.
+        for (int ring = 0; ring < 2; ring++)
+            for (int j = 0; j <= around; j++)
+            {
+                float a = j / (float)around * Mathf.PI * 2f;
+                float h = ring == 0 ? -0.12f : jag[j];
+                verts.Add(new Vector3(Mathf.Cos(a) * r, at + dir * h, Mathf.Sin(a) * r));
+                uvs.Add(new Vector2(j / (float)around, h * 2f));
+            }
+        int row = around + 1;
+        for (int j = 0; j < around; j++)
+        {
+            int q = j;
+            if (facingUp) barkTris.AddRange(new[] { q, q + row, q + 1, q + 1, q + row, q + row + 1 });
+            else barkTris.AddRange(new[] { q, q + 1, q + row, q + 1, q + row + 1, q + row });
+        }
+        // The broken face, sunk a little in the middle, up to the rim.
+        int centre = verts.Count;
+        verts.Add(new Vector3(0f, at - dir * 0.02f, 0f));
+        uvs.Add(new Vector2(0.5f, 0.5f));
+        int rim = verts.Count;
+        for (int j = 0; j <= around; j++)
+        {
+            float a = j / (float)around * Mathf.PI * 2f;
+            verts.Add(new Vector3(Mathf.Cos(a) * r * 0.97f, at + dir * (jag[j] - 0.01f), Mathf.Sin(a) * r * 0.97f));
+            uvs.Add(new Vector2(0.5f + Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f));
+        }
+        for (int j = 0; j < around; j++)
+        {
+            if (facingUp) woodTris.AddRange(new[] { centre, rim + j + 1, rim + j });
+            else woodTris.AddRange(new[] { centre, rim + j, rim + j + 1 });
+        }
+        var mesh = new Mesh { name = "Break" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.subMeshCount = 2;
+        mesh.SetTriangles(barkTris, 0);
+        mesh.SetTriangles(woodTris, 1);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        var go = new GameObject("Break End");
+        go.transform.SetParent(section, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        Material bark = barkMaterial != null ? barkMaterial : SplinterMaterial;
+        go.AddComponent<MeshRenderer>().sharedMaterials = new[] { bark, StumpTopMaterial };
     }
 
     static Material stumpTopMaterial;
