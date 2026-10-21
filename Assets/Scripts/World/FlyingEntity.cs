@@ -26,7 +26,9 @@ public class FlyingEntity : MonoBehaviour
     static void ResetStatics() => All.Clear();
 
     [Tooltip("Height it circles at above the ground.")]
-    public float altitude = 36f;
+    public float altitude = 48f;
+    [Tooltip("It patrols within this distance of the player (wherever they go): its circles never take it further out.")]
+    public float patrolRadius = 100f;
     [Tooltip("Radius of the circles it flies round its search area.")]
     public float circleRadius = 34f;
     public float flySpeed = 12f;
@@ -288,11 +290,25 @@ public class FlyingEntity : MonoBehaviour
         lastPosition = transform.position;
     }
 
-    /// <summary>Somewhere else to scout: a stretch of forest a good way off from where it's been.</summary>
+    /// <summary>How far from the player the middle of its circles may go, so the circles stay within patrolRadius.</summary>
+    float PatrolReach => Mathf.Max(10f, patrolRadius - circleRadius);
+
+    /// <summary>
+    /// Somewhere else to scout: another stretch of forest round the player (within its patrol), a good way
+    /// from where it's been searching. It never heads straight for them.
+    /// </summary>
     void NewScoutGoal(Vector3 you)
     {
-        Vector2 d = Random.insideUnitCircle.normalized * Random.Range(60f, 130f);
-        scoutGoal = center + new Vector3(d.x, 0f, d.y);
+        Vector3 best = you;
+        float bestGap = -1f;
+        for (int i = 0; i < 6; i++)
+        {
+            Vector2 d = Random.insideUnitCircle * PatrolReach;
+            Vector3 p = you + new Vector3(d.x, 0f, d.y);
+            float gap = Vector3.Distance(new Vector3(p.x, 0f, p.z), new Vector3(center.x, 0f, center.z));
+            if (gap > bestGap) { bestGap = gap; best = p; }
+        }
+        scoutGoal = best;
         scoutTimer = Random.Range(25f, 45f);
     }
 
@@ -323,6 +339,18 @@ public class FlyingEntity : MonoBehaviour
                 if (fromYou.magnitude < keep)
                     center = you + (fromYou.sqrMagnitude > 0.01f ? fromYou.normalized : Vector3.forward) * Mathf.MoveTowards(fromYou.magnitude, keep, driftSpeed * 2f * dt);
             }
+        }
+
+        // However the player moves, its patrol stays round them.
+        if (!tracking)
+        {
+            Vector3 fromYou = center - you;
+            fromYou.y = 0f;
+            if (fromYou.magnitude > PatrolReach)
+                center = you + fromYou.normalized * Mathf.MoveTowards(fromYou.magnitude, PatrolReach, driftSpeed * 4f * dt);
+            Vector3 goalFromYou = scoutGoal - you;
+            goalFromYou.y = 0f;
+            if (goalFromYou.magnitude > PatrolReach) NewScoutGoal(you);
         }
 
         // The watchtower's floodlights drive it off.
