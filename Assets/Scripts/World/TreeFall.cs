@@ -188,24 +188,42 @@ public class TreeFall : MonoBehaviour
             piece.transform.SetParent(tree, true);
             piece.transform.SetPositionAndRotation(sway.position, sway.rotation);
 
+            // Where the trunk is through this section (it leans and tapers a little), so the wood can be split
+            // into the trunk itself and the branches off it.
+            float sectionTop = Mathf.Min(hi, height);
+            Vector2 centreLo = TrunkAt(sources, lo, radius, out float radiusLo);
+            Vector2 centreHi = TrunkAt(sources, Mathf.Max(lo + 0.1f, sectionTop - 0.2f), radius, out float radiusHi);
+
             float foliageReach = 0f;
             foreach (var (mesh, toSway, mat) in sources)
             {
                 Mesh part = Slice(mesh, toSway, lo, hi);
                 if (part == null) continue;
-                var go = new GameObject(mat == barkMaterial ? "Bark" : "Foliage");
-                go.transform.SetParent(piece.transform, false);
-                go.AddComponent<MeshFilter>().sharedMesh = part;
-                go.AddComponent<MeshRenderer>().sharedMaterial = mat;
-                // The wood gets a collider of its real shape (a convex hull round trunk and branches), so a
-                // branchy top rests on its branches instead of rolling on its trunk with them through the ground.
-                if (mat == barkMaterial && part.vertexCount >= 4)
+                if (mat == barkMaterial)
                 {
-                    var hull = go.AddComponent<MeshCollider>();
-                    hull.sharedMesh = part;
-                    hull.convex = true;
+                    // The trunk keeps a collider of its real shape; the branches are only for show: they snap off
+                    // and are gone when it hits the ground, so they never prop the logs up.
+                    SplitBranches(part, y =>
+                    {
+                        float f = Mathf.InverseLerp(lo, sectionTop, y);
+                        return (Vector2.Lerp(centreLo, centreHi, f), Mathf.Lerp(radiusLo, radiusHi, f));
+                    }, out Mesh trunk, out Mesh branches);
+                    if (trunk != null)
+                    {
+                        var go = AddPart(piece.transform, "Bark", trunk, mat);
+                        if (trunk.vertexCount >= 4)
+                        {
+                            var hull = go.AddComponent<MeshCollider>();
+                            hull.sharedMesh = trunk;
+                            hull.convex = true;
+                        }
+                    }
+                    if (branches != null) AddPart(piece.transform, "Branches", branches, mat);
+                    Destroy(part);
+                    continue;
                 }
-                if (mat != barkMaterial) foliageReach = Mathf.Max(foliageReach, Mathf.Max(part.bounds.extents.x, part.bounds.extents.z));
+                AddPart(piece.transform, "Foliage", part, mat);
+                foliageReach = Mathf.Max(foliageReach, Mathf.Max(part.bounds.extents.x, part.bounds.extents.z));
             }
 
             // Its broken ends: torn wood, so a break never shows the trunk as an empty tube.
@@ -325,6 +343,72 @@ public class TreeFall : MonoBehaviour
         return mesh;
     }
 
+    static GameObject AddPart(Transform parent, string name, Mesh mesh, Material mat)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        return go;
+    }
+
+    /// <summary>
+    /// Splits a section's wood into the trunk and its branches: a triangle reaching out past the trunk's
+    /// surface (trunkAt(height) gives the trunk's centre and radius there) belongs to a branch.
+    /// </summary>
+    static void SplitBranches(Mesh part, System.Func<float, (Vector2 centre, float radius)> trunkAt, out Mesh trunk, out Mesh branches)
+    {
+        Vector3[] verts = part.vertices;
+        Vector3[] normals = part.normals;
+        Vector2[] uvs = part.uv;
+        int[] tris = part.triangles;
+        var trunkTris = new List<int>();
+        var branchTris = new List<int>();
+        for (int t = 0; t < tris.Length; t += 3)
+        {
+            bool outside = false;
+            for (int k = 0; k < 3 && !outside; k++)
+            {
+                Vector3 v = verts[tris[t + k]];
+                var (centre, r) = trunkAt(v.y);
+                outside = (new Vector2(v.x, v.z) - centre).magnitude > r * 1.6f + 0.08f;
+            }
+            (outside ? branchTris : trunkTris).AddRange(new[] { tris[t], tris[t + 1], tris[t + 2] });
+        }
+        trunk = MakeMesh(trunkTris, part.name);
+        branches = MakeMesh(branchTris, part.name + " Branches");
+
+        Mesh MakeMesh(List<int> keep, string name)
+        {
+            if (keep.Count == 0) return null;
+            var map = new Dictionary<int, int>();
+            var v = new List<Vector3>();
+            var n = new List<Vector3>();
+            var uv = new List<Vector2>();
+            var tri = new List<int>(keep.Count);
+            foreach (int src in keep)
+            {
+                if (!map.TryGetValue(src, out int dst))
+                {
+                    dst = v.Count;
+                    map[src] = dst;
+                    v.Add(verts[src]);
+                    if (normals.Length == verts.Length) n.Add(normals[src]);
+                    if (uvs.Length == verts.Length) uv.Add(uvs[src]);
+                }
+                tri.Add(dst);
+            }
+            var mesh = new Mesh { name = name };
+            if (v.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.SetVertices(v);
+            if (n.Count == v.Count) mesh.SetNormals(n);
+            if (uv.Count == v.Count) mesh.SetUVs(0, uv);
+            mesh.SetTriangles(tri, 0);
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+    }
+
     /// <summary>Called by a section when it hits something.</summary>
     public void OnSectionHit(Collision collision)
     {
@@ -386,6 +470,11 @@ public class TreeFall : MonoBehaviour
             if (body == null) continue;
             foreach (Transform child in body.transform)
             {
+                if (child.name == "Branches")
+                {
+                    BranchDebris.BreakOff(child); // snapped off: tumbles away, shrinks and is gone (after this loop)
+                    continue;
+                }
                 if (child.name != "Foliage") continue;
                 var renderer = child.GetComponent<Renderer>();
                 if (renderer != null) LeafBurst.Spawn(renderer.bounds);
@@ -733,6 +822,45 @@ public class TreeFall : MonoBehaviour
         }
         pieces.Clear();
         Destroy(this); // its work is done; the pieces stay
+    }
+}
+
+/// <summary>
+/// Branches snapped off a fallen tree: they drop and tumble a moment, then shrink away to nothing and are
+/// removed, so only the big logs are left lying there.
+/// </summary>
+public class BranchDebris : MonoBehaviour
+{
+    Vector3 velocity, spin;
+    float age;
+    Vector3 startScale;
+    const float FallTime = 0.9f, ShrinkTime = 1.4f;
+
+    /// <summary>Takes a branches object off its log (at the end of this frame, as the log may be mid-loop) and lets it go.</summary>
+    public static void BreakOff(Transform branches)
+    {
+        var debris = branches.gameObject.AddComponent<BranchDebris>();
+        debris.velocity = Random.insideUnitSphere * 1.5f + Vector3.up * 1.2f;
+        debris.spin = Random.insideUnitSphere * 40f;
+    }
+
+    void Start()
+    {
+        transform.SetParent(null, true);
+        startScale = transform.localScale;
+    }
+
+    void Update()
+    {
+        float dt = Time.deltaTime;
+        age += dt;
+        velocity += Vector3.down * 9.8f * dt;
+        velocity *= 1f - 1.5f * dt; // it's light and catches the air
+        transform.position += velocity * dt;
+        transform.Rotate(spin * dt, Space.World);
+        float shrink = Mathf.Clamp01((age - FallTime) / ShrinkTime);
+        transform.localScale = startScale * (1f - shrink * shrink);
+        if (shrink >= 1f) Destroy(gameObject);
     }
 }
 
