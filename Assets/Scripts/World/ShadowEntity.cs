@@ -871,7 +871,8 @@ public class ShadowEntity : MonoBehaviour
         // Its eyes carry on from how they looked and burn blue as it's driven off, the glow round them swelling.
         float blue = Mathf.Max(Mathf.SmoothStep(0f, 1f, c), Mathf.SmoothStep(0f, 1f, beamGlow)); // (already blue from the beam)
         float brightness = Mathf.Lerp(crescendoStartBrightness, spawnEyeIntensity * 1.5f, e) * flicker;
-        SetEyes(Mathf.Lerp(maxEyeWiden, maxEyeWiden * 1.8f, e), brightness, crescendoStartShine * (1f - blue), blue);
+        // Its eyes stretch wide open, staring, as it's driven off.
+        SetEyes(Mathf.Lerp(maxEyeWiden, maxEyeWiden * 2.8f, Mathf.SmoothStep(0f, 1f, c)), brightness, crescendoStartShine * (1f - blue), blue);
         eyeLight.intensity = Mathf.Lerp(crescendoStartLight, brightness, e) * eyeLightStrength * (1f + dismissGlow * blue);
         whisper.volume = volume * Mathf.Lerp(1f, crescendoVolume, e);
         whisper.pitch = Mathf.Lerp(1f, 1.6f, e);
@@ -1796,7 +1797,7 @@ public class ShadowEntity : MonoBehaviour
     /// </summary>
     // The mouth: a gaping hole that drops open, lit from inside, glaring light out of it.
     Material mouthGlowMat, mouthBeamMat;
-    Light mouthLight;
+    Light mouthLight, mouthSpill;
     Transform mouthBeam;
     Color glowColor = new Color(1f, 0.08f, 0.05f);
 
@@ -1839,6 +1840,13 @@ public class ShadowEntity : MonoBehaviour
         mouthLight.range = 12f;
         mouthLight.shadows = LightShadows.None;
         mouthLight.enabled = false;
+        // Being driven off, light pours out of it all round, onto the ground and the trees beside it.
+        mouthSpill = new GameObject("Mouth Spill").AddComponent<Light>();
+        mouthSpill.transform.SetParent(headPivot, false);
+        mouthSpill.transform.localPosition = new Vector3(0f, -0.005f, 0.2f) * scale;
+        mouthSpill.type = LightType.Point;
+        mouthSpill.shadows = LightShadows.None;
+        mouthSpill.enabled = false;
         Shader beam = Shader.Find("Horror/Beam");
         if (beam != null)
         {
@@ -1862,19 +1870,32 @@ public class ShadowEntity : MonoBehaviour
         float open = Mathf.Clamp01(mouthOpen);
         bool shown = open > 0.05f && bodyRenderers != null && bodyRenderers.Length > 0 && bodyRenderers[0].enabled;
         float flicker = 0.85f + 0.15f * Mathf.PerlinNoise(Time.time * 9f, 3.3f);
-        if (mouthGlowMat != null) MaterialFactory.SetColor(mouthGlowMat, glowColor * (1f + 6f * open) * flicker);
+        // Being dismissed: the light in its throat swells to a blaze, building with the crescendo.
+        float c = CurrentState == State.Crescendo ? Mathf.Clamp01(timer / Mathf.Max(CrescendoDuration, 0.01f)) : 0f;
+        float blaze = c * c;
+        if (blaze > 0f) flicker = Mathf.Lerp(flicker, Random.Range(0.6f, 1.4f), blaze * 0.5f); // sputtering
+        if (mouthGlowMat != null) MaterialFactory.SetColor(mouthGlowMat, glowColor * (1f + 6f * open) * (1f + 3f * blaze) * flicker);
         if (mouthLight != null)
         {
             mouthLight.enabled = shown;
             mouthLight.color = glowColor;
-            mouthLight.intensity = 6f * open * open * flicker;
+            mouthLight.intensity = 6f * open * open * flicker * (1f + 5f * blaze);
+            mouthLight.range = 12f + 14f * blaze;
+            mouthLight.spotAngle = Mathf.Lerp(55f, 90f, blaze);
+        }
+        if (mouthSpill != null)
+        {
+            mouthSpill.enabled = shown && blaze > 0.01f;
+            mouthSpill.color = glowColor;
+            mouthSpill.intensity = 8f * blaze * open * flicker;
+            mouthSpill.range = Mathf.Lerp(2f, 8f, blaze);
         }
         if (mouthBeam != null)
         {
             if (mouthBeam.gameObject.activeSelf != shown) mouthBeam.gameObject.SetActive(shown);
-            float len = 3.5f * open;
+            float len = 3.5f * open * (1f + 1.2f * blaze);
             mouthBeam.localScale = new Vector3(len * 0.45f, len * 0.45f, Mathf.Max(len, 0.01f)) / Mathf.Max(headPivot.lossyScale.x, 0.0001f);
-            mouthBeamMat.SetColor("_Color", new Color(glowColor.r, glowColor.g, glowColor.b, 0.12f * open * flicker));
+            mouthBeamMat.SetColor("_Color", new Color(glowColor.r, glowColor.g, glowColor.b, 0.12f * open * flicker * (1f + 2f * blaze)));
         }
     }
 
