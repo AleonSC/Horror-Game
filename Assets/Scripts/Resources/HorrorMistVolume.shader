@@ -88,8 +88,8 @@ Shader "Horror/MistVolume"
                 // ahead along it, and right in front of the lens, counts for much less (or it glares as a ball).
                 float along = saturate(dot(toP / max(d, 0.001), rd));
                 float view = lerp(1, 0.15, along * along * along * along);
-                float near = smoothstep(1.0, 5.0, d);
-                c += _SpotColor.rgb * cone * att * att * view * near;
+                float nearFade = smoothstep(1.0, 5.0, d);
+                c += _SpotColor.rgb * cone * att * att * view * nearFade;
 
                 // A glow round each nearby lamp.
                 for (int k = 0; k < 4; k++)
