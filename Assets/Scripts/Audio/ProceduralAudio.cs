@@ -36,7 +36,12 @@ public static class ProceduralAudio
     /// <summary>A footstep in water: a slap, a slosh, a few bubbles.</summary>
     public static AudioClip Splash => Wade(0);
 
-    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong, dispelBuild, dispel, taken, flarePop, blindGrowl, blindAlert;
+    static AudioClip radioBroadcast, cameraFlash, rainLoop, carChirp, fobClick, tornadoRoar, pauseSong, dispelBuild, dispel, taken, flarePop, blindGrowl, blindAlert, wadeLoop;
+    /// <summary>
+    /// Moving through water: a soft, continuous swish and lap round the legs, surging and easing (loops).
+    /// Footsteps plays it under the wading steps, as loud as you're moving through it.
+    /// </summary>
+    public static AudioClip WadeLoop => wadeLoop != null ? wadeLoop : (wadeLoop = MakeWadeLoop());
     /// <summary>The blind one, to itself: a long, low, wet growl rattling in its chest, rising and sinking (2.8s).</summary>
     public static AudioClip BlindGrowl => blindGrowl != null ? blindGrowl : (blindGrowl = MakeBlindGrowl());
     /// <summary>The blind one hearing something: a sharp sucked-in breath snapping into a short, ragged snarl.</summary>
@@ -1206,6 +1211,26 @@ public static class ProceduralAudio
         // Fade the very end so nothing clicks.
         for (int i = 0; i < n; i++) data[i] *= Mathf.Clamp01((n - i) / (0.02f * Rate));
         return Create(name, data, 0.8f);
+    }
+
+    static AudioClip MakeWadeLoop()
+    {
+        float lp = 0f, lp2 = 0f, hp = 0f, gurgle = 0f, gurglePhase = 0f, gurgleHz = 400f;
+        return Loop("Wade Loop", 4f, t =>
+        {
+            // The swish: low, soft, filtered water noise, surging with the legs (about two strides a second).
+            float w = White();
+            lp += (w - lp) * 0.07f;
+            lp2 += (lp - lp2) * 0.07f;
+            hp += (lp2 - hp) * 0.008f;
+            float surge = 0.45f + 0.55f * Mathf.Pow(0.5f + 0.5f * Mathf.Sin(TwoPi * 1.05f * t + Mathf.Sin(TwoPi * 0.3f * t)), 1.6f);
+            float swish = (lp2 - hp) * surge * 2.2f;
+            // Now and then a small gurgle: a bubble of water folding over.
+            if (rng.NextDouble() < 6.0 / Rate) { gurgle = 0.25f; gurgleHz = 250f + (float)rng.NextDouble() * 500f; }
+            gurgle *= 0.9993f;
+            gurglePhase += TwoPi * gurgleHz * (1f + 0.4f * (0.25f - gurgle)) / Rate;
+            return swish + Mathf.Sin(gurglePhase) * gurgle * 0.3f;
+        }, 0.5f);
     }
 
     static AudioClip MakeRadioBroadcast()

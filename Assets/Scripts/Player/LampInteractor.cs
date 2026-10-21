@@ -29,7 +29,7 @@ public class LampInteractor : MonoBehaviour
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
     [Tooltip("Small things you pick up (items, batteries) get this much more aim leeway than lamps and doors.")]
-    public float smallItemLeeway = 1.6f;
+    public float smallItemLeeway = 1.3f;
     // Big enough for a shack's worth of planks plus everything near it; when it was smaller, items inside
     // busy places could be left out of the search entirely.
     static readonly Collider[] nearby = new Collider[1024];
@@ -107,7 +107,8 @@ public class LampInteractor : MonoBehaviour
             if (ahead < 0f || (closest - eye).magnitude > reach) continue;
 
             float offAxis = Vector3.Distance(closest, eye + forward * ahead);
-            bool small = owner is ItemPickup || owner is BatteryPickup || owner is CarRadio;
+            // (The radio's a good size: it gets no extra leeway, or it's picked from metres off.)
+            bool small = owner is ItemPickup || owner is BatteryPickup;
             float allowed = (aimRadius + ahead * aimSpreadPerMetre) * (small ? smallItemLeeway : 1f);
             if (offAxis > allowed) continue;
             if (!Visible(eye, col, closest, owner)) continue;

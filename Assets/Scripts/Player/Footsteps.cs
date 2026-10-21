@@ -22,8 +22,16 @@ public class Footsteps : MonoBehaviour
     [Header("Clips (optional)")]
     public AudioClip[] stepClips;
 
+    [Header("Water")]
+    [Tooltip("Volume of a wading step in deep water (half a metre or more); shallower is quieter.")]
+    [Range(0f, 1f)] public float wadeVolume = 0.22f;
+    [Range(0f, 1f)] public float puddleVolume = 0.1f;
+    [Tooltip("Volume of the continuous swish of moving through deep water.")]
+    [Range(0f, 1f)] public float wadeLoopVolume = 0.18f;
+
     FirstPersonController controller;
-    AudioSource source;
+    AudioSource source, wadeLoop;
+    float wadeLevel;
     Vector3 lastPosition;
     float distance, airTime;
     bool wasGrounded = true;
@@ -33,7 +41,25 @@ public class Footsteps : MonoBehaviour
     {
         controller = GetComponent<FirstPersonController>();
         source = ProceduralAudio.AddSource(gameObject, null, false, false, 1f);
+        wadeLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.WadeLoop, true, false, 0f);
         lastPosition = transform.position;
+    }
+
+    /// <summary>The swish of water round your legs: as loud as you're moving through it, and as deep as it is.</summary>
+    void UpdateWadeLoop(Vector3 delta)
+    {
+        float target = 0f;
+        if (controller.enabled && controller.IsGrounded && Water.InWater(transform.position, out float depth) && depth > 0.12f)
+        {
+            float speed = delta.magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
+            float moving = Mathf.Clamp01(speed / 2.5f);
+            target = wadeLoopVolume * moving * Mathf.Lerp(0.4f, 1f, Mathf.Clamp01(depth / 0.5f)) * (controller.IsCrouching ? 0.5f : 1f);
+        }
+        wadeLevel = Mathf.MoveTowards(wadeLevel, target, Time.deltaTime * (target > wadeLevel ? 1.5f : 0.8f));
+        wadeLoop.volume = wadeLevel * (1f - 0.85f * EntityDread.Silence);
+        wadeLoop.pitch = controller.IsRunning ? 1.15f : 1f;
+        if (wadeLevel > 0.001f && !wadeLoop.isPlaying) { wadeLoop.time = Random.Range(0f, wadeLoop.clip.length * 0.9f); wadeLoop.Play(); }
+        else if (wadeLevel <= 0.001f && wadeLoop.isPlaying) wadeLoop.Stop();
     }
 
     void Update()
@@ -42,6 +68,7 @@ public class Footsteps : MonoBehaviour
         lastPosition = transform.position;
         delta.y = 0f;
         if (delta.magnitude > 2f) delta = Vector3.zero; // a teleport (map wrap or respawn), not a step
+        UpdateWadeLoop(delta);
 
         if (!controller.enabled) return;
 
@@ -85,9 +112,13 @@ public class Footsteps : MonoBehaviour
             if (splash == lastSplash) splash = (splash + 1) % ProceduralAudio.WaterStepCount;
             lastSplash = splash;
             bool wading = depth > 0.12f;
-            source.pitch = Random.Range(0.93f, 1.07f);
+            // As loud as the step would be (walking, running, creeping), scaled to the water: a puddle's slap
+            // well under a deep wade, which is louder the deeper, but never a roar.
+            float pace = volume / Mathf.Max(walkVolume, 0.0001f); // 1 walking, more running, less crouching
+            float loud = wading ? wadeVolume * Mathf.Lerp(0.55f, 1f, Mathf.Clamp01(depth / 0.5f)) : puddleVolume;
+            source.pitch = Random.Range(0.93f, 1.07f) * (wading ? Mathf.Lerp(1f, 0.85f, Mathf.Clamp01(depth / 0.6f)) : 1f);
             source.PlayOneShot(wading ? ProceduralAudio.Wade(splash) : ProceduralAudio.PuddleStep(splash),
-                Mathf.Clamp01(volume * (wading ? 2.2f : 1.8f) + depth) * (1f - 0.85f * EntityDread.Silence));
+                Mathf.Clamp01(loud * Mathf.Clamp(pace, 0.4f, 1.6f)) * (1f - 0.85f * EntityDread.Silence));
             Noise.Emit(transform.position, depth > 0.1f ? 13f : 9f);
             return;
         }
