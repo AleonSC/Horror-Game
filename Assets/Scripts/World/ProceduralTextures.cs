@@ -28,6 +28,12 @@ public static class ProceduralTextures
     /// Mostly see-through, so the ground shows through it.
     /// </summary>
     public static Texture2D WornPath => wornPath != null ? wornPath : (wornPath = MakeWornPath());
+    /// <summary>
+    /// A trail of packed, pale dirt and fine grit, paler than the forest floor so it shows up: u runs across
+    /// (solid in the middle, ragged soft edges), v along it (tiles).
+    /// </summary>
+    public static Texture2D TrailDirt => trailDirt != null ? trailDirt : (trailDirt = MakeTrailDirt());
+    static Texture2D trailDirt;
     /// <summary>Tiling weathered granite: grey speckled stone, dark cracks, pale lichen and dark moss.</summary>
     public static Texture2D Rock { get { if (rock == null) MakeRock(); return rock; } }
     /// <summary>Normal map matching Rock.</summary>
@@ -393,6 +399,40 @@ public static class ProceduralTextures
         var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, false)
         {
             name = "Worn Path", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
+        };
+        tex.SetPixels32(px);
+        tex.Apply(true);
+        return tex;
+    }
+
+    static Texture2D MakeTrailDirt()
+    {
+        const int w = 128, h = 256;
+        var px = new Color32[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float u = x / (float)(w - 1), v = y / (float)h;
+                // Ragged edges that wander; solid underfoot in the middle.
+                float wobble = (TileNoise2(0.5f, v * 8f, 4, 8, 61) - 0.5f) * 0.22f + (TileNoise2(u * 6f, v * 24f, 6, 24, 62) - 0.5f) * 0.12f;
+                float across = Mathf.Abs(u - 0.5f + wobble) * 2f;
+                float edge = 1f - Ramp(0.55f, 1f, across);
+                float patches = TileNoise2(u * 3f, v * 8f, 3, 8, 63);
+                float alpha = edge * Mathf.Lerp(0.7f, 0.95f, patches);
+
+                float grit = TileNoise2(u * 48f, v * 96f, 48, 96, 64);
+                float ruts = 1f - 0.12f * Ramp(0.15f, 0.0f, Mathf.Abs(Mathf.Abs(u - 0.5f) - 0.2f)); // two faint worn ruts
+                Color c = Color.Lerp(new Color(0.3f, 0.26f, 0.2f), new Color(0.42f, 0.37f, 0.29f), patches * 0.5f + grit * 0.5f) * ruts;
+                if (grit > 0.8f) c = Color.Lerp(c, new Color(0.55f, 0.52f, 0.47f), 0.6f); // gravel
+                else if (grit < 0.12f) c *= 0.75f;                                           // little hollows
+                // Darker, mossier toward the edges where it meets the forest floor.
+                c = Color.Lerp(c, new Color(0.2f, 0.17f, 0.13f), Ramp(0.4f, 0.95f, across) * 0.6f);
+                c.a = alpha;
+                px[y * w + x] = c;
+            }
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, false)
+        {
+            name = "Trail Dirt", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, filterMode = FilterMode.Trilinear,
         };
         tex.SetPixels32(px);
         tex.Apply(true);

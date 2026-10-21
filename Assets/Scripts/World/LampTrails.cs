@@ -18,13 +18,15 @@ public static class LampTrails
         if (old != null) Object.Destroy(old.gameObject);
         if (lamps.Count < 2) return;
         if (material == null)
-            material = MaterialFactory.LitTransparent(ProceduralTextures.WornPath, new Color(1.1f, 1.05f, 1f), 0.02f);
+            material = MaterialFactory.LitTransparent(ProceduralTextures.TrailDirt, Color.white, 0.05f);
 
         var root = new GameObject("Lamp Trails").transform;
         root.SetParent(parent, false);
 
-        foreach (var (a, b) in Network(lamps))
+        var links = Network(lamps);
+        foreach (var (a, b) in links)
             BuildTrail(root, lamps[a].transform.position, lamps[b].transform.position, generator);
+        Debug.Log($"[Horror] Lamp trails: {links.Count} trails between {lamps.Count} lamps ({root.childCount} with worn stretches).");
     }
 
     /// <summary>Which lamps the trails join: a minimum spanning tree, plus two of the shortest other links as loops.</summary>
