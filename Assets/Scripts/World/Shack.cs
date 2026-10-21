@@ -26,6 +26,7 @@ public class Shack : MonoBehaviour
     [SerializeField] ShackDoor door;
     [SerializeField] Transform table;
     [SerializeField] Transform nightstand;
+    [SerializeField] Transform droneSpot;
     [Range(0f, 1f), Tooltip("Chance of a battery lying on the table as well.")]
     public float batteryChance = 0.5f;
     [Range(0f, 1f), Tooltip("Chance of the car's key fob lying on the table.")]
@@ -276,6 +277,11 @@ public class Shack : MonoBehaviour
         barrel.localPosition = new Vector3(0.55f, floorY + 0.45f, -0.4f);
         barrel.localScale = new Vector3(0.6f, 0.45f, 0.6f);
         barrel.GetComponent<Renderer>().sharedMaterial = darkWood;
+
+        // On the store room floor by the shelves, the drone.
+        droneSpot = new GameObject("Drone Spot").transform;
+        droneSpot.SetParent(transform, false);
+        droneSpot.localPosition = new Vector3(1.1f, floorY + 0.02f, -2.4f);
     }
 
     /// <summary>A door in a doorway at wallCenter-ish (the doorway's foot, on the wall line), hinged on its left edge.</summary>
@@ -306,7 +312,7 @@ public class Shack : MonoBehaviour
     void SpawnItems()
     {
         if (table == null) return;
-        foreach (var spot in new[] { table, nightstand })
+        foreach (var spot in new[] { table, nightstand, droneSpot })
         {
             if (spot == null) continue;
             foreach (var old in spot.GetComponentsInChildren<ItemPickup>())
@@ -331,6 +337,8 @@ public class Shack : MonoBehaviour
         // In the cabin, a battery on the nightstand in the dark bedroom, always.
         if (nightstand != null)
             BatterySpawner.Create(nightstand, new Vector3(0f, 0.585f + 0.025f, 0f), Random.Range(0f, 360f));
+        // And in its store room, the drone.
+        if (droneSpot != null) ItemPickup.CreateDrone(droneSpot, Vector3.zero, Random.Range(-40f, 40f));
     }
 
     /// <summary>

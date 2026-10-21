@@ -44,6 +44,7 @@ public static class HorrorInput
     public static Vector2 Look => Ms != null ? Ms.delta.ReadValue() * MouseDeltaScale : Vector2.zero;
 
     public static bool JumpPressed => Kb != null && Kb.spaceKey.wasPressedThisFrame;
+    public static bool JumpHeld => Kb != null && Kb.spaceKey.isPressed;
     public static bool RunHeld => Kb != null && Kb.leftShiftKey.isPressed;
     public static bool CrouchHeld => Kb != null && (Kb.leftCtrlKey.isPressed || Kb.cKey.isPressed);
     public static bool CrouchPressed => Kb != null && (Kb.leftCtrlKey.wasPressedThisFrame || Kb.cKey.wasPressedThisFrame);
@@ -74,6 +75,7 @@ public static class HorrorInput
     public static Vector2 Look => new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
 
     public static bool JumpPressed => Input.GetKeyDown(KeyCode.Space);
+    public static bool JumpHeld => Input.GetKey(KeyCode.Space);
     public static bool RunHeld => Input.GetKey(KeyCode.LeftShift);
     public static bool CrouchHeld => Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
     public static bool CrouchPressed => Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C);

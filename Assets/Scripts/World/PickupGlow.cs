@@ -23,6 +23,7 @@ public class PickupGlow : MonoBehaviour
     Vector3 localCenter;
     float size, level, phase;
     Shack shack;
+    Collider aim;
 
     void Start()
     {
@@ -34,6 +35,7 @@ public class PickupGlow : MonoBehaviour
         localCenter = transform.InverseTransformPoint(b.center);
         size = Mathf.Max(b.extents.x, b.extents.y, b.extents.z) * 2f;
         shack = GetComponentInParent<Shack>();
+        aim = GetComponent<Collider>();
         phase = Random.Range(0f, 10f);
 
         if (glowShader == null) glowShader = Shader.Find("Horror/Glow");
@@ -68,7 +70,8 @@ public class PickupGlow : MonoBehaviour
         var cam = Camera.main;
         float target = 0f;
         Vector3 center = transform.TransformPoint(localCenter);
-        if (cam != null && (shack == null || shack.Contains(cam.transform.position)))
+        bool takeable = aim == null || aim.enabled; // (a drone in the air can't be picked up)
+        if (cam != null && takeable && (shack == null || shack.Contains(cam.transform.position)))
         {
             float dist = Vector3.Distance(cam.transform.position, center);
             target = 1f - Mathf.InverseLerp(fullDistance, fadeDistance, dist);

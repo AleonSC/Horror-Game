@@ -204,8 +204,11 @@ public class FirstPersonController : MonoBehaviour
         if (PauseMenu.IsPaused || InventoryScreen.IsOpen) return;
         HandleCursor();
         UpdateWaking();
-        HandleLook();
-        HandleCrouch();
+        if (!DroneUnit.Piloting) // (flying the drone: you stand still, the mouse and keys are its)
+        {
+            HandleLook();
+            HandleCrouch();
+        }
         HandleMovement();
         UpdateCamera();
     }
@@ -331,7 +334,7 @@ public class FirstPersonController : MonoBehaviour
     {
         bool grounded = controller.isGrounded;
 
-        Vector2 input = Snared ? Vector2.zero : Vector2.ClampMagnitude(HorrorInput.Move, 1f); // held fast by the ankle: nowhere to go
+        Vector2 input = Snared || DroneUnit.Piloting ? Vector2.zero : Vector2.ClampMagnitude(HorrorInput.Move, 1f); // held fast by the ankle: nowhere to go
         bool hasInput = input.sqrMagnitude > 0.01f;
 
         IsRunning = HorrorInput.RunHeld && !IsCrouching && hasInput && input.y > 0f && Grogginess < 0.3f; // can't run yet
@@ -356,7 +359,7 @@ public class FirstPersonController : MonoBehaviour
             if (grounded && verticalVelocity < 0f)
                 verticalVelocity = -2f; // keep the controller snapped to the ground
 
-            if (grounded && !IsCrouching && !Snared && HorrorInput.JumpPressed)
+            if (grounded && !IsCrouching && !Snared && !DroneUnit.Piloting && HorrorInput.JumpPressed)
                 verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
 
             verticalVelocity += gravity * Time.deltaTime;
@@ -380,7 +383,7 @@ public class FirstPersonController : MonoBehaviour
         bool atTop = transform.position.y > ladder.TopY - 0.3f;
 
         // Jumping off, partway up: let go and push back off it, falling from there.
-        if (HorrorInput.JumpPressed && !atTop && !grounded && !Snared)
+        if (HorrorInput.JumpPressed && !atTop && !grounded && !Snared && !DroneUnit.Piloting)
         {
             Vector3 away = -transform.forward;
             away.y = 0f;

@@ -25,6 +25,9 @@ using UnityEngine;
 ///   the entities won't enter or attack in. It burns down, and when it's gone it's gone for good.
 /// - Lighter: flick it on for a small circle of safety. Its fuel runs out too.
 ///
+/// - Drone: in the cabin's store room. F sets it down on the ground ahead, and its slot becomes the remote:
+///   F with the remote flies it from wherever you are (DroneUnit). Picking it back up makes it the drone again.
+///
 /// Torches and lighters are found in the abandoned shacks; picking up another one stacks it.
 /// Only the item in your hand works, so putting the torch or lighter away puts it out.
 /// LampSpawner adds this to the player automatically.
@@ -33,7 +36,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
 {
     void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
 
-    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob, Map }
+    public enum Item { Flashlight, Torch, Lighter, FlareGun, Glowstick, Battery, Camera, KeyFob, Map, Drone, Remote }
     const int SlotCount = 8;
     [Header("Camera")]
     [Tooltip("Shots on the camera when it's found.")]
@@ -89,6 +92,10 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     public bool HasKeyFob { get; private set; }
     /// <summary>The map from the top of the watchtower: hold it to look at it.</summary>
     public bool HasMap { get; private set; }
+    /// <summary>Carrying the drone (to set down somewhere)...</summary>
+    public bool HasDrone { get; private set; }
+    /// <summary>...or, once it's set down, holding its remote.</summary>
+    public bool HasRemote { get; private set; }
     float fobReady;
     Renderer fobLed;
 
@@ -104,8 +111,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     float messageTimer;
     GUIStyle nameStyle, numberStyle, messageStyle;
 
-    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob", "Map" };
-    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel;
+    static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob", "Map", "Drone", "Remote" };
+    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel, droneModel, remoteModel;
     Light flashLight;
     float flashGlow, flashReady;
 
@@ -136,6 +143,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         fobModel.localRotation = Quaternion.Euler(-55f, 10f, 0f);
         PropModels.KeyFob(fobModel, false, out fobLed).localScale = Vector3.one * 1.4f;
         fobModel.gameObject.SetActive(false);
+        BuildDrone(hand);
 
         fireLoop = ProceduralAudio.AddSource(gameObject, ProceduralAudio.FireLoop, true, false, 0f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, false, 0.8f);
@@ -145,6 +153,14 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     {
         SyncSlots();
         if (PauseMenu.IsPaused || InventoryScreen.IsOpen || MainMenu.Showing) return;
+        if (DroneUnit.Piloting)
+        {
+            // Flying the drone: the keys and the mouse are its (F lets go, which it handles itself).
+            BurnFuel(Time.deltaTime);
+            UpdateVisuals();
+            messageTimer -= Time.deltaTime;
+            return;
+        }
         int slot = HorrorInput.SlotPressed;
         if (slot > 0 && slots[slot - 1] >= 0) Select((Item)slots[slot - 1]);
 
@@ -173,6 +189,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         if (item == Item.Camera && CameraShots == 0) { Message("You don't have a camera"); return; }
         if (item == Item.KeyFob && !HasKeyFob) { Message("You don't have a key fob"); return; }
         if (item == Item.Map && !HasMap) { Message("You don't have a map"); return; }
+        if (item == Item.Drone && !HasDrone) { Message("You don't have the drone"); return; }
+        if (item == Item.Remote && !HasRemote) { Message("You don't have the remote"); return; }
 
         // Only the item in hand works: putting a flame away puts it out.
         TorchLit = false;
@@ -257,7 +275,9 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         item == Item.Battery ? BatteryCount :
         item == Item.Camera ? CameraShots :
         item == Item.KeyFob ? (HasKeyFob ? 1 : 0) :
-        item == Item.Map ? (HasMap ? 1 : 0) : 1;
+        item == Item.Map ? (HasMap ? 1 : 0) :
+        item == Item.Drone ? (HasDrone ? 1 : 0) :
+        item == Item.Remote ? (HasRemote ? 1 : 0) : 1;
 
     void Use()
     {
@@ -306,6 +326,49 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         {
             PressFob();
         }
+        else if (Selected == Item.Drone)
+        {
+            SetDownDrone();
+        }
+        else if (Selected == Item.Remote)
+        {
+            if (DroneUnit.Deployed == null) Message("The drone's gone");
+            else DroneUnit.Deployed.StartPiloting(GetComponent<FirstPersonController>());
+        }
+    }
+
+    /// <summary>Sets the drone down on the ground a couple of metres ahead; its slot becomes the remote.</summary>
+    void SetDownDrone()
+    {
+        var cam = Camera.main;
+        if (!HasDrone || cam == null) return;
+        Vector3 forward = cam.transform.forward;
+        forward.y = 0f;
+        forward = forward.sqrMagnitude > 0.01f ? forward.normalized : transform.forward;
+        // Where you're looking, if it's ground close by; otherwise just in front of your feet.
+        Vector3 spot;
+        if (Physics.Raycast(cam.transform.position, cam.transform.forward, out var hit, 3.5f, ~0, QueryTriggerInteraction.Ignore) && hit.normal.y > 0.6f)
+            spot = hit.point;
+        else
+        {
+            Vector3 ahead = transform.position + forward * 1.4f;
+            spot = Physics.Raycast(ahead + Vector3.up * 2f, Vector3.down, out var down, 6f, ~0, QueryTriggerInteraction.Ignore) ? down.point : ahead;
+        }
+        DroneUnit.Place(spot, Quaternion.LookRotation(forward).eulerAngles.y);
+        Play(ProceduralAudio.Pickup, 0.6f, 0.8f);
+        HasDrone = false;
+        HasRemote = true;
+        SwapItem(Item.Drone, Item.Remote);
+        Selected = Item.Flashlight; // (so selecting the remote below counts as a change)
+        Select(Item.Remote);
+        Message("Drone set down. With the remote in hand, F flies it from wherever you are.");
+    }
+
+    /// <summary>Puts one item in another's slot (the drone becoming its remote, and back).</summary>
+    void SwapItem(Item from, Item to)
+    {
+        int i = SlotOf(from);
+        if (i >= 0 && SlotOf(to) < 0) slots[i] = (int)to;
     }
 
     /// <summary>The fob's button: the car chirps and flashes its lights, wherever it is.</summary>
@@ -520,6 +583,15 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
             HasKeyFob = true;
             Message($"Picked up a car key fob. Press {Key(Item.KeyFob)} to hold it, F to press the button: the car will chirp and flash.");
         }
+        else if (item == Item.Drone)
+        {
+            bool wasRemote = HasRemote;
+            HasDrone = true;
+            HasRemote = false;
+            SwapItem(Item.Remote, Item.Drone);
+            if (Selected == Item.Remote) Select(Item.Flashlight);
+            Message(wasRemote ? "Picked the drone back up." : $"Picked up a drone. Press {Key(Item.Drone)} to hold it, F to set it down where you want to fly it from.");
+        }
         else if (item == Item.Map)
         {
             HasMap = true;
@@ -544,6 +616,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         TorchCount = LighterCount = FlareCount = GlowstickCount = BatteryCount = CameraShots = 0;
         HasKeyFob = false;
         HasMap = false;
+        HasDrone = HasRemote = false;
+        DroneUnit.ClearAll();
         flashGlow = 0f;
         TorchFuel = LighterFuel = 1f;
         Selected = Item.Flashlight;
@@ -593,6 +667,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         batteryModel.gameObject.SetActive(Selected == Item.Battery);
         cameraModel.gameObject.SetActive(Selected == Item.Camera);
         fobModel.gameObject.SetActive(Selected == Item.KeyFob);
+        droneModel.gameObject.SetActive(Selected == Item.Drone);
+        remoteModel.gameObject.SetActive(Selected == Item.Remote);
         // The fob's little LED lights while the button's pressed.
         fobLedTimer -= Time.deltaTime;
         if (fobLed != null)
@@ -670,6 +746,49 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         lighterModel.gameObject.SetActive(false);
     }
 
+    /// <summary>The drone held out in front of you, and its remote held in both hands.</summary>
+    void BuildDrone(Transform hand)
+    {
+        droneModel = new GameObject("Held Drone").transform;
+        droneModel.SetParent(hand, false);
+        droneModel.localPosition = new Vector3(0.05f, -0.26f, 0.55f);
+        droneModel.localRotation = Quaternion.Euler(10f, -10f, 0f);
+        DroneUnit.BuildModel(droneModel, null, out Light lamp);
+        lamp.enabled = false;
+        droneModel.gameObject.SetActive(false);
+
+        remoteModel = new GameObject("Held Remote").transform;
+        remoteModel.SetParent(hand, false);
+        remoteModel.localPosition = new Vector3(0f, -0.22f, 0.36f);
+        remoteModel.localRotation = Quaternion.Euler(-40f, 0f, 0f);
+        var casing = MaterialFactory.Lit(new Color(0.12f, 0.12f, 0.13f), 0.35f);
+        var grip = MaterialFactory.Lit(new Color(0.05f, 0.05f, 0.05f), 0.15f);
+        var screen = MaterialFactory.NoFog(new Color(0.2f, 0.45f, 0.4f) * 0.8f);
+        HeldPart(PrimitiveType.Cube, casing, remoteModel, Vector3.zero, new Vector3(0.18f, 0.025f, 0.09f), Vector3.zero);
+        foreach (float x in new[] { -0.075f, 0.075f })
+        {
+            HeldPart(PrimitiveType.Sphere, grip, remoteModel, new Vector3(x, -0.01f, -0.03f), new Vector3(0.05f, 0.04f, 0.08f), Vector3.zero); // the grips
+            HeldPart(PrimitiveType.Cylinder, grip, remoteModel, new Vector3(x * 0.6f, 0.02f, 0.0f), new Vector3(0.012f, 0.012f, 0.012f), Vector3.zero); // the sticks
+            HeldPart(PrimitiveType.Sphere, grip, remoteModel, new Vector3(x * 0.6f, 0.032f, 0.0f), Vector3.one * 0.016f, Vector3.zero);
+        }
+        HeldPart(PrimitiveType.Cube, screen, remoteModel, new Vector3(0f, 0.0135f, 0.022f), new Vector3(0.06f, 0.002f, 0.035f), Vector3.zero);
+        HeldPart(PrimitiveType.Cylinder, grip, remoteModel, new Vector3(0.06f, 0.01f, 0.07f), new Vector3(0.006f, 0.05f, 0.006f), new Vector3(70f, 0f, 0f)); // the aerial
+        remoteModel.gameObject.SetActive(false);
+    }
+
+    static void HeldPart(PrimitiveType type, Material mat, Transform parent, Vector3 pos, Vector3 scale, Vector3 euler)
+    {
+        var go = GameObject.CreatePrimitive(type);
+        Destroy(go.GetComponent<Collider>());
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = pos;
+        go.transform.localRotation = Quaternion.Euler(euler);
+        go.transform.localScale = scale;
+        var r = go.GetComponent<Renderer>();
+        r.sharedMaterial = mat;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+    }
+
     void BuildCamera(Transform hand)
     {
         cameraModel = new GameObject("Held Camera").transform;
@@ -742,6 +861,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         new Color(0.8f, 0.85f, 0.95f), // camera
         new Color(1f, 0.3f, 0.2f),     // key fob
         new Color(0.88f, 0.78f, 0.58f), // map
+        new Color(0.7f, 0.85f, 0.95f),  // drone
+        new Color(0.55f, 0.95f, 0.75f), // remote
     };
     static readonly Color Cream = new Color(0.93f, 0.87f, 0.74f);
 
@@ -944,6 +1065,27 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
                 Shape(r, 0.2f, 0.55f, 0.3f, 0.05f, dark, 0.02f);
                 Shape(r, 0.45f, 0.42f, 0.3f, 0.05f, dark, 0.02f);
                 Shape(r, 0.68f, 0.33f, 0.1f, 0.1f, warm, 0.05f);
+                break;
+            case Item.Drone:
+                // From above: a body, four arms in an X, a propeller disc at each end.
+                GUIUtility.RotateAroundPivot(45f, r.center);
+                Shape(r, 0.15f, 0.46f, 0.7f, 0.08f, dark, 0.03f);
+                Shape(r, 0.46f, 0.15f, 0.08f, 0.7f, dark, 0.03f);
+                GUI.matrix = old;
+                foreach (var (px, py) in new[] { (0.12f, 0.12f), (0.6f, 0.12f), (0.12f, 0.6f), (0.6f, 0.6f) })
+                    Shape(r, px, py, 0.28f, 0.28f, main, 0.14f, 0.035f);
+                Shape(r, 0.37f, 0.33f, 0.26f, 0.34f, main, 0.1f);
+                Shape(r, 0.46f, 0.6f, 0.08f, 0.06f, hot, 0.03f);
+                break;
+            case Item.Remote:
+                // A controller: the case, two stick knobs, the aerial, a little screen.
+                Shape(r, 0.62f, 0.08f, 0.05f, 0.3f, dark, 0.02f);
+                Shape(r, 0.1f, 0.34f, 0.8f, 0.36f, main, 0.1f);
+                Shape(r, 0.08f, 0.5f, 0.24f, 0.32f, main, 0.12f);
+                Shape(r, 0.68f, 0.5f, 0.24f, 0.32f, main, 0.12f);
+                Shape(r, 0.22f, 0.42f, 0.14f, 0.14f, dark, 0.07f);
+                Shape(r, 0.64f, 0.42f, 0.14f, 0.14f, dark, 0.07f);
+                Shape(r, 0.42f, 0.4f, 0.16f, 0.1f, new Color(0.3f, 0.8f, 0.7f, alpha), 0.02f);
                 break;
             case Item.KeyFob:
                 Shape(r, 0.1f, 0.06f, 0.34f, 0.34f, main, 0.17f, 0.05f);

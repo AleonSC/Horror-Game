@@ -43,6 +43,7 @@ public class LampInteractor : MonoBehaviour
         focusedButton = null;
         focusedSwitch = null;
         focusedRadio = null;
+        if (DroneUnit.Piloting) return; // (your hands are on the remote)
         focusedTorch = null;
         if (hotbar == null) hotbar = GetComponent<Hotbar>();
         var cam = Camera.main;

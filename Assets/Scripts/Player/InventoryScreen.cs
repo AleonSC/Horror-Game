@@ -64,6 +64,14 @@ public class InventoryScreen : MonoBehaviour
             lore = new[] { "A map someone drew of the trails, left up on the watchtower. Pencil, smudged, careful.",
                            "The lamps, the paths worn between them, and the tower. Whoever drew it never marked the door." },
             how = "{key} to hold it up and look at it." },
+        new Entry { item = Hotbar.Item.Drone, name = "Drone", accent = new Color(0.7f, 0.85f, 0.95f),
+            lore = new[] { "A toy-shop quadcopter with a camera and a little lamp, from a shelf in the cabin's store room.",
+                           "Somebody wanted to see what was out there without walking into it. The buzz of it carries, though." },
+            how = "{key} to hold it, F to set it down where you want to fly it from. Its slot becomes the remote." },
+        new Entry { item = Hotbar.Item.Remote, name = "Remote", accent = new Color(0.55f, 0.95f, 0.75f),
+            lore = new[] { "The drone's controller: two sticks, a stubby aerial, a screen to see through its camera.",
+                           "While you're looking through it you're standing out here blind. Keep an ear on what's behind you." },
+            how = "{key} to hold it, F to fly the drone from wherever you are, F again to let go (it lands). Pick it back up where it lands." },
     };
 
     Hotbar hotbar;
@@ -90,7 +98,7 @@ public class InventoryScreen : MonoBehaviour
             if (IsOpen) SetOpen(false);
             return;
         }
-        if (HorrorInput.InventoryPressed && !MainMenu.Showing) SetOpen(!IsOpen);
+        if (HorrorInput.InventoryPressed && !MainMenu.Showing && !DroneUnit.Piloting) SetOpen(!IsOpen);
         else if (IsOpen && HorrorInput.ReleaseCursorPressed) SetOpen(false);
     }
 
@@ -277,6 +285,8 @@ public class InventoryScreen : MonoBehaviour
             case Hotbar.Item.Camera: return count == 1 ? "1 shot left" : $"{count} shots left";
             case Hotbar.Item.KeyFob: return "For the car";
             case Hotbar.Item.Map: return "The trails, the lamps, the tower";
+            case Hotbar.Item.Drone: return "Set it down to fly it";
+            case Hotbar.Item.Remote: return DroneUnit.Deployed != null ? "The drone is waiting" : "";
         }
         return "";
     }

@@ -28,7 +28,8 @@ public class ItemPickup : MonoBehaviour
         item == Hotbar.Item.Glowstick ? "glowsticks" :
         item == Hotbar.Item.Camera ? "camera" :
         item == Hotbar.Item.KeyFob ? "car key fob" :
-        item == Hotbar.Item.Map ? "map" : "item";
+        item == Hotbar.Item.Map ? "map" :
+        item == Hotbar.Item.Drone ? "drone" : "item";
 
     /// <summary>Puts the item in the hotbar and removes it from the world.</summary>
     public void PickUp(Hotbar hotbar)
@@ -97,6 +98,18 @@ public class ItemPickup : MonoBehaviour
             line.transform.localScale = new Vector3(0.09f, 0.0005f, 0.003f);
             line.GetComponent<Renderer>().sharedMaterial = ink;
         }
+        return pickup;
+    }
+
+    /// <summary>The remote-control drone, sitting on its landing legs (DroneUnit.BuildModel).</summary>
+    public static ItemPickup CreateDrone(Transform parent, Vector3 localPos, float yaw)
+    {
+        var pickup = Create("Drone Pickup", Hotbar.Item.Drone, parent, localPos, yaw);
+        var body = new GameObject("Drone").transform;
+        body.SetParent(pickup.transform, false);
+        body.localPosition = Vector3.up * 0.09f;
+        DroneUnit.BuildModel(body, null, out Light lamp);
+        lamp.enabled = false;
         return pickup;
     }
 
