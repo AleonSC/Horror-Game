@@ -167,45 +167,96 @@ public static class PropModels
 
     // ---------------------------------------------------------------- Camera
 
+    /// <summary>An instant camera (see the overload); without the print slot.</summary>
+    public static Transform FilmCamera(Transform parent, bool castShadows, out Transform flash) =>
+        FilmCamera(parent, castShadows, out flash, out _);
+
     /// <summary>
-    /// An old film camera (origin at its base, lens facing +z): a leatherette body with metal top plates,
-    /// a big lens barrel, a viewfinder, the shutter button and wind lever, a strap, and a flash gun mounted
-    /// on top with a pale reflector. Flash marks the front of the flash, where the light comes from.
+    /// An old instant camera (origin at the bottom centre, lens facing +z): a boxy black body clad in
+    /// leatherette with brushed-metal trim, a big stepped lens with a ridged focus ring and a glinting glass, a
+    /// frosted flash window and the viewfinder above it, a red shutter button, a little light sensor, the
+    /// slot under the lens the prints come out of, and a wrist strap. Flash marks the flash window;
+    /// photoSlot the print slot (facing out, +z).
     /// </summary>
-    public static Transform FilmCamera(Transform parent, bool castShadows, out Transform flash)
+    public static Transform FilmCamera(Transform parent, bool castShadows, out Transform flash, out Transform photoSlot)
     {
         var root = new GameObject("Camera Model").transform;
         root.SetParent(parent, false);
-        var leather = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, new Color(0.06f, 0.055f, 0.05f), 0.15f);
-        var metal = MaterialFactory.Lit(new Color(0.5f, 0.5f, 0.5f), 0.7f);
-        var black = MaterialFactory.Lit(new Color(0.03f, 0.03f, 0.03f), 0.4f);
-        var glassMat = MaterialFactory.Lit(new Color(0.05f, 0.08f, 0.12f), 0.95f);
-        var reflector = MaterialFactory.Lit(new Color(0.85f, 0.85f, 0.8f), 0.6f);
+        var leather = MaterialFactory.LitTextured(ProceduralTextures.Fabric, ProceduralTextures.FabricNormal, new Color(0.05f, 0.048f, 0.045f), 0.2f);
+        var plastic = MaterialFactory.Lit(new Color(0.035f, 0.035f, 0.038f), 0.45f);
+        var brushed = MaterialFactory.Lit(new Color(0.55f, 0.55f, 0.56f), 0.75f);
+        var chrome = MaterialFactory.Lit(new Color(0.8f, 0.8f, 0.82f), 0.92f);
+        var black = MaterialFactory.Lit(new Color(0.015f, 0.015f, 0.017f), 0.3f);
+        var glass = MaterialFactory.Lit(new Color(0.04f, 0.07f, 0.11f), 0.98f);
+        var frost = MaterialFactory.Lit(new Color(0.8f, 0.82f, 0.85f), 0.55f);
+        var red = MaterialFactory.Lit(new Color(0.55f, 0.05f, 0.04f), 0.5f);
+        var strap = MaterialFactory.Lit(new Color(0.06f, 0.05f, 0.045f), 0.1f);
         var parts = new List<Transform>();
-        Transform P(PrimitiveType type, Material mat, Transform under, Vector3 pos, Vector3 scale, Vector3 euler)
+        Transform P(PrimitiveType type, Material mat, Vector3 pos, Vector3 scale, Vector3 euler)
         {
-            var t = Prim(type, mat, under, pos, scale, euler);
+            var t = Prim(type, mat, root, pos, scale, euler);
             parts.Add(t);
             return t;
         }
+        var lensAxis = new Vector3(90f, 0f, 0f);
 
-        P(PrimitiveType.Cube, leather, root, new Vector3(0f, 0.045f, 0f), new Vector3(0.14f, 0.075f, 0.05f), Vector3.zero);    // body
-        P(PrimitiveType.Cube, metal, root, new Vector3(0f, 0.088f, 0f), new Vector3(0.142f, 0.014f, 0.052f), Vector3.zero);    // top plate
-        P(PrimitiveType.Cube, metal, root, new Vector3(0f, 0.004f, 0f), new Vector3(0.142f, 0.008f, 0.052f), Vector3.zero);    // base plate
-        P(PrimitiveType.Cube, metal, root, new Vector3(0f, 0.1f, 0f), new Vector3(0.045f, 0.022f, 0.045f), Vector3.zero);      // viewfinder hump
-        P(PrimitiveType.Cylinder, metal, root, new Vector3(0f, 0.045f, 0.035f), new Vector3(0.056f, 0.012f, 0.056f), new Vector3(90f, 0f, 0f));  // lens mount
-        P(PrimitiveType.Cylinder, black, root, new Vector3(0f, 0.045f, 0.06f), new Vector3(0.05f, 0.02f, 0.05f), new Vector3(90f, 0f, 0f));      // lens barrel
-        P(PrimitiveType.Cylinder, metal, root, new Vector3(0f, 0.045f, 0.077f), new Vector3(0.052f, 0.004f, 0.052f), new Vector3(90f, 0f, 0f)); // front ring
-        P(PrimitiveType.Cylinder, glassMat, root, new Vector3(0f, 0.045f, 0.0795f), new Vector3(0.036f, 0.001f, 0.036f), new Vector3(90f, 0f, 0f)); // glass
-        P(PrimitiveType.Cylinder, metal, root, new Vector3(0.045f, 0.1f, 0f), new Vector3(0.012f, 0.006f, 0.012f), Vector3.zero);  // shutter button
-        P(PrimitiveType.Cube, metal, root, new Vector3(0.055f, 0.098f, -0.012f), new Vector3(0.03f, 0.004f, 0.008f), new Vector3(0f, 20f, 0f)); // wind lever
-        foreach (float x in new[] { -0.072f, 0.072f })
-            P(PrimitiveType.Cube, metal, root, new Vector3(x, 0.07f, 0f), new Vector3(0.006f, 0.012f, 0.006f), Vector3.zero); // strap lugs
+        // The body: a black shell, its front and sides wrapped in leatherette, rounded at the four upright edges.
+        const float w = 0.15f, h = 0.105f, d = 0.095f;
+        P(PrimitiveType.Cube, plastic, new Vector3(0f, h * 0.5f, 0f), new Vector3(w - 0.012f, h, d), Vector3.zero);
+        P(PrimitiveType.Cube, plastic, new Vector3(0f, h * 0.5f, 0f), new Vector3(w, h, d - 0.012f), Vector3.zero);
+        foreach (float x in new[] { -1f, 1f })
+            foreach (float z in new[] { -1f, 1f })
+                P(PrimitiveType.Cylinder, plastic, new Vector3(x * (w * 0.5f - 0.006f), h * 0.5f, z * (d * 0.5f - 0.006f)), new Vector3(0.012f, h * 0.5f, 0.012f), Vector3.zero);
+        P(PrimitiveType.Cube, leather, new Vector3(0f, h * 0.45f, d * 0.5f + 0.0005f), new Vector3(w - 0.016f, h * 0.62f, 0.002f), Vector3.zero);  // front panel
+        foreach (float x in new[] { -1f, 1f })
+            P(PrimitiveType.Cube, leather, new Vector3(x * (w * 0.5f + 0.0005f), h * 0.45f, 0f), new Vector3(0.002f, h * 0.62f, d - 0.016f), Vector3.zero); // sides
+        // Brushed-metal bands round the top and the base.
+        P(PrimitiveType.Cube, brushed, new Vector3(0f, h - 0.006f, 0f), new Vector3(w + 0.002f, 0.012f, d - 0.01f), Vector3.zero);
+        P(PrimitiveType.Cube, brushed, new Vector3(0f, h - 0.006f, 0f), new Vector3(w - 0.01f, 0.012f, d + 0.002f), Vector3.zero);
+        P(PrimitiveType.Cube, brushed, new Vector3(0f, 0.004f, 0f), new Vector3(w - 0.01f, 0.008f, d + 0.002f), Vector3.zero);
 
-        // The flash gun on the hot shoe: a stem and a head with a pale reflector facing forward.
-        P(PrimitiveType.Cube, black, root, new Vector3(-0.035f, 0.105f, 0f), new Vector3(0.02f, 0.02f, 0.02f), Vector3.zero);
-        P(PrimitiveType.Cube, black, root, new Vector3(-0.035f, 0.14f, 0.005f), new Vector3(0.06f, 0.05f, 0.035f), Vector3.zero);
-        P(PrimitiveType.Cube, reflector, root, new Vector3(-0.035f, 0.14f, 0.0235f), new Vector3(0.052f, 0.04f, 0.002f), Vector3.zero);
+        // The lens: stepped rings out from the body, a ridged focus ring, the glass at the bottom of it all.
+        float lensY = h * 0.47f, front = d * 0.5f;
+        P(PrimitiveType.Cylinder, brushed, new Vector3(0f, lensY, front + 0.004f), new Vector3(0.072f, 0.004f, 0.072f), lensAxis);
+        P(PrimitiveType.Cylinder, black, new Vector3(0f, lensY, front + 0.014f), new Vector3(0.062f, 0.008f, 0.062f), lensAxis);
+        P(PrimitiveType.Cylinder, chrome, new Vector3(0f, lensY, front + 0.024f), new Vector3(0.058f, 0.003f, 0.058f), lensAxis);
+        P(PrimitiveType.Cylinder, black, new Vector3(0f, lensY, front + 0.032f), new Vector3(0.05f, 0.007f, 0.05f), lensAxis);
+        for (int i = 0; i < 18; i++)
+        {
+            float a = i / 18f * Mathf.PI * 2f;
+            P(PrimitiveType.Cube, plastic, new Vector3(Mathf.Cos(a) * 0.026f, lensY + Mathf.Sin(a) * 0.026f, front + 0.032f),
+                new Vector3(0.003f, 0.003f, 0.013f), new Vector3(0f, 0f, a * Mathf.Rad2Deg));
+        }
+        P(PrimitiveType.Cylinder, chrome, new Vector3(0f, lensY, front + 0.04f), new Vector3(0.042f, 0.002f, 0.042f), lensAxis);
+        P(PrimitiveType.Cylinder, black, new Vector3(0f, lensY, front + 0.036f), new Vector3(0.036f, 0.004f, 0.036f), lensAxis);
+        P(PrimitiveType.Cylinder, glass, new Vector3(0f, lensY, front + 0.0385f), new Vector3(0.03f, 0.001f, 0.03f), lensAxis);
+        P(PrimitiveType.Sphere, chrome, new Vector3(-0.007f, lensY + 0.007f, front + 0.039f), new Vector3(0.006f, 0.004f, 0.001f), Vector3.zero); // a glint
+
+        // Above the lens: the flash window (frosted, in chrome), the viewfinder, the light sensor.
+        float topY = h * 0.84f;
+        P(PrimitiveType.Cube, chrome, new Vector3(-0.038f, topY, front + 0.002f), new Vector3(0.05f, 0.022f, 0.003f), Vector3.zero);
+        P(PrimitiveType.Cube, frost, new Vector3(-0.038f, topY, front + 0.0036f), new Vector3(0.044f, 0.016f, 0.001f), Vector3.zero);
+        P(PrimitiveType.Cube, chrome, new Vector3(0.04f, topY, front + 0.002f), new Vector3(0.022f, 0.018f, 0.003f), Vector3.zero);
+        P(PrimitiveType.Cube, glass, new Vector3(0.04f, topY, front + 0.0036f), new Vector3(0.016f, 0.012f, 0.001f), Vector3.zero);
+        P(PrimitiveType.Cylinder, black, new Vector3(0.012f, topY, front + 0.002f), new Vector3(0.009f, 0.002f, 0.009f), lensAxis);
+        // The viewfinder's eyepiece at the back, and the red shutter button on the front corner.
+        P(PrimitiveType.Cube, black, new Vector3(0.04f, topY, -d * 0.5f - 0.004f), new Vector3(0.024f, 0.02f, 0.008f), Vector3.zero);
+        P(PrimitiveType.Cylinder, red, new Vector3(0.058f, h * 0.62f, front + 0.004f), new Vector3(0.016f, 0.004f, 0.016f), lensAxis);
+        P(PrimitiveType.Cylinder, chrome, new Vector3(0.058f, h * 0.62f, front + 0.002f), new Vector3(0.02f, 0.002f, 0.02f), lensAxis);
+
+        // The print slot under the lens: a dark mouth in a metal lip.
+        P(PrimitiveType.Cube, brushed, new Vector3(0f, 0.017f, front + 0.003f), new Vector3(0.106f, 0.01f, 0.004f), Vector3.zero);
+        P(PrimitiveType.Cube, black, new Vector3(0f, 0.017f, front + 0.0052f), new Vector3(0.096f, 0.003f, 0.001f), Vector3.zero);
+
+        // Strap lugs, and a wrist strap hanging in a loop off the right side.
+        foreach (float x in new[] { -1f, 1f })
+            P(PrimitiveType.Cube, chrome, new Vector3(x * (w * 0.5f + 0.004f), h * 0.8f, 0f), new Vector3(0.006f, 0.01f, 0.012f), Vector3.zero);
+        for (int i = 0; i < 7; i++)
+        {
+            float a = (i + 0.5f) / 7f * Mathf.PI;
+            Vector3 at = new Vector3(w * 0.5f + 0.01f + Mathf.Sin(a) * 0.012f, h * 0.8f - (1f - Mathf.Cos(a)) * 0.04f, 0f);
+            P(PrimitiveType.Cube, strap, at, new Vector3(0.004f, 0.016f, 0.01f), new Vector3(0f, 0f, -Mathf.Sin(a) * 30f));
+        }
 
         foreach (var t in parts)
             t.GetComponent<Renderer>().shadowCastingMode = castShadows
@@ -213,7 +264,10 @@ public static class PropModels
 
         flash = new GameObject("Flash").transform;
         flash.SetParent(root, false);
-        flash.localPosition = new Vector3(-0.035f, 0.14f, 0.03f);
+        flash.localPosition = new Vector3(-0.038f, topY, front + 0.01f);
+        photoSlot = new GameObject("Print Slot").transform;
+        photoSlot.SetParent(root, false);
+        photoSlot.localPosition = new Vector3(0f, 0.017f, front + 0.006f);
         return root;
     }
 

@@ -127,6 +127,7 @@ public class GameOverScreen : MonoBehaviour
             shack.ResetShack();
 
         Glowstick.ClearAll();
+        Polaroid.ClearAll();
         foreach (var car in BrokenCar.All)
             car.ResetCar();
         var door = FindAnyObjectByType<PortalDoor>();

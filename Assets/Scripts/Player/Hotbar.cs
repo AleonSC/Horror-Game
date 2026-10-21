@@ -103,7 +103,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     GUIStyle nameStyle, numberStyle, messageStyle;
 
     static readonly string[] ItemNames = { "Flashlight", "Torch", "Lighter", "Flare Gun", "Glowsticks", "Batteries", "Camera", "Key Fob" };
-    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, fobModel;
+    Transform flareGunModel, muzzle, glowstickModel, batteryModel, cameraModel, cameraFlashPoint, cameraPrintSlot, fobModel;
     Light flashLight;
     float flashGlow, flashReady;
 
@@ -337,6 +337,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         flashGlow = 1f;
         Play(ProceduralAudio.CameraFlash, 1f);
         Noise.Emit(transform.position, 4f);
+        Polaroid.Take(cam, cameraPrintSlot); // a print of the shot slides out, and drifts down
 
         int caught = 0;
         foreach (var e in new System.Collections.Generic.List<ShadowEntity>(ShadowEntity.All))
@@ -665,7 +666,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         cameraModel.SetParent(hand, false);
         cameraModel.localPosition = new Vector3(0.18f, -0.2f, 0.4f);
         cameraModel.localRotation = Quaternion.Euler(-3f, -6f, 0f);
-        var model = PropModels.FilmCamera(cameraModel, false, out cameraFlashPoint);
+        var model = PropModels.FilmCamera(cameraModel, false, out cameraFlashPoint, out cameraPrintSlot);
         model.localScale = Vector3.one * 1.3f;
         cameraModel.gameObject.SetActive(false);
 
