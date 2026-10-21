@@ -1161,10 +1161,15 @@ public class ShadowEntity : MonoBehaviour
             var verts = new List<Vector3> { M(wrist) * scale };
             foreach (var v in outline) verts.Add(M(v) * scale);
             var tris = new List<int>();
-            for (int k = 1; k < verts.Count; k++)
+            // Both sides, the back with its own copy of the corners (shared ones would average the two sides'
+            // normals to nothing and light as garbage).
+            int n = verts.Count;
+            for (int k = 0; k < n; k++) verts.Add(verts[k]);
+            for (int k = 1; k < n; k++)
             {
-                int a = k, b = k + 1 < verts.Count ? k + 1 : 1;
-                tris.AddRange(new[] { 0, a, b, 0, b, a });
+                int a = k, b = k + 1 < n ? k + 1 : 1;
+                tris.AddRange(new[] { 0, a, b });
+                tris.AddRange(new[] { n, n + b, n + a });
             }
             var mesh = new Mesh { name = "Wing Membrane" };
             mesh.SetVertices(verts);

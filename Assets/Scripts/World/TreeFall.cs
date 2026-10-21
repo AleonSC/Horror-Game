@@ -674,14 +674,19 @@ public class TreeFall : MonoBehaviour
             Vector3 side = new Vector3(-radial.z, 0f, radial.x) * (w * 0.5f);
             Vector3 foot = P(radial.x * inset, at, radial.z * inset);
             Vector3 tip = foot + Vector3.up * (dir * len) + radial * (len * Random.Range(0.1f, 0.35f)) + side * Random.Range(-0.6f, 0.6f);
-            int b = verts.Count;
-            verts.Add(foot - side);
-            verts.Add(foot + side);
-            verts.Add(tip);
-            uvs.Add(new Vector2(0.3f, 0.2f));
-            uvs.Add(new Vector2(0.7f, 0.2f));
-            uvs.Add(new Vector2(0.5f, 0.9f));
-            woodTris.AddRange(new[] { b, b + 2, b + 1, b, b + 1, b + 2 }); // both sides
+            // Both sides, each with its own corners: shared ones would get the two sides' normals averaged to
+            // nothing, which lights as garbage (and the bloom spreads it into a glaring white blob).
+            for (int face = 0; face < 2; face++)
+            {
+                int b = verts.Count;
+                verts.Add(foot - side);
+                verts.Add(foot + side);
+                verts.Add(tip);
+                uvs.Add(new Vector2(0.3f, 0.2f));
+                uvs.Add(new Vector2(0.7f, 0.2f));
+                uvs.Add(new Vector2(0.5f, 0.9f));
+                woodTris.AddRange(face == 0 ? new[] { b, b + 2, b + 1 } : new[] { b, b + 1, b + 2 });
+            }
         }
 
         var mesh = new Mesh { name = "Break" };
