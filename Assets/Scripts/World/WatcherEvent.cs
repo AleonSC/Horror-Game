@@ -183,6 +183,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     {
         Instance = this;
         audioSource = ProceduralAudio.AddSource(gameObject, null, false, false, 1f);
+        if (Application.isPlaying) GiantTheme.Prepare(); // its music takes a moment to make: start now, in the background
     }
 
     void OnDestroy()
@@ -491,6 +492,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         if (u >= 1f)
         {
             // It lands. The ground shakes. Then it gets up and walks.
+            GiantTheme.Play(); // its music, starting on the impact
             audioSource.pitch = 0.7f;
             audioSource.PlayOneShot(ProceduralAudio.GiantStep, 1f);
             audioSource.PlayOneShot(ProceduralAudio.TreeImpact, 1f);
@@ -1142,6 +1144,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     /// <summary>Puts everything back for a new run (used by GameOverScreen).</summary>
     public void ResetEvent()
     {
+        GiantTheme.FadeOut();
         phase = Phase.Waiting;
         timer = 0f;
         shake = 0f;
