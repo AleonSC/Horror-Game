@@ -262,20 +262,20 @@ public class FirstPersonController : MonoBehaviour
 
     System.Func<Vector3> attractTarget;
     float attractTimer, attractDuration, attractStrength;
-    [Range(0f, 1f), Tooltip("Chance a boss's arrival pulls the view toward it (otherwise you have to notice it yourself).")]
-    public float attentionChance = 0.5f;
+    [Range(0.1f, 1f), Tooltip("A boss's arrival holds your view on it for this share of the time it asks for (half).")]
+    public float attentionHold = 0.5f;
 
     /// <summary>
-    /// Draws the view gently toward something for a few seconds (a boss arriving), easing in and out. The
-    /// target is read every frame, so it can follow something moving. Strength 1 turns fully toward it.
-    /// Only happens attentionChance of the time (half): the rest, nothing turns your head for you.
+    /// Draws the view toward something (a boss arriving), easing in and out, every time. The target is read
+    /// every frame, so it can follow something moving. Strength 1 turns fully toward it. It's held for only
+    /// attentionHold of the seconds asked for (half), then let go.
     /// </summary>
     public void DrawAttention(System.Func<Vector3> target, float seconds, float strength = 0.6f)
     {
         if (AttentionHeld) return; // one at a time: nothing cuts a boss's moment short
-        if (Random.value >= attentionChance) return;
+        seconds *= attentionHold;
         attractTarget = target;
-        attractDuration = attractTimer = Mathf.Max(seconds, 0.1f);
+        attractDuration = attractTimer = Mathf.Max(seconds, 1.7f); // (time to ease in, look, and ease out)
         attractStrength = Mathf.Clamp01(strength);
     }
 
