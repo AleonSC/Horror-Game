@@ -222,7 +222,9 @@ public class FirstPersonController : MonoBehaviour
         // The mouse only turns the view while it's captured (not while the dev tools window has it)...
         if (!lockCursor || Cursor.lockState == CursorLockMode.Locked)
         {
-            Vector2 look = HorrorInput.Look * mouseSensitivity * Mathf.Lerp(1f, 0.5f, Grogginess); // heavy-headed
+            // While a boss has your eye, the mouse barely moves the view: the moment comes first.
+            float held = attractTimer > 0f && attractTarget != null ? 0.1f : 1f;
+            Vector2 look = HorrorInput.Look * mouseSensitivity * Mathf.Lerp(1f, 0.5f, Grogginess) * held; // heavy-headed
             transform.Rotate(Vector3.up, look.x, Space.Self);
 
             pitch += invertY ? look.y : -look.y;
@@ -231,7 +233,7 @@ public class FirstPersonController : MonoBehaviour
 
         // ...but a boss drawing your eye does it regardless (it used to wait for the mouse to be captured,
         // so with the dev tools open it never happened).
-        // Something big happening: the view is drawn toward it, gently (the mouse still works).
+        // Something big happening: the view is drawn toward it, and held there until the moment is over.
         if (attractTimer > 0f && attractTarget != null)
         {
             attractTimer -= Time.deltaTime;
@@ -242,7 +244,7 @@ public class FirstPersonController : MonoBehaviour
             {
                 float yawWanted = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
                 float pitchWanted = -Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg;
-                float k = (1f - Mathf.Exp(-2.2f * Time.deltaTime)) * envelope * attractStrength;
+                float k = (1f - Mathf.Exp(-3.5f * Time.deltaTime)) * envelope * Mathf.Max(attractStrength, 0.85f);
                 float yawStep = Mathf.DeltaAngle(transform.eulerAngles.y, yawWanted) * k;
                 transform.Rotate(Vector3.up, yawStep, Space.Self);
                 // Only part of the way up or down: a glance, not a stare.
@@ -250,6 +252,11 @@ public class FirstPersonController : MonoBehaviour
             }
         }
     }
+
+    /// <summary>True while a boss is holding the player's view (narration waits for it to finish).</summary>
+    public static bool AttentionHeld => active != null && active.attractTimer > 0f && active.attractTarget != null;
+    static FirstPersonController active;
+    void OnEnable() { active = this; }
 
     System.Func<Vector3> attractTarget;
     float attractTimer, attractDuration, attractStrength;
@@ -263,6 +270,7 @@ public class FirstPersonController : MonoBehaviour
     /// </summary>
     public void DrawAttention(System.Func<Vector3> target, float seconds, float strength = 0.6f)
     {
+        if (AttentionHeld) return; // one at a time: nothing cuts a boss's moment short
         if (Random.value >= attentionChance) return;
         attractTarget = target;
         attractDuration = attractTimer = Mathf.Max(seconds, 0.1f);

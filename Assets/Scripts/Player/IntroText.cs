@@ -170,7 +170,11 @@ public class IntroText : MonoBehaviour
     void Update()
     {
         if (starts == null) PlanTiming();
-        timer += Time.deltaTime;
+        // Mid-game narration steps aside while a boss holds your view: it fades out, waits, and picks up
+        // where it left off once the moment is over.
+        bool held = !isOpening && FirstPersonController.AttentionHeld;
+        hush = Mathf.MoveTowards(hush, held ? 0f : 1f, Time.deltaTime / 0.4f);
+        if (!held) timer += Time.deltaTime;
         if (showBlackScreen) BlackScreen = 1f - Mathf.Clamp01((timer - startDelay) / Mathf.Max(blackScreenFadeTime, 0.01f));
         if (IsFinished && isOpening) Playing = false;
         if (IsFinished && (!showBlackScreen || timer > startDelay + blackScreenFadeTime))
@@ -179,6 +183,8 @@ public class IntroText : MonoBehaviour
             else Destroy(gameObject);
         }
     }
+
+    float hush = 1f;
 
     float LineDuration => fadeInTime + holdTime + fadeOutTime + gapBetweenLines;
 
@@ -301,6 +307,7 @@ public class IntroText : MonoBehaviour
 
     void DrawLine(string line, float alpha, float lingerAlpha, float longAlpha, float age)
     {
+        alpha *= hush; lingerAlpha *= hush; longAlpha *= hush;
         if (alpha <= 0f && lingerAlpha <= 0f && longAlpha <= 0f) return;
 
         if (style == null)
@@ -473,7 +480,8 @@ public class LampNarration : MonoBehaviour
             if (!played[i] && count >= Beats[i].lamps) { played[i] = true; pending[i] = true; }
 
         // One at a time, after anything already on screen (the opening, or the last lamp's lines).
-        if (IntroText.AnyShowing || GameOverScreen.IsActive) return;
+        // ...and never over a boss's arrival while it holds your view.
+        if (IntroText.AnyShowing || GameOverScreen.IsActive || FirstPersonController.AttentionHeld) return;
         for (int i = 0; i < Beats.Length; i++)
         {
             if (!pending[i]) continue;
