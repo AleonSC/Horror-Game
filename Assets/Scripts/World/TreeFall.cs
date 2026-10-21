@@ -196,6 +196,14 @@ public class TreeFall : MonoBehaviour
                 go.transform.SetParent(piece.transform, false);
                 go.AddComponent<MeshFilter>().sharedMesh = part;
                 go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+                // The wood gets a collider of its real shape (a convex hull round trunk and branches), so a
+                // branchy top rests on its branches instead of rolling on its trunk with them through the ground.
+                if (mat == barkMaterial && part.vertexCount >= 4)
+                {
+                    var hull = go.AddComponent<MeshCollider>();
+                    hull.sharedMesh = part;
+                    hull.convex = true;
+                }
                 if (mat != barkMaterial) foliageReach = Mathf.Max(foliageReach, Mathf.Max(part.bounds.extents.x, part.bounds.extents.z));
             }
 
@@ -243,7 +251,7 @@ public class TreeFall : MonoBehaviour
 
         // Pieces don't collide with each other or the stump.
         var colliders = new List<Collider>();
-        foreach (var body in pieces) colliders.AddRange(body.GetComponents<Collider>());
+        foreach (var body in pieces) colliders.AddRange(body.GetComponentsInChildren<Collider>());
         for (int a = 0; a < colliders.Count; a++)
         {
             if (stumpCollider != null) Physics.IgnoreCollision(colliders[a], stumpCollider);
@@ -349,6 +357,15 @@ public class TreeFall : MonoBehaviour
                 body.AddTorque(Random.insideUnitSphere * body.mass * 0.6f, ForceMode.Impulse);
         }
 
+        // Down: the pieces settle rather than tumbling end over end.
+        foreach (var body in pieces)
+        {
+            if (body == null || !IsLog(body)) continue;
+            body.angularDamping = 3f;
+            body.linearDamping = 0.3f;
+            body.maxAngularVelocity = 4f;
+        }
+
         phase = Phase.Settling;
         timer = settleTime;
     }
@@ -393,7 +410,7 @@ public class TreeFall : MonoBehaviour
         body.angularVelocity = Random.onUnitSphere * Random.Range(5f, 20f);
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         foreach (var piece in pieces)
-            foreach (var col in piece.GetComponents<Collider>())
+            foreach (var col in piece.GetComponentsInChildren<Collider>())
                 Physics.IgnoreCollision(shard.GetComponent<Collider>(), col);
         pieces.Add(body); // frozen with the rest once settled
     }
@@ -440,7 +457,7 @@ public class TreeFall : MonoBehaviour
         body.transform.RotateAround(com, axis, tilt);
         float ground = generator != null ? generator.GetGroundHeight(com.x, com.z) : com.y;
         float lowest = float.MaxValue;
-        foreach (var col in body.GetComponents<Collider>()) lowest = Mathf.Min(lowest, col.bounds.min.y);
+        foreach (var col in body.GetComponentsInChildren<Collider>()) lowest = Mathf.Min(lowest, col.bounds.min.y);
         if (lowest < float.MaxValue) body.transform.position += Vector3.up * (ground - lowest - 0.03f);
     }
 
