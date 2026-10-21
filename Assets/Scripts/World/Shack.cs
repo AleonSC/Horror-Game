@@ -203,6 +203,10 @@ public class Shack : MonoBehaviour
 
         MeshMerge.Merge(transform);
         SpawnItems();
+
+        // Shelter: the entities keep 5m off it (the cabin's bigger, so a little more, round its corners).
+        var refuge = gameObject.AddComponent<Refuge>();
+        refuge.radius = cabin ? Mathf.Max(5f, new Vector2(width, depth).magnitude * 0.5f + 1.5f) : 5f;
     }
 
     /// <summary>

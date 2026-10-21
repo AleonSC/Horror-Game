@@ -65,6 +65,7 @@ public class Campsite : MonoBehaviour
         // door flaps (open, or shut with E), guy ropes out to pegs. Tilted to sit on the slope. Big enough to
         // crawl into: crouched, you fit under the ridge; standing, your head's against the canvas.
         var tent = AnchorOnGround("Tent", new Vector3(-1.7f, 0f, 0.6f), R(-25f, 25f), 1.3f, 1.5f, Ground);
+        tent.gameObject.AddComponent<Refuge>(); // shelter: the entities keep 5m off it
         const float tentWidth = 1.25f, tentHeight = 1.5f, tentLength = 2.6f;
         MeshPart(tent, "Canvas", BuildTentMesh(tentWidth, tentHeight, tentLength, R(0.04f, 0.08f)), canvas);
         // The door: two flaps, each hinged down its outer edge, swinging back along the sides when open.
