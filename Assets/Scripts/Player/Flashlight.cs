@@ -14,7 +14,7 @@ public class Flashlight : MonoBehaviour
     [Header("Light")]
     [Tooltip("Spot light to toggle. Leave empty to create one automatically.")]
     public Light flashlight;
-    [Tooltip("On when the game starts? Off: you wake looking down at it in your hand and click it on once your head clears.")]
+    [Tooltip("On when the game starts? (Off: press F to turn it on.)")]
     public bool startOn = false;
     public float range = 45f;
     public float spotAngle = 60f;
@@ -89,122 +89,6 @@ public class Flashlight : MonoBehaviour
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
         audioSource.spatialBlend = 0f;
-
-        BuildModel();
-        player = GetComponentInParent<FirstPersonController>();
-        if (player == null) player = FindAnyObjectByType<FirstPersonController>();
-    }
-
-    // ---------------------------------------------------------------- In your hand
-
-    Transform model;
-    Renderer lens;
-    Material lensOn, lensOff;
-
-    /// <summary>
-    /// The flashlight itself, in your hand where the beam comes from: a dark metal body with a ribbed grip, a
-    /// wider head, and a lens that glows when it's on. It doesn't cast shadows (it'd block its own beam).
-    /// </summary>
-    void BuildModel()
-    {
-        if (flashlight == null || flashlight.transform == transform) return;
-        model = new GameObject("Held Flashlight").transform;
-        model.SetParent(flashlight.transform, false);
-        var body = MaterialFactory.Lit(new Color(0.06f, 0.06f, 0.065f), 0.45f);
-        var grip = MaterialFactory.Lit(new Color(0.03f, 0.03f, 0.032f), 0.15f);
-        var chrome = MaterialFactory.Lit(new Color(0.35f, 0.35f, 0.36f), 0.85f);
-        lensOff = MaterialFactory.Lit(new Color(0.12f, 0.12f, 0.1f), 0.95f);
-        lensOn = MaterialFactory.NoFog(new Color(1f, 0.95f, 0.82f) * 3f);
-
-        void Part(PrimitiveType type, Material mat, Vector3 pos, Vector3 scale, out Renderer r)
-        {
-            var go = GameObject.CreatePrimitive(type);
-            Destroy(go.GetComponent<Collider>());
-            go.transform.SetParent(model, false);
-            go.transform.localPosition = pos;
-            go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); // cylinders lie along the beam
-            go.transform.localScale = scale;
-            r = go.GetComponent<Renderer>();
-            r.sharedMaterial = mat;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        }
-        Part(PrimitiveType.Cylinder, body, new Vector3(0f, 0f, -0.035f), new Vector3(0.052f, 0.025f, 0.052f), out _);   // head
-        Part(PrimitiveType.Cylinder, chrome, new Vector3(0f, 0f, -0.009f), new Vector3(0.056f, 0.004f, 0.056f), out _); // bezel
-        Part(PrimitiveType.Cylinder, lensOff, new Vector3(0f, 0f, -0.006f), new Vector3(0.046f, 0.002f, 0.046f), out lens);
-        Part(PrimitiveType.Cylinder, body, new Vector3(0f, 0f, -0.075f), new Vector3(0.04f, 0.018f, 0.04f), out _);     // neck
-        Part(PrimitiveType.Cylinder, grip, new Vector3(0f, 0f, -0.15f), new Vector3(0.036f, 0.06f, 0.036f), out _);     // grip
-        for (int i = 0; i < 5; i++)
-            Part(PrimitiveType.Cylinder, body, new Vector3(0f, 0f, -0.11f - i * 0.02f), new Vector3(0.038f, 0.003f, 0.038f), out _); // ribs
-        Part(PrimitiveType.Cylinder, body, new Vector3(0f, 0f, -0.215f), new Vector3(0.038f, 0.008f, 0.038f), out _);   // tail cap
-        Part(PrimitiveType.Cube, chrome, new Vector3(0f, 0.019f, -0.1f), new Vector3(0.01f, 0.006f, 0.016f), out _);     // switch
-    }
-
-    // ---------------------------------------------------------------- Waking up
-
-    // Waking (the opening, or a restart) with it off: you come to looking down at it in your hand, and once
-    // your head clears you click it on, then look up. You can walk the whole time; the view's held.
-    FirstPersonController player;
-    enum Intro { None, Holding, Clicked, LookingUp, Done }
-    Intro intro = Intro.None;
-    float introTimer, present;
-    [Tooltip("How far down you're looking at it while waking (degrees).")]
-    public float wakeLookDown = 55f;
-    static readonly Vector3 presentOffset = new Vector3(0.05f, -0.13f, 0.34f);
-
-    /// <summary>True while the waking-up moment has the flashlight (F does nothing yet).</summary>
-    public bool InIntro => intro == Intro.Holding || intro == Intro.Clicked;
-
-    void UpdateIntro()
-    {
-        if (player == null) return;
-        float groggy = player.Grogginess;
-        switch (intro)
-        {
-            case Intro.None:
-            case Intro.Done:
-                // A fresh wake with it off and in hand: look down at it.
-                if (groggy > 0.5f && intro == Intro.None && !IsOn && Equipped)
-                {
-                    intro = Intro.Holding;
-                    player.HoldGaze(wakeLookDown);
-                }
-                if (groggy <= 0f && intro == Intro.Done) intro = Intro.None; // (ready for the next wake)
-                break;
-            case Intro.Holding:
-                player.HoldGaze(wakeLookDown);
-                if (groggy < 0.04f)
-                {
-                    introTimer += Time.deltaTime;
-                    if (introTimer > 0.45f)
-                    {
-                        // Head clear: click.
-                        if (Battery > 0f) SetOn(true);
-                        intro = Intro.Clicked;
-                        introTimer = 0f;
-                    }
-                }
-                break;
-            case Intro.Clicked:
-                introTimer += Time.deltaTime;
-                if (introTimer > 0.7f)
-                {
-                    // And look up, out into the dark.
-                    player.HoldGaze(5f);
-                    intro = Intro.LookingUp;
-                    introTimer = 0f;
-                }
-                break;
-            case Intro.LookingUp:
-                introTimer += Time.deltaTime;
-                if (introTimer > 0.9f)
-                {
-                    player.ReleaseGaze();
-                    intro = Intro.Done;
-                }
-                break;
-        }
-        bool showing = intro == Intro.Holding || intro == Intro.Clicked;
-        present = Mathf.MoveTowards(present, showing ? 1f : 0f, Time.deltaTime / (showing ? 0.5f : 0.9f));
     }
 
     bool appliedFeather;
@@ -263,15 +147,8 @@ public class Flashlight : MonoBehaviour
     {
         ApplyFeather(); // live: picks up changes to the edge settings during play
         if (PauseMenu.IsPaused) return;
-        UpdateIntro();
-        if (HorrorInput.FlashlightPressed && Equipped && !InventoryScreen.IsOpen && !InIntro)
+        if (HorrorInput.FlashlightPressed && Equipped && !InventoryScreen.IsOpen)
             Toggle();
-        if (model != null)
-        {
-            if (model.gameObject.activeSelf != Equipped) model.gameObject.SetActive(Equipped);
-            Material want = IsOn ? lensOn : lensOff;
-            if (lens != null && lens.sharedMaterial != want) lens.sharedMaterial = want;
-        }
 
         if (IsOn) UpdateBattery();
     }
@@ -319,8 +196,7 @@ public class Flashlight : MonoBehaviour
         t.rotation = rot;
 
         // And the hand holding it trails a touch when you move.
-        // (Brought up in front of you while you're waking up and looking down at it.)
-        Vector3 held = transform.TransformPoint(Vector3.Lerp(localOffset, presentOffset, Mathf.SmoothStep(0f, 1f, present)));
+        Vector3 held = transform.TransformPoint(localOffset);
         bool teleported = (t.position - held).sqrMagnitude > 4f; // the map looped, or through the door
         t.position = handLagSpeed > 0f && !teleported ? Vector3.Lerp(t.position, held, 1f - Mathf.Exp(-handLagSpeed * dt)) : held;
     }
