@@ -493,8 +493,9 @@ public class TreeFall : MonoBehaviour
         shard.name = "Splinter";
         shard.transform.SetParent(tree, true);
         shard.transform.SetPositionAndRotation(at + Random.insideUnitSphere * 0.2f, Random.rotation);
-        float length = Random.Range(0.15f, 0.6f);
-        shard.transform.localScale = new Vector3(Random.Range(0.02f, 0.06f), length, Random.Range(0.02f, 0.05f));
+        // A sliver, not a block: long, thin and flat.
+        float length = Random.Range(0.12f, 0.4f);
+        shard.transform.localScale = new Vector3(Random.Range(0.012f, 0.03f), length, Random.Range(0.006f, 0.016f));
         var renderer = shard.GetComponent<Renderer>();
         renderer.sharedMaterial = Random.value < 0.5f && barkMaterial != null ? barkMaterial : SplinterMaterial;
 
@@ -506,7 +507,9 @@ public class TreeFall : MonoBehaviour
         foreach (var piece in pieces)
             foreach (var col in piece.GetComponentsInChildren<Collider>())
                 Physics.IgnoreCollision(shard.GetComponent<Collider>(), col);
-        pieces.Add(body); // frozen with the rest once settled
+        // Not frozen with the logs (one still flying when they freeze would hang in the air): it lands, lies
+        // there a few seconds, and shrinks away.
+        shard.AddComponent<ShardFade>();
     }
 
     static Material splinterMaterial;
@@ -518,7 +521,7 @@ public class TreeFall : MonoBehaviour
         StaticReset.Drop(ref stumpTopMaterial);
     }
     static Material SplinterMaterial => splinterMaterial != null ? splinterMaterial
-        : (splinterMaterial = MaterialFactory.Lit(new Color(0.42f, 0.33f, 0.22f), 0.05f)); // fresh pale wood inside
+        : (splinterMaterial = MaterialFactory.Lit(new Color(0.3f, 0.24f, 0.17f), 0.02f)); // fresh wood inside, damp and dull
 
     void AddStump(CapsuleCollider trunk)
     {
@@ -868,6 +871,27 @@ public class BranchDebris : MonoBehaviour
         transform.Rotate(spin * dt, Space.World);
         float shrink = Mathf.Clamp01((age - FallTime) / ShrinkTime);
         transform.localScale = startScale * (1f - shrink * shrink);
+        if (shrink >= 1f) Destroy(gameObject);
+    }
+}
+
+/// <summary>A wood shard from a tree's crash: lies where it lands a few seconds, then shrinks away and is removed.</summary>
+public class ShardFade : MonoBehaviour
+{
+    float age, life;
+    Vector3 startScale;
+
+    void Start()
+    {
+        life = Random.Range(3f, 5f);
+        startScale = transform.localScale;
+    }
+
+    void Update()
+    {
+        age += Time.deltaTime;
+        float shrink = Mathf.Clamp01((age - life) / 1f);
+        if (shrink > 0f) transform.localScale = startScale * (1f - shrink);
         if (shrink >= 1f) Destroy(gameObject);
     }
 }
