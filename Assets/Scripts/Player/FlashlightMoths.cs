@@ -87,7 +87,7 @@ public class FlashlightMoths : MonoBehaviour
         if (on)
         {
             offFor = 0f;
-            gathered = Mathf.Min(1f, gathered + dt / Mathf.Max(gatherTime, 1f));
+            gathered = Mathf.Min(1f, gathered + dt / Mathf.Max(gatherTime * Difficulty.MothGather, 1f));
             // All here: they wear the battery down, a tick at a time.
             if (gathered >= 1f)
             {

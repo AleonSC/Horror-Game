@@ -156,7 +156,7 @@ public class Flashlight : MonoBehaviour
 
     void UpdateBattery()
     {
-        Battery = Mathf.Max(0f, Battery - Time.deltaTime / Mathf.Max(batteryLife, 0.01f));
+        Battery = Mathf.Max(0f, Battery - Time.deltaTime / Mathf.Max(batteryLife * Difficulty.BatteryLife, 0.01f));
         if (Battery <= 0f)
         {
             flashlight.enabled = false;

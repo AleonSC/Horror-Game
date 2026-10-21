@@ -326,13 +326,14 @@ public class CrawlerSpawner : MonoBehaviour
         if (generator == null) generator = FindAnyObjectByType<DarkForestGenerator>();
         if (mist == null) mist = FindAnyObjectByType<GroundMist>();
 
-        bool active = Lamp.TimesLit >= lampsToStart && !GameOverScreen.IsActive;
+        int wanted = Mathf.Max(1, Mathf.RoundToInt(count * Difficulty.Crawlers));
+        bool active = Lamp.TimesLit >= Mathf.Max(1, lampsToStart + Difficulty.CrawlerLampOffset) && !GameOverScreen.IsActive;
         if (!active)
         {
             foreach (var c in crawlers) if (c != null && c.gameObject.activeSelf && Crawler.Holding != c) c.gameObject.SetActive(false);
             return;
         }
-        while (crawlers.Count < count)
+        while (crawlers.Count < wanted)
         {
             var c = new GameObject("Crawler").AddComponent<Crawler>();
             c.gameObject.SetActive(false);

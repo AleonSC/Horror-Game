@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// The main menu, shown when the game starts (once per Play, not on restarts), in the pause menu's style:
-/// the title and START / QUIT on the left over the cinematic bars, and behind it a slow film of the forest
+/// the title and START / DIFFICULTY / QUIT on the left over the cinematic bars, and behind it a slow film of the forest
 /// itself: shots drifting high over the treetops, craning down onto a camp or a lamp, closing in on a
 /// grazing deer or an owl on its branch, panning slowly across the trees, creeping low through the mist. Each
 /// holds for a while and dips to black into the next; the arrow at the bottom right skips ahead. No monster
@@ -258,6 +258,12 @@ public class MainMenu : MonoBehaviour
     void Begin()
     {
         Showing = false;
+        // The batteries were scattered before the difficulty was picked: scatter them again for it.
+        if (Difficulty.Current != Difficulty.Level.Normal)
+        {
+            var batteries = FindAnyObjectByType<BatterySpawner>();
+            if (batteries != null) batteries.SpawnBatteries();
+        }
         if (cam != null) { cam.localPosition = camLocalPos; cam.localRotation = camLocalRot; }
         if (player != null) player.enabled = true;
         Cursor.lockState = CursorLockMode.Locked;
@@ -303,7 +309,13 @@ public class MainMenu : MonoBehaviour
 
         float y = top + 150f;
         if (Item(0, "START", left, y)) { starting = true; Tick(0.5f, 1.2f); }
-        y += 80f;
+        y += 64f;
+        // Difficulty: click to go round Easy, Normal, Hard (remembered).
+        if (Item(2, "DIFFICULTY:  " + Difficulty.Name, left, y))
+            Difficulty.Current = (Difficulty.Level)(((int)Difficulty.Current + 1) % 3);
+        smallStyle.normal.textColor = new Color(ItemColor.r, ItemColor.g, ItemColor.b, 0.6f);
+        GUI.Label(S(new Rect(left, y + 44f, 900f, 30f)), Difficulty.Description, smallStyle);
+        y += 110f;
         if (Item(1, "QUIT", left, y))
         {
 #if UNITY_EDITOR

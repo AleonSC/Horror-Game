@@ -43,7 +43,8 @@ public class BatterySpawner : MonoBehaviour
         float half = size * 0.5f - 4f;
         var placed = new List<Vector3>();
 
-        for (int attempt = 0; attempt < batteryCount * 200 && placed.Count < batteryCount; attempt++)
+        int count = Mathf.RoundToInt(batteryCount * Difficulty.Batteries);
+        for (int attempt = 0; attempt < count * 200 && placed.Count < count; attempt++)
         {
             var p = new Vector3(Random.Range(-half, half), 0f, Random.Range(-half, half));
             if (new Vector2(p.x, p.z).magnitude < minDistanceFromCenter) continue;

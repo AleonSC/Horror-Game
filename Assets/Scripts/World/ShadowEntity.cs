@@ -710,7 +710,7 @@ public class ShadowEntity : MonoBehaviour
 
     /// <summary>How long the crescendo takes now: every lamp the player has lit makes them quicker at dismissing it.</summary>
     float CrescendoDuration =>
-        Mathf.Max(minCrescendoTime, crescendoTime / (1f + crescendoSpeedupPerLamp * Lamp.TimesLit));
+        Mathf.Max(minCrescendoTime, crescendoTime / (1f + crescendoSpeedupPerLamp * Lamp.TimesLit)) * Difficulty.DismissTime;
 
     /// <summary>
     /// Counts clicks of the flashlight while it's aimed at this entity (switched on onto it, or off just after

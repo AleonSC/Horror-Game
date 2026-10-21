@@ -298,7 +298,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     {
         if (IsLit || IsCoolingDown) return;
 
-        Charge = Mathf.Clamp01(Charge + chargePerClick);
+        Charge = Mathf.Clamp01(Charge + chargePerClick * Difficulty.LampCrank);
         lastClickTime = Time.time;
         Noise.Emit(transform.position, 9f); // the cranking carries
         flash = 1f;

@@ -189,9 +189,9 @@ public class BlindEntity : MonoBehaviour
         Vector3 d = at - transform.position;
         d.y = 0f;
         float dist = d.magnitude;
-        if (dist > radius) return;
+        if (dist > radius * Difficulty.BlindHearing) return;
         // Quiet sounds (ordinary walking, a door, a click) only carry to it from close by.
-        if (radius <= 7.5f && dist > walkingHearing) return;
+        if (radius <= 7.5f && dist > walkingHearing * Difficulty.BlindHearing) return;
 
         // It knows roughly where: the further off, the rougher its guess. That spot is all it knows: go quiet
         // and it can only search round the last place it heard you.
@@ -279,7 +279,7 @@ public class BlindEntity : MonoBehaviour
         }
 
         // Moving at all right next to it gives you away, however softly.
-        if (toYou.magnitude < closeHearing && player.CurrentSpeed > 0.3f && state != State.Rushing && !PortalDoor.PlayerInRoom)
+        if (toYou.magnitude < closeHearing * Difficulty.BlindHearing && player.CurrentSpeed > 0.3f && state != State.Rushing && !PortalDoor.PlayerInRoom)
             OnNoise(you, closeHearing + 1f);
 
         // In reach: it has you. (Not up the watchtower, not in the light, not through the door.)
@@ -310,7 +310,7 @@ public class BlindEntity : MonoBehaviour
             return;
         }
         if (state == State.Roaming || state == State.Searching)
-            closing = Mathf.Clamp01(closing + dt / Mathf.Max(closeInTime, 1f));
+            closing = Mathf.Clamp01(closing + dt / Mathf.Max(closeInTime * Difficulty.BlindCloseIn, 1f));
         float creep = Mathf.Lerp(0.4f, 1.6f, closing); // metres a second: never quicker than you can walk
         Vector3 toYou = you - huntArea;
         toYou.y = 0f;
