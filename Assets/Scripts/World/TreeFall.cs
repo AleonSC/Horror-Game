@@ -209,8 +209,8 @@ public class TreeFall : MonoBehaviour
             }
 
             // Its broken ends: torn wood, so a break never shows the trunk as an empty tube.
-            AddBreakEnd(piece.transform, lo, radius, false);
-            if (i < count - 1) AddBreakEnd(piece.transform, hi, radius, true);
+            AddBreakEnd(piece.transform, lo, sources, radius, false);
+            if (i < count - 1) AddBreakEnd(piece.transform, hi, sources, radius, true);
 
             // Collision: the trunk section, plus a fatter core where there are boughs (crushed when it lands).
             float bottom = Mathf.Max(lo, StumpHeight), top = Mathf.Min(hi, height);
@@ -576,25 +576,67 @@ public class TreeFall : MonoBehaviour
     /// section) or down (its foot): a short sleeve of bark torn into a jagged crown of splinters round a pale
     /// face of broken wood, sized to the trunk there.
     /// </summary>
-    void AddBreakEnd(Transform section, float at, float baseRadius, bool facingUp)
+    /// <summary>
+    /// Where the trunk really is at a height (sway space), and how thick: from the bark mesh's own vertices
+    /// round that height, ignoring branches (they reach further out than the trunk's surface).
+    /// </summary>
+    Vector2 TrunkAt(List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources, float at, float guessRadius, out float trunkRadius)
     {
-        float r = baseRadius * Mathf.Lerp(1f, 0.45f, Mathf.Clamp01(at / Mathf.Max(height, 0.01f))) * 1.06f;
+        var near = new List<Vector2>();
+        foreach (var (mesh, toSway, mat) in sources)
+        {
+            if (mat != barkMaterial) continue;
+            foreach (var v in mesh.vertices)
+            {
+                Vector3 p = toSway.MultiplyPoint3x4(v);
+                if (Mathf.Abs(p.y - at) < 0.35f) near.Add(new Vector2(p.x, p.z));
+            }
+        }
+        trunkRadius = guessRadius * Mathf.Lerp(1f, 0.45f, Mathf.Clamp01(at / Mathf.Max(height, 0.01f)));
+        if (near.Count < 6) return Vector2.zero;
+
+        // The middle: the average of what's close to the axis (branches left out), then its radius: a low
+        // percentile of the distances, which is the trunk's surface rather than a bough's tip.
+        Vector2 centre = Vector2.zero;
+        int n = 0;
+        foreach (var p in near)
+            if (p.magnitude < guessRadius * 2f) { centre += p; n++; }
+        if (n > 0) centre /= n;
+        var dist = new List<float>(near.Count);
+        foreach (var p in near) dist.Add((p - centre).magnitude);
+        dist.Sort();
+        trunkRadius = Mathf.Max(dist[Mathf.Clamp(Mathf.RoundToInt(dist.Count * 0.4f), 0, dist.Count - 1)], 0.03f);
+        return centre;
+    }
+
+    /// <summary>
+    /// The torn end of a section where the trunk snapped: a short sleeve of bark fitted to the trunk's real
+    /// size, its edge a little ragged, closed by a face of broken wood, with a few long splinters standing out
+    /// round the edge. So a break never shows the trunk as an empty tube.
+    /// </summary>
+    void AddBreakEnd(Transform section, float at, List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources, float baseRadius, bool facingUp)
+    {
+        Vector2 c = TrunkAt(sources, at, baseRadius, out float r);
+        r *= 1.02f; // just over the bark, so no gap shows
         float dir = facingUp ? 1f : -1f;
-        const int around = 10;
+        float size = Mathf.Max(r / 0.25f, 0.5f);
+        const int around = 14;
         var verts = new List<Vector3>();
         var uvs = new List<Vector2>();
         var barkTris = new List<int>();
         var woodTris = new List<int>();
+        Vector3 P(float x, float y, float z) => new Vector3(c.x + x, y, c.y + z);
+
         float[] jag = new float[around + 1];
-        for (int j = 0; j < around; j++) jag[j] = (j % 2 == 0 ? Random.Range(0.05f, 0.2f) : Random.Range(-0.02f, 0.05f)) * Mathf.Max(r / 0.25f, 0.6f);
+        for (int j = 0; j < around; j++) jag[j] = Random.Range(0.005f, 0.045f) * size;
         jag[around] = jag[0];
-        // The sleeve: from a little inside the section out to the jagged rim.
+        // The sleeve: from a little inside the section out to the ragged rim.
         for (int ring = 0; ring < 2; ring++)
             for (int j = 0; j <= around; j++)
             {
                 float a = j / (float)around * Mathf.PI * 2f;
-                float h = ring == 0 ? -0.12f : jag[j];
-                verts.Add(new Vector3(Mathf.Cos(a) * r, at + dir * h, Mathf.Sin(a) * r));
+                float h = ring == 0 ? -0.1f : jag[j];
+                verts.Add(P(Mathf.Cos(a) * r, at + dir * h, Mathf.Sin(a) * r));
                 uvs.Add(new Vector2(j / (float)around, h * 2f));
             }
         int row = around + 1;
@@ -604,15 +646,15 @@ public class TreeFall : MonoBehaviour
             if (facingUp) barkTris.AddRange(new[] { q, q + row, q + 1, q + 1, q + row, q + row + 1 });
             else barkTris.AddRange(new[] { q, q + 1, q + row, q + 1, q + row + 1, q + row });
         }
-        // The broken face, sunk a little in the middle, up to the rim.
+        // The broken face: nearly flat, just short of the rim.
         int centre = verts.Count;
-        verts.Add(new Vector3(0f, at - dir * 0.02f, 0f));
+        verts.Add(P(0f, at + dir * 0.012f * size, 0f));
         uvs.Add(new Vector2(0.5f, 0.5f));
         int rim = verts.Count;
         for (int j = 0; j <= around; j++)
         {
             float a = j / (float)around * Mathf.PI * 2f;
-            verts.Add(new Vector3(Mathf.Cos(a) * r * 0.97f, at + dir * (jag[j] - 0.01f), Mathf.Sin(a) * r * 0.97f));
+            verts.Add(P(Mathf.Cos(a) * r * 0.97f, at + dir * Mathf.Min(jag[j], 0.015f * size), Mathf.Sin(a) * r * 0.97f));
             uvs.Add(new Vector2(0.5f + Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f));
         }
         for (int j = 0; j < around; j++)
@@ -620,6 +662,28 @@ public class TreeFall : MonoBehaviour
             if (facingUp) woodTris.AddRange(new[] { centre, rim + j + 1, rim + j });
             else woodTris.AddRange(new[] { centre, rim + j, rim + j + 1 });
         }
+        // Splinters: long, thin slivers of wood torn up from the edge, leaning a little out.
+        int splinters = Random.Range(3, 6);
+        for (int k = 0; k < splinters; k++)
+        {
+            float a = Random.Range(0f, Mathf.PI * 2f);
+            float w = Random.Range(0.12f, 0.25f) * r;
+            float len = Random.Range(0.06f, 0.16f) * size;
+            float inset = Random.Range(0.75f, 0.95f) * r;
+            Vector3 radial = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            Vector3 side = new Vector3(-radial.z, 0f, radial.x) * (w * 0.5f);
+            Vector3 foot = P(radial.x * inset, at, radial.z * inset);
+            Vector3 tip = foot + Vector3.up * (dir * len) + radial * (len * Random.Range(0.1f, 0.35f)) + side * Random.Range(-0.6f, 0.6f);
+            int b = verts.Count;
+            verts.Add(foot - side);
+            verts.Add(foot + side);
+            verts.Add(tip);
+            uvs.Add(new Vector2(0.3f, 0.2f));
+            uvs.Add(new Vector2(0.7f, 0.2f));
+            uvs.Add(new Vector2(0.5f, 0.9f));
+            woodTris.AddRange(new[] { b, b + 2, b + 1, b, b + 1, b + 2 }); // both sides
+        }
+
         var mesh = new Mesh { name = "Break" };
         mesh.SetVertices(verts);
         mesh.SetUVs(0, uvs);
@@ -632,8 +696,13 @@ public class TreeFall : MonoBehaviour
         go.transform.SetParent(section, false);
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         Material bark = barkMaterial != null ? barkMaterial : SplinterMaterial;
-        go.AddComponent<MeshRenderer>().sharedMaterials = new[] { bark, StumpTopMaterial };
+        go.AddComponent<MeshRenderer>().sharedMaterials = new[] { bark, BreakWoodMaterial };
     }
+
+    static Material breakWoodMaterial;
+    /// <summary>Freshly broken wood: paler than the bark, but not bright: it's night, and it's damp.</summary>
+    static Material BreakWoodMaterial => breakWoodMaterial != null ? breakWoodMaterial
+        : (breakWoodMaterial = MaterialFactory.LitTextured(ProceduralTextures.EndGrain, null, new Color(0.42f, 0.34f, 0.25f), 0.05f));
 
     static Material stumpTopMaterial;
     static Material StumpTopMaterial => stumpTopMaterial != null ? stumpTopMaterial
