@@ -348,21 +348,12 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     /// <summary>Sets the drone down on the ground a couple of metres ahead; its slot becomes the remote.</summary>
     void SetDownDrone()
     {
-        var cam = Camera.main;
-        if (!HasDrone || cam == null) return;
-        Vector3 forward = cam.transform.forward;
-        forward.y = 0f;
-        forward = forward.sqrMagnitude > 0.01f ? forward.normalized : transform.forward;
-        // Where you're looking, if it's ground close by; otherwise just in front of your feet.
-        Vector3 spot;
-        if (Physics.Raycast(cam.transform.position, cam.transform.forward, out var hit, 3.5f, ~0, QueryTriggerInteraction.Ignore) && hit.normal.y > 0.6f)
-            spot = hit.point;
-        else
+        if (!HasDrone || !TryDroneSpot(out Vector3 spot, out float facing))
         {
-            Vector3 ahead = transform.position + forward * 1.4f;
-            spot = Physics.Raycast(ahead + Vector3.up * 2f, Vector3.down, out var down, 6f, ~0, QueryTriggerInteraction.Ignore) ? down.point : ahead;
+            if (HasDrone) Message("Look at clear ground nearby to set the drone down");
+            return;
         }
-        DroneUnit.Place(spot, Quaternion.LookRotation(forward).eulerAngles.y);
+        DroneUnit.Place(spot, facing);
         Play(ProceduralAudio.Pickup, 0.6f, 0.8f);
         HasDrone = false;
         HasRemote = true;
@@ -371,6 +362,62 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         Select(Item.Remote);
         Message("Drone set down. With the remote in hand, F flies it from wherever you are.");
     }
+
+    /// <summary>
+    /// Where the drone would go: ground you're looking at, close by, flat enough, with room round it (not in a
+    /// trunk, a wall, a rock). False if there's nowhere like that where you're looking.
+    /// </summary>
+    bool TryDroneSpot(out Vector3 spot, out float facing)
+    {
+        spot = Vector3.zero;
+        facing = 0f;
+        var cam = Camera.main;
+        if (cam == null) return false;
+        Vector3 forward = cam.transform.forward;
+        forward.y = 0f;
+        forward = forward.sqrMagnitude > 0.01f ? forward.normalized : transform.forward;
+        facing = Quaternion.LookRotation(forward).eulerAngles.y;
+        if (!Physics.Raycast(cam.transform.position, cam.transform.forward, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore)) return false;
+        if (hit.normal.y < 0.7f) return false; // too steep (or a wall)
+        spot = hit.point;
+        // Room for it: nothing solid in a box its size, just above where it'd sit.
+        var mask = ~0;
+        if (Physics.CheckBox(spot + Vector3.up * 0.3f, new Vector3(0.25f, 0.12f, 0.25f), Quaternion.Euler(0f, facing, 0f), mask, QueryTriggerInteraction.Ignore))
+            return false;
+        // Not where you're standing.
+        Vector3 off = spot - transform.position;
+        off.y = 0f;
+        return off.magnitude > 0.5f;
+    }
+
+    Transform droneGhost;
+
+    /// <summary>Holding the drone: a see-through drone shows where it'd go, if there's somewhere it can.</summary>
+    void UpdateDroneGhost()
+    {
+        bool holding = Selected == Item.Drone && HasDrone && !DroneUnit.Piloting;
+        bool valid = holding && TryDroneSpot(out Vector3 spot, out float facing);
+        droneGhostValid = valid;
+        if (!valid)
+        {
+            if (droneGhost != null) droneGhost.gameObject.SetActive(false);
+            return;
+        }
+        if (droneGhost == null)
+        {
+            droneGhost = new GameObject("Drone Ghost").transform;
+            var body = new GameObject("Body").transform;
+            body.SetParent(droneGhost, false);
+            body.localPosition = Vector3.up * 0.09f;
+            DroneUnit.BuildModel(body, null, out Light lamp);
+            Destroy(lamp.gameObject);
+            var ghostMat = MaterialFactory.LitTransparent(Texture2D.whiteTexture, new Color(0.6f, 0.9f, 1f, 0.28f), 0.6f);
+            foreach (var r in droneGhost.GetComponentsInChildren<Renderer>()) r.sharedMaterial = ghostMat;
+        }
+        droneGhost.gameObject.SetActive(true);
+        droneGhost.SetPositionAndRotation(spot + Vector3.up * (0.01f + 0.015f * Mathf.Sin(Time.time * 4f)), Quaternion.Euler(0f, facing, 0f));
+    }
+    bool droneGhostValid;
 
     /// <summary>
     /// The remote's little screen tracks the drone: a dot where it is from you (ahead is up the screen),
@@ -870,6 +917,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         droneModel.gameObject.SetActive(Selected == Item.Drone);
         remoteModel.gameObject.SetActive(Selected == Item.Remote);
         if (Selected == Item.Remote) UpdateRemoteScreen();
+        UpdateDroneGhost();
         stickModel.gameObject.SetActive(Selected == Item.Stick);
         // The fob's little LED lights while the button's pressed.
         fobLedTimer -= Time.deltaTime;
@@ -1098,6 +1146,13 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         // Holding the map: it's up in front of you.
         if (Selected == Item.Map && HasMap && !InventoryScreen.IsOpen) TrailMap.Draw(Mathf.Clamp01((Time.unscaledTime - selectedAt) / 0.25f));
         if (StickMenuOpen && !InventoryScreen.IsOpen) DrawStickMenu(Mathf.Max(0.6f, Screen.height / 1080f));
+        // Holding the drone over somewhere it can go: how to set it down.
+        if (droneGhostValid && !InventoryScreen.IsOpen && !PauseMenu.IsPaused)
+        {
+            float u = Mathf.Max(0.6f, Screen.height / 1080f);
+            EnsureStyles(u);
+            Shadowed(new Rect(0f, Screen.height * 0.58f, Screen.width, 30f * u), "F  —  set the drone down here", messageStyle, new Color(0.75f, 0.92f, 1f), 0.95f);
+        }
         if (!showHotbar || InventoryScreen.IsOpen) return; // the inventory shows the slots itself
 
         // It shows while you're switching items (or just picked something up), then fades away.
