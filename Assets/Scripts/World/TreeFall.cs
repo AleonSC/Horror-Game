@@ -487,15 +487,84 @@ public class TreeFall : MonoBehaviour
         crowns.Clear();
     }
 
+    /// <summary>A triangle facing away from a point inside the solid it belongs to, with its own corners (flat shaded).</summary>
+    static void Facet(System.Collections.Generic.List<Vector3> verts, System.Collections.Generic.List<Vector2> uvs, System.Collections.Generic.List<int> tris,
+        Vector3 a, Vector3 b, Vector3 c, Vector3 inside)
+    {
+        Vector3 normal = Vector3.Cross(b - a, c - a);
+        if (Vector3.Dot(normal, (a + b + c) / 3f - inside) < 0f) (b, c) = (c, b);
+        int i = verts.Count;
+        verts.Add(a); verts.Add(b); verts.Add(c);
+        uvs.Add(new Vector2(0.3f, 0.2f)); uvs.Add(new Vector2(0.7f, 0.2f)); uvs.Add(new Vector2(0.5f, 0.9f));
+        tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
+    }
+
+    static Mesh[] splinterMeshes;
+
+    /// <summary>
+    /// A splinter (unit size: 1 long on y, about 1 across): a jagged three-sided sliver, fattest a little off
+    /// its middle and tapering to a ragged point at each end, slightly bent, faceted like torn wood.
+    /// </summary>
+    static Mesh SplinterMesh()
+    {
+        if (splinterMeshes == null)
+        {
+            splinterMeshes = new Mesh[5];
+            for (int m = 0; m < splinterMeshes.Length; m++)
+            {
+                var verts = new System.Collections.Generic.List<Vector3>();
+                var uvs = new System.Collections.Generic.List<Vector2>();
+                var tris = new System.Collections.Generic.List<int>();
+                const int rings = 6;
+                float fattest = Random.Range(0.3f, 0.6f), bend = Random.Range(-0.12f, 0.12f);
+                var ring = new Vector3[rings + 1][];
+                var centre = new Vector3[rings + 1];
+                for (int k = 0; k <= rings; k++)
+                {
+                    float t = k / (float)rings;
+                    float y = t - 0.5f;
+                    float r = k == 0 || k == rings ? 0f : Mathf.Pow(Mathf.Sin(Mathf.PI * Mathf.Pow(t, Mathf.Log(0.5f) / Mathf.Log(fattest))), 0.7f) * 0.5f;
+                    centre[k] = new Vector3(bend * Mathf.Sin(Mathf.PI * t), y, 0f);
+                    ring[k] = new Vector3[3];
+                    for (int j = 0; j < 3; j++)
+                    {
+                        float a = j / 3f * Mathf.PI * 2f + Random.Range(-0.3f, 0.3f);
+                        float rr = r * Random.Range(0.7f, 1.15f);
+                        ring[k][j] = centre[k] + new Vector3(Mathf.Cos(a) * rr, Random.Range(-0.03f, 0.03f) * (r > 0f ? 1f : 0f), Mathf.Sin(a) * rr * 0.6f);
+                    }
+                }
+                for (int k = 0; k < rings; k++)
+                {
+                    Vector3 inside = (centre[k] + centre[k + 1]) * 0.5f;
+                    for (int j = 0; j < 3; j++)
+                    {
+                        int jn = (j + 1) % 3;
+                        Facet(verts, uvs, tris, ring[k][j], ring[k][jn], ring[k + 1][j], inside);
+                        Facet(verts, uvs, tris, ring[k][jn], ring[k + 1][jn], ring[k + 1][j], inside);
+                    }
+                }
+                var mesh = new Mesh { name = "Splinter" };
+                mesh.SetVertices(verts);
+                mesh.SetUVs(0, uvs);
+                mesh.SetTriangles(tris, 0);
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+                splinterMeshes[m] = mesh;
+            }
+        }
+        return splinterMeshes[Random.Range(0, splinterMeshes.Length)];
+    }
+
     void SpawnShard(Vector3 at, float speed)
     {
         var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
         shard.name = "Splinter";
+        shard.GetComponent<MeshFilter>().sharedMesh = SplinterMesh(); // (the cube's box collider stays, for bouncing)
         shard.transform.SetParent(tree, true);
         shard.transform.SetPositionAndRotation(at + Random.insideUnitSphere * 0.2f, Random.rotation);
         // A sliver, not a block: long, thin and flat.
         float length = Random.Range(0.12f, 0.4f);
-        shard.transform.localScale = new Vector3(Random.Range(0.012f, 0.03f), length, Random.Range(0.006f, 0.016f));
+        shard.transform.localScale = new Vector3(Random.Range(0.02f, 0.045f), length, Random.Range(0.02f, 0.04f));
         var renderer = shard.GetComponent<Renderer>();
         renderer.sharedMaterial = Random.value < 0.5f && barkMaterial != null ? barkMaterial : SplinterMaterial;
 
@@ -517,11 +586,13 @@ public class TreeFall : MonoBehaviour
     internal static void ResetStatics()
     {
         StaticReset.Drop(ref splinterMaterial);
+        StaticReset.Drop(splinterMeshes);
+        splinterMeshes = null;
         StaticReset.Drop(ref breakWoodMaterial);
         StaticReset.Drop(ref stumpTopMaterial);
     }
     static Material SplinterMaterial => splinterMaterial != null ? splinterMaterial
-        : (splinterMaterial = MaterialFactory.Lit(new Color(0.3f, 0.24f, 0.17f), 0.02f)); // fresh wood inside, damp and dull
+        : (splinterMaterial = MaterialFactory.LitTextured(ProceduralTextures.EndGrain, null, new Color(0.2f, 0.15f, 0.1f), 0.0f)); // fresh wood inside, damp and dull (not bright under a flashlight)
 
     void AddStump(CapsuleCollider trunk)
     {
@@ -781,19 +852,13 @@ public class TreeFall : MonoBehaviour
             Vector3 side = new Vector3(-radial.z, 0f, radial.x) * (w * 0.5f);
             Vector3 foot = P(radial.x * inset, at, radial.z * inset);
             Vector3 tip = foot + Vector3.up * (dir * len) + radial * (len * Random.Range(0.1f, 0.35f)) + side * Random.Range(-0.6f, 0.6f);
-            // Both sides, each with its own corners: shared ones would get the two sides' normals averaged to
-            // nothing, which lights as garbage (and the bloom spreads it into a glaring white blob).
-            for (int face = 0; face < 2; face++)
-            {
-                int b = verts.Count;
-                verts.Add(foot - side);
-                verts.Add(foot + side);
-                verts.Add(tip);
-                uvs.Add(new Vector2(0.3f, 0.2f));
-                uvs.Add(new Vector2(0.7f, 0.2f));
-                uvs.Add(new Vector2(0.5f, 0.9f));
-                woodTris.AddRange(face == 0 ? new[] { b, b + 2, b + 1 } : new[] { b, b + 1, b + 2 });
-            }
+            // A real sliver with some thickness (a little three-sided wedge rising to its point), each face
+            // with its own corners so it lights crisply instead of as a flat sheet of paper.
+            Vector3 back = foot - radial * (w * 0.45f);
+            Vector3 inside = (foot - side + foot + side + back + tip) * 0.25f;
+            Facet(verts, uvs, woodTris, foot - side, foot + side, tip, inside);
+            Facet(verts, uvs, woodTris, foot + side, back, tip, inside);
+            Facet(verts, uvs, woodTris, back, foot - side, tip, inside);
         }
 
         var mesh = new Mesh { name = "Break" };
