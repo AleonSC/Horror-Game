@@ -352,7 +352,6 @@ public class ShadowEntity : MonoBehaviour
     void OnDestroy()
     {
         if (fragmentRoot != null) Destroy(fragmentRoot.gameObject);
-        if (shinMat != null) Destroy(shinMat);
     }
 
     void Update()
@@ -1710,68 +1709,84 @@ public class ShadowEntity : MonoBehaviour
 
     // ---------------------------------------------------------------- Body
 
-    // The legs, hanging loose: they trail behind and swing as it moves.
-    readonly Transform[] legPivots = new Transform[2];
-    readonly Transform[] kneePivots = new Transform[2];
-    readonly Vector2[] legSwing = new Vector2[2], legSwingVel = new Vector2[2];
-    readonly float[] kneeSwing = new float[2], kneeSwingVel = new float[2];
-    Vector3 lastLegPos;
-    Material shinMat;
+    // The legs: long, limp, and dragged. Each foot is a weight on the end of the leg (Verlet): gravity pulls
+    // it down, the ground stops it and holds it back, and the hip hauls it along when the leg's at full
+    // stretch. The knee is placed between hip and foot (bending forward, the way a knee does).
+    const float ThighLength = 0.68f, ShinLength = 0.7f, FootLength = 0.2f; // (for a 2.4m figure)
+    readonly Transform[] legPivots = new Transform[2], kneePivots = new Transform[2], footPivots = new Transform[2];
+    readonly Vector3[] footPos = new Vector3[2], footPrev = new Vector3[2];
+    bool feetPlaced;
 
     /// <summary>
-    /// The shins' material: black that melts into the fog toward the ground, the way the sky chains melt into
-    /// the clouds (Horror/Haze, its ground haze measured up from its feet, with drifting wisps through it).
-    /// </summary>
-    Material ShinMaterial(Material fallback)
-    {
-        if (shinMat != null) return shinMat;
-        var shader = Shader.Find("Horror/Haze");
-        if (shader == null) return fallback;
-        shinMat = new Material(shader) { renderQueue = MaterialFactory.FogFreeQueue(2000) };
-        shinMat.SetColor("_Color", Color.black);
-        shinMat.SetFloat("_Haze", 0f);
-        shinMat.SetFloat("_GroundHaze", 1f);
-        shinMat.SetFloat("_WispScale", 3f);
-        UpdateShinFade();
-        return shinMat;
-    }
-
-    void UpdateShinFade()
-    {
-        if (shinMat == null) return;
-        shinMat.SetColor("_HazeColor", RenderSettings.fogColor);
-        shinMat.SetFloat("_HazeBase", transform.position.y + 0.03f * scale);
-        shinMat.SetFloat("_HazeHeight", 0.5f * scale);
-    }
-
-    /// <summary>
-    /// The legs ragdolling a little: loose from the hips and knees, they lag behind as it moves, trailing back
-    /// the way it came and swinging on, then settling, with a faint restless twitch.
+    /// The legs ragdolling: they hang from the hips and drag along the ground behind it as it glides, feet
+    /// scraping and catching, knees jutting; when it stops they lie where they fell. Off the ground (carried
+    /// off in the kill) they dangle and swing.
     /// </summary>
     void LegDrag()
     {
         float dt = Time.deltaTime;
-        if (dt <= 0f || legPivots[0] == null) return;
-        Vector3 moved = transform.position - lastLegPos;
-        lastLegPos = transform.position;
-        Vector3 velocity = moved / dt;
-        if (velocity.sqrMagnitude > 400f) velocity = Vector3.zero; // (appearing somewhere else, not moving)
-        Vector3 local = Quaternion.Inverse(transform.rotation) * velocity;
+        if (legPivots[0] == null) return;
+        if (!IsVisible || dt <= 0f) { feetPlaced = false; return; }
+
+        Vector3 forward = transform.forward;
         for (int i = 0; i < 2; i++)
         {
-            // The legs trail behind the way it's moving (forward motion swings them back, sideways to the side).
-            Vector2 aim = new Vector2(Mathf.Clamp(local.z * 9f, -35f, 35f), Mathf.Clamp(-local.x * 9f, -25f, 25f));
-            aim += new Vector2(Mathf.PerlinNoise(Time.time * 1.3f, i * 5.1f) - 0.5f, Mathf.PerlinNoise(i * 3.7f, Time.time * 1.1f) - 0.5f) * 6f;
-            // A loose spring: it overshoots and swings.
-            legSwingVel[i] += (aim - legSwing[i]) * (28f * dt) - legSwingVel[i] * (3.5f * dt);
-            legSwing[i] += legSwingVel[i] * dt;
-            legPivots[i].localRotation = Quaternion.Euler(legSwing[i].x, 0f, legSwing[i].y);
-            // The shins swing on from the knees, a beat behind.
-            float kneeAim = Mathf.Clamp(-legSwingVel[i].x * 0.25f, -30f, 30f);
-            kneeSwingVel[i] += (kneeAim - kneeSwing[i]) * (20f * dt) - kneeSwingVel[i] * (3f * dt);
-            kneeSwing[i] += kneeSwingVel[i] * dt;
-            kneePivots[i].localRotation = Quaternion.Euler(kneeSwing[i], 0f, 0f);
+            Transform hip = legPivots[i];
+            Vector3 h = hip.position;
+            float size = hip.lossyScale.y;
+            float thigh = ThighLength * scale * size, shin = ShinLength * scale * size, reach = (thigh + shin) * 0.995f;
+
+            // Placed afresh (it's only just appeared, or jumped): the feet on the ground under the hips.
+            if (!feetPlaced || (footPos[i] - h).sqrMagnitude > reach * reach * 4f)
+            {
+                Vector3 under = h + forward * 0.1f * scale + transform.right * (i == 0 ? -0.06f : 0.06f) * scale;
+                under.y = Mathf.Max(GroundHeight(under), h.y - reach);
+                footPos[i] = footPrev[i] = under;
+            }
+
+            // Verlet: carry on as it was going, a little damped, and fall.
+            Vector3 p = footPos[i];
+            Vector3 v = (p - footPrev[i]) * 0.98f;
+            footPrev[i] = p;
+            p += v + Physics.gravity * dt * dt;
+
+            // The ground: it can't go through, and it scrapes to a stop along it.
+            float ground = GroundHeight(p) + 0.03f * scale;
+            if (p.y <= ground)
+            {
+                p.y = ground;
+                Vector3 slide = p - footPrev[i];
+                slide.y = 0f;
+                p -= slide * 0.35f; // friction
+            }
+
+            // The leg: never longer than it is (the hip hauls the foot after it), never folded right up.
+            Vector3 d = p - h;
+            float len = d.magnitude;
+            if (len > reach) p = h + d / len * reach;
+            else if (len < reach * 0.35f && len > 0.0001f) p = h + d / len * reach * 0.35f;
+            if (p.y < ground) p.y = ground;
+            footPos[i] = p;
+
+            // The knee, between them: forward, the way a knee bends.
+            d = p - h;
+            len = Mathf.Max(d.magnitude, 0.0001f);
+            Vector3 dir = d / len;
+            float along = (thigh * thigh - shin * shin + len * len) / (2f * len);
+            float up = Mathf.Sqrt(Mathf.Max(thigh * thigh - along * along, 0f));
+            Vector3 bend = Vector3.ProjectOnPlane(forward + Vector3.up * 0.2f, dir);
+            if (bend.sqrMagnitude < 0.0001f) bend = Vector3.ProjectOnPlane(Vector3.up, dir);
+            Vector3 knee = h + dir * along + bend.normalized * up;
+
+            hip.rotation = Quaternion.FromToRotation(Vector3.down, knee - h);
+            kneePivots[i].rotation = Quaternion.FromToRotation(Vector3.down, p - knee);
+            // The foot: dragged toes-down behind it, flat along the ground when at rest.
+            Vector3 toes = Vector3.ProjectOnPlane(forward, Vector3.up).normalized;
+            Vector3 moving = Vector3.ProjectOnPlane(v / Mathf.Max(dt, 0.0001f), Vector3.up);
+            float drag = Mathf.Clamp01(moving.magnitude / (1.5f * scale));
+            footPivots[i].rotation = Quaternion.LookRotation(Vector3.Slerp(toes, Vector3.down, 0.55f * drag), Vector3.up);
         }
+        feetPlaced = true;
     }
 
     /// <summary>
@@ -1792,7 +1807,6 @@ public class ShadowEntity : MonoBehaviour
     void LateUpdate()
     {
         LegDrag();
-        UpdateShinFade();
     }
 
     void BuildSilhouette()
@@ -1809,28 +1823,21 @@ public class ShadowEntity : MonoBehaviour
         // and the joints bend the wrong way.
         for (int side = -1; side <= 1; side += 2)
         {
-            // Legs: thighs angled forward, shins sharply back, and then no feet at all: the shins thin and
-            // fade away into nothing a little above the ground. They hang loose from the hips and knees, and
-            // trail and sway as it moves (LegDrag).
+            // Legs: long and thin, too long for it (the knees jut up when it stands), with long bony feet.
+            // They hang limp from the hips and drag along the ground behind it as it moves (LegDrag).
             Vector3 hip = new Vector3(side * 0.11f, 1.12f, -0.02f);
-            Vector3 knee = new Vector3(side * 0.15f, 0.62f, 0.14f);
             var legPivot = Pivot(visual, "Leg", hip);
-            Bone(legPivot, black, Vector3.zero, knee - hip, 0.07f);
-            var kneePivot = Pivot(legPivot, "Knee", knee - hip);
-            Knob(kneePivot, black, Vector3.zero, 0.085f);
-            // The shin, in pieces down from the knee, each thinner and fainter than the last.
-            Vector3 toward = new Vector3(side * -0.02f, -0.56f, -0.26f); // (knee down nearly to the ground)
-            const int pieces = 5;
-            var shin = ShinMaterial(black);
-            for (int k = 0; k < pieces; k++)
-            {
-                // Thinning as it goes down, and melting into the fog toward the ground.
-                float t0 = k / (float)pieces, t1 = (k + 1) / (float)pieces;
-                var piece = Bone(kneePivot, shin, toward * t0, toward * t1, Mathf.Lerp(0.045f, 0.016f, t1));
-                if (t0 > 0.4f) piece.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
-            }
+            Bone(legPivot, black, Vector3.zero, Vector3.down * ThighLength, 0.06f);
+            var kneePivot = Pivot(legPivot, "Knee", Vector3.down * ThighLength);
+            Knob(kneePivot, black, Vector3.zero, 0.075f);
+            Bone(kneePivot, black, Vector3.zero, Vector3.down * ShinLength, 0.04f);
+            var footPivot = Pivot(kneePivot, "Foot", Vector3.down * ShinLength);
+            Knob(footPivot, black, Vector3.zero, 0.05f);
+            Bone(footPivot, black, Vector3.zero, new Vector3(0f, -0.02f, FootLength), 0.035f);
+            Bone(footPivot, black, new Vector3(0f, -0.02f, FootLength), new Vector3(0f, -0.04f, FootLength + 0.08f), 0.018f); // the toes
             legPivots[side < 0 ? 0 : 1] = legPivot;
             kneePivots[side < 0 ? 0 : 1] = kneePivot;
+            footPivots[side < 0 ? 0 : 1] = footPivot;
 
             // Ribs curling round from the spine.
             for (int r = 0; r < 4; r++)
