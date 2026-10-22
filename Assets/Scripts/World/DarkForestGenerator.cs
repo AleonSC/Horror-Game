@@ -1048,8 +1048,6 @@ public class DarkForestGenerator : MonoBehaviour
 
     /// <summary>
     /// Leaves (here, little sprays of needles) as real geometry: no cut-out textures, which builds can strip.
-    /// Each leaf is a thin sliver, drawn from both sides, its normal pointing out from the middle of its clump
-    /// so the clump lights as a soft, rounded tuft.
     /// </summary>
     class LeafBuilder
     {
@@ -1058,11 +1056,17 @@ public class DarkForestGenerator : MonoBehaviour
         readonly List<Vector2> uvs = new List<Vector2>();
         readonly List<int> triangles = new List<int>();
 
-        /// <summary>A clump of count slivers round center (spread over radius), each about length long, fanning along dir.</summary>
+        /// <summary>
+        /// A clump of needle sprays round center (spread over radius), each about length long, fanning along dir.
+        /// A spray is a little twig with pairs of slender needle tufts angled forward off it and one at its tip,
+        /// a feathery shape rather than one broad flat triangle. Drawn once (the material shows both faces), with
+        /// normals pointing out from the clump so it lights as a soft, rounded tuft.
+        /// </summary>
         public void AddCluster(Vector3 center, float radius, int count, float length, Vector3 dir, System.Random rng)
         {
             float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
-            for (int n = 0; n < count; n++)
+            int sprays = Mathf.Max(3, Mathf.CeilToInt(count * 0.6f));
+            for (int n = 0; n < sprays; n++)
             {
                 var offset = new Vector3(R(-1f, 1f), R(-0.45f, 0.45f), R(-1f, 1f)) * radius * 0.5f;
                 Vector3 basePoint = center + offset;
@@ -1070,24 +1074,42 @@ public class DarkForestGenerator : MonoBehaviour
                 if (outward.sqrMagnitude < 0.01f) outward = dir;
                 Vector3 across = Vector3.Cross(outward, Vector3.up);
                 if (across.sqrMagnitude < 0.01f) across = Vector3.right;
-                across = across.normalized * (length * R(0.2f, 0.3f)); // a broad sliver: a spray of needles, not one
-                float len = length * R(0.75f, 1.2f);
-                Vector3 tip = basePoint + outward * len + Vector3.down * len * R(0.05f, 0.25f); // sagging a touch
+                across.Normalize();
+                // Tilted a little about its own twig, so neighbouring sprays don't all lie flat the same way.
+                across = Quaternion.AngleAxis(R(-35f, 35f), outward) * across;
+                float len = length * R(0.85f, 1.25f);
+                float sag = R(0.05f, 0.25f);
+                Vector3 Along(float t) => basePoint + outward * (len * t) + Vector3.down * (len * sag * t * t);
                 Vector3 normal = (offset.normalized + Vector3.up * 0.6f).normalized;
                 float u = R(0f, 0.7f);
-                for (int side = 0; side < 2; side++)
+                float width = len * 0.07f;
+
+                void Needle(Vector3 root, Vector3 heading, float size)
                 {
+                    Vector3 side = Vector3.Cross(heading, normal).normalized * width;
+                    if (side.sqrMagnitude < 1e-8f) side = across * width;
                     int i = vertices.Count;
-                    vertices.Add(basePoint - across);
-                    vertices.Add(basePoint + across);
-                    vertices.Add(tip);
+                    vertices.Add(root - side);
+                    vertices.Add(root + side);
+                    vertices.Add(root + heading * size);
                     for (int k = 0; k < 3; k++) normals.Add(normal);
                     uvs.Add(new Vector2(u, 0f));
-                    uvs.Add(new Vector2(u + 0.3f, 0f));
-                    uvs.Add(new Vector2(u + 0.15f, 1f));
-                    if (side == 0) triangles.AddRange(new[] { i, i + 2, i + 1 });
-                    else triangles.AddRange(new[] { i, i + 1, i + 2 });
+                    uvs.Add(new Vector2(u + 0.08f, 0f));
+                    uvs.Add(new Vector2(u + 0.04f, 1f));
+                    triangles.AddRange(new[] { i, i + 2, i + 1 });
                 }
+
+                // Two pairs of tufts off the sides of the twig, swept forward, shorter toward the tip; and the tip.
+                for (int pair = 0; pair < 2; pair++)
+                {
+                    float t = 0.25f + pair * 0.35f;
+                    Vector3 at = Along(t);
+                    Vector3 forward = (Along(t + 0.05f) - at).normalized;
+                    float size = len * R(0.42f, 0.55f) * (1f - pair * 0.25f);
+                    for (int s = -1; s <= 1; s += 2)
+                        Needle(at, (forward * 0.75f + across * s + Vector3.down * 0.12f).normalized, size);
+                }
+                Needle(Along(0f), (Along(1f) - Along(0f)).normalized, len); // the twig itself, as a slim spike
             }
         }
 
@@ -2143,6 +2165,10 @@ public class DarkForestGenerator : MonoBehaviour
                 MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(0.75f, 0.85f, 0.8f), 0.05f),
                 MaterialFactory.LitTextured(ProceduralTextures.Needles, null, new Color(1f, 0.95f, 0.75f), 0.05f),
             };
+        // Needle sprays are drawn once and show from both faces.
+        if (foliageMaterial == null)
+            foreach (var m in foliageMats)
+                if (m.HasProperty("_Cull")) { m.SetFloat("_Cull", 0f); m.doubleSidedGI = true; }
         rockMat = rockMaterial != null
             ? rockMaterial
             : MaterialFactory.LitTextured(ProceduralTextures.Rock, ProceduralTextures.RockNormal, new Color(0.8f, 0.8f, 0.82f), 0.12f);
