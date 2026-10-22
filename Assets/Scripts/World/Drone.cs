@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
@@ -162,6 +163,7 @@ public class DroneUnit : MonoBehaviour
     void LateUpdate()
     {
         UpdateLampGlows();
+        DrawHeat();
         if (beacon == null) return;
         var cam = Camera.main;
         beaconClock += Time.deltaTime;
@@ -301,6 +303,7 @@ public class DroneUnit : MonoBehaviour
         hovering = !landing;
         hoverY = transform.position.y;
         stoppedFrame = Time.frameCount;
+        SetThermal(false);
         if (view != null) view.enabled = false;
         if (mainCam != null) mainCam.cullingMask = mainMask;
     }
@@ -313,7 +316,7 @@ public class DroneUnit : MonoBehaviour
         // The battery: flying uses it; left alone it trickles away. Flat, it dies (and falls, if it's up).
         if (!Dead && !PauseMenu.IsPaused)
         {
-            Charge = Mathf.Max(0f, Charge - dt / Mathf.Max(flightTime, 1f) * (piloting ? 1f : idleDrain));
+            Charge = Mathf.Max(0f, Charge - dt / Mathf.Max(flightTime, 1f) * (piloting ? (thermal ? thermalDrain : 1f) : idleDrain));
             if (Dead) Die();
         }
         if (falling) Fall(dt);
@@ -332,11 +335,12 @@ public class DroneUnit : MonoBehaviour
             if (PauseMenu.IsPaused) return;
             bool cut = GameOverScreen.IsActive || Crawler.Holding != null || ShadowEntity.Capturing != null
                        || player == null || PortalDoor.PlayerInRoom;
-            if (cut || (HorrorInput.FlashlightPressed && Time.frameCount != startedFrame))
+            if (cut || HorrorInput.InteractPressed)
             {
                 StopPiloting();
                 return;
             }
+            if (HorrorInput.FlashlightPressed && Time.frameCount != startedFrame) SetThermal(!thermal);
             Fly(dt);
             Buzz(dt);
         }
@@ -409,6 +413,131 @@ public class DroneUnit : MonoBehaviour
         }
         if (hitSomething) velocity = Vector3.Reflect(velocity, hit.normal) * 0.3f; // glancing off a branch or a wall
         else transform.position += step;
+    }
+
+    // ---------------------------------------------------------------- Thermal
+
+    [Tooltip("Thermal mode drains the battery this many times as fast.")]
+    public float thermalDrain = 2f;
+    [Range(0f, 1f), Tooltip("How much of the fog the thermal camera still sees.")]
+    public float thermalFog = 0.25f;
+    public Color heatColor = new Color(1f, 0.92f, 0.8f);
+    bool thermal;
+    Volume thermalVolume;
+    Material heatMat;
+    float fogKept = -1f;
+    const int ThermalLayer = 31; // (a spare layer: only the drone's camera looks at it for its post-processing)
+    readonly Dictionary<Component, MeshFilter[]> heatParts = new Dictionary<Component, MeshFilter[]>();
+    float heatRefresh;
+    Mesh bodyMesh;
+
+    /// <summary>
+    /// Thermal (F while flying): the picture goes grey and stark, the fog mostly gone from it, and anything
+    /// warm (the hunters, crawlers, you) burns white. Easier to see by, at twice the battery.
+    /// </summary>
+    void SetThermal(bool on)
+    {
+        if (thermal == on) return;
+        thermal = on;
+        if (on)
+        {
+            if (thermalVolume == null)
+            {
+                var go = new GameObject("Drone Thermal") { layer = ThermalLayer };
+                go.transform.SetParent(transform, false);
+                thermalVolume = go.AddComponent<Volume>();
+                thermalVolume.isGlobal = true;
+                thermalVolume.priority = 50f;
+                var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+                var grade = profile.Add<ColorAdjustments>(true);
+                grade.saturation.Override(-100f);
+                grade.contrast.Override(45f);
+                grade.postExposure.Override(1.6f);
+                grade.colorFilter.Override(new Color(0.92f, 0.95f, 1f));
+                var grain = profile.Add<FilmGrain>(true);
+                grain.intensity.Override(0.35f);
+                var vig = profile.Add<Vignette>(true);
+                vig.intensity.Override(0.35f);
+                thermalVolume.sharedProfile = profile;
+            }
+            if (heatMat == null) heatMat = MaterialFactory.NoFog(heatColor * 3f);
+            if (view != null)
+            {
+                var data = view.GetUniversalAdditionalCameraData();
+                if (data != null) data.volumeLayerMask |= 1 << ThermalLayer;
+            }
+        }
+        if (thermalVolume != null) thermalVolume.gameObject.SetActive(on);
+        ProceduralAudio.PlayAt(ProceduralAudio.FobClick, transform.position, 0.4f, on ? 1.6f : 1.2f, 2f);
+    }
+
+    void OnEnable()
+    {
+        RenderPipelineManager.beginCameraRendering += BeforeRender;
+        RenderPipelineManager.endCameraRendering += AfterRender;
+    }
+
+    void OnDisable()
+    {
+        RenderPipelineManager.beginCameraRendering -= BeforeRender;
+        RenderPipelineManager.endCameraRendering -= AfterRender;
+        if (fogKept >= 0f) { RenderSettings.fogDensity = fogKept; fogKept = -1f; }
+    }
+
+    // The thermal camera sees through most of the fog (just for its own picture).
+    void BeforeRender(ScriptableRenderContext context, Camera cam)
+    {
+        if (!thermal || cam != view) return;
+        fogKept = RenderSettings.fogDensity;
+        RenderSettings.fogDensity = fogKept * thermalFog;
+    }
+
+    void AfterRender(ScriptableRenderContext context, Camera cam)
+    {
+        if (cam != view || fogKept < 0f) return;
+        RenderSettings.fogDensity = fogKept;
+        fogKept = -1f;
+    }
+
+    /// <summary>Everything warm, drawn again in white heat (for the drone's camera only).</summary>
+    void DrawHeat()
+    {
+        if (!thermal || !piloting || view == null) return;
+        heatRefresh -= Time.deltaTime;
+        if (heatRefresh <= 0f)
+        {
+            heatRefresh = 1f;
+            heatParts.Clear();
+            foreach (var e in ShadowEntity.All) if (e != null) heatParts[e] = e.GetComponentsInChildren<MeshFilter>();
+            foreach (var b in BlindEntity.All) if (b != null) heatParts[b] = b.GetComponentsInChildren<MeshFilter>();
+            foreach (var c in Crawler.All) if (c != null) heatParts[c] = c.GetComponentsInChildren<MeshFilter>();
+            foreach (var f in FlyingEntity.All) if (f != null) heatParts[f] = f.GetComponentsInChildren<MeshFilter>();
+        }
+        foreach (var pair in heatParts)
+        {
+            if (pair.Key == null || !pair.Key.gameObject.activeInHierarchy) continue;
+            if (pair.Key is ShadowEntity se && !se.IsVisible) continue;
+            if (pair.Key is BlindEntity be && !be.IsPresent) continue;
+            foreach (var f in pair.Value)
+            {
+                if (f == null || f.sharedMesh == null) continue;
+                var r = f.GetComponent<Renderer>();
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                Graphics.DrawMesh(f.sharedMesh, f.transform.localToWorldMatrix * Matrix4x4.Scale(Vector3.one * 1.04f), heatMat, 0, view);
+            }
+        }
+        // And you, standing where you left yourself.
+        if (player != null)
+        {
+            if (bodyMesh == null)
+            {
+                var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                bodyMesh = capsule.GetComponent<MeshFilter>().sharedMesh;
+                Destroy(capsule);
+            }
+            Vector3 you = WorldWrap.NearestImage(player.transform.position, transform.position);
+            Graphics.DrawMesh(bodyMesh, Matrix4x4.TRS(you + Vector3.up * 0.9f, Quaternion.identity, new Vector3(0.5f, 0.9f, 0.5f)), heatMat, 0, view);
+        }
     }
 
     /// <summary>Its motors, heard by things listening.</summary>
@@ -534,7 +663,7 @@ public class DroneUnit : MonoBehaviour
         float dist = new Vector2(transform.position.x - you.x, transform.position.z - you.z).magnitude;
         int bars = Mathf.Clamp(Mathf.CeilToInt((1f - loss) * 4f), 0, 4);
         bool blink = Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f;
-        GUI.Label(new Rect(m + 14f * unit, m + 10f * unit, 400f * unit, 26f * unit), (blink ? "● " : "   ") + "LIVE", hudStyle);
+        GUI.Label(new Rect(m + 14f * unit, m + 10f * unit, 400f * unit, 26f * unit), (blink ? "● " : "   ") + (thermal ? "LIVE · THERMAL" : "LIVE"), hudStyle);
         GUI.Label(new Rect(m + 14f * unit, m + 36f * unit, 400f * unit, 26f * unit), $"SIGNAL {new string('|', bars)}{new string('.', 4 - bars)}", hudStyle);
         GUI.Label(new Rect(w - m - 260f * unit, m + 10f * unit, 246f * unit, 26f * unit), $"ALT {alt:0}m", hudStyle);
         GUI.Label(new Rect(w - m - 260f * unit, m + 36f * unit, 246f * unit, 26f * unit), $"DIST {dist:0}m", hudStyle);
@@ -546,7 +675,7 @@ public class DroneUnit : MonoBehaviour
             GUI.Label(new Rect(0f, h * 0.36f, w, 40f * unit), "B A T T E R Y   L O W", bigStyle);
             GUI.color = hud;
         }
-        GUI.Label(new Rect(m + 14f * unit, h - m - 36f * unit, w, 26f * unit), "WASD fly · SPACE / CTRL up and down · SHIFT fast · F let go", hudStyle);
+        GUI.Label(new Rect(m + 14f * unit, h - m - 36f * unit, w, 26f * unit), (thermal ? "F thermal off" : "F thermal (drains twice as fast)") + " · WASD fly · SPACE / CTRL up and down · SHIFT fast · E let go", hudStyle);
 
         if (loss > 0.9f)
         {

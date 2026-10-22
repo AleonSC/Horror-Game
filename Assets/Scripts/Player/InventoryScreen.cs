@@ -71,7 +71,7 @@ public class InventoryScreen : MonoBehaviour
         new Entry { item = Hotbar.Item.Remote, name = "Remote", accent = new Color(0.55f, 0.95f, 0.75f),
             lore = new[] { "The drone's controller: two sticks, a stubby aerial, a screen to see through its camera.",
                            "While you're looking through it you're standing out here blind. Keep an ear on what's behind you." },
-            how = "{key} to hold it, F to fly the drone from wherever you are, F again to let go (it lands). Pick it back up where it lands." },
+            how = "{key} to hold it, F to fly the drone from wherever you are, F while flying for thermal (twice the battery), E to let go (it hovers, or lands if it's low). Pick it back up where it lands." },
         new Entry { item = Hotbar.Item.Stick, name = "Stick of Truth", accent = new Color(1f, 0.8f, 0.45f),
             lore = new[] { "A stick. It knows things.", "(Dev tools: from the F9 window.)" },
             how = "{key} to hold it. Right click to choose what to spawn, left click to spawn it where you point. Double tap Space to fly." },
