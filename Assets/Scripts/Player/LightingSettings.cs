@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.HighDefinition;
 
 /// <summary>
 /// The lighting panel, a developer tool (DevTools, F9, Lighting tab): pick a theme, then tweak the night live: moonlight,
@@ -87,9 +87,8 @@ public class LightingSettings : MonoBehaviour
         lightRefresh -= Time.unscaledDeltaTime;
         if (lightRefresh > 0f) return;
         lightRefresh = 1f;
-        // New lamps / torches get the extra-shadows setting, and new cameras the picture settings.
+        // New lamps / torches get the extra-shadows setting.
         if (v.extraShadows) ApplyExtraShadows();
-        EnablePostProcessing();
         // The sky's set every frame by NightSky itself, so keep it told.
         if (NightSky.Instance != null)
         {
@@ -220,17 +219,6 @@ public class LightingSettings : MonoBehaviour
         vignetteFx.color.Override(Color.black);
         grainFx.intensity.Override(v.grain);
         grainFx.response.Override(0.8f);
-        EnablePostProcessing();
-    }
-
-    static void EnablePostProcessing()
-    {
-        foreach (var cam in Camera.allCameras)
-        {
-            if (cam.targetTexture != null) continue; // the door's view cameras are copied from the main one
-            var data = cam.GetUniversalAdditionalCameraData();
-            if (data != null && !data.renderPostProcessing) data.renderPostProcessing = true;
-        }
     }
 
     /// <summary>Shadows on every point light (lamps, torch, lighter, floodlights are spots and keep theirs).</summary>

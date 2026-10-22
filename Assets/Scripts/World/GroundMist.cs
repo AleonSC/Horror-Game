@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Low mist lying in the forest: a real volume of it (Horror/MistVolume), not sprites. A box round the player
@@ -11,7 +10,7 @@ using UnityEngine.Rendering.Universal;
 /// It's solid from every angle, wraps round the trees, and you walk through it.
 ///
 /// The shader reads where the ground is and where mist gathers from a small map round the player (rebuilt a
-/// little at a time as you move), and needs the camera's depth texture, which this turns on.
+/// little at a time as you move), and reads the camera's depth texture (HDRP always has one).
 /// DarkForestGenerator adds this.
 /// </summary>
 public class GroundMist : MonoBehaviour
@@ -75,7 +74,6 @@ public class GroundMist : MonoBehaviour
     DarkForestGenerator generator;
     WeatherSystem weather;
     Flashlight flashlight;
-    Camera depthCam;
     readonly List<Light> nearLights = new List<Light>();
     readonly Vector4[] pointPos = new Vector4[4];
     readonly Vector4[] pointColor = new Vector4[4];
@@ -245,14 +243,6 @@ public class GroundMist : MonoBehaviour
     {
         var cam = Camera.main;
         if (cam == null || mat == null) return;
-
-        // The ray stops at the ground and the trees: it needs the depth texture.
-        if (depthCam != cam)
-        {
-            depthCam = cam;
-            var data = cam.GetUniversalAdditionalCameraData();
-            if (data != null) data.requiresDepthTexture = true;
-        }
 
         // None in the dark room.
         bool show = !PortalDoor.PlayerInRoom;

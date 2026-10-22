@@ -11,7 +11,7 @@ using UnityEngine.Rendering;
 /// With "Spawn Player" on, a first person player with a flashlight is created too.
 /// You can also right-click the component header > "Generate" to build it in edit mode.
 ///
-/// Works with the Built-in render pipeline and URP. Assign your own prefabs or
+/// Works with HDRP. Assign your own prefabs or
 /// materials to replace the procedural placeholder art.
 /// </summary>
 public class DarkForestGenerator : MonoBehaviour
@@ -306,7 +306,6 @@ public class DarkForestGenerator : MonoBehaviour
         BuildWater();
 
         if (applyLighting) ApplyAtmosphere();
-        if (Application.isPlaying) EnableLightShadows();
         if (spawnPlayer) SpawnPlayer();
         if (spawnEntity && FindAnyObjectByType<ShadowEntity>() == null)
             ShadowEntity.Spawn(ShadowEntity.FirstEntityDelay); // a minute of calm before it starts
@@ -664,23 +663,6 @@ public class DarkForestGenerator : MonoBehaviour
                     else DestroyImmediate(built.gameObject);
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// The lights other than the moon (the scours' glare, the giant's searchlight, fires, floodlights) only
-    /// throw shadows, so they come through a shack's planks in slats, if the URP asset lets them: this turns
-    /// that on if it's off (Additional Lights > Cast Shadows).
-    /// </summary>
-    static void EnableLightShadows()
-    {
-        var urp = GraphicsSettings.currentRenderPipeline;
-        if (urp == null) return;
-        var field = urp.GetType().GetField("m_AdditionalLightShadowsSupported", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        if (field != null && field.FieldType == typeof(bool) && !(bool)field.GetValue(urp))
-        {
-            field.SetValue(urp, true);
-            Debug.Log("Turned on Additional Lights > Cast Shadows on the URP asset, so enemy lights shine through gaps in walls.");
         }
     }
 
@@ -2222,7 +2204,7 @@ public class DarkForestGenerator : MonoBehaviour
         cc.stepOffset = 0.4f;
         cc.slopeLimit = 50f;
 
-        // Reuse the scene's Main Camera if there is one, so its post-processing (e.g. URP Bloom) carries over.
+        // Reuse the scene's Main Camera if there is one, so its post-processing (e.g. Bloom) carries over.
         var cam = Camera.main;
         if (cam == null)
         {
@@ -2291,7 +2273,7 @@ public class DarkForestGenerator : MonoBehaviour
         // Needle sprays are drawn once and show from both faces.
         if (foliageMaterial == null)
             foreach (var m in foliageMats)
-                if (m.HasProperty("_Cull")) { m.SetFloat("_Cull", 0f); m.doubleSidedGI = true; }
+                MaterialFactory.SetDoubleSided(m);
         rockMat = rockMaterial != null
             ? rockMaterial
             : MaterialFactory.LitTextured(ProceduralTextures.Rock, ProceduralTextures.RockNormal, new Color(0.8f, 0.8f, 0.82f), 0.12f);

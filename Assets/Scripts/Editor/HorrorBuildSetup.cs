@@ -12,8 +12,8 @@ using UnityEngine.Rendering;
 /// so in a build those lookups failed, generation broke part way, and you got an empty scene.
 ///
 /// This keeps a small set of reference materials in Resources/HorrorShaderRefs, one per shader and
-/// keyword combination the game uses (lit, lit with a normal map, see-through lit, unlit), so the shaders
-/// and those variants are always built in. It also keeps fog in the build (the fog is only switched on
+/// keyword combination the game uses (HDRP lit, lit with a normal map, double-sided lit, see-through lit,
+/// unlit), so the shaders and those variants are always built in. It also keeps fog in the build (the fog is only switched on
 /// at runtime, so Unity would otherwise strip it), and makes sure the open scene is in the build list.
 /// Runs whenever scripts reload and again just before every build; also Horror > Prepare For Build.
 /// </summary>
@@ -50,11 +50,8 @@ public class HorrorBuildSetup : IPreprocessBuildWithReport
     static void EnsureShaderReferences(bool log)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
-        bool srp = GraphicsSettings.currentRenderPipeline != null;
-        Shader lit = srp ? Shader.Find("Universal Render Pipeline/Lit") : Shader.Find("Standard");
-        if (lit == null) lit = Shader.Find("Universal Render Pipeline/Simple Lit");
-        Shader unlit = srp ? Shader.Find("Universal Render Pipeline/Unlit") : Shader.Find("Unlit/Color");
-        if (unlit == null) unlit = Shader.Find("Unlit/Color");
+        Shader lit = Shader.Find("HDRP/Lit");
+        Shader unlit = Shader.Find("HDRP/Unlit");
 
         if (!AssetDatabase.IsValidFolder(Folder))
         {
@@ -68,24 +65,20 @@ public class HorrorBuildSetup : IPreprocessBuildWithReport
         {
             m.enableInstancing = true;
             m.EnableKeyword("_NORMALMAP");
+            m.EnableKeyword("_NORMALMAP_TANGENT_SPACE");
+        });
+        changed |= Ensure("LitDoubleSided", lit, m =>
+        {
+            m.enableInstancing = true;
+            m.SetFloat("_DoubleSidedEnable", 1f);
         });
         changed |= Ensure("LitTransparent", lit, m =>
         {
-            if (m.HasProperty("_Surface"))
-            {
-                m.SetFloat("_Surface", 1f);
-                m.SetFloat("_Blend", 0f);
-                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            }
-            else if (m.HasProperty("_Mode"))
-            {
-                m.SetFloat("_Mode", 2f);
-                m.EnableKeyword("_ALPHABLEND_ON");
-            }
+            m.SetFloat("_SurfaceType", 1f);
+            m.SetFloat("_BlendMode", 0f);
             m.renderQueue = (int)RenderQueue.Transparent - 50;
         });
         changed |= Ensure("Unlit", unlit, m => { });
-        changed |= Ensure("UnlitColor", Shader.Find("Unlit/Color"), m => { });
 
         if (changed)
         {
@@ -106,11 +99,13 @@ public class HorrorBuildSetup : IPreprocessBuildWithReport
         {
             existing.shader = shader;
             setup(existing);
+            UnityEngine.Rendering.HighDefinition.HDMaterial.ValidateMaterial(existing);
             EditorUtility.SetDirty(existing);
             return true;
         }
         var mat = new Material(shader) { name = name };
         setup(mat);
+        UnityEngine.Rendering.HighDefinition.HDMaterial.ValidateMaterial(mat);
         AssetDatabase.CreateAsset(mat, path);
         return true;
     }

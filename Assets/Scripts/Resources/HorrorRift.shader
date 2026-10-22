@@ -1,8 +1,8 @@
 // The face of a rift (RiftEvent): a ragged, shifting oval that shows a camera's render texture in screen
 // space, so it's a hole through to somewhere else. The view swirls a little toward the edge, darkens just
 // inside it, and the edge itself burns a cold glow. Drawn on a mesh whose object-space x and y are the
-// oval's (radius 1 is the edge before its ragged wobble). Unlit and fog-free. Works in both the Built-in
-// pipeline and URP. Lives in a Resources folder so it's always included in builds.
+// oval's (radius 1 is the edge before its ragged wobble). Unlit and fog-free. HDRP (see
+// HorrorHDRP.hlsl). Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Rift"
 {
     Properties
@@ -13,32 +13,34 @@ Shader "Horror/Rift"
     }
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "Queue" = "Geometry+10" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Opaque" "Queue" = "Geometry+10" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
-            sampler2D _MainTex;
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
             float4 _RimColor;
             float _Flicker;
 
             struct v2f
             {
                 float4 pos : SV_POSITION;
-                float4 screenPos : TEXCOORD0;
-                float2 local : TEXCOORD1;
+                float2 local : TEXCOORD0;
             };
 
             v2f vert(float4 vertex : POSITION)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
-                o.screenPos = ComputeScreenPos(o.pos);
+                o.pos = HorrorObjectToClip(vertex.xyz);
                 o.local = vertex.xy;
                 return o;
             }
@@ -54,18 +56,18 @@ Shader "Horror/Rift"
                 clip(1.0 - edge);
 
                 // Swirling toward the edge.
-                float2 uv = i.screenPos.xy / i.screenPos.w;
+                float2 uv = HorrorScreenUV(i.pos);
                 float2 tangent = r > 0.0001 ? float2(-p.y, p.x) / r : float2(0, 0);
                 float swirl = smoothstep(0.45, 1.0, edge);
                 uv += tangent * swirl * swirl * 0.025 * sin(edge * 26.0 - t * 4.0);
-                float3 view = tex2D(_MainTex, uv).rgb;
+                float3 view = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv).rgb;
 
                 view *= 1.0 - 0.6 * smoothstep(0.62, 0.9, edge); // a dark band just inside the rim
                 float rim = smoothstep(0.84, 1.0, edge);
                 float3 col = lerp(view, _RimColor.rgb * _Flicker, rim * rim);
                 return float4(col, 1);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

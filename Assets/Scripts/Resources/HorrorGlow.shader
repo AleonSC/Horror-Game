@@ -1,5 +1,5 @@
 // A soft round glow on a quad: additive, fog-free, brightest in the middle and fading smoothly to nothing
-// at the edge. Used for the halo round things you can pick up. Works in both the Built-in pipeline and URP.
+// at the edge. Used for the halo round things you can pick up. HDRP (see HorrorHDRP.hlsl).
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Glow"
 {
@@ -10,17 +10,20 @@ Shader "Horror/Glow"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Blend One One
             ZWrite Off
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float4 _Color;
             float _Intensity;
@@ -34,7 +37,7 @@ Shader "Horror/Glow"
             v2f vert(float4 vertex : POSITION, float2 uv : TEXCOORD0)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
+                o.pos = HorrorObjectToClip(vertex.xyz);
                 o.uv = uv;
                 return o;
             }
@@ -45,7 +48,7 @@ Shader "Horror/Glow"
                 float a = pow(saturate(1.0 - d), 2.2);
                 return float4(_Color.rgb * a * _Intensity, 1);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

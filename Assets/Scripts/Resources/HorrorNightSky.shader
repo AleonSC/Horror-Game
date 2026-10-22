@@ -1,6 +1,6 @@
 // The night sky on a dome around the camera: twinkling stars and slow-drifting clouds that blot them out.
 // Unlit and fog-free, and it lights nothing: it's painted over the background colour, fading out toward
-// the horizon where the fog is. Works in both the Built-in pipeline and URP.
+// the horizon where the fog is. HDRP (see HorrorHDRP.hlsl).
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Night Sky"
 {
@@ -16,17 +16,20 @@ Shader "Horror/Night Sky"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Geometry+450" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Geometry+450" "IgnoreProjector" = "True" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             ZWrite Off
             Cull Front
             Blend SrcAlpha OneMinusSrcAlpha
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float _StarBrightness;
             float4 _CloudColor;
@@ -45,8 +48,8 @@ Shader "Horror/Night Sky"
             v2f vert(float4 vertex : POSITION)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
-                o.dir = mul((float3x3)unity_ObjectToWorld, vertex.xyz);
+                o.pos = HorrorObjectToClip(vertex.xyz);
+                o.dir = HorrorWorldVector(vertex.xyz);
                 return o;
             }
 
@@ -127,7 +130,7 @@ Shader "Horror/Night Sky"
                 }
                 return float4(color, alpha);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

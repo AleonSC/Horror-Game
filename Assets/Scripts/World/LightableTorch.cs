@@ -198,13 +198,11 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
         glow.color = new Color(1f, 0.62f, 0.3f);
         glow.range = lightRange > 0f ? lightRange : safeRadius * 1.8f;
         glow.intensity = baseIntensity;
-        // Shadows, so it lights the room it's in and not through the walls (needs the URP asset's
-        // Additional Lights > Cast Shadows ticked).
+        // Shadows, so it lights the room it's in and not through the walls.
         glow.shadows = LightShadows.Soft;
         glow.shadowBias = 0.03f;
         glow.shadowNormalBias = 0f; // (any more and thin planks let the light through)
         glow.shadowNearPlane = 0.1f;
-        WarnIfNoShadows();
         glow.enabled = false;
 
         crackle = ProceduralAudio.AddSource(flameAt.gameObject, ProceduralAudio.FireLoop, true, true, 0f, 2f, 18f);
@@ -214,17 +212,6 @@ public class LightableTorch : MonoBehaviour, SafeZones.ISource
         aim.isTrigger = true;
         aim.center = aimCenter;
         aim.size = aimSize;
-    }
-
-    static bool warned;
-
-    static void WarnIfNoShadows()
-    {
-        if (warned) return;
-        warned = true;
-        var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
-        if (urp != null && !urp.supportsAdditionalLightShadows)
-            Debug.LogWarning("Fire light shines through walls: tick Additional Lights > Cast Shadows on the URP asset (Project Settings > Graphics/Quality > Render Pipeline Asset > Lighting).");
     }
 
     static Transform Part(PrimitiveType type, Material mat, Transform parent, Vector3 pos, Vector3 scale, Vector3 euler, bool keepCollider)

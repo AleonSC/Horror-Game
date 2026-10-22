@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.HighDefinition;
 
 /// <summary>
 /// The remote-control drone from the cabin's store room. Carried, it's an item in the hotbar; F sets it
@@ -280,12 +280,6 @@ public class DroneUnit : MonoBehaviour
             view.nearClipPlane = 0.05f;
             view.ResetProjectionMatrix(); // (the player's camera sets its own)
             view.fieldOfView = 75f; // a wide little lens
-            var data = view.GetUniversalAdditionalCameraData();
-            if (data != null)
-            {
-                data.requiresDepthTexture = true; // (the mist needs it)
-                data.renderPostProcessing = true;
-            }
         }
         view.depth = mainCam.depth + 1f;
         view.enabled = true;
@@ -471,8 +465,9 @@ public class DroneUnit : MonoBehaviour
             if (heatMat == null) heatMat = MaterialFactory.NoFog(heatColor * 3f);
             if (view != null)
             {
-                var data = view.GetUniversalAdditionalCameraData();
-                if (data != null) data.volumeLayerMask |= 1 << ThermalLayer;
+                var data = view.GetComponent<HDAdditionalCameraData>();
+                if (data == null) data = view.gameObject.AddComponent<HDAdditionalCameraData>();
+                data.volumeLayerMask |= 1 << ThermalLayer;
             }
         }
         if (thermalVolume != null) thermalVolume.gameObject.SetActive(on);

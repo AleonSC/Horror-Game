@@ -1,7 +1,7 @@
 // A flame on a quad: additive, fog-free, animated. uv (0,0) is the bottom left, the flame rising from the
 // bottom middle. A teardrop of fire, torn and licking upward with scrolling noise, white-yellow at its hot
 // core, orange, then red and transparent at its ragged edges and tip. _Seed varies each flame.
-// Works in both the Built-in pipeline and URP. Lives in a Resources folder so it's always included in builds.
+// HDRP (see HorrorHDRP.hlsl). Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Flame"
 {
     Properties
@@ -13,17 +13,20 @@ Shader "Horror/Flame"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Blend One One
             ZWrite Off
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float4 _Color;
             float _Intensity, _Seed, _Speed;
@@ -37,7 +40,7 @@ Shader "Horror/Flame"
             v2f vert(float4 vertex : POSITION, float2 uv : TEXCOORD0)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
+                o.pos = HorrorObjectToClip(vertex.xyz);
                 o.uv = uv;
                 return o;
             }
@@ -84,7 +87,7 @@ Shader "Horror/Flame"
                 col = lerp(col, float3(1.0, 0.93, 0.72), smoothstep(0.55, 0.95, heat));
                 return float4(col * shape * _Intensity, 1);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

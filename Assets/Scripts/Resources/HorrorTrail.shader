@@ -1,7 +1,7 @@
 // A glowing trail (a LineRenderer or TrailRenderer, tiled UVs: uv.x runs along it, uv.y across): additive and
 // fog-free, a soft glowing band with a bright thread down its middle and faint streaks flowing along it,
 // shimmering. Vertex colour alpha fades it. Used for the flare's trail of fire.
-// Works in both the Built-in pipeline and URP. Lives in a Resources folder so it's always included in builds.
+// HDRP (see HorrorHDRP.hlsl). Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Trail"
 {
     Properties
@@ -11,18 +11,21 @@ Shader "Horror/Trail"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Blend One One
             ZWrite Off
             Cull Off
             Offset -1, -1
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float4 _Color;
             float _Intensity;
@@ -37,7 +40,7 @@ Shader "Horror/Trail"
             v2f vert(float4 vertex : POSITION, float2 uv : TEXCOORD0, float4 color : COLOR)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
+                o.pos = HorrorObjectToClip(vertex.xyz);
                 o.uv = uv;
                 o.color = color;
                 return o;
@@ -55,7 +58,7 @@ Shader "Horror/Trail"
                 float b = (band * 0.3 + thread * 0.7 + streak * band * 1.3) * shimmer;
                 return float4(_Color.rgb * b * _Intensity * i.color.a, 1);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

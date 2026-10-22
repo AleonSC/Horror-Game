@@ -7,7 +7,7 @@
 //
 // The object is a cone as before: apex at its origin, axis +z, radius 1 at z = 1, scaled by its transform.
 // Use it with WatcherEvent.BuildBeamMesh (a strip with uv.x across, -1 to 1, and uv.y along, 0 to 1).
-// Works in URP (with the camera's depth texture on; GroundMist turns it on) and the Built-in pipeline.
+// HDRP (see HorrorHDRP.hlsl).
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Beam"
 {
@@ -20,28 +20,29 @@ Shader "Horror/Beam"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Blend One One
             ZWrite Off
             ZTest LEqual
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float4 _Color;
             float _FadeIn, _FadeOut, _Softness;
-            UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
 
             struct v2f
             {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
-                float4 screen : TEXCOORD1;
                 float3 world : TEXCOORD2;
                 float eye : TEXCOORD3;
                 float viewAxis : TEXCOORD4; // how nearly you're looking straight along the beam (0-1)
@@ -51,33 +52,33 @@ Shader "Horror/Beam"
             v2f vert(float4 vertex : POSITION, float2 uv : TEXCOORD0)
             {
                 v2f o;
-                float3 apex = mul(unity_ObjectToWorld, float4(0, 0, 0, 1)).xyz;
-                float3 tip = mul(unity_ObjectToWorld, float4(0, 0, 1, 1)).xyz;
+                float3 apex = HorrorWorld(float3(0, 0, 0));
+                float3 tip = HorrorWorld(float3(0, 0, 1));
                 float3 axisVec = tip - apex;
                 float len = max(length(axisVec), 0.0001);
                 float3 axis = axisVec / len;
-                float radiusEnd = length(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0)));
+                float radiusEnd = length(HorrorWorldVector(float3(1, 0, 0)));
 
                 float t = uv.y;
                 float3 p = apex + axisVec * t;
                 float radius = lerp(0.03, 1.0, t) * radiusEnd;
 
                 // Turned about its axis to face the camera.
-                float3 toCam = _WorldSpaceCameraPos - p;
+                float3 cam = HorrorCameraPos();
+                float3 toCam = cam - p;
                 float3 side = cross(axis, toCam);
                 float sideLen = length(side);
                 side = sideLen > 0.0001 ? side / sideLen : normalize(cross(axis, abs(axis.y) < 0.9 ? float3(0, 1, 0) : float3(1, 0, 0)));
                 float3 world = p + side * (radius * 1.2 * uv.x);
 
-                o.pos = mul(UNITY_MATRIX_VP, float4(world, 1));
+                o.pos = HorrorClip(world);
                 o.uv = uv;
-                o.screen = ComputeScreenPos(o.pos);
                 o.world = world;
-                o.eye = -mul(UNITY_MATRIX_V, float4(world, 1)).z;
+                o.eye = HorrorEyeDepth(world);
                 o.viewAxis = abs(dot(axis, normalize(toCam)));
 
                 // Is the camera inside the cone?
-                float3 c = _WorldSpaceCameraPos - apex;
+                float3 c = cam - apex;
                 float along = dot(c, axis) / len;
                 float3 off = c - axis * dot(c, axis);
                 float radiusThere = lerp(0.03, 1.0, saturate(along)) * radiusEnd;
@@ -102,19 +103,19 @@ Shader "Horror/Beam"
                 along *= smoothstep(0.0, 0.02, t);
 
                 // Where it meets the ground (or anything): melting into it, no hard line.
-                float scene = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screen)));
+                float scene = HorrorSceneEyeDepth(i.pos);
                 float soft = saturate((scene - i.eye) / max(_Softness, 0.01));
 
                 // Looking straight along it (it'd be a flat ribbon edge-on), or standing in it: it fades away,
                 // leaving the light it throws. Close by the camera, too.
                 float axisFade = 1.0 - smoothstep(0.8, 0.98, i.viewAxis);
                 float insideFade = 1.0 - 0.85 * i.inside;
-                float near = saturate((distance(i.world, _WorldSpaceCameraPos) - 0.5) / 5.0);
+                float near = saturate((distance(i.world, HorrorCameraPos()) - 0.5) / 5.0);
 
                 float a = core * along * soft * axisFade * insideFade * near * _Color.a * 1.4;
                 return float4(_Color.rgb * a, 1);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

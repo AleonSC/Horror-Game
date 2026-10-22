@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.HighDefinition;
 
 /// <summary>
 /// Esc pauses the game: time and sound stop, the mouse is freed, and a cinematic menu appears: black
@@ -156,7 +156,7 @@ public class PauseMenu : MonoBehaviour
         ApplyMotionBlur(cam);
     }
 
-    /// <summary>Motion blur on a global volume (camera motion: turning and moving), on or off and how strong.</summary>
+    /// <summary>Motion blur on a global volume (turning, moving, and things rushing past), on or off and how strong.</summary>
     void ApplyMotionBlur(Camera cam)
     {
         if (motionBlurVolume == null)
@@ -168,17 +168,9 @@ public class PauseMenu : MonoBehaviour
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             motionBlurVolume.profile = profile;
             motionBlurFx = profile.Add<MotionBlur>(true);
-            motionBlurFx.mode.Override(MotionBlurMode.CameraOnly);
-            motionBlurFx.quality.Override(MotionBlurQuality.Medium);
-            motionBlurFx.clamp.Override(0.08f);
         }
         motionBlurFx.intensity.Override(motionBlur ? motionBlurStrength : 0f);
         motionBlurVolume.enabled = motionBlur && motionBlurStrength > 0f;
-        if (motionBlur && cam != null)
-        {
-            var data = cam.GetUniversalAdditionalCameraData();
-            if (data != null) data.renderPostProcessing = true;
-        }
     }
 
     // ---------------------------------------------------------------- Drawing

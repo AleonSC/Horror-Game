@@ -1,5 +1,5 @@
 // Flat colour that ignores fog. Used for things that must read from far away through the fog
-// (the eye in the sky, the giant). Works in both the Built-in pipeline and URP.
+// (the eye in the sky, the giant). HDRP (see HorrorHDRP.hlsl).
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Unlit No Fog"
 {
@@ -10,29 +10,32 @@ Shader "Horror/Unlit No Fog"
     }
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "Queue" = "Geometry" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Opaque" "Queue" = "Geometry" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             ZWrite [_ZWrite]
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float4 _Color;
 
             float4 vert(float4 vertex : POSITION) : SV_POSITION
             {
-                return UnityObjectToClipPos(vertex);
+                return HorrorObjectToClip(vertex.xyz);
             }
 
             float4 frag() : SV_Target
             {
                 return _Color;
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

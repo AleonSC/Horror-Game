@@ -2,7 +2,7 @@
 // slowly churns, rather than a round blob; dense in the middle, frayed and see-through at the edges.
 // Ignores fog, so smoke columns can be seen rising far off across the forest. Alpha-blended.
 // Per-puff colour/opacity (_Color) and a random _Seed come from a MaterialPropertyBlock.
-// Works in both the Built-in pipeline and URP. Lives in a Resources folder so it's always included in builds.
+// HDRP (see HorrorHDRP.hlsl). Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Smoke"
 {
     Properties
@@ -12,17 +12,20 @@ Shader "Horror/Smoke"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float4 _Color;
             float _Seed;
@@ -36,7 +39,7 @@ Shader "Horror/Smoke"
             v2f vert(float4 vertex : POSITION, float2 uv : TEXCOORD0)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
+                o.pos = HorrorObjectToClip(vertex.xyz);
                 o.uv = uv;
                 return o;
             }
@@ -81,7 +84,7 @@ Shader "Horror/Smoke"
                 float3 color = _Color.rgb * lerp(0.75, 1.2, saturate(n + p.y * 0.25));
                 return float4(color, density * _Color.a);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

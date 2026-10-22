@@ -3,7 +3,7 @@
 // with height above the ground (read from _MistMap: R = ground height, G = how much mist gathers there), and
 // stops where the ray hits the ground or a tree (the camera depth texture). The mist is lit by the
 // flashlight's cone and a few nearby point lights (lamps, torches), so beams and halos show in it.
-// Premultiplied alpha. Works in URP (the camera must have its depth texture on: GroundMist does that).
+// Premultiplied alpha. HDRP (see HorrorHDRP.hlsl); everything here is in true world space.
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/MistVolume"
 {
@@ -14,23 +14,26 @@ Shader "Horror/MistVolume"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Transparent-20" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent-20" "IgnoreProjector" = "True" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Blend One OneMinusSrcAlpha
             ZWrite Off
             ZTest Always
             Cull Front
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 3.5
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
-            sampler3D _Noise;
-            sampler2D _MistMap;
-            UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
+            TEXTURE3D(_Noise);
+            SAMPLER(sampler_Noise);
+            TEXTURE2D(_MistMap);
+            SAMPLER(sampler_MistMap);
 
             float4 _MapRect;            // xy: world xz at uv 0; zw: size in metres
             float4 _BoxMin, _BoxMax;    // the box, world space
@@ -51,28 +54,26 @@ Shader "Horror/MistVolume"
             {
                 float4 pos : SV_POSITION;
                 float3 world : TEXCOORD0;
-                float4 screen : TEXCOORD1;
             };
 
             v2f vert(float4 vertex : POSITION)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
-                o.world = mul(unity_ObjectToWorld, vertex).xyz;
-                o.screen = ComputeScreenPos(o.pos);
+                o.pos = HorrorObjectToClip(vertex.xyz);
+                o.world = HorrorAbsolute(HorrorWorld(vertex.xyz));
                 return o;
             }
 
             float Density(float3 p)
             {
                 float2 uv = (p.xz - _MapRect.xy) / _MapRect.zw;
-                float4 m = tex2Dlod(_MistMap, float4(uv, 0, 0));
+                float4 m = SAMPLE_TEXTURE2D_LOD(_MistMap, sampler_MistMap, uv, 0);
                 float h = p.y - m.r;
                 // Thick on the ground, thinning away above it; none under it.
                 float height = exp(-max(h, 0) / _MistHeight) * saturate(h * 4 + 1);
                 // Billowing: two scales of drifting noise, gathered into thicker patches where the map says.
-                float n1 = tex3Dlod(_Noise, float4(p * _NoiseScale + _Wind.xyz, 0)).r;
-                float n2 = tex3Dlod(_Noise, float4(p * _NoiseScale * 3.1 + _Wind.xyz * 1.7, 0)).r;
+                float n1 = SAMPLE_TEXTURE3D_LOD(_Noise, sampler_Noise, p * _NoiseScale + _Wind.xyz, 0).r;
+                float n2 = SAMPLE_TEXTURE3D_LOD(_Noise, sampler_Noise, p * _NoiseScale * 3.1 + _Wind.xyz * 1.7, 0).r;
                 float shape = saturate((n1 * 0.7 + n2 * 0.3) * 1.8 - 0.6 + m.g * 0.55);
                 // Thinner round the lamps.
                 float lamps = 1;
@@ -109,12 +110,11 @@ Shader "Horror/MistVolume"
 
             float4 frag(v2f i) : SV_Target
             {
-                float3 ro = _WorldSpaceCameraPos;
+                float3 ro = HorrorCameraAbsolute();
                 float3 rd = normalize(i.world - ro);
 
                 // How far the ray gets before it hits something solid.
-                float2 suv = i.screen.xy / i.screen.w;
-                float eye = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, suv));
+                float eye = HorrorSceneEyeDepth(i.pos);
                 float3 fwd = -UNITY_MATRIX_V[2].xyz;
                 float sceneDist = eye / max(dot(rd, fwd), 0.001);
 
@@ -125,7 +125,7 @@ Shader "Horror/MistVolume"
                 float enter = max(max(tmin.x, tmin.y), max(tmin.z, 0));
                 float leave = min(min(tmax.x, tmax.y), tmax.z);
                 leave = min(leave, min(sceneDist, _MaxDistance));
-                if (leave <= enter) return 0;
+                if (leave <= enter) return float4(0, 0, 0, 0);
 
                 const int STEPS = 32;
                 float stepLen = (leave - enter) / STEPS;
@@ -151,7 +151,7 @@ Shader "Horror/MistVolume"
                 }
                 return float4(col, 1 - trans);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

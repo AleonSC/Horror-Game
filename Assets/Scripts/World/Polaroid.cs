@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// The print an instant camera spits out: a picture of exactly what you shot, flash and all. It slides out
@@ -56,12 +55,6 @@ public class Polaroid : MonoBehaviour
         shooter.aspect = 1f;
         shooter.nearClipPlane = Mathf.Max(view.nearClipPlane, nearClip);
         shooter.depth = view.depth - 1f;
-        var data = shooter.GetUniversalAdditionalCameraData();
-        if (data != null)
-        {
-            data.requiresDepthTexture = true; // (the mist needs it)
-            data.renderPostProcessing = true;
-        }
 
         var print = new GameObject("Polaroid").AddComponent<Polaroid>();
         print.picture = picture;

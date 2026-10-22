@@ -89,6 +89,6 @@ public class WaterRipples : MonoBehaviour
         if (material == null) return;
         offset += drift * Time.deltaTime;
         material.mainTextureOffset = offset;
-        if (material.HasProperty("_BumpMap")) material.SetTextureOffset("_BumpMap", offset);
+        MaterialFactory.SetNormalMapOffset(material, offset);
     }
 }

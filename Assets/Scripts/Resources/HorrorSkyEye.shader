@@ -1,7 +1,7 @@
 // The giant eye in the sky. Draws an eyeball texture inside an almond-shaped opening whose lids
 // open and close (_Open), with the eyeball shifted by the gaze (_Look) and a slit pupil drawn on
-// top (_Pupil = width, height). Ignores fog, blends softly at the lid edges, and works in both
-// the Built-in pipeline and URP. Lives in a Resources folder so it's always included in builds.
+// top (_Pupil = width, height). Ignores fog, blends softly at the lid edges. HDRP (see
+// HorrorHDRP.hlsl). Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Sky Eye"
 {
     Properties
@@ -14,19 +14,23 @@ Shader "Horror/Sky Eye"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Background" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Background" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
-            sampler2D _MainTex;
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
             float4 _Color;
             float _Open;
             float4 _Look;
@@ -41,7 +45,7 @@ Shader "Horror/Sky Eye"
             v2f vert(float4 vertex : POSITION, float2 uv : TEXCOORD0)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
+                o.pos = HorrorObjectToClip(vertex.xyz);
                 o.uv = uv;
                 return o;
             }
@@ -56,7 +60,7 @@ Shader "Horror/Sky Eye"
                 float mask = saturate(edge / 0.035);
 
                 // The eyeball moves under the lids as it looks around.
-                float4 col = tex2D(_MainTex, i.uv - _Look.xy);
+                float4 col = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv - _Look.xy);
 
                 // Slit pupil, centred on the iris.
                 float2 q = (p - _Look.xy * 2) / max(_Pupil.xy, 0.001);
@@ -68,7 +72,7 @@ Shader "Horror/Sky Eye"
 
                 return float4(col.rgb * _Color.rgb, mask * _Color.a);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

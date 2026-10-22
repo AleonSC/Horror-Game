@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.HighDefinition;
 
 /// <summary>
 /// First person controller with walk, run, jump and crouch, built on CharacterController.
@@ -270,14 +270,11 @@ public class FirstPersonController : MonoBehaviour
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             wakeVolume.profile = profile;
             var dof = profile.Add<DepthOfField>(true);
-            dof.mode.Override(DepthOfFieldMode.Gaussian);
-            dof.gaussianStart.Override(0.2f);
-            dof.gaussianEnd.Override(3f);
-            dof.gaussianMaxRadius.Override(1.5f);
-            dof.highQualitySampling.Override(true);
-            var cam = cameraRoot != null ? cameraRoot.GetComponentInChildren<Camera>() : null;
-            var data = cam != null ? cam.GetUniversalAdditionalCameraData() : null;
-            if (data != null) data.renderPostProcessing = true;
+            dof.focusMode.Override(DepthOfFieldMode.Manual);
+            dof.nearFocusStart.Override(0f);
+            dof.nearFocusEnd.Override(0f);
+            dof.farFocusStart.Override(0.2f); // everything past arm's length blurred
+            dof.farFocusEnd.Override(3f);
         }
         if (wakeVolume != null) wakeVolume.weight = Grogginess * wakeBlur;
     }

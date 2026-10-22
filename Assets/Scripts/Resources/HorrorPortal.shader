@@ -1,6 +1,6 @@
 // The view through the door: shows a camera's render texture in screen space, so the doorway acts as
 // a window into the other place. Unlit and fog-free (the other camera's picture already has fog).
-// Works in both the Built-in pipeline and URP. Lives in a Resources folder so it's always included in builds.
+// HDRP (see HorrorHDRP.hlsl). Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Portal"
 {
     Properties
@@ -9,37 +9,32 @@ Shader "Horror/Portal"
     }
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "Queue" = "Geometry" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Opaque" "Queue" = "Geometry" }
         Pass
         {
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
             Cull Off
 
-            CGPROGRAM
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
-            sampler2D _MainTex;
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
 
-            struct v2f
+            float4 vert(float4 vertex : POSITION) : SV_POSITION
             {
-                float4 pos : SV_POSITION;
-                float4 screenPos : TEXCOORD0;
-            };
-
-            v2f vert(float4 vertex : POSITION)
-            {
-                v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
-                o.screenPos = ComputeScreenPos(o.pos);
-                return o;
+                return HorrorObjectToClip(vertex.xyz);
             }
 
-            float4 frag(v2f i) : SV_Target
+            float4 frag(float4 pos : SV_POSITION) : SV_Target
             {
-                return tex2D(_MainTex, i.screenPos.xy / i.screenPos.w);
+                return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, HorrorScreenUV(pos));
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }

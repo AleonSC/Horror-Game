@@ -1,7 +1,7 @@
 // A solid shape seen through haze: its colour is blended toward the haze colour by _Haze, more so low
 // down (_GroundHaze, from _HazeBase up through _HazeHeight in world space: mist rising off the ground),
 // with slow drifting wisps of mist across it so its outline never reads as a clean cutout.
-// Ignores the scene fog (it does its own). Works in both the Built-in pipeline and URP.
+// Ignores the scene fog (it does its own). HDRP (see HorrorHDRP.hlsl).
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Haze"
 {
@@ -20,13 +20,16 @@ Shader "Horror/Haze"
     }
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "Queue" = "Geometry" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Opaque" "Queue" = "Geometry" }
         Pass
         {
-            CGPROGRAM
+            Name "ForwardOnly"
+            Tags { "LightMode" = "ForwardOnly" }
+            HLSLPROGRAM
+            #pragma target 4.5
             #pragma vertex vert
             #pragma fragment frag
-            #include "UnityCG.cginc"
+            #include "HorrorHDRP.hlsl"
 
             float4 _Color, _HazeColor;
             float _Haze, _GroundHaze, _HazeBase, _HazeHeight, _WispScale;
@@ -41,8 +44,8 @@ Shader "Horror/Haze"
             v2f vert(float4 vertex : POSITION)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(vertex);
-                o.world = mul(unity_ObjectToWorld, vertex).xyz;
+                o.pos = HorrorObjectToClip(vertex.xyz);
+                o.world = HorrorAbsolute(HorrorWorld(vertex.xyz));
                 return o;
             }
 
@@ -76,7 +79,7 @@ Shader "Horror/Haze"
                 float h = saturate(_Haze + ground + (wisps - 0.5) * 0.35 + sky);
                 return float4(lerp(_Color.rgb, _HazeColor.rgb, h), 1);
             }
-            ENDCG
+            ENDHLSL
         }
     }
 }
