@@ -9,7 +9,8 @@ using UnityEngine.Rendering.HighDefinition;
 /// thermal view). This keeps HDRP's own versions in step with them every frame, on a global volume:
 ///
 ///   - Exposure is fixed (no auto exposure brightening the dark), at exposure, which by default makes a
-///     light of a given intensity about as bright as it was in URP.
+///     light of a given intensity about as bright as it was in URP; and no tonemapping (HDRP's default
+///     ACES crushes the dark end, where this whole game lives), as URP had none.
 ///   - The ambient light is a flat gradient sky in RenderSettings.ambientLight's colour.
 ///   - RenderSettings' fog becomes HDRP fog of the same colour and about the same thickness, with
 ///     volumetric fog on, so lights with shadows (moon, flashlight, the scours' glare, the searchlight)
@@ -26,6 +27,8 @@ public class HdrpAtmosphere : MonoBehaviour
 
     [Tooltip("Fixed exposure (EV100). Lower is brighter. -1.9 makes lights about as bright as they were in URP.")]
     public float exposure = -1.9f;
+    [Tooltip("Tonemapping off, as in URP. HDRP's default (ACES) makes the dark much darker.")]
+    public bool noTonemapping = true;
     [Tooltip("HDRP fog's mean free path is this divided by the old fog density (bigger = thinner fog).")]
     public float fogDistanceScale = 0.85f;
     [Tooltip("Volumetric fog: how much the lights show in the air (the beams and glows in the mist).")]
@@ -35,6 +38,7 @@ public class HdrpAtmosphere : MonoBehaviour
 
     Volume volume;
     Exposure exposureFx;
+    Tonemapping tonemapping;
     VisualEnvironment environment;
     GradientSky sky;
     Fog fog;
@@ -57,6 +61,8 @@ public class HdrpAtmosphere : MonoBehaviour
         exposureFx = profile.Add<Exposure>(true);
         exposureFx.mode.Override(ExposureMode.Fixed);
 
+        tonemapping = profile.Add<Tonemapping>(true);
+
         environment = profile.Add<VisualEnvironment>(true);
         environment.skyType.Override((int)SkyType.Gradient);
         environment.skyAmbientMode.Override(SkyAmbientMode.Dynamic);
@@ -76,6 +82,8 @@ public class HdrpAtmosphere : MonoBehaviour
         if (volume == null) Build();
         float mul = ExposureMultiplier;
         exposureFx.fixedExposure.Override(exposure);
+        tonemapping.active = noTonemapping;
+        tonemapping.mode.Override(TonemappingMode.None);
 
         // Ambient: a flat sky in the ambient colour (only re-baked when it changes).
         Color ambient = RenderSettings.ambientLight.linear / mul;
