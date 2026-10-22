@@ -289,7 +289,7 @@ public class PondLife : MonoBehaviour
                 f.underwater = true;
                 f.gone = Random.Range(25f, 50f);
                 f.root.gameObject.SetActive(false);
-                ProceduralAudio.PlayAt(ProceduralAudio.Splash, f.root.position, 0.6f, Random.Range(0.9f, 1.2f), 2f);
+                ProceduralAudio.PlayAt(ProceduralAudio.Plop, f.root.position, 0.6f, Random.Range(0.9f, 1.2f), 2f);
             }
             return;
         }

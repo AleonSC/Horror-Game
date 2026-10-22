@@ -111,7 +111,7 @@ public static class ProceduralAudio
     /// <summary>A frog's croak: a low, throaty, rattling "rrribb", the throat pulsing.</summary>
     public static AudioClip FrogCroak => frogCroak != null ? frogCroak : (frogCroak = Take(nameof(frogCroak)) ?? MakeFrogCroak());
     /// <summary>Something small dropping into water: a plop and a little splash.</summary>
-    public static AudioClip Splash => splash != null ? splash : (splash = Take(nameof(splash)) ?? MakeSplash());
+    public static AudioClip Plop => splash != null ? splash : (splash = Take(nameof(splash)) ?? MakeSplash());
     static AudioClip frogCroak, splash;
 
     static AudioClip MakeFrogCroak()
