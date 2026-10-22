@@ -1749,15 +1749,17 @@ public class ShadowEntity : MonoBehaviour
             var kneePivot = Pivot(legPivot, "Knee", knee - hip);
             Knob(kneePivot, black, Vector3.zero, 0.085f);
             // The shin, in pieces down from the knee, each thinner and fainter than the last.
-            Vector3 toward = new Vector3(side * -0.02f, -0.5f, -0.24f); // (knee to where the ankle would have been)
-            const int pieces = 6;
+            Vector3 toward = new Vector3(side * -0.02f, -0.56f, -0.26f); // (knee down nearly to the ground)
+            const int pieces = 9;
             for (int k = 0; k < pieces; k++)
             {
+                // Solid for the upper half of the shin, then thinning and fading away over the rest.
                 float t0 = k / (float)pieces, t1 = (k + 1) / (float)pieces;
-                float fade = 1f - t0;
-                var mat = k == 0 ? black : FadeMaterial(fade * fade);
-                var piece = Bone(kneePivot, mat, toward * t0, toward * t1, Mathf.Lerp(0.045f, 0.012f, t1));
-                if (k > 0) piece.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 1f, (t0 + t1) * 0.5f));
+                bool solid = fade > 0.97f;
+                var mat = solid ? black : FadeMaterial(fade);
+                var piece = Bone(kneePivot, mat, toward * t0, toward * t1, Mathf.Lerp(0.045f, 0.016f, t1));
+                if (!solid) piece.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
             legPivots[side < 0 ? 0 : 1] = legPivot;
             kneePivots[side < 0 ? 0 : 1] = kneePivot;
