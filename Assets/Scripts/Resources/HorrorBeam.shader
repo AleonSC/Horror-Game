@@ -7,6 +7,7 @@ Shader "Horror/Beam"
     {
         [HDR] _Color ("Color", Color) = (1, 0.8, 0.75, 1)
         _FadeIn ("Fade In From Source (0 = off)", Float) = 0
+        _FadeOut ("Fade Out Toward The End (0 = off)", Float) = 0
     }
     SubShader
     {
@@ -23,7 +24,7 @@ Shader "Horror/Beam"
             #include "UnityCG.cginc"
 
             float4 _Color;
-            float _FadeIn;
+            float _FadeIn, _FadeOut;
 
             struct v2f
             {
@@ -53,6 +54,8 @@ Shader "Horror/Beam"
                 float along = lerp(1.0, 0.35, i.uv.y);
                 // Optionally faded in from nothing at the source (a column of light hanging out of the dark).
                 along *= _FadeIn > 0.0001 ? smoothstep(0.0, _FadeIn, i.uv.y) : 1.0;
+                // Optionally dying away to nothing before its far end, so it never stops at a hard rim.
+                along *= _FadeOut > 0.0001 ? 1.0 - smoothstep(1.0 - _FadeOut, 1.0, i.uv.y) : 1.0;
 
                 // Seen from inside the cone, its walls face you everywhere and would wash the whole view out
                 // in a flat sheet with a hard edge. Inside, you see the light on the ground, not the beam: fade

@@ -1974,6 +1974,7 @@ public class ShadowEntity : MonoBehaviour
         if (beam != null)
         {
             mouthBeamMat = new Material(beam);
+            mouthBeamMat.SetFloat("_FadeOut", 0.65f); // (thinning to nothing, no hard end)
             var go = new GameObject("Mouth Glare Cone");
             go.transform.SetParent(headPivot, false);
             go.transform.localPosition = new Vector3(0f, -0.005f, 0.13f) * scale;
@@ -1985,7 +1986,25 @@ public class ShadowEntity : MonoBehaviour
             mouthBeam = go.transform;
             go.SetActive(false);
         }
+        // Where the glare lands: a bright, soft pool on the ground.
+        Shader glow = Shader.Find("Horror/Glow");
+        if (glow != null)
+        {
+            mouthPoolMat = new Material(glow);
+            var pool = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            pool.name = "Mouth Glare Pool";
+            Destroy(pool.GetComponent<Collider>());
+            var pr = pool.GetComponent<Renderer>();
+            pr.sharedMaterial = mouthPoolMat;
+            pr.shadowCastingMode = ShadowCastingMode.Off;
+            pr.receiveShadows = false;
+            mouthPool = pool.transform;
+            mouthPool.SetParent(transform, false);
+            pool.SetActive(false);
+        }
     }
+    Material mouthPoolMat;
+    Transform mouthPool;
 
     /// <summary>The mouth's light follows how far open it is, in the colour its eyes are burning.</summary>
     void UpdateMouthGlare()
@@ -2006,6 +2025,21 @@ public class ShadowEntity : MonoBehaviour
             float len = 3.5f * open;
             mouthBeam.localScale = new Vector3(len * 0.45f, len * 0.45f, Mathf.Max(len, 0.01f)) / Mathf.Max(headPivot.lossyScale.x, 0.0001f);
             mouthBeamMat.SetColor("_Color", new Color(glowColor.r, glowColor.g, glowColor.b, 0.12f * open * flicker));
+        }
+        if (mouthPool != null && mouthLight != null)
+        {
+            // The pool where the glare meets the ground (or whatever's in the way), sized to the cone there.
+            Transform from = mouthLight.transform;
+            bool hit = shown && Physics.Raycast(from.position, from.forward, out var ground, mouthLight.range, ~0, QueryTriggerInteraction.Ignore);
+            if (mouthPool.gameObject.activeSelf != hit) mouthPool.gameObject.SetActive(hit);
+            if (hit)
+            {
+                mouthPool.SetPositionAndRotation(ground.point + ground.normal * 0.03f, Quaternion.LookRotation(-ground.normal));
+                float radius = ground.distance * Mathf.Tan(mouthLight.spotAngle * 0.5f * Mathf.Deg2Rad);
+                mouthPool.localScale = Vector3.one * Mathf.Max(0.4f, radius * 1.6f) / Mathf.Max(transform.lossyScale.x, 0.0001f);
+                float fade = 1f - Mathf.Clamp01(ground.distance / mouthLight.range);
+                mouthPoolMat.SetColor("_Color", glowColor * (1.4f * open * flicker * (0.4f + 0.6f * fade)));
+            }
         }
     }
 
