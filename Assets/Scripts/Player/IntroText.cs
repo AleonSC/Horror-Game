@@ -148,6 +148,7 @@ public class IntroText : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
         if (!isOpening) return;
         Playing = true;
         var file = Resources.Load<TextAsset>("IntroText");
@@ -440,6 +441,8 @@ public class IntroText : MonoBehaviour
 /// </summary>
 public class LampNarration : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     static readonly (int lamps, string resource, bool frantic, string[] fallback)[] Beats =
     {
         (2, "LampText2", false, new[]

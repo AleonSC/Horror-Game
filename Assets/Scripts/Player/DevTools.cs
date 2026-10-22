@@ -12,6 +12,8 @@ using UnityEngine;
 /// </summary>
 public class DevTools : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public static bool IsOpen { get; private set; }
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => IsOpen = false;

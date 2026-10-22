@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class CarRadio : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("Seconds it plays before its batteries die.")]
     public float playTime = 90f;
     [Tooltip("How close the blind one gets before it smashes the radio.")]

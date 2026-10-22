@@ -7,6 +7,8 @@ using UnityEngine;
 /// </summary>
 public class Refuge : MonoBehaviour, SafeZones.ISource
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("How close the entities can come to it, in metres from its middle.")]
     public float radius = 5f;
 

@@ -11,6 +11,8 @@ using UnityEngine;
 /// </summary>
 public class SpawnDebugOverlay : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public bool visible;
     /// <summary>Whether F1 does anything at all (the dev tools switch it).</summary>
     public static bool Enabled = true;

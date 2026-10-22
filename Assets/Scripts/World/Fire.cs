@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class Fire : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public float size = 0.3f;
     [Range(0f, 1f)] public float strength = 1f;
     public Color tint = new Color(1f, 0.55f, 0.15f);

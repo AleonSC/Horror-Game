@@ -104,6 +104,7 @@ public class Shockwave : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
         roar = ProceduralAudio.AddSource(gameObject, null, false, false, 1f);
         boom = ProceduralAudio.AddSource(gameObject, null, false, false, 1f);
     }

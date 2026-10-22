@@ -9,7 +9,7 @@ static class TuningMenu
 {
     const string AssetPath = "Assets/Scripts/Resources/" + Tuning.ResourcePath + ".asset";
 
-    static Tuning GetOrCreate()
+    internal static Tuning GetOrCreate()
     {
         var tuning = AssetDatabase.LoadAssetAtPath<Tuning>(AssetPath);
         if (tuning != null) return tuning;

@@ -11,6 +11,8 @@ using UnityEngine;
 /// </summary>
 public class LampSignpost : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     static Material post, board, groove, metal, stone;
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => post = board = groove = metal = stone = null; // (forgotten: the scene's objects own them)

@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class LampInteractor : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("How far away things can be clicked.")]
     public float reach = 4f;
     [Tooltip("How far off the centre of the screen (in metres, at the object) something can be and still be picked out.")]

@@ -24,6 +24,7 @@ public class BatteryPickup : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
         Build();
         pulseOffset = Random.Range(0f, 10f);
     }

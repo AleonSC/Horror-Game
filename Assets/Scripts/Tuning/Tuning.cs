@@ -6,10 +6,11 @@ using UnityEngine;
 /// leaving Play mode, applied whenever the game makes one of those components.
 ///
 /// Nearly everything in this game is added by code at runtime, so values tweaked in the Inspector during
-/// Play are lost when it stops, and its defaults live in code. To keep a tweak: right-click the component
-/// (in Play mode or not) and choose Save Tuning. From then on, every time the game creates that kind of
-/// component its saved values are put on it as it wakes up (code that sets a value straight after still
-/// wins). Clear Tuning forgets it again. References to other objects (lights, clips, materials) aren't
+/// Play would be lost when it stops, and its defaults live in code. So any value you change in the
+/// Inspector during Play is kept (TuningAutoSave), and every one of the game's components puts its saved
+/// values on as it wakes up (code that sets a value straight after still wins). Save Tuning on a
+/// component's right-click menu keeps all its values at once; Clear Tuning forgets them again. Tuning is
+/// per kind of component: a value kept from one lamp goes on every lamp. References to other objects (lights, clips, materials) aren't
 /// saved, since they can't carry over from one session to another; only plain values (numbers, colours,
 /// toggles, curves) are.
 /// </summary>

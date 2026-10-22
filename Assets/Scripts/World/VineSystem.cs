@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class VineSystem : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("Only vines within this distance of the camera move.")]
     public float simulateRadius = 45f;
     [Tooltip("Metres between rope points.")]

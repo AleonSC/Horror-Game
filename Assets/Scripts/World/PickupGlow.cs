@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class PickupGlow : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("Fully glowing within this distance (metres)...")]
     public float fullDistance = 1.3f;
     [Tooltip("...fading out to nothing by this distance.")]

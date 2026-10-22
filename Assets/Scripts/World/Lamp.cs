@@ -206,6 +206,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
         Build();
         hum = ProceduralAudio.AddSource(gameObject, humLoop != null ? humLoop : ProceduralAudio.LampHum, true, true, HumVolume, 2f, 20f);
         sfx = ProceduralAudio.AddSource(gameObject, null, false, true, 0.8f, 3f, 30f);

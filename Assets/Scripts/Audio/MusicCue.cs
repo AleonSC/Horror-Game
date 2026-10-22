@@ -83,6 +83,7 @@ public class MusicCue : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
         source = gameObject.AddComponent<AudioSource>();
         source.playOnAwake = false;
         source.loop = false;

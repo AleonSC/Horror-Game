@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class Campsite : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public static readonly List<Campsite> All = new List<Campsite>();
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => All.Clear();

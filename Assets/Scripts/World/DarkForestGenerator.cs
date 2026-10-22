@@ -16,6 +16,8 @@ using UnityEngine.Rendering;
 /// </summary>
 public class DarkForestGenerator : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Header("General")]
     public bool generateOnStart = true;
     public int seed = 1337;

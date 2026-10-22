@@ -13,6 +13,8 @@ using UnityEngine;
 /// </summary>
 public class LandmarkTree : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public Color color = new Color(0.004f, 0.005f, 0.007f);
     [Range(0f, 1f), Tooltip("How much haze is left on it far off (lower = a clearer shape).")]
     public float farHaze = 0.4f;

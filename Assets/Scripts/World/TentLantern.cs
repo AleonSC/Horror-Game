@@ -7,6 +7,8 @@ using UnityEngine;
 /// </summary>
 public class TentLantern : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public Color lightColor = new Color(1f, 0.68f, 0.35f);
     public float intensity = 1.3f;
     public float range = 2.6f;

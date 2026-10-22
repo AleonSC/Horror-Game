@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class DroneCache : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     struct Site { public Transform spot; public float reach; }
 
     static readonly List<Site> sites = new List<Site>();

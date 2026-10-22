@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class ScourPortal : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     static readonly Color RimColor = new Color(2.6f, 0.14f, 0.06f);
     static Material faceMat;
     static Texture2D black;

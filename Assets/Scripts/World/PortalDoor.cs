@@ -17,6 +17,8 @@ using UnityEngine;
 /// </summary>
 public class PortalDoor : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     /// <summary>True while the player is in the dark room.</summary>
     public static bool PlayerInRoom { get; private set; }
 

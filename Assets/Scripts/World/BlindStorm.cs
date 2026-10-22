@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class BlindStorm : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public float cloudHeight = 26f;
     public float cloudRadius = 20f;
     public float lifetime = 22f;

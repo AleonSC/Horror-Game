@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class BushRustle : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("How far a bush leans away from you while you're inside it, in degrees.")]
     public float pushAngle = 18f;
     [Tooltip("How hard bushes shake as you pass through, in degrees.")]

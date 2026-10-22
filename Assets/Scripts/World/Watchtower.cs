@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class Watchtower : MonoBehaviour, SafeZones.ISource
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public static readonly List<Watchtower> All = new List<Watchtower>();
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => All.Clear();

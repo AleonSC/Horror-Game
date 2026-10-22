@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class GameOverScreen : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     const float DefaultFadeOutTime = 1.2f;
     const float HoldTime = 3f;
     const float FadeInTime = 1.5f;

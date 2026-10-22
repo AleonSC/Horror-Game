@@ -27,7 +27,11 @@ public class NightSky : MonoBehaviour
     WeatherSystem weather;
     Vector2 cloudOffset;
 
-    void Awake() => Instance = this;
+    void Awake()
+    {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+        Instance = this;
+    }
 
     void OnDestroy()
     {

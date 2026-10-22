@@ -13,6 +13,8 @@ using UnityEngine.Rendering.HighDefinition;
 /// </summary>
 public class PauseMenu : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public static bool IsPaused { get; private set; }
     /// <summary>The sound effects volume from the settings (the listener's volume, before anything ducks it).</summary>
     public static float ListenerVolume { get; private set; } = 1f;

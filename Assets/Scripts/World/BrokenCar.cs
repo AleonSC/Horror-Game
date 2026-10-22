@@ -16,6 +16,8 @@ using UnityEngine;
 /// </summary>
 public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public static readonly List<BrokenCar> All = new List<BrokenCar>();
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => All.Clear();
@@ -1001,5 +1003,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
 /// <summary>The headlight switch inside the car. LampInteractor clicks it.</summary>
 public class CarHeadlightSwitch : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public BrokenCar car;
 }

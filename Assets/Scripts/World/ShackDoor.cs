@@ -6,6 +6,8 @@ using UnityEngine;
 /// </summary>
 public class ShackDoor : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("How far the door swings open, in degrees.")]
     public float openAngle = -105f;
     [Tooltip("Degrees per second.")]

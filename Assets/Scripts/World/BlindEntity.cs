@@ -968,6 +968,8 @@ public class BlindEntity : MonoBehaviour
 /// <summary>Brings in the blind entity the first time enough lamps have been lit in a run. DarkForestGenerator adds this.</summary>
 public class BlindEntitySpawner : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("Lamps lit before the blind one comes.")]
     public int lampsToSpawn = 3;
 

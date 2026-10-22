@@ -7,6 +7,8 @@ using UnityEngine;
 /// </summary>
 public class DoorKnocks : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     /// <summary>Chance that shutting a door gets an answer.</summary>
     public static float chance = 0.3f;
     /// <summary>Seconds before it can happen again.</summary>

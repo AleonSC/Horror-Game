@@ -55,6 +55,7 @@ public class MainMenu : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
         Showing = true;
         ShownThisSession = true;
         uiSound = gameObject.AddComponent<AudioSource>();

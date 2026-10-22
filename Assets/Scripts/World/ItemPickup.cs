@@ -6,6 +6,8 @@ using UnityEngine;
 /// </summary>
 public class ItemPickup : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public static readonly System.Collections.Generic.List<ItemPickup> All = new System.Collections.Generic.List<ItemPickup>();
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => All.Clear();
@@ -184,6 +186,8 @@ public class ItemPickup : MonoBehaviour
 /// </summary>
 public class FobBeacon : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public Renderer led;
     public float blinkEvery = 2f, blinkLength = 0.18f;
     [Tooltip("It beeps every so often when the player is within this distance.")]

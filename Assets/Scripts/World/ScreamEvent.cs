@@ -24,7 +24,11 @@ public class ScreamEvent : MonoBehaviour
     bool done, sawIntro;
     Transform player;
 
-    void Awake() => Instance = this;
+    void Awake()
+    {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+        Instance = this;
+    }
 
     // Build the scream (with its reverb) up front, so it doesn't hitch the game the moment it's needed.
     void Start()

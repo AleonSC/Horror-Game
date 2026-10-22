@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class TreeFall : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public float volume = 1f;
     public int shardCount = 14;
     public float settleTime = 10f;
@@ -963,6 +965,8 @@ public class TreeFall : MonoBehaviour
 /// </summary>
 public class BranchDebris : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     Vector3 velocity, spin;
     float age;
     Vector3 startScale;
@@ -999,6 +1003,8 @@ public class BranchDebris : MonoBehaviour
 /// <summary>A wood shard from a tree's crash: lies where it lands a few seconds, then shrinks away and is removed.</summary>
 public class ShardFade : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     float age, life;
     Vector3 startScale;
 
@@ -1020,6 +1026,8 @@ public class ShardFade : MonoBehaviour
 /// <summary>A section of a falling tree: tells its TreeFall when it hits something.</summary>
 public class FallenSection : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public TreeFall owner;
 
     void OnCollisionEnter(Collision collision)

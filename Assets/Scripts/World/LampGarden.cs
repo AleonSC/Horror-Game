@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class LampGarden : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     Lamp lamp;
     readonly List<Transform> fireflies = new List<Transform>();
     readonly List<Vector3> fireflySeeds = new List<Vector3>();

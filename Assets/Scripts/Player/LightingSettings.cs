@@ -12,6 +12,8 @@ using UnityEngine.Rendering.HighDefinition;
 /// </summary>
 public class LightingSettings : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [System.Serializable]
     public class Theme
     {

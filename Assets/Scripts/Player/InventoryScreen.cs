@@ -87,7 +87,11 @@ public class InventoryScreen : MonoBehaviour
     AudioSource sfx;
     GUIStyle title, slotName, slotCount, heading, sub, body, hint, button;
 
-    void Awake() => hotbar = GetComponent<Hotbar>();
+    void Awake()
+    {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+        hotbar = GetComponent<Hotbar>();
+    }
 
     void OnDisable()
     {

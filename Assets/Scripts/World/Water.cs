@@ -80,6 +80,8 @@ public static class Water
 /// <summary>Slowly drifts the ripples across every water surface (they share one material).</summary>
 public class WaterRipples : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public Material material;
     public Vector2 drift = new Vector2(0.012f, 0.007f);
     Vector2 offset;

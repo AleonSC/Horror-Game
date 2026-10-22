@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class LightableTorch : MonoBehaviour, SafeZones.ISource
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("Seconds it burns once lit, before it's spent.")]
     public float burnTime = 180f;
     [Tooltip("Radius of the circle of safety round it while it burns.")]

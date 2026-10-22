@@ -38,6 +38,7 @@ public class WorldWrap : MonoBehaviour
 
     void Awake()
     {
+        Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
         instance = this;
     }
 

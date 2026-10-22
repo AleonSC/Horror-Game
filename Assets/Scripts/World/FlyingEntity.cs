@@ -767,6 +767,8 @@ public class FlyingEntity : MonoBehaviour
 /// </summary>
 public class FlyingEntitySpawner : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("Times lamps have been lit (the counter at the top right) before the flier comes.")]
     public int lampsToSpawn = 7;
 

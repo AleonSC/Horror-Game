@@ -8,6 +8,8 @@ using UnityEngine;
 /// </summary>
 public class Ladder : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     [Tooltip("Where the player should line up while climbing, local to this object (only x and z are used).")]
     public Vector3 localClimbPoint;
     [Tooltip("Height of the top of the ladder (the floor it leads to), local to this object.")]

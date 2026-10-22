@@ -11,6 +11,8 @@ using UnityEngine;
 /// </summary>
 public class Flare : MonoBehaviour
 {
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
     public float gravity = 9f;
     [Tooltip("Seconds it burns after bursting (or landing).")]
     public float burnTime = 14f;
