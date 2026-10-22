@@ -426,6 +426,8 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     /// The remote's little screen tracks the drone: a dot where it is from you (ahead is up the screen),
     /// nearer the edge the further off it is, blinking; pinned to the edge, past what the screen covers.
     /// </summary>
+    float remoteRaise;
+
     void UpdateRemoteScreen()
     {
         if (remoteDot == null) return;
@@ -919,7 +921,17 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         fobModel.gameObject.SetActive(Selected == Item.KeyFob);
         droneModel.gameObject.SetActive(Selected == Item.Drone);
         remoteModel.gameObject.SetActive(Selected == Item.Remote);
-        if (Selected == Item.Remote) UpdateRemoteScreen();
+        if (Selected == Item.Remote)
+        {
+            UpdateRemoteScreen();
+            // Looking down at it, you bring it up in front of you, tilted toward your face, so its screen
+            // clears the hotbar and you can read it.
+            var view = Camera.main;
+            float down = view != null ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.7f, -view.transform.forward.y)) : 0f;
+            remoteRaise = Mathf.MoveTowards(remoteRaise, down, Time.deltaTime * 3f);
+            remoteModel.localPosition = Vector3.Lerp(new Vector3(0f, -0.22f, 0.36f), new Vector3(0f, -0.1f, 0.3f), remoteRaise);
+            remoteModel.localRotation = Quaternion.Euler(Mathf.Lerp(-40f, -62f, remoteRaise), 0f, 0f);
+        }
         UpdateDroneGhost();
         stickModel.gameObject.SetActive(Selected == Item.Stick);
         // The fob's little LED lights while the button's pressed.
