@@ -91,7 +91,8 @@ public class ShackDoor : MonoBehaviour
 
     /// <summary>
     /// Open, the door's out of the way: it doesn't block the doorway or catch you as you go past (it's only
-    /// solid shut, or nearly).
+    /// solid shut, or nearly). Its colliders become triggers rather than going off, so it can still be looked
+    /// at and shut again.
     /// </summary>
     void UpdateSolid()
     {
@@ -102,7 +103,12 @@ public class ShackDoor : MonoBehaviour
             solids = list.ToArray();
         }
         bool solid = OpenAmount < 0.15f;
-        foreach (var c in solids) if (c != null && c.enabled != solid) c.enabled = solid;
+        foreach (var c in solids)
+        {
+            if (c == null || c.isTrigger == !solid) continue;
+            if (c is MeshCollider mesh && !mesh.convex) continue; // (a concave mesh can't be a trigger)
+            c.isTrigger = !solid;
+        }
     }
 
     void Update()
