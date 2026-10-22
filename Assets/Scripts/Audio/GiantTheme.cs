@@ -27,7 +27,7 @@ public static class GiantTheme
     /// <summary>Fades the theme out (the run restarts).</summary>
     public static void FadeOut()
     {
-        foreach (var cue in Object.FindObjectsByType<MusicCue>())
+        foreach (var cue in Object.FindObjectsByType<MusicCue>(FindObjectsSortMode.None))
             if (cue.name == "Giant Theme") cue.FadeOut();
     }
 

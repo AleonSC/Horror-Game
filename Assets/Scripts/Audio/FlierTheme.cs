@@ -28,7 +28,7 @@ public static class FlierTheme
     /// <summary>Fades the theme out (the flier is gone).</summary>
     public static void FadeOut()
     {
-        foreach (var cue in Object.FindObjectsByType<MusicCue>())
+        foreach (var cue in Object.FindObjectsByType<MusicCue>(FindObjectsSortMode.None))
             if (cue.name == "Flier Theme") cue.FadeOut();
     }
 

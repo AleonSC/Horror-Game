@@ -33,7 +33,7 @@ public static class BlindEntityTheme
     public static void FadeOut()
     {
         // Not if it was never made (nothing to fade, and no need to make it now).
-        foreach (var cue in Object.FindObjectsByType<MusicCue>())
+        foreach (var cue in Object.FindObjectsByType<MusicCue>(FindObjectsSortMode.None))
             if (cue.name == "Blind Entity Theme") cue.FadeOut();
     }
 
