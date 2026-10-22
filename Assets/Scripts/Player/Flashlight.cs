@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering.HighDefinition;
 
 /// <summary>
 /// Toggleable flashlight (press F). Put this on the player's camera.
@@ -22,6 +23,14 @@ public class Flashlight : MonoBehaviour
     public float intensity = 12f;
     public Color color = new Color(1f, 0.95f, 0.85f);
     public LightShadows shadows = LightShadows.Soft;
+
+    [Header("Up close")]
+    [Tooltip("Pointed at something nearer than this (the ground at your feet), the beam dims, so close things don't blaze white.")]
+    public float nearDimDistance = 4f;
+    [Range(0f, 1f), Tooltip("How bright the beam is on something right in front of you, as a share of full.")]
+    public float nearDimAmount = 0.35f;
+    [Range(0f, 2f), Tooltip("How much the beam lights up the fog in the air (HDRP volumetrics). 1 is HDRP's normal.")]
+    public float fogGlow = 0.45f;
 
     [Header("Edge")]
     [Tooltip("Soften the edge of the beam into a feathered fade instead of a hard circle.")]
@@ -178,7 +187,25 @@ public class Flashlight : MonoBehaviour
             flickerLevel = Random.Range(0f, 0.5f);
         }
 
-        flashlight.intensity = intensity * Mathf.Lerp(1f, 0.45f, low) * flickerLevel;
+        flashlight.intensity = intensity * Mathf.Lerp(1f, 0.45f, low) * flickerLevel * NearDim();
+        var hd = flashlight.GetComponent<HDAdditionalLightData>();
+        if (hd != null) hd.volumetricDimmer = fogGlow;
+    }
+
+    float nearDim = 1f;
+
+    /// <summary>
+    /// Dimmer when it's pointed at something close (the way your eyes would squint): full beyond
+    /// nearDimDistance, down to nearDimAmount right in front of you. Smoothed, so it doesn't jump.
+    /// </summary>
+    float NearDim()
+    {
+        Transform t = flashlight.transform;
+        float target = 1f;
+        if (nearDimDistance > 0f && Physics.Raycast(t.position, t.forward, out var hit, nearDimDistance, ~0, QueryTriggerInteraction.Ignore))
+            target = Mathf.Lerp(nearDimAmount, 1f, Mathf.SmoothStep(0f, 1f, hit.distance / nearDimDistance));
+        nearDim = Mathf.MoveTowards(nearDim, target, Time.deltaTime * 2.5f);
+        return nearDim;
     }
 
     void LateUpdate()

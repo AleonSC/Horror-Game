@@ -95,7 +95,8 @@ Shader "Horror/MistVolume"
                 float d = length(toP);
                 float cone = smoothstep(_SpotDir.w, _SpotColor.w, dot(toP / max(d, 0.001), _SpotDir.xyz));
                 float att = saturate(1 - d / max(_SpotPos.w, 0.001));
-                c += _SpotColor.rgb * cone * att * att;
+                float near = saturate((d - 0.5) / 4.0); // not blazing right in front of you
+                c += _SpotColor.rgb * cone * att * att * near;
 
                 // A glow round each nearby lamp.
                 for (int k = 0; k < 4; k++)
