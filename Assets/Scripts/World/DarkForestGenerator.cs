@@ -2149,6 +2149,8 @@ public class DarkForestGenerator : MonoBehaviour
         RenderSettings.ambientMode = AmbientMode.Flat;
         RenderSettings.ambientLight = ambientColor;
         RenderSettings.reflectionIntensity = 0.1f;
+        if (Application.isPlaying && FindAnyObjectByType<HdrpAtmosphere>() == null)
+            new GameObject("HDRP Atmosphere").AddComponent<HdrpAtmosphere>(); // HDRP's fog, sky light and exposure, following these
 
         // Find the scene's own directional lights.
         // (Resources.FindObjectsOfTypeAll also returns assets, so only take lights that are in a scene.)
