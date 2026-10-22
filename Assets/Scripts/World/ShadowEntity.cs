@@ -352,6 +352,7 @@ public class ShadowEntity : MonoBehaviour
     void OnDestroy()
     {
         if (fragmentRoot != null) Destroy(fragmentRoot.gameObject);
+        if (shinMat != null) Destroy(shinMat);
     }
 
     void Update()
@@ -1666,16 +1667,32 @@ public class ShadowEntity : MonoBehaviour
     readonly Vector2[] legSwing = new Vector2[2], legSwingVel = new Vector2[2];
     readonly float[] kneeSwing = new float[2], kneeSwingVel = new float[2];
     Vector3 lastLegPos;
-    static readonly Dictionary<int, Material> fadeMats = new Dictionary<int, Material>();
+    Material shinMat;
 
-    /// <summary>A see-through black, for the legs fading away (shared, by how faint).</summary>
-    static Material FadeMaterial(float alpha)
+    /// <summary>
+    /// The shins' material: black that melts into the fog toward the ground, the way the sky chains melt into
+    /// the clouds (Horror/Haze, its ground haze measured up from its feet, with drifting wisps through it).
+    /// </summary>
+    Material ShinMaterial(Material fallback)
     {
-        int key = Mathf.RoundToInt(alpha * 20f);
-        if (fadeMats.TryGetValue(key, out var m) && m != null) return m;
-        m = MaterialFactory.LitTransparent(Texture2D.whiteTexture, new Color(0f, 0f, 0f, key / 20f), 0f);
-        fadeMats[key] = m;
-        return m;
+        if (shinMat != null) return shinMat;
+        var shader = Shader.Find("Horror/Haze");
+        if (shader == null) return fallback;
+        shinMat = new Material(shader) { renderQueue = 2000 };
+        shinMat.SetColor("_Color", Color.black);
+        shinMat.SetFloat("_Haze", 0f);
+        shinMat.SetFloat("_GroundHaze", 1f);
+        shinMat.SetFloat("_WispScale", 3f);
+        UpdateShinFade();
+        return shinMat;
+    }
+
+    void UpdateShinFade()
+    {
+        if (shinMat == null) return;
+        shinMat.SetColor("_HazeColor", RenderSettings.fogColor);
+        shinMat.SetFloat("_HazeBase", transform.position.y + 0.03f * scale);
+        shinMat.SetFloat("_HazeHeight", 0.5f * scale);
     }
 
     /// <summary>
@@ -1723,7 +1740,11 @@ public class ShadowEntity : MonoBehaviour
         posture.localRotation = Quaternion.Euler(0f, 0f, -peekSide * 28f * peekOut);
     }
 
-    void LateUpdate() => LegDrag();
+    void LateUpdate()
+    {
+        LegDrag();
+        UpdateShinFade();
+    }
 
     void BuildSilhouette()
     {
@@ -1750,16 +1771,14 @@ public class ShadowEntity : MonoBehaviour
             Knob(kneePivot, black, Vector3.zero, 0.085f);
             // The shin, in pieces down from the knee, each thinner and fainter than the last.
             Vector3 toward = new Vector3(side * -0.02f, -0.56f, -0.26f); // (knee down nearly to the ground)
-            const int pieces = 9;
+            const int pieces = 5;
+            var shin = ShinMaterial(black);
             for (int k = 0; k < pieces; k++)
             {
-                // Solid for the upper half of the shin, then thinning and fading away over the rest.
+                // Thinning as it goes down, and melting into the fog toward the ground.
                 float t0 = k / (float)pieces, t1 = (k + 1) / (float)pieces;
-                float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 1f, (t0 + t1) * 0.5f));
-                bool solid = fade > 0.97f;
-                var mat = solid ? black : FadeMaterial(fade);
-                var piece = Bone(kneePivot, mat, toward * t0, toward * t1, Mathf.Lerp(0.045f, 0.016f, t1));
-                if (!solid) piece.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                var piece = Bone(kneePivot, shin, toward * t0, toward * t1, Mathf.Lerp(0.045f, 0.016f, t1));
+                if (t0 > 0.4f) piece.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
             legPivots[side < 0 ? 0 : 1] = legPivot;
             kneePivots[side < 0 ? 0 : 1] = kneePivot;
