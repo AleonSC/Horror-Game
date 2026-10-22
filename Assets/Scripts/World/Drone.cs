@@ -161,6 +161,7 @@ public class DroneUnit : MonoBehaviour
     /// <summary>Flashing while it's left alone, wherever it is; drawn nearer (and smaller) past the camera's reach.</summary>
     void LateUpdate()
     {
+        UpdateLampGlows();
         if (beacon == null) return;
         var cam = Camera.main;
         beaconClock += Time.deltaTime;
@@ -179,8 +180,69 @@ public class DroneUnit : MonoBehaviour
         beacon.localScale = Vector3.one * Mathf.Max(0.25f, d * 0.02f);
     }
 
+    // ---------------------------------------------------------------- Lamps, from up here
+
+    [Tooltip("Through the drone's camera, how big the glow round each lit lamp is (on screen, as a share of the distance).")]
+    public float lampGlowSize = 0.035f;
+    readonly List<Transform> lampGlows = new List<Transform>();
+    Material lampGlowMat;
+
+    /// <summary>
+    /// Seen through the drone's camera, the lit lamps shine out through the fog and the dark as soft warm
+    /// glows, so you can see where they are from up above (only through the drone: your own eyes see them as
+    /// usual). Unlit ones show as faint dim points.
+    /// </summary>
+    void UpdateLampGlows()
+    {
+        int used = 0;
+        if (piloting && view != null)
+        {
+            if (lampGlowMat == null)
+            {
+                Shader glow = Shader.Find("Horror/Glow");
+                lampGlowMat = glow != null ? new Material(glow) : MaterialFactory.NoFog(new Color(1f, 0.75f, 0.45f));
+                lampGlowMat.SetColor("_Color", Color.white);
+            }
+            Vector3 eye = view.transform.position;
+            float reach = view.farClipPlane * 0.85f;
+            foreach (var lamp in Lamp.All)
+            {
+                if (lamp == null) continue;
+                Vector3 at = WorldWrap.NearestImage(lamp.BulbPosition, eye);
+                Vector3 to = at - eye;
+                float d = to.magnitude;
+                if (d < 2f) continue;
+                if (d > reach) { at = eye + to * (reach / d); d = reach; }
+                if (used == lampGlows.Count)
+                {
+                    var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    quad.name = "Lamp Glow (drone)";
+                    Destroy(quad.GetComponent<Collider>());
+                    var r = quad.GetComponent<Renderer>();
+                    r.sharedMaterial = lampGlowMat;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    r.receiveShadows = false;
+                    lampGlows.Add(quad.transform);
+                }
+                var g = lampGlows[used++];
+                g.gameObject.SetActive(true);
+                g.SetPositionAndRotation(at, Quaternion.LookRotation(at - eye, view.transform.up));
+                float size = Mathf.Max(0.6f, d * lampGlowSize) * (lamp.IsLit ? 1f : 0.35f);
+                g.localScale = Vector3.one * size;
+                var block = new MaterialPropertyBlock();
+                Color c = lamp.IsLit ? lamp.lightColor * 1.4f : new Color(0.3f, 0.25f, 0.2f);
+                block.SetColor("_Color", c);
+                g.GetComponent<Renderer>().SetPropertyBlock(block);
+            }
+        }
+        for (int i = used; i < lampGlows.Count; i++)
+            if (lampGlows[i] != null && lampGlows[i].gameObject.activeSelf) lampGlows[i].gameObject.SetActive(false);
+    }
+
     void OnDestroy()
     {
+        foreach (var g in lampGlows) if (g != null) Destroy(g.gameObject);
+        if (lampGlowMat != null) Destroy(lampGlowMat);
         if (beacon != null) Destroy(beacon.gameObject);
         if (beaconMat != null) Destroy(beaconMat);
         if (piloting) StopPiloting();
