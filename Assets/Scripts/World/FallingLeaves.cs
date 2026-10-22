@@ -52,11 +52,11 @@ public class FallingLeaves : MonoBehaviour
         // A few autumn shades, dark to suit the night.
         var materials = new[]
         {
-            MaterialFactory.Lit(new Color(0.3f, 0.14f, 0.04f), 0.15f),
-            MaterialFactory.Lit(new Color(0.38f, 0.22f, 0.05f), 0.15f),
-            MaterialFactory.Lit(new Color(0.2f, 0.17f, 0.06f), 0.15f),
-            MaterialFactory.Lit(new Color(0.34f, 0.08f, 0.03f), 0.15f),
-            MaterialFactory.Lit(new Color(0.16f, 0.1f, 0.05f), 0.15f),
+            MaterialFactory.Lit(new Color(0.3f, 0.14f, 0.04f), 0f),
+            MaterialFactory.Lit(new Color(0.38f, 0.22f, 0.05f), 0f),
+            MaterialFactory.Lit(new Color(0.2f, 0.17f, 0.06f), 0f),
+            MaterialFactory.Lit(new Color(0.34f, 0.08f, 0.03f), 0f),
+            MaterialFactory.Lit(new Color(0.16f, 0.1f, 0.05f), 0f),
         };
         var shapes = new[] { LeafMesh(0.32f, 0.5f), LeafMesh(0.42f, 0.35f), LeafMesh(0.26f, 0.7f) };
 
@@ -218,12 +218,16 @@ public class FallingLeaves : MonoBehaviour
                     else tris.AddRange(new[] { a, b, d, b, e, d });
                 }
         }
-        // The stalk.
-        int s0 = verts.Count;
-        verts.Add(new Vector3(-0.01f, -0.005f, -0.5f));
-        verts.Add(new Vector3(0.01f, -0.005f, -0.5f));
-        verts.Add(new Vector3(0f, 0.01f, -0.62f));
-        tris.AddRange(new[] { s0, s0 + 2, s0 + 1, s0, s0 + 1, s0 + 2 });
+        // The stalk: each side its own corners (one set of corners for both sides averages their normals to
+        // nothing, which lights as a glaring speck).
+        for (int face = 0; face < 2; face++)
+        {
+            int s0 = verts.Count;
+            verts.Add(new Vector3(-0.01f, -0.005f, -0.5f));
+            verts.Add(new Vector3(0.01f, -0.005f, -0.5f));
+            verts.Add(new Vector3(0f, 0.01f, -0.62f));
+            tris.AddRange(face == 0 ? new[] { s0, s0 + 2, s0 + 1 } : new[] { s0, s0 + 1, s0 + 2 });
+        }
         var mesh = new Mesh { name = "Leaf" };
         mesh.SetVertices(verts);
         mesh.SetTriangles(tris, 0);
