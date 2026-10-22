@@ -326,7 +326,7 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
             spot.range = floodlightRange;
             spot.intensity = floodlightIntensity;
             spot.color = floodlightColor;
-            spot.shadows = LightShadows.None;
+            spot.shadows = LightShadows.Soft; // the trees and shacks' planks throw stripes of shadow
             spot.enabled = false;
             floodlights.Add(spot);
         }

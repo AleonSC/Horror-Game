@@ -1111,9 +1111,10 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             Vector3 to = searchlightTarget + across * (i == 0 ? -1.5f : 1.5f) + Vector3.up * 0.3f;
             Vector3 d = to - from;
             float endRadius = searchlightRadius * 0.8f;
+            float cut = BeamReach(from, d, d.magnitude) / Mathf.Max(d.magnitude, 0.01f); // (stopped by a roof: the light comes in through its gaps)
             beams[i].position = from;
             beams[i].rotation = Quaternion.LookRotation(d);
-            beams[i].localScale = new Vector3(endRadius, endRadius, d.magnitude);
+            beams[i].localScale = new Vector3(endRadius * cut, endRadius * cut, d.magnitude * cut);
         }
         const float columnHeight = 32f;
         Vector3 columnTop = searchlightTarget - fromGiant * columnHeight;
@@ -1121,7 +1122,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         float columnRadius = searchlightRadius * 1.05f;
         beams[2].position = columnTop;
         beams[2].rotation = Quaternion.LookRotation(down);
-        beams[2].localScale = new Vector3(columnRadius, columnRadius, down.magnitude);
+        float columnCut = BeamReach(columnTop, down, down.magnitude) / Mathf.Max(down.magnitude, 0.01f);
+        beams[2].localScale = new Vector3(columnRadius * columnCut, columnRadius * columnCut, down.magnitude * columnCut);
 
         poolGlow.position = searchlightTarget + Vector3.up * 0.12f;
         poolGlow.rotation = Quaternion.Euler(90f, 0f, 0f);
@@ -1242,6 +1244,25 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     /// source to 1 at the far end). The shader turns it to face the camera; the vertex positions only give the
     /// cone's bounds (apex at the origin, axis +z, radius 1 at z = 1).
     /// </summary>
+    /// <summary>
+    /// How far a visible beam reaches along dir before something solid (a roof, a wall) stops it, up to max:
+    /// the beam ends there and its light (with shadows) comes on through the gaps. The player doesn't stop it.
+    /// </summary>
+    internal static float BeamReach(Vector3 from, Vector3 dir, float max)
+    {
+        if (max <= 0.01f || dir.sqrMagnitude < 0.0001f) return max;
+        float best = max;
+        int n = Physics.RaycastNonAlloc(from, dir.normalized, reachHits, max, ~0, QueryTriggerInteraction.Ignore);
+        for (int k = 0; k < n; k++)
+        {
+            var c = reachHits[k].collider;
+            if (c is CharacterController || c.GetComponentInParent<FirstPersonController>() != null) continue;
+            if (reachHits[k].distance > 0.2f) best = Mathf.Min(best, reachHits[k].distance + 0.3f);
+        }
+        return Mathf.Min(best, max);
+    }
+    static readonly RaycastHit[] reachHits = new RaycastHit[16];
+
     internal static Mesh BuildBeamMesh()
     {
         const int rows = 24;

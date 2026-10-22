@@ -297,6 +297,7 @@ public class DarkForestGenerator : MonoBehaviour
         PlaceCampsites();
         PlaceCar();
         PlacePortalDoor();
+        keepOuts = CollectKeepOuts(); // the buildings, which nothing grows into
         ScatterTrees();
         ScatterRocks();
         ScatterLogs();
@@ -305,6 +306,7 @@ public class DarkForestGenerator : MonoBehaviour
         BuildWater();
 
         if (applyLighting) ApplyAtmosphere();
+        if (Application.isPlaying) EnableLightShadows();
         if (spawnPlayer) SpawnPlayer();
         if (spawnEntity && FindAnyObjectByType<ShadowEntity>() == null)
             ShadowEntity.Spawn(ShadowEntity.FirstEntityDelay); // a minute of calm before it starts
@@ -644,10 +646,127 @@ public class DarkForestGenerator : MonoBehaviour
                 if (size > 1f)
                     for (int k = 0; k < 6; k++) // keep later trees back from its wide trunk
                         AddToGrid(p + new Vector2(Mathf.Cos(k * Mathf.PI / 3f), Mathf.Sin(k * Mathf.PI / 3f)) * 1.6f, grid, cell);
+                int sways = SwayPivots.Count, vines = VineAnchors.Count;
                 if (Range(0f, 1f) < deadTreeRatio) BuildDeadTree(pos, parent, size);
                 else BuildPineTree(pos, parent, size);
+
+                // Its branches and needles mustn't reach into a shack (or the tower, a tent, the car): if they
+                // would, it isn't there after all.
+                Transform built = parent.GetChild(parent.childCount - 1);
+                if (Intrudes(built, keepOuts))
+                {
+                    SwayPivots.RemoveRange(sways, SwayPivots.Count - sways);
+                    VineAnchors.RemoveRange(vines, VineAnchors.Count - vines);
+                    placed.RemoveAt(placed.Count - 1);
+                    var c = new Vector2Int(Mathf.FloorToInt(p.x / cell), Mathf.FloorToInt(p.y / cell));
+                    if (grid.TryGetValue(c, out var list)) list.Remove(p);
+                    if (Application.isPlaying) Destroy(built.gameObject);
+                    else DestroyImmediate(built.gameObject);
+                }
             }
         }
+    }
+
+    /// <summary>
+    /// The lights other than the moon (the scours' glare, the giant's searchlight, fires, floodlights) only
+    /// throw shadows, so they come through a shack's planks in slats, if the URP asset lets them: this turns
+    /// that on if it's off (Additional Lights > Cast Shadows).
+    /// </summary>
+    static void EnableLightShadows()
+    {
+        var urp = GraphicsSettings.currentRenderPipeline;
+        if (urp == null) return;
+        var field = urp.GetType().GetField("m_AdditionalLightShadowsSupported", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        if (field != null && field.FieldType == typeof(bool) && !(bool)field.GetValue(urp))
+        {
+            field.SetValue(urp, true);
+            Debug.Log("Turned on Additional Lights > Cast Shadows on the URP asset, so enemy lights shine through gaps in walls.");
+        }
+    }
+
+    List<KeepOut> keepOuts = new List<KeepOut>();
+
+    /// <summary>True if something reaching pad metres round p would be inside a building (a shack, the tower, a tent, the car).</summary>
+    bool InBuilding(Vector2 p, float pad)
+    {
+        foreach (var k in keepOuts)
+        {
+            if ((k.center - p).magnitude > k.radius + pad) continue;
+            Vector3 local = k.toLocal.MultiplyPoint3x4(new Vector3(p.x, 0f, p.y));
+            if (local.x > k.min.x - pad && local.x < k.max.x + pad && local.z > k.min.z - pad && local.z < k.max.z + pad) return true;
+        }
+        return false;
+    }
+
+    /// <summary>A building's shape, in its own space (with a little margin), that trees must keep out of.</summary>
+    struct KeepOut
+    {
+        public Matrix4x4 toLocal;
+        public Vector3 min, max;
+        public Vector2 center;
+        public float radius;
+    }
+
+    /// <summary>The shacks, the watchtower, the campsites and the car, as boxes round all their parts.</summary>
+    List<KeepOut> CollectKeepOuts()
+    {
+        var result = new List<KeepOut>();
+        foreach (string group in new[] { "Shacks", "Watchtower", "Campsites", "Car" })
+        {
+            Transform parent = root.Find(group);
+            if (parent == null) continue;
+            foreach (Transform structure in parent)
+            {
+                Matrix4x4 toLocal = structure.worldToLocalMatrix;
+                Vector3 min = Vector3.positiveInfinity, max = Vector3.negativeInfinity;
+                foreach (var filter in structure.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    var mesh = filter.sharedMesh;
+                    if (mesh == null || mesh.name == "Beam") continue; // (not the light beams in the air)
+                    Bounds b = mesh.bounds;
+                    Matrix4x4 m = toLocal * filter.transform.localToWorldMatrix;
+                    for (int k = 0; k < 8; k++)
+                    {
+                        Vector3 corner = b.center + Vector3.Scale(b.extents, new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1));
+                        Vector3 local = m.MultiplyPoint3x4(corner);
+                        min = Vector3.Min(min, local);
+                        max = Vector3.Max(max, local);
+                    }
+                }
+                if (min.x > max.x) continue;
+                Vector3 margin = Vector3.one * 0.3f;
+                min -= margin;
+                max += margin;
+                float radius = new Vector2(Mathf.Max(-min.x, max.x), Mathf.Max(-min.z, max.z)).magnitude * Mathf.Max(structure.lossyScale.x, structure.lossyScale.z);
+                result.Add(new KeepOut { toLocal = toLocal, min = min, max = max, center = new Vector2(structure.position.x, structure.position.z), radius = radius });
+            }
+        }
+        return result;
+    }
+
+    /// <summary>True if any part of the tree (trunk, branches, needles) is inside one of the buildings.</summary>
+    static bool Intrudes(Transform tree, List<KeepOut> keepOuts)
+    {
+        var flat = new Vector2(tree.position.x, tree.position.z);
+        MeshFilter[] filters = null;
+        foreach (var k in keepOuts)
+        {
+            if ((k.center - flat).magnitude > k.radius + 12f) continue; // (no tree reaches that far)
+            if (filters == null) filters = tree.GetComponentsInChildren<MeshFilter>(true);
+            foreach (var filter in filters)
+            {
+                var mesh = filter.sharedMesh;
+                if (mesh == null || !mesh.isReadable) continue;
+                Matrix4x4 m = k.toLocal * filter.transform.localToWorldMatrix;
+                var verts = mesh.vertices;
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    Vector3 v = m.MultiplyPoint3x4(verts[i]);
+                    if (v.x > k.min.x && v.x < k.max.x && v.y > k.min.y && v.y < k.max.y && v.z > k.min.z && v.z < k.max.z) return true;
+                }
+            }
+        }
+        return false;
     }
 
     bool HasSpace(Vector2 p, Dictionary<Vector2Int, List<Vector2>> grid, float cell)
@@ -1602,7 +1721,7 @@ public class DarkForestGenerator : MonoBehaviour
         for (int attempt = 0; attempt < bushCount * 4 && placed < bushCount; attempt++)
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
-            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 4f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 4f) || InBuilding(p, 1.6f)) continue;
             if (Vector2.Distance(p, Vector2.zero) < 6f) continue; // leave the spawn point clear
 
             // Mostly small, now and then a bigger one.
@@ -1666,7 +1785,7 @@ public class DarkForestGenerator : MonoBehaviour
             float n = Mathf.PerlinNoise((p.x + noiseOffset.x) * grassNoiseScale, (p.y + noiseOffset.y) * grassNoiseScale);
             float meadow = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.42f, 0.68f, n));
             if (Range(0f, 1f) > 0.06f + meadow * 0.94f) continue;
-            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 3.5f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 3.5f) || InBuilding(p, 0.8f)) continue;
 
             var patch = new GameObject("Grass Patch");
             patch.transform.SetParent(parent, false);
@@ -1859,7 +1978,7 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < clearingRadius * 0.5f) continue;
-            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 5f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 5f) || InBuilding(p, 1.6f)) continue;
             float size = Range(0.3f, 1.6f);
             // Sunk a little into the ground so it sits in the earth rather than on it.
             var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y) - size * 0.12f, p.y);
@@ -1884,7 +2003,7 @@ public class DarkForestGenerator : MonoBehaviour
             var p = new Vector2(Range(-half, half), Range(-half, half));
             float size = Range(minBoulderSize, maxBoulderSize);
             if (p.magnitude < clearingRadius + size) continue;
-            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 6f + size * 0.5f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 6f + size * 0.5f) || InBuilding(p, size * 0.6f)) continue;
             if (NearAnyTree(p, size * 0.55f)) continue;
 
             var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y) - size * Range(0.15f, 0.3f), p.y);
@@ -1998,7 +2117,7 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             if (p.magnitude < clearingRadius) continue;
-            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 8f)) continue;
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 8f) || InBuilding(p, 3f)) continue;
 
             float radius = Range(0.2f, 0.4f);
             // Try a few lengths and directions for one that lies along the ground: the ground under it has to

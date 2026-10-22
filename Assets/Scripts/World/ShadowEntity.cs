@@ -1967,8 +1967,9 @@ public class ShadowEntity : MonoBehaviour
         mouthLight.transform.localPosition = new Vector3(0f, -0.005f, 0.12f) * scale;
         mouthLight.type = LightType.Spot;
         mouthLight.spotAngle = 55f;
-        mouthLight.range = 12f;
-        mouthLight.shadows = LightShadows.None;
+        mouthLight.range = 14f;
+        mouthLight.shadows = LightShadows.Soft; // through the gaps in a shack's planks, in slats of light
+        mouthLight.shadowNearPlane = 0.3f; // (not blocked by its own head)
         mouthLight.enabled = false;
         Shader beam = Shader.Find("Horror/Beam");
         if (beam != null)
@@ -2023,6 +2024,7 @@ public class ShadowEntity : MonoBehaviour
         {
             if (mouthBeam.gameObject.activeSelf != shown) mouthBeam.gameObject.SetActive(shown);
             float len = 3.5f * open;
+            if (shown) len = WatcherEvent.BeamReach(mouthBeam.position, mouthBeam.forward, len); // stopped by a wall: the light comes on through its gaps
             mouthBeam.localScale = new Vector3(len * 0.45f, len * 0.45f, Mathf.Max(len, 0.01f)) / Mathf.Max(headPivot.lossyScale.x, 0.0001f);
             mouthBeamMat.SetColor("_Color", new Color(glowColor.r, glowColor.g, glowColor.b, 0.12f * open * flicker));
         }
