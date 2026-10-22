@@ -108,6 +108,41 @@ public static class ProceduralAudio
     public static AudioClip Knocks => knocks != null ? knocks : (knocks = Take(nameof(knocks)) ?? MakeKnocks());
     static AudioClip knocks;
 
+    /// <summary>A frog's croak: a low, throaty, rattling "rrribb", the throat pulsing.</summary>
+    public static AudioClip FrogCroak => frogCroak != null ? frogCroak : (frogCroak = Take(nameof(frogCroak)) ?? MakeFrogCroak());
+    /// <summary>Something small dropping into water: a plop and a little splash.</summary>
+    public static AudioClip Splash => splash != null ? splash : (splash = Take(nameof(splash)) ?? MakeSplash());
+    static AudioClip frogCroak, splash;
+
+    static AudioClip MakeFrogCroak()
+    {
+        float phase = 0f, lp = 0f;
+        return Shot("Frog Croak", 0.5f, t =>
+        {
+            // A buzzy low tone pulsed at about 30 a second (the rattle), swelling and dying, dipping in pitch.
+            float env = Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / 0.42f)) * Mathf.Clamp01(t * 60f);
+            float pitch = Mathf.Lerp(330f, 240f, t / 0.45f);
+            phase += pitch / Rate;
+            float buzz = (Mathf.Repeat(phase, 1f) < 0.3f ? 1f : -0.4f);
+            float rattle = 0.5f + 0.5f * Mathf.Sin(TwoPi * 32f * t);
+            lp += (buzz * rattle * env - lp) * 0.25f;
+            return lp + Ring(t, 0f, 520f, 30f) * 0.15f * env;
+        }, 0.8f);
+    }
+
+    static AudioClip MakeSplash()
+    {
+        float lp = 0f;
+        return Shot("Splash", 0.7f, t =>
+        {
+            // The plop (a quick falling tone), then a spray of water noise settling.
+            float plop = t < 0.06f ? Mathf.Sin(TwoPi * Mathf.Lerp(900f, 300f, t / 0.06f) * t) * (1f - t / 0.06f) : 0f;
+            lp += (White() - lp) * 0.3f;
+            float spray = lp * Mathf.Exp(-t * 7f) * Mathf.Clamp01((t - 0.01f) * 80f);
+            return plop * 0.8f + spray * 0.9f + Ring(t, 0.02f, 1400f, 25f) * 0.1f;
+        }, 0.8f);
+    }
+
     static AudioClip MakeKnocks()
     {
         float[] at = { 0f, 0.46f, 0.95f };

@@ -21,6 +21,15 @@ public static class Water
     }
 
     public static void AddPond(Vector3 center, float radius, float level) => ponds.Add(new Pond { center = center, radius = radius, level = level });
+    /// <summary>How many ponds there are, and each one's middle (at its water level), radius and level.</summary>
+    public static int PondCount => ponds.Count;
+    public static void GetPond(int i, out Vector3 center, out float radius, out float level)
+    {
+        center = ponds[i].center;
+        radius = ponds[i].radius;
+        level = ponds[i].level;
+    }
+
     public static void AddPuddle(Vector3 center, float radius) => puddles.Add(new Puddle { center = center, radius = radius });
 
     /// <summary>True if feet at this point are in water, and how deep (a puddle is ankle-deep at most).</summary>

@@ -50,6 +50,14 @@ public class Wildlife : MonoBehaviour
     [Tooltip("Size of the crows (1 = life size).")]
     public float crowSize = 1.6f;
 
+    [Header("Crow crowds")]
+    [Tooltip("Crows in a crowd on the ground.")]
+    public int crowdSize = 14;
+    public float minCrowdInterval = 45f;
+    public float maxCrowdInterval = 110f;
+    [Tooltip("They all take off if you come this close (running, nearly twice as far).")]
+    public float crowdSpookDistance = 10f;
+
     [Header("Owls")]
     [Tooltip("How many trees get an owl on a branch.")]
     public int owlCount = 45;
@@ -195,6 +203,8 @@ public class Wildlife : MonoBehaviour
         for (int i = 0; i < maxBatsPerFlock; i++) bats.Add(new Bat { critter = BuildBat() });
         for (int i = 0; i < maxCrowsPerFlock; i++) crows.Add(new Bat { critter = BuildCrow() });
         crowTimer = Random.Range(minCrowInterval * 0.5f, maxCrowInterval);
+        for (int i = 0; i < crowdSize; i++) crowd.Add(new GroundCrow { c = BuildCrow() });
+        crowdTimer = Random.Range(minCrowdInterval * 0.3f, maxCrowdInterval * 0.6f);
         for (int i = 0; i < deerCount; i++) { deer.Add(BuildDeer()); GroundLeaves.Register(deer[deer.Count - 1].root, 0.45f); }
 
         batTimer = Random.Range(minBatInterval, maxBatInterval);
@@ -219,6 +229,7 @@ public class Wildlife : MonoBehaviour
         UpdateMoths();
         UpdateBats(dt);
         UpdateCrows(dt);
+        UpdateCrowd(dt);
         for (int i = 0; i < deer.Count; i++) UpdateDeer(i, dt);
         UpdateDeerCalls(dt);
         UpdateOwls(dt);
@@ -1138,6 +1149,156 @@ public class Wildlife : MonoBehaviour
                 if (Random.value < 0.6f) StartCoroutine(Caws(c.audio, Random.Range(1, 4)));
             }
         }
+    }
+
+    // ---------------------------------------------------------------- Crowds of crows on the ground
+
+    class GroundCrow
+    {
+        public Critter c;
+        public float peck, hop, delay, flown;
+        public bool flying;
+        public Vector3 velocity;
+    }
+    readonly List<GroundCrow> crowd = new List<GroundCrow>();
+    float crowdTimer;
+    bool crowdOut, crowdFlushed;
+    Vector3 crowdAt;
+
+    /// <summary>
+    /// Now and then a crowd of crows is down on the ground somewhere ahead in the dark, pecking at something.
+    /// As you come nearer they stop, and every head turns to watch you. Come close (or come running) and they
+    /// all go up at once in a clatter of wings and cawing, wheeling off over the trees. Then, some time later,
+    /// another crowd somewhere else.
+    /// </summary>
+    void UpdateCrowd(float dt)
+    {
+        if (crowd.Count == 0) return;
+        if (!crowdOut)
+        {
+            crowdTimer -= dt;
+            if (crowdTimer <= 0f && Lamp.TimesLit >= 1) PlaceCrowd();
+            return;
+        }
+
+        Vector3 toYou = player.position - WorldWrap.NearestImage(crowdAt, player.position);
+        toYou.y = 0f;
+        float dist = toYou.magnitude;
+        var controller = player.GetComponent<FirstPersonController>();
+        bool running = controller != null && controller.IsRunning;
+        if (!crowdFlushed && (dist < crowdSpookDistance || (running && dist < crowdSpookDistance * 1.8f))) FlushCrowd();
+        if (!crowdFlushed && dist > 80f) { EndCrowd(); return; } // left far behind: quietly gone
+
+        bool anyLeft = false;
+        foreach (var g in crowd)
+        {
+            var c = g.c;
+            if (!c.root.gameObject.activeSelf) continue;
+            anyLeft = true;
+            if (g.flying)
+            {
+                g.delay -= dt;
+                if (g.delay > 0f) continue;
+                // Up, and away: wings beating hard.
+                g.flown += dt;
+                g.velocity += (Vector3.up * 4f + g.velocity.normalized * 3f) * dt;
+                c.root.position += g.velocity * dt;
+                if (g.velocity.sqrMagnitude > 0.01f) c.root.rotation = Quaternion.Slerp(c.root.rotation, Quaternion.LookRotation(g.velocity), 1f - Mathf.Exp(-6f * dt));
+                float flap = Mathf.Sin(g.flown * 26f + g.peck) * 55f;
+                c.parts[0].localRotation = Quaternion.Euler(0f, 0f, flap);
+                c.parts[1].localRotation = Quaternion.Euler(0f, 0f, -flap);
+                if (g.flown > 5f) c.root.gameObject.SetActive(false);
+                continue;
+            }
+            // On the ground: pecking and hopping about, until you come near; then still, every one of them
+            // turned to watch you.
+            Vector3 pos = c.root.position;
+            Vector3 look = player.position - pos;
+            look.y = 0f;
+            bool watching = dist < 28f;
+            g.peck += dt;
+            float dip = 0f;
+            if (!watching)
+            {
+                dip = Mathf.Max(0f, Mathf.Sin(g.peck * 7f + g.hop * 10f)) * Mathf.Max(0f, Mathf.Sin(g.peck * 0.9f + g.hop)) * 40f;
+                if (Random.value < 0.25f * dt) // a hop
+                {
+                    Vector2 h = Random.insideUnitCircle * 0.4f;
+                    pos += new Vector3(h.x, 0f, h.y);
+                    pos.y = GroundHeight(pos) + 0.06f * crowSize;
+                    c.root.position = pos;
+                    c.root.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                }
+            }
+            else if (look.sqrMagnitude > 0.01f)
+                c.root.rotation = Quaternion.Slerp(c.root.rotation, Quaternion.LookRotation(look), 1f - Mathf.Exp(-(2f + g.hop) * dt));
+            c.root.rotation = Quaternion.Euler(dip, c.root.eulerAngles.y, 0f);
+        }
+        if (!anyLeft) EndCrowd();
+    }
+
+    void PlaceCrowd()
+    {
+        // Ahead of you, somewhere in the dark, out of the light and off the water.
+        Vector3 forward = player.forward;
+        forward.y = 0f;
+        forward = forward.sqrMagnitude > 0.01f ? forward.normalized : Vector3.forward;
+        for (int attempt = 0; attempt < 12; attempt++)
+        {
+            Vector3 dir = Quaternion.Euler(0f, Random.Range(-60f, 60f), 0f) * forward;
+            Vector3 at = player.position + dir * Random.Range(22f, 40f);
+            at.y = GroundHeight(at);
+            if (SafeZones.Contains(at) || Water.InWater(at + Vector3.up * 0.1f, out _)) continue;
+            crowdAt = at;
+            crowdOut = true;
+            crowdFlushed = false;
+            foreach (var g in crowd)
+            {
+                Vector2 o = Random.insideUnitCircle * 3.2f;
+                Vector3 p = at + new Vector3(o.x, 0f, o.y);
+                p.y = GroundHeight(p) + 0.06f * crowSize;
+                var c = g.c;
+                c.root.position = p;
+                c.root.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                // Wings folded along its back.
+                c.parts[0].localRotation = Quaternion.Euler(0f, -80f, -10f);
+                c.parts[1].localRotation = Quaternion.Euler(0f, 80f, 10f);
+                g.flying = false;
+                g.peck = Random.Range(0f, 10f);
+                g.hop = Random.Range(0f, 1f);
+                g.flown = 0f;
+                c.root.gameObject.SetActive(true);
+            }
+            return;
+        }
+        crowdTimer = 5f; // nowhere suitable just now: try again shortly
+    }
+
+    /// <summary>They all go up at once.</summary>
+    void FlushCrowd()
+    {
+        crowdFlushed = true;
+        Vector3 away = WorldWrap.NearestImage(crowdAt, player.position) - player.position;
+        away.y = 0f;
+        away = away.sqrMagnitude > 0.01f ? away.normalized : Vector3.forward;
+        int i = 0;
+        foreach (var g in crowd)
+        {
+            if (!g.c.root.gameObject.activeSelf) continue;
+            g.flying = true;
+            g.delay = Random.Range(0f, 0.45f);
+            g.velocity = (Quaternion.Euler(0f, Random.Range(-50f, 50f), 0f) * away) * Random.Range(3f, 6f) + Vector3.up * Random.Range(3f, 5f);
+            if (i++ % 3 == 0) Play(g.c.audio, wingSound != null ? wingSound : ProceduralAudio.WingFlaps, Random.Range(0.8f, 1.1f));
+            if (i % 4 == 1) StartCoroutine(Caws(g.c.audio, Random.Range(1, 4)));
+        }
+        Noise.Emit(crowdAt, 25f); // the racket carries
+    }
+
+    void EndCrowd()
+    {
+        crowdOut = false;
+        foreach (var g in crowd) g.c.root.gameObject.SetActive(false);
+        crowdTimer = Random.Range(minCrowdInterval, maxCrowdInterval);
     }
 
     System.Collections.IEnumerator Caws(AudioSource source, int count)

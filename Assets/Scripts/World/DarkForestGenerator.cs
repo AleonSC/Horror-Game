@@ -332,6 +332,10 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Pause Menu").AddComponent<PauseMenu>();
         if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<FallingLeaves>() == null)
             new GameObject("Falling Leaves").AddComponent<FallingLeaves>();
+        if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<PondLife>() == null)
+            new GameObject("Pond Life").AddComponent<PondLife>(); // lily pads, frogs, glowing mushrooms
+        if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<SpiderWebs>() == null)
+            new GameObject("Spider Webs").AddComponent<SpiderWebs>();
         if (spawnEntity && Application.isPlaying && FindAnyObjectByType<PeripheralPhantoms>() == null)
             new GameObject("Peripheral Phantoms").AddComponent<PeripheralPhantoms>(); // things at the edge of your sight
         if (spawnRain && Application.isPlaying && FindAnyObjectByType<Tornadoes>() == null)
