@@ -195,9 +195,12 @@ public class TreeFall : MonoBehaviour
             Vector2 centreHi = TrunkAt(sources, Mathf.Max(lo + 0.1f, sectionTop - 0.2f), radius, out float radiusHi);
 
             float foliageReach = 0f;
+            var loEdges = new List<(Vector3, Vector3)>();
+            var hiEdges = new List<(Vector3, Vector3)>();
             foreach (var (mesh, toSway, mat) in sources)
             {
-                Mesh part = Slice(mesh, toSway, lo, hi);
+                bool wood = mat == barkMaterial;
+                Mesh part = Slice(mesh, toSway, lo, hi, wood ? loEdges : null, wood ? hiEdges : null);
                 if (part == null) continue;
                 if (mat == barkMaterial)
                 {
@@ -226,7 +229,10 @@ public class TreeFall : MonoBehaviour
                 foliageReach = Mathf.Max(foliageReach, Mathf.Max(part.bounds.extents.x, part.bounds.extents.z));
             }
 
-            // Its broken ends: torn wood, so a break never shows the trunk as an empty tube.
+            // Its broken ends: the cut closed with a face of broken wood (exactly the trunk's shape there), and
+            // a few splinters standing up out of it.
+            AddCutFace(piece.transform, loEdges, centreLo, radiusLo, lo, false);
+            if (i < count - 1) AddCutFace(piece.transform, hiEdges, TrunkAt(sources, hi, radius, out float rHi), rHi, hi, true);
             AddBreakEnd(piece.transform, lo, sources, radius, false);
             if (i < count - 1) AddBreakEnd(piece.transform, hi, sources, radius, true);
 
@@ -287,60 +293,149 @@ public class TreeFall : MonoBehaviour
         sway.gameObject.SetActive(false); // the sections replace it
     }
 
-    /// <summary>The triangles of a mesh whose centres lie between two heights (sway space), as a new mesh.</summary>
-    static Mesh Slice(Mesh source, Matrix4x4 toSway, float lo, float hi)
+    struct Vtx
+    {
+        public Vector3 pos, normal;
+        public Vector4 tangent;
+        public Vector2 uv;
+
+        public static Vtx Lerp(Vtx a, Vtx b, float t) => new Vtx
+        {
+            pos = Vector3.Lerp(a.pos, b.pos, t),
+            normal = Vector3.Lerp(a.normal, b.normal, t).normalized,
+            tangent = Vector4.Lerp(a.tangent, b.tangent, t),
+            uv = Vector2.Lerp(a.uv, b.uv, t),
+        };
+    }
+
+    /// <summary>
+    /// The part of a mesh between two heights (sway space), cut cleanly: triangles crossing a cut are clipped
+    /// to it exactly, so neighbouring sections meet along a straight line with no gaps or overlaps. The edges
+    /// the cuts leave (where the surface crosses each height) are collected, for closing the ends with wood.
+    /// </summary>
+    static Mesh Slice(Mesh source, Matrix4x4 toSway, float lo, float hi, List<(Vector3, Vector3)> loEdges, List<(Vector3, Vector3)> hiEdges)
     {
         Vector3[] verts = source.vertices;
         Vector3[] normals = source.normals;
         Vector4[] tangents = source.tangents;
         Vector2[] uvs = source.uv;
         int[] tris = source.triangles;
+        bool hasN = normals.Length == verts.Length, hasT = tangents.Length == verts.Length, hasUV = uvs.Length == verts.Length;
 
-        var map = new Dictionary<int, int>();
-        var outVerts = new List<Vector3>();
-        var outNormals = new List<Vector3>();
-        var outTangents = new List<Vector4>();
-        var outUVs = new List<Vector2>();
+        var cache = new Vtx[verts.Length];
+        for (int i = 0; i < verts.Length; i++)
+        {
+            Vector3 tan = hasT ? toSway.MultiplyVector(tangents[i]).normalized : Vector3.right;
+            cache[i] = new Vtx
+            {
+                pos = toSway.MultiplyPoint3x4(verts[i]),
+                normal = hasN ? toSway.MultiplyVector(normals[i]).normalized : Vector3.up,
+                tangent = new Vector4(tan.x, tan.y, tan.z, hasT ? tangents[i].w : 1f),
+                uv = hasUV ? uvs[i] : Vector2.zero,
+            };
+        }
+
+        var outV = new List<Vtx>();
         var outTris = new List<int>();
-
+        var poly = new List<Vtx>(6);
+        var clipped = new List<Vtx>(6);
         for (int t = 0; t < tris.Length; t += 3)
         {
-            Vector3 a = toSway.MultiplyPoint3x4(verts[tris[t]]);
-            Vector3 b = toSway.MultiplyPoint3x4(verts[tris[t + 1]]);
-            Vector3 c = toSway.MultiplyPoint3x4(verts[tris[t + 2]]);
-            float y = (a.y + b.y + c.y) / 3f;
-            if (y < lo || y >= hi) continue;
-
-            for (int k = 0; k < 3; k++)
-            {
-                int src = tris[t + k];
-                if (!map.TryGetValue(src, out int dst))
-                {
-                    dst = outVerts.Count;
-                    map[src] = dst;
-                    outVerts.Add(toSway.MultiplyPoint3x4(verts[src]));
-                    if (normals.Length > 0) outNormals.Add(toSway.MultiplyVector(normals[src]).normalized);
-                    if (tangents.Length > 0)
-                    {
-                        Vector3 tan = toSway.MultiplyVector(tangents[src]).normalized;
-                        outTangents.Add(new Vector4(tan.x, tan.y, tan.z, tangents[src].w));
-                    }
-                    if (uvs.Length > 0) outUVs.Add(uvs[src]);
-                }
-                outTris.Add(dst);
-            }
+            Vtx a = cache[tris[t]], b = cache[tris[t + 1]], c = cache[tris[t + 2]];
+            float minY = Mathf.Min(a.pos.y, Mathf.Min(b.pos.y, c.pos.y)), maxY = Mathf.Max(a.pos.y, Mathf.Max(b.pos.y, c.pos.y));
+            if (maxY < lo || minY >= hi) continue;
+            poly.Clear();
+            poly.Add(a); poly.Add(b); poly.Add(c);
+            if (minY < lo) { Clip(poly, clipped, lo, true, loEdges); (poly, clipped) = (clipped, poly); }
+            if (poly.Count >= 3 && maxY > hi) { Clip(poly, clipped, hi, false, hiEdges); (poly, clipped) = (clipped, poly); }
+            if (poly.Count < 3) continue;
+            int first = outV.Count;
+            outV.AddRange(poly);
+            for (int k = 1; k < poly.Count - 1; k++) { outTris.Add(first); outTris.Add(first + k); outTris.Add(first + k + 1); }
         }
         if (outTris.Count == 0) return null;
 
         var mesh = new Mesh { name = source.name + " Section" };
-        if (outVerts.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-        mesh.SetVertices(outVerts);
-        if (outNormals.Count == outVerts.Count) mesh.SetNormals(outNormals);
-        if (outTangents.Count == outVerts.Count) mesh.SetTangents(outTangents);
-        if (outUVs.Count == outVerts.Count) mesh.SetUVs(0, outUVs);
+        if (outV.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        var pos = new List<Vector3>(outV.Count);
+        var nrm = new List<Vector3>(outV.Count);
+        var tng = new List<Vector4>(outV.Count);
+        var uv = new List<Vector2>(outV.Count);
+        foreach (var v in outV) { pos.Add(v.pos); nrm.Add(v.normal); tng.Add(v.tangent); uv.Add(v.uv); }
+        mesh.SetVertices(pos);
+        mesh.SetNormals(nrm);
+        if (hasT) mesh.SetTangents(tng);
+        if (hasUV) mesh.SetUVs(0, uv);
         mesh.SetTriangles(outTris, 0);
         mesh.RecalculateBounds();
         return mesh;
+    }
+
+    /// <summary>
+    /// Clips a convex polygon to one side of a height (keeping above it, or below), and records the new edge
+    /// along the cut.
+    /// </summary>
+    static void Clip(List<Vtx> input, List<Vtx> output, float h, bool keepAbove, List<(Vector3, Vector3)> edges)
+    {
+        output.Clear();
+        bool Inside(Vtx v) => keepAbove ? v.pos.y >= h : v.pos.y <= h;
+        Vector3? firstCut = null, secondCut = null;
+        for (int i = 0; i < input.Count; i++)
+        {
+            Vtx cur = input[i], next = input[(i + 1) % input.Count];
+            bool cin = Inside(cur), nin = Inside(next);
+            if (cin != nin)
+            {
+                float t = (h - cur.pos.y) / (next.pos.y - cur.pos.y);
+                Vtx cut = Vtx.Lerp(cur, next, t);
+                cut.pos.y = h;
+                if (cin) { output.Add(cut); }
+                else { output.Add(cut); output.Add(next); }
+                if (firstCut == null) firstCut = cut.pos; else secondCut = cut.pos;
+            }
+            else if (cin && nin) output.Add(next);
+        }
+        if (edges != null && firstCut.HasValue && secondCut.HasValue) edges.Add((firstCut.Value, secondCut.Value));
+    }
+
+    /// <summary>
+    /// Closes a section's cut end with a face of broken wood: a fan from the trunk's middle to every edge the
+    /// cut left round the trunk (the cut edges of branches further out are left alone: they snap off).
+    /// </summary>
+    void AddCutFace(Transform section, List<(Vector3, Vector3)> edges, Vector2 centre, float trunkRadius, float at, bool facingUp)
+    {
+        if (edges.Count < 3) return;
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var tris = new List<int>();
+        Vector3 middle = new Vector3(centre.x, at, centre.y);
+        Vector3 wanted = facingUp ? Vector3.up : Vector3.down;
+        float reach = trunkRadius * 1.35f + 0.04f;
+        foreach (var (p, q) in edges)
+        {
+            // Only the trunk's own outline: a branch's cut (further out) is left, it snaps off anyway.
+            if ((new Vector2(p.x, p.z) - centre).magnitude > reach || (new Vector2(q.x, q.z) - centre).magnitude > reach) continue;
+            Vector3 a = middle, b = p, c = q;
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), wanted) < 0f) (b, c) = (c, b);
+            int i = verts.Count;
+            verts.Add(a); verts.Add(b); verts.Add(c);
+            foreach (var v in new[] { a, b, c })
+                uvs.Add(new Vector2(0.5f + (v.x - centre.x) / (trunkRadius * 2.2f), 0.5f + (v.z - centre.y) / (trunkRadius * 2.2f)));
+            tris.Add(i); tris.Add(i + 1); tris.Add(i + 2);
+        }
+        if (tris.Count == 0) return;
+        var normals = new List<Vector3>(verts.Count);
+        for (int i = 0; i < verts.Count; i++) normals.Add(wanted);
+        var mesh = new Mesh { name = "Cut" };
+        mesh.SetVertices(verts);
+        mesh.SetNormals(normals);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateBounds();
+        var go = new GameObject("Cut Face");
+        go.transform.SetParent(section, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = BreakWoodMaterial;
     }
 
     static GameObject AddPart(Transform parent, string name, Mesh mesh, Material mat)
@@ -788,59 +883,20 @@ public class TreeFall : MonoBehaviour
     }
 
     /// <summary>
-    /// The torn end of a section where the trunk snapped: a short sleeve of bark fitted to the trunk's real
-    /// size, its edge a little ragged, closed by a face of broken wood, with a few long splinters standing out
-    /// round the edge. So a break never shows the trunk as an empty tube.
+    /// The splinters at a section's broken end: a few long slivers of wood standing up out of the cut face
+    /// (AddCutFace) round its edge, leaning a little out.
     /// </summary>
     void AddBreakEnd(Transform section, float at, List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources, float baseRadius, bool facingUp)
     {
         Vector2 c = TrunkAt(sources, at, baseRadius, out float r);
-        r *= 1.02f; // just over the bark, so no gap shows
         float dir = facingUp ? 1f : -1f;
         float size = Mathf.Max(r / 0.25f, 0.5f);
-        const int around = 14;
         var verts = new List<Vector3>();
         var uvs = new List<Vector2>();
         var barkTris = new List<int>();
         var woodTris = new List<int>();
         Vector3 P(float x, float y, float z) => new Vector3(c.x + x, y, c.y + z);
 
-        float[] jag = new float[around + 1];
-        for (int j = 0; j < around; j++) jag[j] = Random.Range(0.005f, 0.045f) * size;
-        jag[around] = jag[0];
-        // The sleeve: from a little inside the section out to the ragged rim.
-        for (int ring = 0; ring < 2; ring++)
-            for (int j = 0; j <= around; j++)
-            {
-                float a = j / (float)around * Mathf.PI * 2f;
-                float h = ring == 0 ? -0.1f : jag[j];
-                verts.Add(P(Mathf.Cos(a) * r, at + dir * h, Mathf.Sin(a) * r));
-                uvs.Add(new Vector2(j / (float)around, h * 2f));
-            }
-        int row = around + 1;
-        for (int j = 0; j < around; j++)
-        {
-            int q = j;
-            if (facingUp) barkTris.AddRange(new[] { q, q + row, q + 1, q + 1, q + row, q + row + 1 });
-            else barkTris.AddRange(new[] { q, q + 1, q + row, q + 1, q + row + 1, q + row });
-        }
-        // The broken face: nearly flat, just short of the rim.
-        int centre = verts.Count;
-        verts.Add(P(0f, at + dir * 0.012f * size, 0f));
-        uvs.Add(new Vector2(0.5f, 0.5f));
-        int rim = verts.Count;
-        for (int j = 0; j <= around; j++)
-        {
-            float a = j / (float)around * Mathf.PI * 2f;
-            verts.Add(P(Mathf.Cos(a) * r * 0.97f, at + dir * Mathf.Min(jag[j], 0.015f * size), Mathf.Sin(a) * r * 0.97f));
-            uvs.Add(new Vector2(0.5f + Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f));
-        }
-        for (int j = 0; j < around; j++)
-        {
-            if (facingUp) woodTris.AddRange(new[] { centre, rim + j + 1, rim + j });
-            else woodTris.AddRange(new[] { centre, rim + j, rim + j + 1 });
-        }
-        // Splinters: long, thin slivers of wood torn up from the edge, leaning a little out.
         int splinters = Random.Range(3, 6);
         for (int k = 0; k < splinters; k++)
         {
