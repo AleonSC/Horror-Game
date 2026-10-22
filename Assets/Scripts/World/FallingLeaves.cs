@@ -52,11 +52,11 @@ public class FallingLeaves : MonoBehaviour
         // A few autumn shades, dark to suit the night.
         var materials = new[]
         {
-            MaterialFactory.Lit(new Color(0.3f, 0.14f, 0.04f), 0f),
-            MaterialFactory.Lit(new Color(0.38f, 0.22f, 0.05f), 0f),
-            MaterialFactory.Lit(new Color(0.2f, 0.17f, 0.06f), 0f),
-            MaterialFactory.Lit(new Color(0.34f, 0.08f, 0.03f), 0f),
-            MaterialFactory.Lit(new Color(0.16f, 0.1f, 0.05f), 0f),
+            MaterialFactory.Lit(new Color(0.17f, 0.08f, 0.025f), 0f),
+            MaterialFactory.Lit(new Color(0.21f, 0.12f, 0.03f), 0f),
+            MaterialFactory.Lit(new Color(0.12f, 0.1f, 0.04f), 0f),
+            MaterialFactory.Lit(new Color(0.19f, 0.05f, 0.02f), 0f),
+            MaterialFactory.Lit(new Color(0.1f, 0.065f, 0.035f), 0f),
         };
         var shapes = new[] { LeafMesh(0.32f, 0.5f), LeafMesh(0.42f, 0.35f), LeafMesh(0.26f, 0.7f) };
 
@@ -228,10 +228,19 @@ public class FallingLeaves : MonoBehaviour
             verts.Add(new Vector3(0f, 0.01f, -0.62f));
             tris.AddRange(face == 0 ? new[] { s0, s0 + 2, s0 + 1 } : new[] { s0, s0 + 1, s0 + 2 });
         }
+        // Normals set by hand, straight out of each face: the leaf's pointed ends pinch its corners together, and
+        // worked out from the triangles those corners would get no normal at all, which lights as a white glare.
+        var normals = new System.Collections.Generic.List<Vector3>();
+        int perFace = (steps + 1) * 3;
+        for (int i = 0; i < verts.Count; i++)
+        {
+            bool top = i < perFace || i >= perFace * 2 + 3; // (the stalk's first side faces down, its second up)
+            normals.Add(top ? Vector3.up : Vector3.down);
+        }
         var mesh = new Mesh { name = "Leaf" };
         mesh.SetVertices(verts);
+        mesh.SetNormals(normals);
         mesh.SetTriangles(tris, 0);
-        mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         return mesh;
     }
