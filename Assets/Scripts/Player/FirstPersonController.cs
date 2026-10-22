@@ -43,6 +43,72 @@ public class FirstPersonController : MonoBehaviour
     [Tooltip("Layers that block the player from standing up.")]
     public LayerMask ceilingMask = ~0;
 
+    [Header("Stamina")]
+    [Tooltip("Seconds of running on full stamina.")]
+    public float sprintTime = 9f;
+    [Tooltip("Seconds to get it all back, standing still (walking, a bit longer).")]
+    public float recoverTime = 7f;
+    [Tooltip("Each lamp lit makes getting your breath back this much slower: the night wears you down.")]
+    public float recoverSlowdownPerLamp = 0.05f;
+    [Tooltip("Run it right out and you can't run again until it's back to this.")]
+    [Range(0f, 1f)] public float windedUntil = 0.35f;
+
+    /// <summary>Stamina, 1 fresh to 0 spent. Running uses it; it comes back slowly.</summary>
+    public float Stamina { get; private set; } = 1f;
+    /// <summary>Run right out of breath: no running until you've got some back.</summary>
+    public bool Winded { get; private set; }
+    AudioSource breathing;
+    float pantNoise;
+
+    /// <summary>Uses up some stamina (struggling with something).</summary>
+    public void SpendStamina(float amount)
+    {
+        Stamina = Mathf.Max(0f, Stamina - amount);
+        if (Stamina <= 0f) Winded = true;
+    }
+
+    /// <summary>
+    /// Stamina: running drains it, resting brings it back (slower the more lamps are lit). Out of breath, you
+    /// pant (and the blind one can hear it, close by), and can't run until you've recovered a bit.
+    /// </summary>
+    void UpdateStamina(float dt)
+    {
+        if (IsRunning)
+        {
+            Stamina = Mathf.Max(0f, Stamina - dt / Mathf.Max(sprintTime, 0.1f));
+            if (Stamina <= 0f) Winded = true;
+        }
+        else
+        {
+            float slow = 1f + recoverSlowdownPerLamp * Lamp.TimesLit;
+            float moving = horizontalVelocity.magnitude > 0.5f ? 0.6f : 1f;
+            Stamina = Mathf.Min(1f, Stamina + dt / Mathf.Max(recoverTime * slow, 0.1f) * moving);
+        }
+        if (Winded && Stamina >= windedUntil) Winded = false;
+
+        // Breathing: heavier the more spent you are.
+        if (breathing == null)
+        {
+            breathing = gameObject.AddComponent<AudioSource>();
+            breathing.clip = ProceduralAudio.Breath;
+            breathing.loop = true;
+            breathing.spatialBlend = 0f;
+            breathing.playOnAwake = false;
+            breathing.volume = 0f;
+        }
+        float heavy = Mathf.Clamp01((0.6f - Stamina) / 0.6f);
+        breathing.volume = Mathf.MoveTowards(breathing.volume, heavy * 0.55f, dt * 0.8f);
+        breathing.pitch = Mathf.Lerp(0.95f, 1.35f, heavy);
+        if (breathing.volume > 0.01f && !breathing.isPlaying) breathing.Play();
+        else if (breathing.volume <= 0.01f && breathing.isPlaying) breathing.Stop();
+        // Panting, badly winded: something close by could hear it.
+        if (Stamina < 0.3f)
+        {
+            pantNoise -= dt;
+            if (pantNoise <= 0f) { pantNoise = 1.5f; Noise.Emit(transform.position, 6f); }
+        }
+    }
+
     [Header("Waking Up")]
     [Tooltip("Seconds after spawning that the player is groggy: slow, heavy movement and blurred, swaying vision, clearing as it wears off.")]
     public float wakeTime = 9f;
@@ -201,6 +267,8 @@ public class FirstPersonController : MonoBehaviour
     /// <summary>Puts the player somewhere (after being caught), clearing any movement effects, waking up groggy.</summary>
     public void RespawnAt(Vector3 position, Quaternion rotation)
     {
+        Stamina = 1f;
+        Winded = false;
         controller.enabled = false; // CharacterController overrides teleports while enabled
         transform.SetPositionAndRotation(position, rotation);
         controller.enabled = true;
@@ -365,7 +433,9 @@ public class FirstPersonController : MonoBehaviour
         Vector2 input = Snared || DroneUnit.Piloting ? Vector2.zero : Vector2.ClampMagnitude(HorrorInput.Move, 1f); // held fast by the ankle: nowhere to go
         bool hasInput = input.sqrMagnitude > 0.01f;
 
-        IsRunning = HorrorInput.RunHeld && !IsCrouching && hasInput && input.y > 0f && Grogginess < 0.3f; // can't run yet
+        IsRunning = HorrorInput.RunHeld && !IsCrouching && hasInput && input.y > 0f && Grogginess < 0.3f // can't run yet
+                    && !Winded && Stamina > 0f;                                                              // or out of breath
+        UpdateStamina(Time.deltaTime);
 
         float targetSpeed = (IsCrouching ? crouchSpeed : IsRunning ? runSpeed : walkSpeed) * Water.SpeedFactor(transform.position) // wading is slow
                             * Mathf.Lerp(1f, wakeSpeed, Grogginess);                                                       // and so is waking up

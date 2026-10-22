@@ -313,7 +313,23 @@ public class Flashlight : MonoBehaviour
         percentStyle.normal.textColor = frame;
         GUI.Label(new Rect(tip.xMax + 10f * unit, body.y, 80f * unit, body.height),
             Mathf.CeilToInt(Battery * 100f) + "%", percentStyle);
+
+        // Stamina: a thin bar just above the battery, quiet when you're fresh, reddening as you tire.
+        if (player == null) player = FindAnyObjectByType<FirstPersonController>();
+        if (player != null)
+        {
+            float stamina = player.Stamina;
+            staminaShown = Mathf.MoveTowards(staminaShown, stamina >= 0.999f ? 0.35f : 1f, Time.unscaledDeltaTime * 2f);
+            var bar = new Rect(body.x, body.y - 12f * unit, body.width, 6f * unit);
+            DrawRect(bar, new Color(0f, 0f, 0f, 0.5f * staminaShown));
+            Color tint = player.Winded ? new Color(0.9f, 0.3f, 0.2f) : Color.Lerp(new Color(0.9f, 0.45f, 0.25f), new Color(0.75f, 0.9f, 0.75f), Mathf.InverseLerp(0.15f, 0.6f, stamina));
+            tint.a = 0.9f * staminaShown;
+            DrawRect(new Rect(bar.x + unit, bar.y + unit, (bar.width - 2f * unit) * stamina, bar.height - 2f * unit), tint);
+        }
     }
+
+    FirstPersonController player;
+    float staminaShown = 1f;
 
     static void DrawRect(Rect r, Color c)
     {

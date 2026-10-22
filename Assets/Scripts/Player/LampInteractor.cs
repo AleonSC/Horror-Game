@@ -514,12 +514,12 @@ public class LampInteractor : MonoBehaviour
             squaresLit = lit;
         }
 
-        // Lined up with the battery bar (Flashlight draws it 24 from the left and bottom, 34 tall, 156 wide).
+        // In the top left corner.
         float unit = Mathf.Max(1f, Screen.height / 1080f);
-        float margin = 24f * unit, barHeight = 34f * unit, barWidth = 156f * unit;
+        float margin = 24f * unit, barWidth = 156f * unit;
         float gap = 4f * unit;
         float size = Mathf.Min(14f * unit, (barWidth - gap * (total - 1)) / total);
-        float y = Screen.height - margin - barHeight - 10f * unit - size;
+        float y = margin;
         float flare = Mathf.Clamp01(1f - (Time.unscaledTime - squareLitAt) / 1.5f);
 
         for (int i = 0; i < total; i++)

@@ -343,6 +343,7 @@ public class Crawler : MonoBehaviour
         {
             presses++;
             jolt = 1f;
+            player.SpendStamina(0.035f); // tearing at it wears you out
             player.AddCameraShake(1.2f);
             voice.pitch = Random.Range(0.85f, 1.05f);
             voice.PlayOneShot(ProceduralAudio.Squeak, 0.5f);
