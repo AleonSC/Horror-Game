@@ -138,6 +138,35 @@ public class FirstPersonController : MonoBehaviour
     /// <summary>Held fast by something (a crawler has your ankle): no walking or jumping until it's cleared.</summary>
     public bool Snared { get; set; }
 
+    /// <summary>Sitting somewhere (a seat in the car): held there, free to look round, not walking.</summary>
+    public bool Seated => seat != null;
+    Transform seat;
+
+    /// <summary>Sits the player down with their eyes at a point (a seat's eye point), held there until StandUp.</summary>
+    public void SitAt(Transform eyes)
+    {
+        seat = eyes;
+        if (controller != null) controller.enabled = false;
+        horizontalVelocity = moveVelocity = Vector3.zero;
+        verticalVelocity = 0f;
+        HoldInSeat();
+    }
+
+    /// <summary>Gets up and steps out to a spot (on the ground).</summary>
+    public void StandUp(Vector3 at)
+    {
+        seat = null;
+        transform.position = at;
+        if (controller != null) controller.enabled = !freeFlight;
+    }
+
+    void HoldInSeat()
+    {
+        if (seat == null) return;
+        float eye = cameraRoot != null ? cameraRoot.localPosition.y : 1.6f;
+        transform.position = seat.position - transform.up * eye;
+    }
+
     /// <summary>Flying free (the dev tools' stick): no gravity, through anything, WASD along the view, Space up, Ctrl down, Shift fast.</summary>
     public bool FreeFlight
     {
@@ -267,6 +296,7 @@ public class FirstPersonController : MonoBehaviour
     /// <summary>Puts the player somewhere (after being caught), clearing any movement effects, waking up groggy.</summary>
     public void RespawnAt(Vector3 position, Quaternion rotation)
     {
+        seat = null; // (out of any seat)
         Stamina = 1f;
         Winded = false;
         controller.enabled = false; // CharacterController overrides teleports while enabled
@@ -292,9 +322,10 @@ public class FirstPersonController : MonoBehaviour
         if (!DroneUnit.Piloting) // (flying the drone: you stand still, the mouse and keys are its)
         {
             HandleLook();
-            if (!freeFlight) HandleCrouch();
+            if (!freeFlight && !Seated) HandleCrouch();
         }
-        if (freeFlight && !DroneUnit.Piloting) Fly();
+        if (Seated) HoldInSeat(); // (looking round freely, going nowhere)
+        else if (freeFlight && !DroneUnit.Piloting) Fly();
         else HandleMovement();
         UpdateCamera();
     }

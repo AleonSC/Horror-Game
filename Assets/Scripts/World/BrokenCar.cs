@@ -121,8 +121,80 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         StockItems();
     }
 
+    // ---------------------------------------------------------------- Sitting in it
+
+    readonly List<Transform> seats = new List<Transform>();
+    Transform carBody;
+    int seatIndex = -1; // -1: not in the car
+    FirstPersonController sitter;
+    [Tooltip("How close you have to be to the car to get in (Y).")]
+    public float getInDistance = 3f;
+    GUIStyle seatStyle;
+
+    /// <summary>
+    /// Y, by the car: get in, at the wheel. Y again moves you round the seats (passenger, then the back seat
+    /// on each side), and once more gets you out by the driver's door. You can look round freely while you sit.
+    /// </summary>
+    void UpdateSeat()
+    {
+        if (seats.Count == 0) return;
+        if (sitter == null) sitter = FindAnyObjectByType<FirstPersonController>();
+        if (sitter == null) return;
+        // Pulled out of it by being caught, or the run restarting.
+        if (seatIndex >= 0 && (GameOverScreen.IsActive || !sitter.Seated)) { seatIndex = -1; return; }
+        if (!HorrorInput.SeatPressed || PauseMenu.IsPaused || InventoryScreen.IsOpen || MainMenu.Showing || DroneUnit.Piloting) return;
+        if (seatIndex < 0)
+        {
+            Vector3 d = sitter.transform.position - WorldWrap.NearestImage(transform.position, sitter.transform.position);
+            d.y = 0f;
+            if (d.magnitude > getInDistance || sitter.Snared || sitter.FreeFlight) return;
+            seatIndex = 0;
+            sitter.SitAt(seats[0]);
+            Play(ProceduralAudio.CarDoorShut, 0.5f, 1.05f);
+            return;
+        }
+        seatIndex++;
+        if (seatIndex < seats.Count)
+        {
+            sitter.SitAt(seats[seatIndex]);
+            Play(ProceduralAudio.BushRustle, 0.25f, 1.3f); // shuffling across the seats
+            return;
+        }
+        // Out by the driver's door, onto the ground beside it.
+        seatIndex = -1;
+        Vector3 outside = carBody.TransformPoint(new Vector3(-1.5f, 0f, 0.1f));
+        var generator = FindAnyObjectByType<DarkForestGenerator>();
+        if (generator != null) outside.y = generator.GetGroundHeight(outside.x, outside.z) + 0.05f;
+        sitter.StandUp(outside);
+        Play(ProceduralAudio.CarDoorOpen, 0.5f, 1f);
+    }
+
+    void OnGUI()
+    {
+        if (sitter == null || seats.Count == 0 || GameOverScreen.IsActive || MainMenu.Showing || InventoryScreen.IsOpen || DroneUnit.Piloting) return;
+        string text = null;
+        if (seatIndex >= 0) text = seatIndex < seats.Count - 1 ? "Y  move over" : "Y  get out";
+        else
+        {
+            Vector3 d = sitter.transform.position - WorldWrap.NearestImage(transform.position, sitter.transform.position);
+            d.y = 0f;
+            if (d.magnitude <= getInDistance && !sitter.Snared) text = "Y  get in";
+        }
+        if (text == null) return;
+        float unit = Mathf.Max(1f, Screen.height / 1080f);
+        if (seatStyle == null) seatStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+        seatStyle.fontSize = Mathf.RoundToInt(15f * unit);
+        var r = new Rect(0f, Screen.height * 0.5f + 70f * unit, Screen.width, 24f * unit);
+        GUI.color = new Color(0f, 0f, 0f, 0.7f);
+        GUI.Label(new Rect(r.x + 1.5f, r.y + 1.5f, r.width, r.height), text, seatStyle);
+        GUI.color = new Color(0.92f, 0.88f, 0.78f, 0.85f);
+        GUI.Label(r, text, seatStyle);
+        GUI.color = Color.white;
+    }
+
     void Update()
     {
+        UpdateSeat();
         if (LightsOn)
         {
             Battery -= Time.deltaTime / Mathf.Max(batteryTime, 0.01f);
@@ -584,6 +656,17 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         radioGo.transform.localRotation = Quaternion.Euler(0f, R(60f, 110f), R(-4f, 4f));
         radio = radioGo.AddComponent<CarRadio>();
         radio.Build();
+        // Where you'd sit (your eyes, in each seat): driver, passenger, then the back seat behind each.
+        seats.Clear();
+        foreach (var eye in new[] { new Vector3(-0.4f, 1.3f, -0.18f), new Vector3(0.4f, 1.3f, -0.18f), new Vector3(-0.4f, 1.27f, -1.06f), new Vector3(0.4f, 1.27f, -1.06f) })
+        {
+            var s = new GameObject("Seat").transform;
+            s.SetParent(body, false);
+            s.localPosition = eye;
+            seats.Add(s);
+        }
+        carBody = body;
+
         // On the back seat beside it, where the drone might be (if this is where they come first).
         var droneSpot = new GameObject("Drone Spot").transform;
         droneSpot.SetParent(body, false);
