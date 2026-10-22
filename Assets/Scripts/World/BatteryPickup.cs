@@ -48,6 +48,7 @@ public class BatteryPickup : MonoBehaviour
     public void PickUp(Hotbar hotbar)
     {
         if (hotbar == null) return;
+        if (!hotbar.CanTake(Hotbar.Item.Battery)) { hotbar.NoRoom("battery"); return; } // (left where it is)
         hotbar.AddBattery();
         ProceduralAudio.PlayAt(ProceduralAudio.Pickup, transform.position, 0.8f, 1.1f, 2f);
         Destroy(gameObject);

@@ -35,6 +35,7 @@ public class ItemPickup : MonoBehaviour
     public void PickUp(Hotbar hotbar)
     {
         if (hotbar == null) return;
+        if (!hotbar.CanTake(item)) { hotbar.NoRoom(DisplayName); return; } // (left where it is)
         hotbar.AddItem(item);
         ProceduralAudio.PlayAt(ProceduralAudio.Pickup, transform.position, 0.8f, 1f, 2f);
         Destroy(gameObject);

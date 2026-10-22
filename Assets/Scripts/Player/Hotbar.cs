@@ -244,6 +244,21 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
         }
     }
 
+    /// <summary>
+    /// Whether there's room for an item: it already has a slot (it stacks, or the drone takes its remote's
+    /// slot back), or there's an empty one. If not, it's left where it is.
+    /// </summary>
+    public bool CanTake(Item item)
+    {
+        SyncSlots();
+        if (SlotOf(item) >= 0) return true;
+        if (item == Item.Drone && SlotOf(Item.Remote) >= 0) return true;
+        return System.Array.IndexOf(slots, -1) >= 0;
+    }
+
+    /// <summary>Tells the player there's no room for something.</summary>
+    public void NoRoom(string what) => Message($"No room for the {what}: your hotbar is full");
+
     /// <summary>Which slot an item is in (0-based), or -1.</summary>
     public int SlotOf(Item item) => System.Array.IndexOf(slots, (int)item);
 
