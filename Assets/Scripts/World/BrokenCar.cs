@@ -124,6 +124,7 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
     // ---------------------------------------------------------------- Sitting in it
 
     readonly List<Transform> seats = new List<Transform>();
+    Refuge carRefuge;
     Transform carBody;
     int seatIndex = -1; // -1: not in the car
     FirstPersonController sitter;
@@ -195,6 +196,12 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
     void Update()
     {
         UpdateSeat();
+        if (carRefuge != null)
+        {
+            bool shut = true;
+            foreach (var d in new[] { door, rearDoor, passengerDoor, rearRightDoor, trunk }) if (d != null && d.IsOpen) shut = false;
+            if (carRefuge.enabled != shut) carRefuge.enabled = shut;
+        }
         if (LightsOn)
         {
             Battery -= Time.deltaTime / Mathf.Max(batteryTime, 0.01f);
@@ -666,6 +673,11 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
             seats.Add(s);
         }
         carBody = body;
+        // With every door shut it's shelter, like a shack: they keep their distance.
+        var refugeGo = new GameObject("Car Refuge");
+        refugeGo.transform.SetParent(transform, false);
+        carRefuge = refugeGo.AddComponent<Refuge>();
+        carRefuge.radius = 4f;
 
         // On the back seat beside it, where the drone might be (if this is where they come first).
         var droneSpot = new GameObject("Drone Spot").transform;

@@ -31,10 +31,6 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
     public bool spawnEntityWhenLit = true;
 
     [Header("Energy")]
-    [Tooltip("Once lit, a lamp stays on for good (energy doesn't run down).")]
-    public bool stayLit = true;
-    [Tooltip("Seconds a lit lamp lasts before going out (when it doesn't stay lit).")]
-    public float energyDuration = 90f;
     [Range(0f, 1f), Tooltip("Below this much energy the light starts flickering, more as it gets lower.")]
     public float flickerBelow = 0.35f;
     [Tooltip("Seconds after going out before the lamp can be lit again.")]
@@ -338,7 +334,7 @@ public class Lamp : MonoBehaviour, SafeZones.ISource
 
     void UpdateLit()
     {
-        if (!stayLit) Energy = Mathf.Max(0f, Energy - Time.deltaTime / Mathf.Max(energyDuration, 0.01f));
+        // (Once lit, a lamp stays on for good: its energy never runs down.)
         if (Energy <= 0f)
         {
             TurnOff();

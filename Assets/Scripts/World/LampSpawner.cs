@@ -43,11 +43,6 @@ public class LampSpawner : MonoBehaviour
     [Tooltip("Summon another entity each time a lamp is lit.")]
     public bool spawnEntityWhenLit = true;
 
-    [Header("Lamp Settings: Energy")]
-    [Tooltip("Once lit, lamps stay on for good. Untick for the old behaviour: they run down, flicker, go out and cool down.")]
-    public bool stayLit = true;
-    [Tooltip("Seconds a lit lamp lasts before going out.")]
-    public float energyDuration = 90f;
     [Range(0f, 1f), Tooltip("Below this much energy the light starts flickering.")]
     public float flickerBelow = 0.35f;
     [Tooltip("Seconds after going out before the lamp can be lit again.")]
@@ -112,8 +107,6 @@ public class LampSpawner : MonoBehaviour
         lamp.lightIntensity = lightIntensity;
         lamp.lightColor = lightColor;
         lamp.spawnEntityWhenLit = spawnEntityWhenLit;
-        lamp.stayLit = stayLit;
-        lamp.energyDuration = energyDuration;
         lamp.flickerBelow = flickerBelow;
         lamp.cooldownTime = cooldownTime;
         lamp.sparkColor = sparkColor;
