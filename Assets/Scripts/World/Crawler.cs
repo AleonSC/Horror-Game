@@ -304,13 +304,10 @@ public class Crawler : MonoBehaviour
         if (u >= 1f) Latch();
     }
 
-    [Tooltip("Getting caught by one calls another scour into the hunt (up to this many scours about at once).")]
-    public int maxScoursCalled = 6;
-
-    /// <summary>On your face: you can't see, can't move, and it's shrieking. And its shriek calls one more scour into the hunt.</summary>
+    /// <summary>On your face: you can't see, can't move, and it's shrieking. And its shriek calls one more scour into the hunt (every time: there's no limit).</summary>
     void Latch()
     {
-        if (ShadowEntity.All.Count < maxScoursCalled) ShadowEntity.Spawn(Random.Range(4f, 9f));
+        ShadowEntity.Spawn(Random.Range(4f, 9f));
         state = State.Holding;
         timer = 0f;
         noiseTimer = 0f;
