@@ -812,25 +812,41 @@ public class Wildlife : MonoBehaviour
         d.body.SetParent(d.root, false);
         d.body.localPosition = new Vector3(0f, 1f, 0f);
 
-        // The body: a deep chest, a long barrel, round haunches, the withers rising over the shoulders, a
-        // paler belly, and the white patch round the tail.
-        var barrel = Part(PrimitiveType.Capsule, deerMat, d.body, new Vector3(0f, 0f, 0f), new Vector3(0.38f, 0.5f, 0.42f));
-        barrel.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        Part(PrimitiveType.Sphere, deerMat, d.body, new Vector3(0f, 0.02f, 0.34f), new Vector3(0.4f, 0.46f, 0.44f));   // chest
-        Part(PrimitiveType.Sphere, deerMat, d.body, new Vector3(0f, 0.05f, -0.36f), new Vector3(0.41f, 0.44f, 0.42f)); // haunches
-        Part(PrimitiveType.Sphere, deerMat, d.body, new Vector3(0f, 0.17f, 0.3f), new Vector3(0.24f, 0.16f, 0.32f));   // withers
-        Part(PrimitiveType.Sphere, deerBellyMat, d.body, new Vector3(0f, -0.15f, 0.02f), new Vector3(0.3f, 0.14f, 0.7f));
-        Part(PrimitiveType.Sphere, deerWhiteMat, d.body, new Vector3(0f, 0.03f, -0.555f), new Vector3(0.2f, 0.22f, 0.06f)); // rump patch
+        // The body: one smooth shape from the rump to the brisket: round haunches, the waist tucked up under
+        // the ribs, a deep chest, the withers rising over the shoulders. (x half-width, y half-height.)
+        Shape(d.body, "Torso", deerMat, 2.3f, true, true,
+            (new Vector3(0f, 0.07f, -0.68f), new Vector2(0.05f, 0.05f)),
+            (new Vector3(0f, 0.06f, -0.62f), new Vector2(0.14f, 0.15f)),
+            (new Vector3(0f, 0.05f, -0.5f), new Vector2(0.2f, 0.21f)),
+            (new Vector3(0f, 0.04f, -0.32f), new Vector2(0.2f, 0.21f)),
+            (new Vector3(0f, 0.05f, -0.1f), new Vector2(0.185f, 0.2f)),
+            (new Vector3(0f, 0.04f, 0.12f), new Vector2(0.2f, 0.24f)),
+            (new Vector3(0f, 0.05f, 0.32f), new Vector2(0.2f, 0.27f)),
+            (new Vector3(0f, 0.08f, 0.47f), new Vector2(0.17f, 0.25f)),
+            (new Vector3(0f, 0.1f, 0.57f), new Vector2(0.11f, 0.17f)),
+            (new Vector3(0f, 0.12f, 0.61f), new Vector2(0.04f, 0.06f)));
+        Shape(d.body, "Withers", deerMat, 2f, true, true,
+            (new Vector3(0f, 0.2f, 0.12f), new Vector2(0.02f, 0.02f)),
+            (new Vector3(0f, 0.24f, 0.3f), new Vector2(0.09f, 0.08f)),
+            (new Vector3(0f, 0.24f, 0.45f), new Vector2(0.07f, 0.07f)),
+            (new Vector3(0f, 0.22f, 0.55f), new Vector2(0.02f, 0.02f)));
+        // A paler belly, and the white patch round the tail.
+        Shape(d.body, "Belly", deerBellyMat, 2f, true, true,
+            (new Vector3(0f, -0.1f, -0.3f), new Vector2(0.03f, 0.02f)),
+            (new Vector3(0f, -0.125f, -0.15f), new Vector2(0.15f, 0.09f)),
+            (new Vector3(0f, -0.15f, 0.15f), new Vector2(0.16f, 0.1f)),
+            (new Vector3(0f, -0.17f, 0.35f), new Vector2(0.03f, 0.02f)));
+        Part(PrimitiveType.Sphere, deerWhiteMat, d.body, new Vector3(0f, 0.04f, -0.645f), new Vector3(0.2f, 0.22f, 0.05f));
 
         var parts = new Transform[7];
         d.knees = new Transform[4];
 
-        // Legs pivot at the shoulders and hips: slim, jointed, ending in small black hooves. The front ones
-        // bend at the knee (backward), the back ones at the hock (which sticks out behind).
+        // Legs pivot at the shoulders and hips: muscled at the top, then slim jointed bones down to small
+        // black hooves. The front ones bend at the knee, the back ones at the hock (which sticks out behind).
         Vector3[] hips =
         {
-            new Vector3(-0.12f, -0.08f, 0.4f), new Vector3(0.12f, -0.08f, 0.4f),
-            new Vector3(-0.13f, -0.04f, -0.4f), new Vector3(0.13f, -0.04f, -0.4f),
+            new Vector3(-0.12f, -0.06f, 0.4f), new Vector3(0.12f, -0.06f, 0.4f),
+            new Vector3(-0.13f, -0.02f, -0.42f), new Vector3(0.13f, -0.02f, -0.42f),
         };
         for (int i = 0; i < 4; i++)
         {
@@ -842,56 +858,88 @@ public class Wildlife : MonoBehaviour
             knee.SetParent(hip, false);
             if (back)
             {
-                Part(PrimitiveType.Sphere, deerMat, hip, new Vector3(0f, -0.1f, -0.02f), new Vector3(0.15f, 0.3f, 0.22f));     // thigh
-                var gaskin = Part(PrimitiveType.Capsule, deerMat, hip, new Vector3(0f, -0.33f, -0.07f), new Vector3(0.08f, 0.15f, 0.09f));
-                gaskin.localRotation = Quaternion.Euler(-14f, 0f, 0f);
+                Shape(hip, "Thigh", deerMat, 2f, true, false,
+                    (new Vector3(0f, 0.12f, 0.02f), new Vector2(0.09f, 0.14f)),
+                    (new Vector3(0f, -0.08f, -0.01f), new Vector2(0.085f, 0.13f)),
+                    (new Vector3(0f, -0.28f, -0.06f), new Vector2(0.05f, 0.07f)),
+                    (new Vector3(0f, -0.46f, -0.1f), new Vector2(0.03f, 0.045f)),
+                    (new Vector3(0f, -0.52f, -0.115f), new Vector2(0.028f, 0.04f)));
                 knee.localPosition = new Vector3(0f, -0.5f, -0.11f);
-                Part(PrimitiveType.Sphere, deerMat, knee, Vector3.zero, new Vector3(0.06f, 0.06f, 0.07f));                     // the hock
-                var cannon = Part(PrimitiveType.Cylinder, deerMat, knee, new Vector3(0f, -0.2f, 0.04f), new Vector3(0.042f, 0.2f, 0.048f));
-                cannon.localRotation = Quaternion.Euler(-12f, 0f, 0f);
-                Part(PrimitiveType.Sphere, deerMat, knee, new Vector3(0f, -0.4f, 0.085f), Vector3.one * 0.05f);                // fetlock
-                Part(PrimitiveType.Cube, hoofMat, knee, new Vector3(0f, -0.445f, 0.1f), new Vector3(0.05f, 0.05f, 0.07f));
+                Shape(knee, "Cannon", deerMat, 2f, false, false,
+                    (new Vector3(0f, 0.02f, -0.005f), new Vector2(0.027f, 0.038f)),
+                    (new Vector3(0f, -0.2f, 0.04f), new Vector2(0.02f, 0.024f)),
+                    (new Vector3(0f, -0.38f, 0.08f), new Vector2(0.019f, 0.022f)),
+                    (new Vector3(0f, -0.41f, 0.09f), new Vector2(0.026f, 0.028f)));
+                Shape(knee, "Hoof", hoofMat, 2.5f, false, true,
+                    (new Vector3(0f, -0.41f, 0.09f), new Vector2(0.024f, 0.026f)),
+                    (new Vector3(0f, -0.445f, 0.105f), new Vector2(0.027f, 0.034f)),
+                    (new Vector3(0f, -0.475f, 0.12f), new Vector2(0.028f, 0.038f)));
             }
             else
             {
-                Part(PrimitiveType.Capsule, deerMat, hip, new Vector3(0f, -0.17f, 0f), new Vector3(0.11f, 0.18f, 0.13f));     // forearm
+                Shape(hip, "Forearm", deerMat, 2f, true, false,
+                    (new Vector3(0f, 0.1f, 0f), new Vector2(0.07f, 0.1f)),
+                    (new Vector3(0f, -0.1f, 0.01f), new Vector2(0.06f, 0.075f)),
+                    (new Vector3(0f, -0.32f, 0f), new Vector2(0.035f, 0.042f)),
+                    (new Vector3(0f, -0.44f, 0f), new Vector2(0.03f, 0.036f)));
                 knee.localPosition = new Vector3(0f, -0.42f, 0f);
-                Part(PrimitiveType.Sphere, deerMat, knee, Vector3.zero, new Vector3(0.055f, 0.06f, 0.06f));                   // the knee
-                Part(PrimitiveType.Cylinder, deerMat, knee, new Vector3(0f, -0.2f, 0f), new Vector3(0.042f, 0.2f, 0.048f));
-                Part(PrimitiveType.Sphere, deerMat, knee, new Vector3(0f, -0.4f, 0.01f), Vector3.one * 0.05f);
-                Part(PrimitiveType.Cube, hoofMat, knee, new Vector3(0f, -0.455f, 0.025f), new Vector3(0.05f, 0.05f, 0.07f));
+                Shape(knee, "Cannon", deerMat, 2f, false, false,
+                    (new Vector3(0f, 0.02f, 0f), new Vector2(0.028f, 0.034f)),
+                    (new Vector3(0f, -0.2f, 0f), new Vector2(0.019f, 0.023f)),
+                    (new Vector3(0f, -0.4f, 0.01f), new Vector2(0.019f, 0.022f)),
+                    (new Vector3(0f, -0.445f, 0.015f), new Vector2(0.025f, 0.028f)));
+                Shape(knee, "Hoof", hoofMat, 2.5f, false, true,
+                    (new Vector3(0f, -0.445f, 0.015f), new Vector2(0.023f, 0.026f)),
+                    (new Vector3(0f, -0.478f, 0.03f), new Vector2(0.026f, 0.034f)),
+                    (new Vector3(0f, -0.51f, 0.045f), new Vector2(0.027f, 0.038f)));
             }
             parts[i] = hip;
             d.knees[i] = knee;
         }
 
-        // Neck: thick where it joins the chest, slimmer up to the head, a pale patch on the throat.
+        // Neck: deep where it springs from the chest, slender up to the head, a pale throat patch.
         var neck = new GameObject("Neck").transform;
         neck.SetParent(d.body, false);
         neck.localPosition = new Vector3(0f, 0.12f, 0.48f);
-        Part(PrimitiveType.Sphere, deerMat, neck, new Vector3(0f, 0.04f, 0f), new Vector3(0.22f, 0.26f, 0.24f));
-        Part(PrimitiveType.Cylinder, deerMat, neck, new Vector3(0f, 0.22f, 0.005f), new Vector3(0.15f, 0.18f, 0.17f));
-        Part(PrimitiveType.Sphere, deerMat, neck, new Vector3(0f, 0.42f, 0.01f), new Vector3(0.12f, 0.2f, 0.13f));
-        Part(PrimitiveType.Sphere, deerWhiteMat, neck, new Vector3(0f, 0.44f, 0.055f), new Vector3(0.07f, 0.08f, 0.04f));
+        Shape(neck, "Neck", deerMat, 2f, false, true,
+            (new Vector3(0f, -0.12f, -0.06f), new Vector2(0.14f, 0.2f)),
+            (new Vector3(0f, 0.06f, 0.0f), new Vector2(0.1f, 0.14f)),
+            (new Vector3(0f, 0.28f, 0.04f), new Vector2(0.07f, 0.095f)),
+            (new Vector3(0f, 0.48f, 0.05f), new Vector2(0.06f, 0.08f)),
+            (new Vector3(0f, 0.6f, 0.02f), new Vector2(0.055f, 0.07f)));
+        Part(PrimitiveType.Sphere, deerWhiteMat, neck, new Vector3(0f, 0.44f, 0.115f), new Vector3(0.07f, 0.09f, 0.03f));
         parts[Neck] = neck;
 
-        // Head: the skull tapering to a long muzzle with a black nose, big cupped ears, wide-set dark eyes.
+        // Head: the rounded skull tapering to a long, fine muzzle; black nose; big cupped ears; dark eyes
+        // set wide on the sides.
         var head = new GameObject("Head").transform;
         head.SetParent(neck, false);
         head.localPosition = new Vector3(0f, 0.55f, 0f);
-        Part(PrimitiveType.Sphere, deerMat, head, new Vector3(0f, 0f, 0.03f), new Vector3(0.15f, 0.15f, 0.2f));
-        var muzzle = Part(PrimitiveType.Capsule, deerMat, head, new Vector3(0f, -0.04f, 0.18f), new Vector3(0.085f, 0.1f, 0.09f));
-        muzzle.localRotation = Quaternion.Euler(95f, 0f, 0f);
-        Part(PrimitiveType.Sphere, deerMat, head, new Vector3(0f, -0.075f, 0.13f), new Vector3(0.08f, 0.05f, 0.15f));  // jaw
-        Part(PrimitiveType.Sphere, hoofMat, head, new Vector3(0f, -0.045f, 0.275f), new Vector3(0.06f, 0.045f, 0.04f)); // nose
-        Part(PrimitiveType.Sphere, deerWhiteMat, head, new Vector3(0f, -0.085f, 0.24f), new Vector3(0.05f, 0.025f, 0.04f)); // pale chin
+        Shape(head, "Skull", deerMat, 2f, true, false,
+            (new Vector3(0f, 0.02f, -0.07f), new Vector2(0.04f, 0.04f)),
+            (new Vector3(0f, 0.025f, -0.03f), new Vector2(0.07f, 0.075f)),
+            (new Vector3(0f, 0.025f, 0.04f), new Vector2(0.075f, 0.075f)),
+            (new Vector3(0f, 0f, 0.12f), new Vector2(0.055f, 0.06f)),
+            (new Vector3(0f, -0.025f, 0.2f), new Vector2(0.04f, 0.048f)),
+            (new Vector3(0f, -0.04f, 0.26f), new Vector2(0.032f, 0.038f)),
+            (new Vector3(0f, -0.045f, 0.285f), new Vector2(0.026f, 0.03f)));
+        Part(PrimitiveType.Sphere, hoofMat, head, new Vector3(0f, -0.04f, 0.29f), new Vector3(0.05f, 0.04f, 0.03f));   // nose
+        Part(PrimitiveType.Sphere, deerWhiteMat, head, new Vector3(0f, -0.075f, 0.25f), new Vector3(0.04f, 0.02f, 0.035f)); // pale chin
+        Part(PrimitiveType.Sphere, deerBellyMat, head, new Vector3(0f, -0.02f, 0.265f), new Vector3(0.06f, 0.03f, 0.03f));  // the pale band round the nose
         for (int side = -1; side <= 1; side += 2)
         {
-            var ear = Part(PrimitiveType.Sphere, deerMat, head, new Vector3(side * 0.085f, 0.09f, -0.04f), new Vector3(0.065f, 0.16f, 0.025f));
-            ear.localRotation = Quaternion.Euler(-10f, side * 25f, side * -50f);
-            var inner = Part(PrimitiveType.Sphere, deerBellyMat, ear, new Vector3(0f, 0.02f, 0.35f), new Vector3(0.7f, 0.75f, 0.4f));
-            inner.name = "Inner Ear";
-            Part(PrimitiveType.Sphere, deerEyeMat, head, new Vector3(side * 0.062f, 0.025f, 0.095f), new Vector3(0.03f, 0.028f, 0.03f));
+            // An ear: a long cupped leaf, its pale inside facing forward and out.
+            var ear = new GameObject("Ear").transform;
+            ear.SetParent(head, false);
+            ear.localPosition = new Vector3(side * 0.06f, 0.07f, -0.04f);
+            ear.localRotation = Quaternion.Euler(-15f, side * 30f, side * -55f);
+            Shape(ear, "Ear", deerMat, 2f, true, true,
+                (new Vector3(0f, 0f, 0f), new Vector2(0.025f, 0.012f)),
+                (new Vector3(0f, 0.06f, 0f), new Vector2(0.05f, 0.016f)),
+                (new Vector3(0f, 0.13f, 0f), new Vector2(0.04f, 0.012f)),
+                (new Vector3(0f, 0.17f, 0f), new Vector2(0.008f, 0.004f)));
+            Part(PrimitiveType.Sphere, deerBellyMat, ear, new Vector3(0f, 0.08f, 0.012f), new Vector3(0.07f, 0.13f, 0.008f));
+            Part(PrimitiveType.Sphere, deerEyeMat, head, new Vector3(side * 0.058f, 0.03f, 0.07f), new Vector3(0.024f, 0.028f, 0.034f));
         }
         if (stag) AddAntlers(head);
         parts[Head] = head;
@@ -899,9 +947,12 @@ public class Wildlife : MonoBehaviour
         // The tail: dark on top, white underneath (it flashes when it's raised).
         var tail = new GameObject("Tail").transform;
         tail.SetParent(d.body, false);
-        tail.localPosition = new Vector3(0f, 0.14f, -0.58f);
-        Part(PrimitiveType.Sphere, deerMat, tail, new Vector3(0f, -0.07f, -0.015f), new Vector3(0.08f, 0.16f, 0.04f));
-        Part(PrimitiveType.Sphere, deerWhiteMat, tail, new Vector3(0f, -0.07f, 0.008f), new Vector3(0.075f, 0.15f, 0.035f));
+        tail.localPosition = new Vector3(0f, 0.15f, -0.66f);
+        Shape(tail, "Tail", deerMat, 2f, true, true,
+            (new Vector3(0f, 0f, 0f), new Vector2(0.035f, 0.02f)),
+            (new Vector3(0f, -0.07f, -0.02f), new Vector2(0.045f, 0.025f)),
+            (new Vector3(0f, -0.15f, -0.02f), new Vector2(0.025f, 0.015f)));
+        Part(PrimitiveType.Sphere, deerWhiteMat, tail, new Vector3(0f, -0.07f, 0.004f), new Vector3(0.075f, 0.15f, 0.03f));
         parts[Tail] = tail;
 
         d.parts = parts;
@@ -911,6 +962,89 @@ public class Wildlife : MonoBehaviour
         d.loop = ProceduralAudio.AddSource(d.root.gameObject, gallopLoop != null ? gallopLoop : ProceduralAudio.Gallop, true, true, 0f, 4f, 50f);
         d.loop.pitch = Random.Range(0.9f, 1.1f);
         return d;
+    }
+
+    /// <summary>A smooth lofted shape under parent (see Loft).</summary>
+    static void Shape(Transform parent, string name, Material mat, float squareness, bool capStart, bool capEnd, params (Vector3 at, Vector2 radius)[] path)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.AddComponent<MeshFilter>().sharedMesh = Loft(path, squareness, capStart, capEnd);
+        var r = go.AddComponent<MeshRenderer>();
+        r.sharedMaterial = mat;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+    }
+
+    /// <summary>
+    /// A smooth tube along a path of points, each with a cross-section (half-width sideways, half-height the
+    /// other way; squareness 2 is an ellipse, more is boxier), the path and sizes eased between the points
+    /// (Catmull-Rom), optionally closed at either end.
+    /// </summary>
+    static Mesh Loft((Vector3 at, Vector2 radius)[] path, float squareness, bool capStart, bool capEnd)
+    {
+        const int sides = 14, steps = 4;
+        var centers = new List<Vector3>();
+        var radii = new List<Vector2>();
+        int n = path.Length;
+        for (int i = 0; i < n - 1; i++)
+            for (int s = 0; s < steps; s++)
+            {
+                float t = s / (float)steps;
+                Vector3 p0 = path[Mathf.Max(0, i - 1)].at, p1 = path[i].at, p2 = path[i + 1].at, p3 = path[Mathf.Min(n - 1, i + 2)].at;
+                centers.Add(0.5f * (2f * p1 + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t * t + (-p0 + 3f * p1 - 3f * p2 + p3) * t * t * t));
+                radii.Add(Vector2.Lerp(path[i].radius, path[i + 1].radius, Mathf.SmoothStep(0f, 1f, t)));
+            }
+        centers.Add(path[n - 1].at);
+        radii.Add(path[n - 1].radius);
+
+        var verts = new List<Vector3>();
+        var tris = new List<int>();
+        float e = 2f / squareness;
+        int rings = centers.Count;
+        var sideAxes = new Vector3[rings];
+        var otherAxes = new Vector3[rings];
+        for (int k = 0; k < rings; k++)
+        {
+            Vector3 tangent = (centers[Mathf.Min(rings - 1, k + 1)] - centers[Mathf.Max(0, k - 1)]).normalized;
+            Vector3 side = Vector3.ProjectOnPlane(Vector3.right, tangent).normalized;
+            sideAxes[k] = side;
+            otherAxes[k] = Vector3.Cross(tangent, side);
+            for (int j = 0; j < sides; j++)
+            {
+                float a = j / (float)sides * Mathf.PI * 2f;
+                float c = Mathf.Cos(a), s = Mathf.Sin(a);
+                float x = Mathf.Sign(c) * Mathf.Pow(Mathf.Abs(c), e), y = Mathf.Sign(s) * Mathf.Pow(Mathf.Abs(s), e);
+                verts.Add(centers[k] + side * (x * radii[k].x) + otherAxes[k] * (y * radii[k].y));
+            }
+        }
+        for (int k = 0; k < rings - 1; k++)
+            for (int j = 0; j < sides; j++)
+            {
+                int a = k * sides + j, b = k * sides + (j + 1) % sides, c = a + sides, d = b + sides;
+                tris.AddRange(new[] { a, b, c, b, d, c });
+            }
+        // Caps: their own vertices, so the rims stay smooth on the tube and flat on the cap.
+        void Cap(int k, bool start)
+        {
+            int center = verts.Count;
+            verts.Add(centers[k]);
+            for (int j = 0; j < sides; j++) verts.Add(verts[k * sides + j]);
+            for (int j = 0; j < sides; j++)
+            {
+                int v = center + 1 + j, w = center + 1 + (j + 1) % sides;
+                if (start) tris.AddRange(new[] { center, w, v });
+                else tris.AddRange(new[] { center, v, w });
+            }
+        }
+        if (capStart) Cap(0, true);
+        if (capEnd) Cap(rings - 1, false);
+
+        var mesh = new Mesh { name = "Deer" };
+        mesh.SetVertices(verts);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
     }
 
     /// <summary>A stag's antlers: each beam sweeping up and back then forward, with a brow tine and two more points.</summary>
