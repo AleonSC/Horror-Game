@@ -64,6 +64,8 @@ public class GroundMist : MonoBehaviour
     Material mat;
     Transform box;
     Renderer boxRenderer;
+    /// <summary>The mist's volume (the drone's thermal camera hides it from its own picture).</summary>
+    public Renderer MistRenderer => boxRenderer;
     Texture2D map, nextMap;
     Vector2 mapOrigin, nextOrigin;
     float mapMinY, mapMaxY;

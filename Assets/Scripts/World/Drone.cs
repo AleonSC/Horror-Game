@@ -420,7 +420,13 @@ public class DroneUnit : MonoBehaviour
     [Tooltip("Thermal mode drains the battery this many times as fast.")]
     public float thermalDrain = 2f;
     [Range(0f, 1f), Tooltip("How much of the fog the thermal camera still sees.")]
-    public float thermalFog = 0.25f;
+    public float thermalFog = 0.08f;
+    [Tooltip("The cold world's brightness in thermal: an even grey light on everything, so the shapes of the land and trees read.")]
+    public Color thermalAmbient = new Color(0.32f, 0.32f, 0.34f);
+    GroundMist mist;
+    bool mistWasOn;
+    Color ambientKept;
+    UnityEngine.Rendering.AmbientMode ambientModeKept;
     public Color heatColor = new Color(1f, 0.92f, 0.8f);
     bool thermal;
     Volume thermalVolume;
@@ -452,7 +458,7 @@ public class DroneUnit : MonoBehaviour
                 var grade = profile.Add<ColorAdjustments>(true);
                 grade.saturation.Override(-100f);
                 grade.contrast.Override(45f);
-                grade.postExposure.Override(1.6f);
+                grade.postExposure.Override(1.2f);
                 grade.colorFilter.Override(new Color(0.92f, 0.95f, 1f));
                 var grain = profile.Add<FilmGrain>(true);
                 grain.intensity.Override(0.35f);
@@ -481,15 +487,33 @@ public class DroneUnit : MonoBehaviour
     {
         RenderPipelineManager.beginCameraRendering -= BeforeRender;
         RenderPipelineManager.endCameraRendering -= AfterRender;
-        if (fogKept >= 0f) { RenderSettings.fogDensity = fogKept; fogKept = -1f; }
+        if (fogKept >= 0f)
+        {
+            RenderSettings.fogDensity = fogKept;
+            fogKept = -1f;
+            RenderSettings.ambientMode = ambientModeKept;
+            RenderSettings.ambientLight = ambientKept;
+            if (mist != null && mist.MistRenderer != null) mist.MistRenderer.enabled = mistWasOn;
+        }
     }
 
-    // The thermal camera sees through most of the fog (just for its own picture).
+    // Just for the thermal camera's own picture: nearly no fog, none of the ground mist, and the cold world
+    // lit evenly grey so the land and the trees read as shapes.
     void BeforeRender(ScriptableRenderContext context, Camera cam)
     {
         if (!thermal || cam != view) return;
         fogKept = RenderSettings.fogDensity;
         RenderSettings.fogDensity = fogKept * thermalFog;
+        ambientKept = RenderSettings.ambientLight;
+        ambientModeKept = RenderSettings.ambientMode;
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+        RenderSettings.ambientLight = thermalAmbient;
+        if (mist == null) mist = FindAnyObjectByType<GroundMist>();
+        if (mist != null && mist.MistRenderer != null)
+        {
+            mistWasOn = mist.MistRenderer.enabled;
+            mist.MistRenderer.enabled = false;
+        }
     }
 
     void AfterRender(ScriptableRenderContext context, Camera cam)
@@ -497,6 +521,9 @@ public class DroneUnit : MonoBehaviour
         if (cam != view || fogKept < 0f) return;
         RenderSettings.fogDensity = fogKept;
         fogKept = -1f;
+        RenderSettings.ambientMode = ambientModeKept;
+        RenderSettings.ambientLight = ambientKept;
+        if (mist != null && mist.MistRenderer != null) mist.MistRenderer.enabled = mistWasOn;
     }
 
     /// <summary>Everything warm, drawn again in white heat (for the drone's camera only).</summary>
