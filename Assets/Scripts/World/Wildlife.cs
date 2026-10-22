@@ -743,31 +743,51 @@ public class Wildlife : MonoBehaviour
     {
         Transform[] p = d.parts;
         bool galloping = speed > deerWalkSpeed * 2f;
-        float bob = 0f, pitch = 0f;
+        float bob = 0f, pitch = 0f, neckSwing = 0f;
+        var hip = new float[4];
+        var fold = new float[4];
 
-        if (galloping)
+        if (speed > 0f)
         {
-            // Bounding gait: front legs together, then back legs together.
-            d.phase += dt * Mathf.PI * 2f * 2.4f;
-            float front = Mathf.Sin(d.phase) * 45f;
-            float back = Mathf.Sin(d.phase + 2.2f) * 45f;
-            p[FrontLeft].localRotation = Quaternion.Euler(front, 0f, 0f);
-            p[FrontRight].localRotation = Quaternion.Euler(Mathf.Sin(d.phase + 0.3f) * 45f, 0f, 0f);
-            p[BackLeft].localRotation = Quaternion.Euler(back, 0f, 0f);
-            p[BackRight].localRotation = Quaternion.Euler(Mathf.Sin(d.phase + 2.5f) * 45f, 0f, 0f);
-            bob = Mathf.Abs(Mathf.Sin(d.phase)) * 0.15f;
-            pitch = Mathf.Sin(d.phase + 1f) * 6f;
-        }
-        else if (speed > 0f)
-        {
-            // Walk: diagonal pairs move together.
-            d.phase += dt * speed * 4f;
-            float swing = Mathf.Sin(d.phase) * 22f;
-            p[FrontLeft].localRotation = Quaternion.Euler(swing, 0f, 0f);
-            p[BackRight].localRotation = Quaternion.Euler(swing, 0f, 0f);
-            p[FrontRight].localRotation = Quaternion.Euler(-swing, 0f, 0f);
-            p[BackLeft].localRotation = Quaternion.Euler(-swing, 0f, 0f);
-            bob = Mathf.Abs(Mathf.Sin(d.phase)) * 0.03f;
+            // Each leg goes round a cycle: planted (the foot pushing back under the body as the deer goes over
+            // it), then lifted, the knee or hock folding up tight, and swung forward to reach for the ground.
+            //   Gallop: the hind legs strike almost together and drive it on, then the forelegs reach out and
+            //   land one after the other, with a moment in the air between: the body rocking nose-up as the
+            //   hind legs push, nose-down as it lands on its front.
+            //   Walk: one foot at a time, round the four (hind, fore on the same side, the other hind, fore).
+            float cyclesPerSecond = galloping ? Mathf.Lerp(1.9f, 2.4f, Mathf.InverseLerp(deerWalkSpeed * 2f, deerGallopSpeed, speed)) : speed * 0.9f;
+            d.phase += dt * cyclesPerSecond;
+            float c = d.phase - Mathf.Floor(d.phase);
+            float[] offset = galloping ? new[] { 0.45f, 0.55f, 0f, 0.08f } : new[] { 0.25f, 0.75f, 0f, 0.5f }; // FL, FR, BL, BR
+            float stance = galloping ? 0.35f : 0.62f;
+            for (int leg = FrontLeft; leg <= BackRight; leg++)
+            {
+                bool back = leg >= BackLeft;
+                float reach = galloping ? (back ? 35f : 48f) : 18f;   // forward, at the end of its swing
+                float push = galloping ? (back ? 48f : 32f) : 18f;    // back, at the end of its stance
+                float u = c + offset[leg];
+                u -= Mathf.Floor(u);
+                if (u < stance)
+                {
+                    hip[leg] = Mathf.Lerp(-reach, push, u / stance);
+                    fold[leg] = 0f;
+                }
+                else
+                {
+                    float sw = (u - stance) / (1f - stance);
+                    hip[leg] = Mathf.Lerp(push, -reach, Mathf.SmoothStep(0f, 1f, sw));
+                    fold[leg] = Mathf.Sin(Mathf.PI * Mathf.Min(1f, sw * 1.15f)) * (galloping ? (back ? 85f : 110f) : (back ? 35f : 50f));
+                }
+            }
+            if (galloping)
+            {
+                bob = 0.09f * (0.5f + 0.5f * Mathf.Cos(Mathf.PI * 2f * (c - 0.3f)));   // highest in the leap after the hind legs push
+                pitch = -7f * Mathf.Cos(Mathf.PI * 2f * (c - 0.12f));                 // nose up as they push, down as it lands in front
+                neckSwing = 9f * Mathf.Cos(Mathf.PI * 2f * (c - 0.2f));               // the head and neck reaching with each bound
+            }
+            else bob = 0.012f * Mathf.Cos(Mathf.PI * 4f * c);
+            for (int leg = FrontLeft; leg <= BackRight; leg++)
+                p[leg].localRotation = Quaternion.Slerp(p[leg].localRotation, Quaternion.Euler(hip[leg], 0f, 0f), 1f - Mathf.Exp(-30f * dt));
         }
         else
         {
@@ -775,25 +795,22 @@ public class Wildlife : MonoBehaviour
                 p[leg].localRotation = Quaternion.Slerp(p[leg].localRotation, Quaternion.identity, 1f - Mathf.Exp(-8f * dt));
         }
 
-        d.body.localPosition = new Vector3(0f, 1f + bob, 0f);
-        d.body.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        d.body.localPosition = Vector3.Lerp(d.body.localPosition, new Vector3(0f, 1f + bob, 0f), 1f - Mathf.Exp(-20f * dt));
+        d.body.localRotation = Quaternion.Slerp(d.body.localRotation, Quaternion.Euler(pitch, 0f, 0f), 1f - Mathf.Exp(-15f * dt));
 
-        // The knees (forward legs) and hocks (back legs) fold as each leg swings forward, and straighten under it.
+        // The knees (forelegs: folding back) and hocks (hind legs: folding forward).
         if (d.knees != null)
             for (int leg = FrontLeft; leg <= BackRight; leg++)
             {
                 if (d.knees[leg] == null) continue;
-                float swing = p[leg].localRotation.eulerAngles.x;
-                if (swing > 180f) swing -= 360f; // negative: swinging forward
-                float fold = speed > 0f ? Mathf.Clamp01(-swing / 40f) * (galloping ? 75f : 45f) : 0f;
-                Quaternion bend = Quaternion.Euler(leg >= BackLeft ? -fold : fold, 0f, 0f);
-                d.knees[leg].localRotation = Quaternion.Slerp(d.knees[leg].localRotation, bend, 1f - Mathf.Exp(-14f * dt));
+                Quaternion bend = Quaternion.Euler(leg >= BackLeft ? -fold[leg] : fold[leg], 0f, 0f);
+                d.knees[leg].localRotation = Quaternion.Slerp(d.knees[leg].localRotation, bend, 1f - Mathf.Exp(-30f * dt));
             }
 
         // Neck and head: down to graze, up to watch. The head stays roughly level.
         d.neckAngle = Mathf.MoveTowards(d.neckAngle, targetNeck, dt * 90f);
         float nibble = d.mode == DeerGraze && Mathf.Abs(d.neckAngle - targetNeck) < 1f ? Mathf.Sin(Time.time * 6f + d.phase) * 4f : 0f;
-        p[Neck].localRotation = Quaternion.Euler(d.neckAngle + nibble, 0f, 0f);
+        p[Neck].localRotation = Quaternion.Euler(d.neckAngle + nibble + neckSwing, 0f, 0f);
         p[Head].localRotation = Quaternion.Euler(-d.neckAngle * 0.75f + 15f, 0f, 0f);
 
         // White-tail flag goes up when spooked.
