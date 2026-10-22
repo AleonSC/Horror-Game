@@ -1237,32 +1237,38 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     }
 
     /// <summary>An open cone, apex at the origin, widening to radius 1 at z = 1.</summary>
+    /// <summary>
+    /// The mesh for a Horror/Beam: a strip down the beam (uv.x across it, -1 to 1; uv.y along it, 0 at the
+    /// source to 1 at the far end). The shader turns it to face the camera; the vertex positions only give the
+    /// cone's bounds (apex at the origin, axis +z, radius 1 at z = 1).
+    /// </summary>
     internal static Mesh BuildBeamMesh()
     {
-        const int sides = 24;
+        const int rows = 24;
         var verts = new System.Collections.Generic.List<Vector3>();
         var uvs = new System.Collections.Generic.List<Vector2>();
         var tris = new System.Collections.Generic.List<int>();
-        for (int k = 0; k <= sides; k++)
+        for (int k = 0; k <= rows; k++)
         {
-            float a = k / (float)sides * Mathf.PI * 2f;
-            verts.Add(new Vector3(Mathf.Cos(a) * 0.02f, Mathf.Sin(a) * 0.02f, 0f));
-            uvs.Add(new Vector2(k / (float)sides, 0f));
-            verts.Add(new Vector3(Mathf.Cos(a), Mathf.Sin(a), 1f));
-            uvs.Add(new Vector2(k / (float)sides, 1f));
+            float t = k / (float)rows;
+            foreach (float u in new[] { -1f, 1f })
+            {
+                verts.Add(new Vector3(u * t, 0f, t));
+                uvs.Add(new Vector2(u, t));
+            }
         }
-        for (int k = 0; k < sides; k++)
+        for (int k = 0; k < rows; k++)
         {
             int a = k * 2, b = a + 1, c = a + 2, d = a + 3;
-            tris.Add(a); tris.Add(b); tris.Add(c);
-            tris.Add(c); tris.Add(b); tris.Add(d);
+            tris.Add(a); tris.Add(c); tris.Add(b);
+            tris.Add(b); tris.Add(c); tris.Add(d);
         }
         var mesh = new Mesh { name = "Beam" };
         mesh.SetVertices(verts);
         mesh.SetUVs(0, uvs);
         mesh.SetTriangles(tris, 0);
         mesh.RecalculateNormals();
-        mesh.bounds = new Bounds(new Vector3(0f, 0f, 0.5f), new Vector3(2f, 2f, 1f));
+        mesh.bounds = new Bounds(new Vector3(0f, 0f, 0.5f), new Vector3(2.4f, 2.4f, 1f));
         return mesh;
     }
 
