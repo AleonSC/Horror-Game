@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 
@@ -147,7 +146,7 @@ public class HdrpAtmosphere : MonoBehaviour
                 foreach (var m in r.sharedMaterials)
                     if (m == null || m.shader == null || !m.shader.name.StartsWith("HDRP/") || m.renderQueue >= (int)RenderQueue.GeometryLast)
                         solid = false;
-            if (!solid) r.rayTracingMode = RayTracingMode.Off;
+            if (!solid) r.rayTracingMode = UnityEngine.Experimental.Rendering.RayTracingMode.Off;
         }
         rendererSeen.RemoveWhere(r => r == null);
     }
