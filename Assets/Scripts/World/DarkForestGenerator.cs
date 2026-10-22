@@ -370,6 +370,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Wildlife").AddComponent<Wildlife>();
         if (spawnFallingTree && Application.isPlaying && FindAnyObjectByType<FallingTreeEvent>() == null)
             new GameObject("Falling Tree Event").AddComponent<FallingTreeEvent>();
+        if (Application.isPlaying && FindAnyObjectByType<RiftEvent>() == null)
+            new GameObject("Rift Event").AddComponent<RiftEvent>(); // a rift in the air to somewhere else
         if (spawnWatcher && Application.isPlaying && FindAnyObjectByType<WatcherEvent>() == null)
             new GameObject("Watcher Event").AddComponent<WatcherEvent>();
 

@@ -45,6 +45,7 @@ public static class StaticReset
         ScourClock.ResetStatics();
         RainDrops.ResetStatics();
         PortalDoor.ResetStatics();
+        RiftEvent.ResetStatics();
         EntityDread.ResetStatics();
         MusicCue.ResetStatics();
 

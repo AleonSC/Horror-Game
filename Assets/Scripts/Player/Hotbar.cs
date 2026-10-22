@@ -517,7 +517,7 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
     }
 
     static readonly string[] StickItems = { "Torch", "Lighter", "Flare Gun", "Glowsticks", "Battery", "Camera", "Key Fob", "Map", "Drone" };
-    static readonly string[] StickMobs = { "Scour", "Blind One", "Crawler", "Flier" };
+    static readonly string[] StickMobs = { "Scour", "Blind One", "Crawler", "Flier", "Rift" };
     int stickChoice; // an index into StickItems, then StickMobs after them
     float lastSpaceTap = -10f;
     Vector2 stickScroll;
@@ -604,6 +604,16 @@ public class Hotbar : MonoBehaviour, SafeZones.ISource
                 crawler.Settle(at);
                 break;
             case "Flier": FlyingEntity.Spawn(GetComponent<FirstPersonController>()); break;
+            case "Rift":
+                var rift = FindAnyObjectByType<RiftEvent>();
+                Vector3 back = cam.transform.position - at;
+                back.y = 0f;
+                if (rift == null || back.sqrMagnitude < 0.01f || !rift.OpenAt(at, Quaternion.LookRotation(back.normalized)))
+                {
+                    Message(rift != null && rift.IsOpen ? "A rift is already open" : "No room for a rift there");
+                    return;
+                }
+                break;
         }
         if (made != null) WorldWrap.RegisterDynamic(made);
         Play(ProceduralAudio.LampSpark, 0.4f, 1.6f);

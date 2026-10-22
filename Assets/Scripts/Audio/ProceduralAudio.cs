@@ -466,6 +466,28 @@ public static class ProceduralAudio
     static float Sin(float hz, float t) => Mathf.Sin(TwoPi * hz * t);
     static float Tanh(float x) => (float)System.Math.Tanh(x);
 
+    /// <summary>A rift's hum: a low, wavering throb with a thin, glassy shimmer over it. Loops.</summary>
+    public static AudioClip RiftHum => riftHum != null ? riftHum : (riftHum = Take(nameof(riftHum)) ?? MakeRiftHum());
+    static AudioClip riftHum;
+
+    static AudioClip MakeRiftHum()
+    {
+        float lp = 0f;
+        return Loop("Rift Hum", 8f, t =>
+        {
+            lp += (White() - lp) * 0.05f;
+            float throb = 0.6f + 0.4f * Sin(1.5f, t);
+            float shimmer = 0.5f + 0.5f * Sin(0.25f, t);
+            return 0.35f * Sin(48f, t) * throb
+                 + 0.22f * Sin(48.6f, t)
+                 + 0.12f * Sin(96.5f, t) * throb
+                 + 0.05f * Sin(1312f, t) * shimmer
+                 + 0.04f * Sin(1318f, t) * (1f - shimmer)
+                 + 0.03f * Sin(1975f, t) * Sin(0.5f, t)
+                 + lp * 0.35f * throb;
+        }, 0.7f);
+    }
+
     static AudioClip MakeDrone()
     {
         float brown = 0f;
