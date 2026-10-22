@@ -104,6 +104,33 @@ public static class ProceduralAudio
     /// <summary>The glove box snapped shut.</summary>
     public static AudioClip GloveBoxShut => gloveBoxShut != null ? gloveBoxShut : (gloveBoxShut = Take(nameof(gloveBoxShut)) ?? MakeGloveBoxShut());
     static AudioClip doorOpen, doorClose, doorShut, doorRattle, carDoorOpen, carDoorShut, gloveBoxOpen, gloveBoxShut;
+    /// <summary>Three slow knocks on a wooden door, somewhere: knuckles on hollow wood, echoing.</summary>
+    public static AudioClip Knocks => knocks != null ? knocks : (knocks = Take(nameof(knocks)) ?? MakeKnocks());
+    static AudioClip knocks;
+
+    static AudioClip MakeKnocks()
+    {
+        float[] at = { 0f, 0.46f, 0.95f };
+        int n = (int)(3.2f * Rate);
+        var dry = new float[n];
+        float lp = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate, v = 0f;
+            for (int k = 0; k < at.Length; k++)
+            {
+                float hard = k == at.Length - 1 ? 1.15f : 1f; // the last one a little harder
+                v += (Ring(t, at[k], 92f, 22f) * 1f + Ring(t, at[k], 178f, 34f) * 0.8f + Ring(t, at[k], 315f, 50f) * 0.45f
+                      + Ring(t, at[k], 640f, 90f) * 0.2f) * hard;
+                v += Burst(t, at[k], 0.012f) * 0.5f * hard;
+            }
+            lp += (v - lp) * 0.35f; // muffled, through the trees
+            dry[i] = lp;
+        }
+        var wet = Reverb(dry, 0.8f, 0.45f);
+        for (int i = 0; i < n; i++) dry[i] = Tanh((dry[i] + wet[i] * 1.1f) * 1.2f);
+        return Create("Knocks", dry, 0.9f);
+    }
 
     /// <summary>Moths round a light: soft, papery wingbeats, many at once, ticking against the lens. Loops.</summary>
     public static AudioClip MothFlutter => mothFlutter != null ? mothFlutter : (mothFlutter = Take(nameof(mothFlutter)) ?? MakeMothFlutter());

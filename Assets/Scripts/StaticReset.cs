@@ -34,6 +34,7 @@ public static class StaticReset
         Polaroid.ResetStatics();
         Crawler.ResetStatics();
         DroneUnit.ResetStatics();
+        DoorKnocks.ResetStatics();
         SafeZones.ResetStatics();
         Shockwave.ResetStatics();
         GroundLeaves.ResetStatics();

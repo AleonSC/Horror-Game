@@ -66,6 +66,7 @@ public class ShackDoor : MonoBehaviour
                 audioSource.PlayOneShot(ProceduralAudio.DoorClose, 0.8f);
         }
         shutPending = !IsOpen;
+        if (!IsOpen && (kind == Kind.Wood || kind == Kind.Car)) DoorKnocks.DoorClosed(transform.position); // now and then, something answers
     }
 
     /// <summary>Sets it open or shut at once, with no swing and no sound (for how it's left when built).</summary>
@@ -86,8 +87,27 @@ public class ShackDoor : MonoBehaviour
         transform.localRotation = Quaternion.identity;
     }
 
+    Collider[] solids;
+
+    /// <summary>
+    /// Open, the door's out of the way: it doesn't block the doorway or catch you as you go past (it's only
+    /// solid shut, or nearly).
+    /// </summary>
+    void UpdateSolid()
+    {
+        if (solids == null)
+        {
+            var list = new System.Collections.Generic.List<Collider>();
+            foreach (var c in GetComponentsInChildren<Collider>()) if (!c.isTrigger) list.Add(c);
+            solids = list.ToArray();
+        }
+        bool solid = OpenAmount < 0.15f;
+        foreach (var c in solids) if (c != null && c.enabled != solid) c.enabled = solid;
+    }
+
     void Update()
     {
+        UpdateSolid();
         float target = IsOpen ? openAngle : 0f;
         if (Mathf.Approximately(angle, target)) return;
         angle = Mathf.MoveTowards(angle, target, swingSpeed * Time.deltaTime);
