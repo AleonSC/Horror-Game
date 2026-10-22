@@ -728,7 +728,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         var chain = new GameObject(name).transform;
         chain.SetParent(transform, false);
         // Drawn before the sky, so the clouds veil it as it rises into them.
-        if (chainMaterial == null) chainMaterial = HazeMaterial(new Color(0.03f, 0.028f, 0.028f), 2000);
+        if (chainMaterial == null) chainMaterial = HazeMaterial(new Color(0.03f, 0.028f, 0.028f), 0);
         var iron = chainMaterial;
         const float width = 0.5f, bar = 0.09f;
         for (int i = 0; i < ChainLinks; i++)
@@ -924,8 +924,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     {
         // Drawn after the night sky, so passing clouds don't wash over its body.
         // Seen through haze, so it isn't a clean cutout (UpdateHaze keeps it matched to the fog).
-        bodyMaterial = HazeMaterial(new Color(0.01f, 0.005f, 0.005f), 2460);
-        giantEyeMaterial = HazeMaterial(new Color(4f, 0.2f, 0.05f), 2461);
+        bodyMaterial = HazeMaterial(new Color(0.01f, 0.005f, 0.005f), 1);
+        giantEyeMaterial = HazeMaterial(new Color(4f, 0.2f, 0.05f), 2);
         var rig = BuildRig("The Watcher", bodyMaterial, giantEyeMaterial);
         giant = rig.root;
         giantHead = rig.head;
@@ -1295,12 +1295,14 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     // ---------------------------------------------------------------- Atmosphere & reset
 
-    static Material HazeMaterial(Color color, int queue)
+    /// <summary>A fog-aware haze material (MaterialFactory.MakeFogAware); order: chains 0, body 1, eyes 2.</summary>
+    static Material HazeMaterial(Color color, int order)
     {
         Shader shader = Shader.Find("Horror/Haze");
-        if (shader == null) return MaterialFactory.NoFog(color, queue);
-        var mat = new Material(shader) { renderQueue = MaterialFactory.FogFreeQueue(queue) };
+        if (shader == null) return MaterialFactory.NoFog(color, 2460 + order);
+        var mat = new Material(shader);
         mat.SetColor("_Color", color);
+        MaterialFactory.MakeFogAware(mat, order);
         return mat;
     }
 

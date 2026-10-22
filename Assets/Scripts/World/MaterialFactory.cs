@@ -96,14 +96,15 @@ public static class MaterialFactory
     /// <summary>
     /// HDRP fogs everything drawn in its opaque stage (and the background behind it), so things meant to
     /// show through the fog are drawn after it, among the see-through things, keeping their old order:
-    /// sky-like things first (the sky eye, then the stars, then the lightning and the giant), and solid
-    /// fog-ignoring things last, after the ground mist. Queues already see-through are kept.
+    /// sky-like things first (the sky eye; then the fog-aware shapes, MakeFogAware; then the stars, 2950;
+    /// then the lightning), and solid fog-ignoring things last, after the ground mist. Queues already
+    /// see-through are kept.
     /// </summary>
     public static int FogFreeQueue(int queue)
     {
         if (queue < (int)RenderQueue.Geometry) return 2900;                           // behind everything, like the sky
         if (queue < (int)RenderQueue.AlphaTest) return 2990;                          // solid, ignoring the fog
-        if (queue < 2900) return Mathf.Min(2901 + (queue - (int)RenderQueue.AlphaTest), 2970); // the sky and things in it
+        if (queue < 2900) return Mathf.Min(2955 + (queue - (int)RenderQueue.AlphaTest), 2975); // things in the sky (after the stars)
         return queue;
     }
 
@@ -113,6 +114,21 @@ public static class MaterialFactory
         if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
         if (mat.HasProperty("_UnlitColor")) mat.SetColor("_UnlitColor", color);
         if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+    }
+
+    /// <summary>
+    /// Makes a Horror/Haze material fog aware (see the shader): for far-off shapes in the fog (the giant,
+    /// its chains, the landmark tree), so light in the mist in front of them isn't cut out. Drawn just before
+    /// the stars (which they hide); order picks among them.
+    /// </summary>
+    public static void MakeFogAware(Material haze, int order = 0)
+    {
+        if (!haze.HasProperty("_FogAware")) return;
+        haze.SetFloat("_FogAware", 1f);
+        haze.SetFloat("_SrcBlend", (float)BlendMode.One);
+        haze.SetFloat("_DstBlend", (float)BlendMode.One);
+        haze.SetFloat("_StencilRef", 64f);
+        haze.renderQueue = 2910 + Mathf.Clamp(order, 0, 30);
     }
 
     /// <summary>Makes an HDRP Lit material show (and light) both faces, for thin things like needle sprays.</summary>

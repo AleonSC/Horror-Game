@@ -35,6 +35,7 @@ public class LandmarkTree : MonoBehaviour
         Shader shader = Shader.Find("Horror/Haze");
         mat = shader != null ? new Material(shader) : MaterialFactory.NoFog(color);
         mat.SetColor("_Color", color);
+        MaterialFactory.MakeFogAware(mat);
 
         // A copy of the tree's meshes, on its own, so it can be drawn anywhere at any size.
         silhouette = new GameObject("Landmark Silhouette").transform;

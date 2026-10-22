@@ -16,7 +16,7 @@ Shader "Horror/Night Sky"
     }
     SubShader
     {
-        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent-99" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent-50" "IgnoreProjector" = "True" }
         Pass
         {
             Name "ForwardOnly"
@@ -24,6 +24,12 @@ Shader "Horror/Night Sky"
             ZWrite Off
             Cull Front
             Blend SrcAlpha OneMinusSrcAlpha
+            Stencil
+            {
+                Ref 64
+                ReadMask 64
+                Comp NotEqual // not over the giant and the far-off shapes (Horror/Haze, fog aware)
+            }
 
             HLSLPROGRAM
             #pragma target 4.5
