@@ -125,6 +125,7 @@ public class GameOverScreen : MonoBehaviour
 
         foreach (var shack in Shack.All)
             shack.ResetShack();
+        DroneCache.ResetRun(); // the drone: wherever they come across first again
 
         Glowstick.ClearAll();
         Polaroid.ClearAll();

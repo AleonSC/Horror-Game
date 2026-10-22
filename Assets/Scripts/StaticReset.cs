@@ -36,6 +36,7 @@ public static class StaticReset
         DroneUnit.ResetStatics();
         DoorKnocks.ResetStatics();
         LampSignpost.ResetStatics();
+        DroneCache.ResetStatics();
         SafeZones.ResetStatics();
         Shockwave.ResetStatics();
         GroundLeaves.ResetStatics();

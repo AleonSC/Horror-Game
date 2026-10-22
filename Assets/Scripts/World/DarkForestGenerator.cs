@@ -336,6 +336,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Pond Life").AddComponent<PondLife>(); // lily pads, frogs, glowing mushrooms
         if (spawnLeaves && Application.isPlaying && FindAnyObjectByType<SpiderWebs>() == null)
             new GameObject("Spider Webs").AddComponent<SpiderWebs>();
+        if (Application.isPlaying && FindAnyObjectByType<DroneCache>() == null)
+            new GameObject("Drone Cache").AddComponent<DroneCache>(); // the drone: at the cabin, tower or car, whichever comes first
         if (spawnEntity && Application.isPlaying && FindAnyObjectByType<PeripheralPhantoms>() == null)
             new GameObject("Peripheral Phantoms").AddComponent<PeripheralPhantoms>(); // things at the edge of your sight
         if (spawnRain && Application.isPlaying && FindAnyObjectByType<Tornadoes>() == null)

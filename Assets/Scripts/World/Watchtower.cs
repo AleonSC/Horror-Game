@@ -434,6 +434,11 @@ public class Watchtower : MonoBehaviour, SafeZones.ISource
         deckFloor.SetParent(transform, false);
         deckFloor.localPosition = new Vector3(-1.2f, Height + 0.075f, -0.55f);
         SpawnSupplies();
+        // Where the drone might be, if this is where they come first: on the deck by the crate.
+        var droneSpot = new GameObject("Drone Spot").transform;
+        droneSpot.SetParent(transform, false);
+        droneSpot.localPosition = new Vector3(-0.35f, Height + 0.075f, -1.15f);
+        DroneCache.Register(droneSpot, 30f);
     }
 
     /// <summary>The map and the flare gun on the crate; glowsticks and batteries on the boards beside it.</summary>

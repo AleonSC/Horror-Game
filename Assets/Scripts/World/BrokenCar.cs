@@ -584,6 +584,11 @@ public class BrokenCar : MonoBehaviour, SafeZones.IShapedSource
         radioGo.transform.localRotation = Quaternion.Euler(0f, R(60f, 110f), R(-4f, 4f));
         radio = radioGo.AddComponent<CarRadio>();
         radio.Build();
+        // On the back seat beside it, where the drone might be (if this is where they come first).
+        var droneSpot = new GameObject("Drone Spot").transform;
+        droneSpot.SetParent(body, false);
+        droneSpot.localPosition = new Vector3(0.38f, 0.82f, -0.95f);
+        DroneCache.Register(droneSpot, 30f);
 
         // The trunk: carpeted, a spare wheel, and a backpack with the camera beside it.
         Box(carpet, body, new Vector3(0f, 0.61f, (CabinBack - FrontZ) * 0.5f), new Vector3(1.55f, 0.02f, FrontZ + CabinBack - 0.1f));

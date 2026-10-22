@@ -282,6 +282,7 @@ public class Shack : MonoBehaviour
         droneSpot = new GameObject("Drone Spot").transform;
         droneSpot.SetParent(transform, false);
         droneSpot.localPosition = new Vector3(1.1f, floorY + 0.02f, -2.4f);
+        DroneCache.Register(droneSpot, 30f); // (if this is where they come first)
     }
 
     /// <summary>A door in a doorway at wallCenter-ish (the doorway's foot, on the wall line), hinged on its left edge.</summary>
@@ -312,7 +313,7 @@ public class Shack : MonoBehaviour
     void SpawnItems()
     {
         if (table == null) return;
-        foreach (var spot in new[] { table, nightstand, droneSpot })
+        foreach (var spot in new[] { table, nightstand })
         {
             if (spot == null) continue;
             foreach (var old in spot.GetComponentsInChildren<ItemPickup>())
@@ -337,8 +338,6 @@ public class Shack : MonoBehaviour
         // In the cabin, a battery on the nightstand in the dark bedroom, always.
         if (nightstand != null)
             BatterySpawner.Create(nightstand, new Vector3(0f, 0.585f + 0.025f, 0f), Random.Range(0f, 360f));
-        // And in its store room, the drone.
-        if (droneSpot != null) ItemPickup.CreateDrone(droneSpot, Vector3.zero, Random.Range(-40f, 40f));
     }
 
     /// <summary>
