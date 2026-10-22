@@ -231,10 +231,11 @@ public class DroneUnit : MonoBehaviour
                 g.SetPositionAndRotation(at, Quaternion.LookRotation(at - eye, view.transform.up));
                 // The dark ones (the ones still to find) stand out most: bigger, cold blue-white, pulsing.
                 float pulse = 0.65f + 0.35f * Mathf.Sin(Time.time * 4f + lamp.transform.position.x);
-                float size = Mathf.Max(0.6f, d * lampGlowSize) * (lamp.IsLit ? 1f : 1.6f * (0.85f + 0.15f * pulse));
+                bool found = lamp.HasBeenLit; // (lit at all this run, even if it's run down since)
+                float size = Mathf.Max(0.6f, d * lampGlowSize) * (found ? (lamp.IsLit ? 1f : 0.6f) : 1.6f * (0.85f + 0.15f * pulse));
                 g.localScale = Vector3.one * size;
                 var block = new MaterialPropertyBlock();
-                Color c = lamp.IsLit ? lamp.lightColor * 1.4f : new Color(0.55f, 0.85f, 1f) * (1.6f * pulse);
+                Color c = !found ? new Color(0.55f, 0.85f, 1f) * (1.6f * pulse) : lamp.IsLit ? lamp.lightColor * 1.4f : lamp.lightColor * 0.35f;
                 block.SetColor("_Color", c);
                 g.GetComponent<Renderer>().SetPropertyBlock(block);
             }
@@ -354,7 +355,7 @@ public class DroneUnit : MonoBehaviour
             p.y = hoverY + Mathf.Sin(Time.time * 1.3f) * 0.08f;
             transform.position = p;
             body.localRotation = Quaternion.Slerp(body.localRotation, Quaternion.Euler(Mathf.Sin(Time.time * 0.9f) * 2f, 0f, Mathf.Sin(Time.time * 1.1f) * 2f), 1f - Mathf.Exp(-3f * dt));
-            Buzz(dt);
+            // (Left alone it's no interest to the blind one: it only comes for the drone while you're in it.)
         }
         else if (landing)
         {
@@ -410,7 +411,6 @@ public class DroneUnit : MonoBehaviour
             velocity = Vector3.zero;
             grab.enabled = true;
             ProceduralAudio.PlayAt(ProceduralAudio.TwigSnap, transform.position, 0.9f, 0.55f, 3f); // the crack as it lands
-            Noise.Emit(transform.position, 8f);
             return;
         }
         if (hitSomething) velocity = Vector3.Reflect(velocity, hit.normal) * 0.3f; // glancing off a branch or a wall
@@ -660,7 +660,7 @@ public class DroneUnit : MonoBehaviour
         float w = Screen.width, h = Screen.height, margin = 50f * unit;
         foreach (var lamp in Lamp.All)
         {
-            if (lamp == null || lamp.IsLit) continue;
+            if (lamp == null || lamp.HasBeenLit) continue;
             Vector3 at = WorldWrap.NearestImage(lamp.BulbPosition, view.transform.position);
             Vector3 sp = view.WorldToScreenPoint(at);
             float dist = (at - view.transform.position).magnitude;

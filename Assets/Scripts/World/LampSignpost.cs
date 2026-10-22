@@ -121,7 +121,7 @@ public class LampSignpost : MonoBehaviour
     {
         if (all == null || own == null) return;
         foreach (var b in boards)
-            if (!b.broken && b.target != null && b.target.IsLit) Break(b, withSound);
+            if (!b.broken && b.target != null && b.target.HasBeenLit) Break(b, withSound); // (lit at all: even if it's since run down)
 
         var pointedAt = new HashSet<Lamp>();
         int live = 0;
@@ -129,7 +129,7 @@ public class LampSignpost : MonoBehaviour
         if (live >= Pointing) return;
 
         var dark = new List<Lamp>();
-        foreach (var l in all) if (l != null && l != own && !l.IsLit && !pointedAt.Contains(l)) dark.Add(l);
+        foreach (var l in all) if (l != null && l != own && !l.HasBeenLit && !pointedAt.Contains(l)) dark.Add(l);
         dark.Sort((x, y) => Toward(own, x).magnitude.CompareTo(Toward(own, y).magnitude));
         for (int i = 0; i < dark.Count && live < Pointing; i++)
         {
