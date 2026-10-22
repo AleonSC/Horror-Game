@@ -2030,7 +2030,8 @@ public class ShadowEntity : MonoBehaviour
         {
             // The pool where the glare meets the ground (or whatever's in the way), sized to the cone there.
             Transform from = mouthLight.transform;
-            bool hit = shown && Physics.Raycast(from.position, from.forward, out var ground, mouthLight.range, ~0, QueryTriggerInteraction.Ignore);
+            RaycastHit ground = default;
+            bool hit = shown && Physics.Raycast(from.position, from.forward, out ground, mouthLight.range, ~0, QueryTriggerInteraction.Ignore);
             if (mouthPool.gameObject.activeSelf != hit) mouthPool.gameObject.SetActive(hit);
             if (hit)
             {
