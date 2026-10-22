@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 
@@ -18,6 +19,11 @@ using UnityEngine.Rendering.HighDefinition;
 ///   - Each camera's background is a flat colour, its Camera.backgroundColor, instead of HDRP's sky.
 ///   - Lights are set to Unity's old units (candela, and lux for the moon), so their intensities mean
 ///     what they did.
+///   - Ray tracing, when the graphics card and the project support it (DirectX 12, and Realtime Ray Tracing
+///     ticked on the HDRP asset): ray-traced shadows on every light that casts them, ray-traced ambient
+///     occlusion and reflections, and optionally ray-traced global illumination (light bouncing off
+///     things: costly). The game's own effects (beams, glows, mist, the sky dome, smoke, the portal views)
+///     are kept out of the ray-traced scene, which only holds the solid world.
 ///
 /// DarkForestGenerator adds this when the forest is built.
 /// </summary>
@@ -36,12 +42,31 @@ public class HdrpAtmosphere : MonoBehaviour
     [Tooltip("How far out the volumetric fog (the lit beams) reaches.")]
     public float volumetricDistance = 70f;
 
+    [Header("Ray tracing (DirectX 12 and a ray tracing graphics card)")]
+    [Tooltip("Use ray tracing where the graphics card and the project support it.")]
+    public bool rayTracing = true;
+    public bool rayTracedShadows = true;
+    public bool rayTracedAmbientOcclusion = true;
+    public bool rayTracedReflections = true;
+    [Tooltip("Light bouncing off things (a lamp lighting the room round it, a torch warming the walls). Costly.")]
+    public bool rayTracedGlobalIllumination = false;
+
+    /// <summary>True if ray tracing is on and this machine and project can do it.</summary>
+    public static bool RayTracingActive { get; private set; }
+    /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
+    internal static void ResetStatics() => RayTracingActive = false;
+
     Volume volume;
     Exposure exposureFx;
     Tonemapping tonemapping;
     VisualEnvironment environment;
     GradientSky sky;
     Fog fog;
+    ScreenSpaceAmbientOcclusion ambientOcclusion;
+    ScreenSpaceReflection reflections;
+    GlobalIllumination globalIllumination;
+    readonly HashSet<Renderer> rendererSeen = new HashSet<Renderer>();
+    float rendererScan;
     Color lastAmbient = new Color(-1f, 0f, 0f);
     readonly HashSet<Light> unitsSet = new HashSet<Light>();
     float lightScan;
@@ -75,6 +100,56 @@ public class HdrpAtmosphere : MonoBehaviour
         fog.baseHeight.Override(400f);    // (thinning only far above the forest: it's the same all through it)
         fog.maximumHeight.Override(800f);
         fog.enableVolumetricFog.Override(true);
+
+        ambientOcclusion = profile.Add<ScreenSpaceAmbientOcclusion>(false);
+        reflections = profile.Add<ScreenSpaceReflection>(false);
+        globalIllumination = profile.Add<GlobalIllumination>(false);
+    }
+
+    /// <summary>True if this machine can ray trace and the HDRP asset has ray tracing ticked.</summary>
+    static bool CanRayTrace()
+    {
+        if (!SystemInfo.supportsRayTracing) return false;
+        var asset = GraphicsSettings.currentRenderPipeline as HDRenderPipelineAsset;
+        return asset != null && asset.currentPlatformRenderPipelineSettings.supportRayTracing;
+    }
+
+    /// <summary>The ray-traced effects on the volume, on or off.</summary>
+    void ApplyRayTracing()
+    {
+        bool rt = rayTracing && CanRayTrace();
+        RayTracingActive = rt;
+
+        ambientOcclusion.active = rt && rayTracedAmbientOcclusion;
+        ambientOcclusion.rayTracing.Override(true);
+        ambientOcclusion.intensity.Override(1f);
+
+        reflections.active = rt && rayTracedReflections;
+        reflections.enabled.Override(true);
+        reflections.tracing.Override(RayCastingMode.RayTracing);
+
+        globalIllumination.active = rt && rayTracedGlobalIllumination;
+        globalIllumination.enable.Override(true);
+        globalIllumination.tracing.Override(RayCastingMode.RayTracing);
+    }
+
+    /// <summary>
+    /// Keeps the game's own effects out of the ray-traced scene: only HDRP's own materials (the solid world)
+    /// belong there. (The sky dome, for one, would otherwise block every ray.)
+    /// </summary>
+    void ExcludeEffectsFromRayTracing()
+    {
+        foreach (var r in FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (!rendererSeen.Add(r)) continue;
+            bool solid = r is MeshRenderer || r is SkinnedMeshRenderer;
+            if (solid)
+                foreach (var m in r.sharedMaterials)
+                    if (m == null || m.shader == null || !m.shader.name.StartsWith("HDRP/") || m.renderQueue >= (int)RenderQueue.GeometryLast)
+                        solid = false;
+            if (!solid) r.rayTracingMode = RayTracingMode.Off;
+        }
+        rendererSeen.RemoveWhere(r => r == null);
     }
 
     void LateUpdate()
@@ -115,19 +190,34 @@ public class HdrpAtmosphere : MonoBehaviour
             data.backgroundColorHDR = cam.backgroundColor.linear / mul;
         }
 
-        // New lights, about once a second: the old units.
+        ApplyRayTracing();
+
+        // About once a second: new lights get the old units, and ray-traced shadows if they cast shadows.
         lightScan -= Time.unscaledDeltaTime;
         if (lightScan <= 0f)
         {
             lightScan = 1f;
             foreach (var light in FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (!unitsSet.Add(light)) continue;
-                float intensity = light.intensity;
-                light.lightUnit = light.type == LightType.Directional ? LightUnit.Lux : LightUnit.Candela;
-                light.intensity = intensity;
+                if (unitsSet.Add(light))
+                {
+                    float intensity = light.intensity;
+                    light.lightUnit = light.type == LightType.Directional ? LightUnit.Lux : LightUnit.Candela;
+                    light.intensity = intensity;
+                }
+                var hd = light.GetComponent<HDAdditionalLightData>();
+                if (hd == null) hd = light.gameObject.AddComponent<HDAdditionalLightData>();
+                hd.useRayTracedShadows = RayTracingActive && rayTracedShadows && light.shadows != LightShadows.None;
             }
             unitsSet.RemoveWhere(l => l == null);
+        }
+
+        // Every couple of seconds: new effects are kept out of the ray-traced scene.
+        rendererScan -= Time.unscaledDeltaTime;
+        if (RayTracingActive && rendererScan <= 0f)
+        {
+            rendererScan = 2f;
+            ExcludeEffectsFromRayTracing();
         }
     }
 
