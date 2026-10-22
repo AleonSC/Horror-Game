@@ -1678,7 +1678,7 @@ public class ShadowEntity : MonoBehaviour
         if (shinMat != null) return shinMat;
         var shader = Shader.Find("Horror/Haze");
         if (shader == null) return fallback;
-        shinMat = new Material(shader) { renderQueue = 2000 };
+        shinMat = new Material(shader) { renderQueue = MaterialFactory.FogFreeQueue(2000) };
         shinMat.SetColor("_Color", Color.black);
         shinMat.SetFloat("_Haze", 0f);
         shinMat.SetFloat("_GroundHaze", 1f);

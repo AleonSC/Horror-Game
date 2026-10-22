@@ -89,8 +89,22 @@ public static class MaterialFactory
         var mat = new Material(shader);
         mat.SetColor("_Color", color);
         mat.SetFloat("_ZWrite", writeDepth ? 1f : 0f);
-        mat.renderQueue = renderQueue;
+        mat.renderQueue = FogFreeQueue(renderQueue);
         return mat;
+    }
+
+    /// <summary>
+    /// HDRP fogs everything drawn in its opaque stage (and the background behind it), so things meant to
+    /// show through the fog are drawn after it, among the see-through things, keeping their old order:
+    /// sky-like things first (the sky eye, then the stars, then the lightning and the giant), and solid
+    /// fog-ignoring things last, after the ground mist. Queues already see-through are kept.
+    /// </summary>
+    public static int FogFreeQueue(int queue)
+    {
+        if (queue < (int)RenderQueue.Geometry) return 2900;                           // behind everything, like the sky
+        if (queue < (int)RenderQueue.AlphaTest) return 2990;                          // solid, ignoring the fog
+        if (queue < 2900) return Mathf.Min(2901 + (queue - (int)RenderQueue.AlphaTest), 2970); // the sky and things in it
+        return queue;
     }
 
     /// <summary>Sets the main colour, whichever shader it is (HDRP Lit, HDRP Unlit or the game's own).</summary>

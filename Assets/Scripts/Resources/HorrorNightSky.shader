@@ -1,4 +1,5 @@
 // The night sky on a dome around the camera: twinkling stars and slow-drifting clouds that blot them out.
+// _Reveal brings it on, star by star and then the clouds (pitch dark at 0).
 // Unlit and fog-free, and it lights nothing: it's painted over the background colour, fading out toward
 // the horizon where the fog is. HDRP (see HorrorHDRP.hlsl).
 // Lives in a Resources folder so it's always included in builds.
@@ -7,6 +8,7 @@ Shader "Horror/Night Sky"
     Properties
     {
         _StarBrightness ("Star Brightness", Float) = 1
+        _Reveal ("Reveal (0 dark, 1 all on)", Range(0, 1)) = 1
         _CloudColor ("Cloud Color", Color) = (0.05, 0.055, 0.065, 1)
         _CloudCover ("Cloud Cover", Range(0, 1)) = 0.5
         _CloudOffset ("Cloud Offset", Vector) = (0, 0, 0, 0)
@@ -16,7 +18,7 @@ Shader "Horror/Night Sky"
     }
     SubShader
     {
-        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Geometry+450" "IgnoreProjector" = "True" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent-99" "IgnoreProjector" = "True" }
         Pass
         {
             Name "ForwardOnly"
@@ -32,6 +34,7 @@ Shader "Horror/Night Sky"
             #include "HorrorHDRP.hlsl"
 
             float _StarBrightness;
+            float _Reveal;
             float4 _CloudColor;
             float _CloudCover;
             float4 _CloudOffset;
@@ -98,7 +101,11 @@ Shader "Horror/Night Sky"
                 float d = length(p - star);
                 float twinkle = 0.6 + 0.4 * sin(_Time.y * (1.5 + h * 40) + h * 100);
                 float bright = 0.4 + 0.6 * frac(h * 13.7);
-                return saturate(1 - d / size) * bright * twinkle;
+                // Coming on (_Reveal), each star at its own moment, flickering into life.
+                float order = frac(h * 91.7);
+                float on = saturate((_Reveal * 1.25 - order) / 0.25);
+                on *= on < 0.999 ? 0.6 + 0.4 * sin(_Time.y * 37 + h * 300) : 1;
+                return saturate(1 - d / size) * bright * twinkle * on;
             }
 
             float4 frag(v2f i) : SV_Target
@@ -116,6 +123,7 @@ Shader "Horror/Night Sky"
                 float cloud = smoothstep(1 - _CloudCover, 1 - _CloudCover + 0.25, n);
                 float3 cloudColor = _CloudColor.rgb * (0.7 + 0.6 * fbm(uv * 2.3 + 5)); // a little lumpy shading
 
+                cloud *= smoothstep(0.2, 1, _Reveal); // the clouds come in after the first stars
                 float3 color = lerp(starColor, cloudColor, cloud);
                 float alpha = saturate(max(s * (1 - cloud), cloud * 0.95)) * horizon;
 

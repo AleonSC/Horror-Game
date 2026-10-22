@@ -10,7 +10,7 @@ Shader "Horror/Unlit No Fog"
     }
     SubShader
     {
-        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Opaque" "Queue" = "Geometry" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Opaque" "Queue" = "Transparent-10" }
         Pass
         {
             Name "ForwardOnly"

@@ -14,7 +14,7 @@ Shader "Horror/Sky Eye"
     }
     SubShader
     {
-        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Background" }
+        Tags { "RenderPipeline" = "HDRenderPipeline" "RenderType" = "Transparent" "Queue" = "Transparent-100" }
         Pass
         {
             Name "ForwardOnly"
