@@ -143,6 +143,8 @@ public class ShadowEntity : MonoBehaviour
     [Header("Poses")]
     [Tooltip("Chance it appears peeking out from behind a tree trunk instead of standing in the open.")]
     [Range(0f, 1f)] public float peekChance = 0.35f;
+    [Range(0f, 1f), Tooltip("Of the peekers, the share that duck back behind the trunk the moment you look at them, and lean out again once you look away (the rest stay peeking out).")]
+    public float duckChance = 0.5f;
 
     [Header("Watchtower")]
     [Tooltip("While the player is up the watchtower, it rushes to the tower's base at this speed when not looked at directly.")]
@@ -287,6 +289,9 @@ public class ShadowEntity : MonoBehaviour
     Pose pose;
     Quaternion poseHead = Quaternion.identity, poseLeftArm = Quaternion.identity, poseRightArm = Quaternion.identity;
     bool peeking; // half hidden behind a trunk
+    bool ducker;  // ...and one of the ones that ducks back when looked at
+    int peekSide;
+    float peekOut = 1f, unwatched;
     Transform peekTree;
     float peekTreeRadius;
     float eyeshine;
@@ -315,7 +320,6 @@ public class ShadowEntity : MonoBehaviour
     {
         Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         GroundLeaves.Register(transform, 0.35f); // even unseen, the leaves where it steps give it away
-        gameObject.AddComponent<ScourSmoke>(); // black smoke from its feet as it walks
         scale = height / 2.4f;
         BuildSilhouette();
         BuildFragments();
@@ -436,7 +440,7 @@ public class ShadowEntity : MonoBehaviour
     {
         if (GameOverScreen.IsActive) { timer = 1f; return; }
 
-        int peekSide = Random.value < 0.5f ? -1 : 1;
+        peekSide = Random.value < 0.5f ? -1 : 1;
         Vector3 peekSpot = Vector3.zero;
         var watcher = WatcherEvent.Instance;
         bool atLight = crowdMember && watcher != null && watcher.SearchlightsOn;
@@ -446,6 +450,9 @@ public class ShadowEntity : MonoBehaviour
         FacePlayer();
         ResetVisual();
         SetPose(peeking ? Pose.Peek : RandomPose(), peekSide);
+        ducker = peeking && Random.value < duckChance;
+        peekOut = 1f;
+        unwatched = 0f;
 
         CurrentState = State.Materializing;
         timer = materializeTime;
@@ -474,9 +481,12 @@ public class ShadowEntity : MonoBehaviour
             {
                 Vector3 away = peekTree.position - target.position;
                 away.y = 0f;
+                if (ducker) Duck();
                 if (away.sqrMagnitude > 0.01f)
                 {
-                    Vector3 spot = peekTree.position + away.normalized * (peekTreeRadius + BodyRadius + 0.12f);
+                    // (Ducked back, it's further in behind the trunk: all of it hidden.)
+                    float behind = ducker ? (1f - peekOut) * 0.3f : 0f;
+                    Vector3 spot = peekTree.position + away.normalized * (peekTreeRadius + BodyRadius + 0.12f + behind);
                     spot.y = GroundHeight(spot);
                     transform.position = Vector3.MoveTowards(transform.position, spot, 6f * Time.deltaTime);
                 }
@@ -730,7 +740,7 @@ public class ShadowEntity : MonoBehaviour
     bool WatchForFlashing(bool eyesLit)
     {
         if (flashlight == null) return false;
-        bool aimedAt = eyesLit || IsLitByFlashlight() || (flashlight.IsOn && InBeam(transform.position + Vector3.up * scale, 10f, peeking));
+        bool aimedAt = eyesLit || IsLitByFlashlight() || (flashlight.IsOn && InBeam(transform.position + Vector3.up * scale, 10f, PeekingOut));
         if (aimedAt) lastLitTime = Time.time;
 
         if (seenToggles < 0) seenToggles = flashlight.ToggleCount;
@@ -802,7 +812,10 @@ public class ShadowEntity : MonoBehaviour
     bool IsLitByFlashlight() => InBeam(transform.position + Vector3.up * (1.4f * scale * growth), beamMargin, false);
 
     /// <summary>True if the flashlight beam is on its eyes. Peeking round a trunk doesn't hide them.</summary>
-    bool EyesInBeam() => InBeam((leftEye.position + rightEye.position) * 0.5f, 0f, peeking);
+    bool EyesInBeam() => InBeam((leftEye.position + rightEye.position) * 0.5f, 0f, PeekingOut);
+
+    /// <summary>Peeking with its head out round the trunk (a ducker ducked back in is hidden by the tree).</summary>
+    bool PeekingOut => peeking && !(ducker && peekOut < 0.3f);
 
     bool InBeam(Vector3 point, float margin, bool ignoreTrees)
     {
@@ -1245,7 +1258,7 @@ public class ShadowEntity : MonoBehaviour
 
         if (Vector3.Angle(cam.forward, toHead) > withinDegrees) return false;
         // Peeking round a trunk, its head is in plain view even though the tree is between you and its body.
-        if (peeking) return true;
+        if (PeekingOut) return true;
 
         // A tree or rock in the way means the player can't actually see it.
         float dist = toHead.magnitude;
@@ -1647,6 +1660,71 @@ public class ShadowEntity : MonoBehaviour
 
     // ---------------------------------------------------------------- Body
 
+    // The legs, hanging loose: they trail behind and swing as it moves.
+    readonly Transform[] legPivots = new Transform[2];
+    readonly Transform[] kneePivots = new Transform[2];
+    readonly Vector2[] legSwing = new Vector2[2], legSwingVel = new Vector2[2];
+    readonly float[] kneeSwing = new float[2], kneeSwingVel = new float[2];
+    Vector3 lastLegPos;
+    static readonly Dictionary<int, Material> fadeMats = new Dictionary<int, Material>();
+
+    /// <summary>A see-through black, for the legs fading away (shared, by how faint).</summary>
+    static Material FadeMaterial(float alpha)
+    {
+        int key = Mathf.RoundToInt(alpha * 20f);
+        if (fadeMats.TryGetValue(key, out var m) && m != null) return m;
+        m = MaterialFactory.LitTransparent(Texture2D.whiteTexture, new Color(0f, 0f, 0f, key / 20f), 0f);
+        fadeMats[key] = m;
+        return m;
+    }
+
+    /// <summary>
+    /// The legs ragdolling a little: loose from the hips and knees, they lag behind as it moves, trailing back
+    /// the way it came and swinging on, then settling, with a faint restless twitch.
+    /// </summary>
+    void LegDrag()
+    {
+        float dt = Time.deltaTime;
+        if (dt <= 0f || legPivots[0] == null) return;
+        Vector3 moved = transform.position - lastLegPos;
+        lastLegPos = transform.position;
+        Vector3 velocity = moved / dt;
+        if (velocity.sqrMagnitude > 400f) velocity = Vector3.zero; // (appearing somewhere else, not moving)
+        Vector3 local = Quaternion.Inverse(transform.rotation) * velocity;
+        for (int i = 0; i < 2; i++)
+        {
+            // The legs trail behind the way it's moving (forward motion swings them back, sideways to the side).
+            Vector2 aim = new Vector2(Mathf.Clamp(local.z * 9f, -35f, 35f), Mathf.Clamp(-local.x * 9f, -25f, 25f));
+            aim += new Vector2(Mathf.PerlinNoise(Time.time * 1.3f, i * 5.1f) - 0.5f, Mathf.PerlinNoise(i * 3.7f, Time.time * 1.1f) - 0.5f) * 6f;
+            // A loose spring: it overshoots and swings.
+            legSwingVel[i] += (aim - legSwing[i]) * (28f * dt) - legSwingVel[i] * (3.5f * dt);
+            legSwing[i] += legSwingVel[i] * dt;
+            legPivots[i].localRotation = Quaternion.Euler(legSwing[i].x, 0f, legSwing[i].y);
+            // The shins swing on from the knees, a beat behind.
+            float kneeAim = Mathf.Clamp(-legSwingVel[i].x * 0.25f, -30f, 30f);
+            kneeSwingVel[i] += (kneeAim - kneeSwing[i]) * (20f * dt) - kneeSwingVel[i] * (3f * dt);
+            kneeSwing[i] += kneeSwingVel[i] * dt;
+            kneePivots[i].localRotation = Quaternion.Euler(kneeSwing[i], 0f, 0f);
+        }
+    }
+
+    /// <summary>
+    /// A ducker, peeking round its trunk: the instant you look its way it's gone, snapped back behind the
+    /// tree; look away for a moment and it leans slowly out again, watching you.
+    /// </summary>
+    void Duck()
+    {
+        bool looked = IsPlayerLooking();
+        unwatched = looked ? 0f : unwatched + Time.deltaTime;
+        float wanted = looked ? 0f : unwatched > 0.8f ? 1f : peekOut;
+        float before = peekOut;
+        peekOut = Mathf.MoveTowards(peekOut, wanted, Time.deltaTime * (wanted < peekOut ? 7f : 0.7f)); // back fast, out slowly
+        if (before > 0.6f && peekOut <= 0.6f) PlaySound(ProceduralAudio.BushRustle, Random.Range(1.4f, 1.8f), 0.25f); // the scuff of it ducking back
+        posture.localRotation = Quaternion.Euler(0f, 0f, -peekSide * 28f * peekOut);
+    }
+
+    void LateUpdate() => LegDrag();
+
     void BuildSilhouette()
     {
         // Posture holds the pose; the silhouette under it vibrates.
@@ -1661,16 +1739,28 @@ public class ShadowEntity : MonoBehaviour
         // and the joints bend the wrong way.
         for (int side = -1; side <= 1; side += 2)
         {
-            // Legs: thighs angled forward, shins sharply back, long splayed toes.
+            // Legs: thighs angled forward, shins sharply back, and then no feet at all: the shins thin and
+            // fade away into nothing a little above the ground. They hang loose from the hips and knees, and
+            // trail and sway as it moves (LegDrag).
             Vector3 hip = new Vector3(side * 0.11f, 1.12f, -0.02f);
             Vector3 knee = new Vector3(side * 0.15f, 0.62f, 0.14f);
-            Vector3 ankle = new Vector3(side * 0.13f, 0.14f, -0.1f);
-            Bone(visual, black, hip, knee, 0.07f);
-            Bone(visual, black, knee, ankle, 0.045f);
-            Knob(visual, black, knee, 0.085f);
-            Knob(visual, black, ankle, 0.05f);
-            for (int toe = -1; toe <= 1; toe++)
-                Bone(visual, black, ankle, new Vector3(side * 0.13f + toe * 0.045f, 0.01f, 0.16f), 0.018f);
+            var legPivot = Pivot(visual, "Leg", hip);
+            Bone(legPivot, black, Vector3.zero, knee - hip, 0.07f);
+            var kneePivot = Pivot(legPivot, "Knee", knee - hip);
+            Knob(kneePivot, black, Vector3.zero, 0.085f);
+            // The shin, in pieces down from the knee, each thinner and fainter than the last.
+            Vector3 toward = new Vector3(side * -0.02f, -0.5f, -0.24f); // (knee to where the ankle would have been)
+            const int pieces = 6;
+            for (int k = 0; k < pieces; k++)
+            {
+                float t0 = k / (float)pieces, t1 = (k + 1) / (float)pieces;
+                float fade = 1f - t0;
+                var mat = k == 0 ? black : FadeMaterial(fade * fade);
+                var piece = Bone(kneePivot, mat, toward * t0, toward * t1, Mathf.Lerp(0.045f, 0.012f, t1));
+                if (k > 0) piece.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+            }
+            legPivots[side < 0 ? 0 : 1] = legPivot;
+            kneePivots[side < 0 ? 0 : 1] = kneePivot;
 
             // Ribs curling round from the spine.
             for (int r = 0; r < 4; r++)
