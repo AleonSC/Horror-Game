@@ -3,9 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Stars and clouds: a big dome that follows the camera, drawn with the Horror/Night Sky shader.
 /// Purely visual: it adds no light to the scene. Clouds drift with the wind (WeatherSystem) and
-/// hide the stars behind them. It's pitch dark until the first lamp is lit; then the sky comes on, the stars
-/// flickering into life one by one and the clouds rolling in after them (and it goes dark again for a new
-/// run). DarkForestGenerator adds this automatically.
+/// hide the stars behind them. DarkForestGenerator adds this automatically.
 /// </summary>
 public class NightSky : MonoBehaviour
 {
@@ -23,17 +21,11 @@ public class NightSky : MonoBehaviour
     public Color cloudColor = new Color(0.05f, 0.055f, 0.065f);
     [Tooltip("How fast clouds drift, before the wind speeds them up.")]
     public float cloudSpeed = 0.004f;
-    [Tooltip("Seconds for the sky to come on once the first lamp is lit.")]
-    public float revealTime = 6f;
-    [Tooltip("Off: the sky's on from the start.")]
-    public bool waitForFirstLamp = true;
 
     Transform dome;
     Material material;
     WeatherSystem weather;
     Vector2 cloudOffset;
-    float reveal;
-    bool revealed;
 
     void Awake() => Instance = this;
 
@@ -70,14 +62,6 @@ public class NightSky : MonoBehaviour
         Vector3 wind = weather != null ? weather.WindVector : Vector3.right;
         float speed = cloudSpeed * (1f + (weather != null ? weather.CurrentWind * 2f : 0f));
         cloudOffset += new Vector2(wind.x, wind.z).normalized * speed * Time.deltaTime;
-
-        // Dark until the first lamp is lit, then on, with a low swell.
-        bool on = !waitForFirstLamp || Lamp.TimesLit > 0;
-        if (on && !revealed && reveal < 0.01f && waitForFirstLamp)
-            ProceduralAudio.PlayAt(ProceduralAudio.DistantRumble, cam.transform.position + Vector3.up * 30f, 0.35f, 0.5f, 60f);
-        revealed = on;
-        reveal = Mathf.MoveTowards(reveal, on ? 1f : 0f, Time.deltaTime / (on ? Mathf.Max(revealTime, 0.01f) : 2f));
-        material.SetFloat("_Reveal", reveal);
 
         material.SetFloat("_StarBrightness", starBrightness);
         material.SetFloat("_CloudCover", cloudCover);
