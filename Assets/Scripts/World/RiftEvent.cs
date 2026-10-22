@@ -1,14 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// A random event: a small rift tears open in the air near the player, a ragged glowing oval floating just
+/// A small rift tearing open in the air near the player (only on demand now: the Stick of Truth spawns one), a ragged glowing oval floating just
 /// off the ground. Through it you can see another part of the forest, somewhere between exitMinDistance and
 /// exitMaxDistance away, and there's a matching rift there looking back. Step through and you're there.
 /// After openTime seconds it shudders and closes, wherever you are.
 ///
-/// The first opens about firstTime seconds into play, then another every minInterval to maxInterval seconds,
-/// in front of the player where there's room for it (otherwise it tries again shortly). Call Trigger() to
-/// open one any time. Like PortalDoor, each face shows a render texture from a camera at the matching spot
+/// With firstTime 0 or more it's a random event again: the first opens about firstTime seconds into play,
+/// then another every minInterval to maxInterval seconds, in front of the player where there's room for it
+/// (otherwise it tries again shortly). Call Trigger() or OpenAt() to open one any time. Like PortalDoor, each face shows a render texture from a camera at the matching spot
 /// by the other rift, clipped to its plane; crossing one moves the player by the offset between them.
 /// DarkForestGenerator adds this automatically.
 /// </summary>
@@ -16,8 +16,8 @@ public class RiftEvent : MonoBehaviour
 {
     void Awake() => Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu)
 
-    [Tooltip("Seconds into play before the first rift opens. Set below 0 to only open when Trigger() is called.")]
-    public float firstTime = 25f;
+    [Tooltip("Seconds into play before the first rift opens. Below 0 (the default): only when Trigger() is called (the Stick of Truth).")]
+    public float firstTime = -1f;
     [Tooltip("After that, another opens every this many seconds (picked at random between the two).")]
     public float minInterval = 50f;
     public float maxInterval = 100f;
@@ -203,7 +203,7 @@ public class RiftEvent : MonoBehaviour
     }
 
     /// <summary>A thin oval slab: radius 1.15 in x and y (the shader cuts the ragged edge inside that), z from -0.5 to 0.5.</summary>
-    static Mesh BuildFaceMesh()
+    internal static Mesh BuildFaceMesh()
     {
         const int sides = 40;
         const float radius = 1.15f;

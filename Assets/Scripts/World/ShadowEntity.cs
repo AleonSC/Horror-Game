@@ -242,7 +242,7 @@ public class ShadowEntity : MonoBehaviour
     public AudioClip killSound;
     public AudioClip advanceLoop;
 
-    public enum State { Hidden, Materializing, Watching, Crescendo, Killing, Charging }
+    public enum State { Hidden, Materializing, Watching, Crescendo, Killing, Charging, Retreating }
     public State CurrentState { get; private set; }
     /// <summary>
     /// How far its hunt has got, 0 to 1: how close it has worked its way to the player, and how much it has grown
@@ -251,7 +251,7 @@ public class ShadowEntity : MonoBehaviour
     public float HuntProgress { get; private set; }
 
     public bool IsVisible => CurrentState == State.Watching || CurrentState == State.Crescendo || CurrentState == State.Killing
-        || CurrentState == State.Charging;
+        || CurrentState == State.Charging || CurrentState == State.Retreating;
 
     /// <summary>How riled up it is: goes up each time frantic flashing makes it charge. Never calms down this run.</summary>
     public int Aggression { get; private set; }
@@ -408,6 +408,10 @@ public class ShadowEntity : MonoBehaviour
             case State.Charging:
                 UpdateCharging();
                 break;
+
+            case State.Retreating:
+                UpdateRetreating();
+                break;
         }
 
         // The mouth splits open slowly, and snaps shut when it's gone.
@@ -435,6 +439,8 @@ public class ShadowEntity : MonoBehaviour
         SetPose(Pose.Neutral, 1);
         if (wingRoot != null) wingRoot.gameObject.SetActive(false);
         if (Capturing == this) Capturing = null;
+        if (retreatPortal != null) retreatPortal.Close();
+        retreatPortal = null;
     }
 
     void StartMaterialize()
@@ -911,16 +917,59 @@ public class ShadowEntity : MonoBehaviour
         if (c >= 1f) Dispel();
     }
 
-    /// <summary>Faced down: it bursts apart in a ghostly breath and is gone. The light pays for it.</summary>
+    /// <summary>
+    /// Faced down: a hole tears open in the air behind it, black, its edge burning red, and it's dragged back
+    /// into it (Retreating). The light pays for it.
+    /// </summary>
     void Dispel()
     {
-        StartFragments(converge: false);
         PlaySound(poofSound != null ? poofSound : ProceduralAudio.Dispel, 1f);
         if (flashlight != null) flashlight.Drain(dismissCost);
         ResetVisual();
+        mouthTarget = 0f;
+
+        Vector3 toPlayer = target.position - transform.position;
+        toPlayer.y = 0f;
+        retreatDir = toPlayer.sqrMagnitude > 0.001f ? -toPlayer.normalized : -transform.forward;
+        retreatFrom = transform.position;
+        Vector3 centre = transform.position + retreatDir * 0.45f * scale + Vector3.up * 1.25f * scale;
+        retreatPortal = ScourPortal.Open(centre, -retreatDir, new Vector2(0.8f, 1.45f) * scale);
+        if (retreatPortal == null) { Vanish(); return; } // (no shader for it: the old burst)
+        CurrentState = State.Retreating;
+        timer = 0f;
+    }
+
+    /// <summary>Dragged back through the hole behind it, shuddering, faster and faster; then it shuts.</summary>
+    void UpdateRetreating()
+    {
+        timer += Time.deltaTime;
+        float t = Mathf.Clamp01((timer - RetreatDelay) / RetreatTime);
+        float pull = t * t * t; // slow to give, then snatched away
+        transform.position = retreatFrom + retreatDir * pull * 2.2f * scale;
+        Vibrate(Mathf.Lerp(maxVibration, crescendoVibration, 1f - t * 0.5f));
+        visual.localScale = new Vector3(1f - 0.25f * pull, 1f + 0.1f * pull, 1f - 0.25f * pull);
+        SetEyes(Mathf.Lerp(maxEyeWiden * 2.8f, 0.3f, pull), spawnEyeIntensity * (1f - pull), 0f, 1f - t);
+        whisper.volume = volume * crescendoVolume * (1f - t);
+        if (player != null) player.AddCameraShake(maxCameraShake * 0.5f * (1f - t));
+        if (t >= 1f)
+        {
+            ResetVisual();
+            whisper.pitch = Random.Range(0.85f, 1.1f);
+            Hide(Random.Range(minRespawnDelay, maxRespawnDelay)); // (and the hole shuts behind it)
+        }
+    }
+
+    /// <summary>The old way out: it bursts apart in a ghostly breath and is gone.</summary>
+    void Vanish()
+    {
+        StartFragments(converge: false);
         whisper.pitch = Random.Range(0.85f, 1.1f);
         Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
     }
+
+    ScourPortal retreatPortal;
+    Vector3 retreatDir, retreatFrom;
+    const float RetreatDelay = 0.35f, RetreatTime = 1.3f;
 
     void Poof()
     {
@@ -1932,6 +1981,134 @@ public class ShadowEntity : MonoBehaviour
     Color glowColor = new Color(1f, 0.08f, 0.05f);
 
     /// <summary>
+    /// The mouth, for a 2.4m figure (scaled by its object): a throat sinking back from a ragged oval rim,
+    /// folded, dark flesh at the rim glowing brighter the deeper it goes; thick wet lips round it; and two
+    /// rows of long, uneven fangs, top and bottom, curving in and back down its throat. Vertex colours are
+    /// each part's shade, alphas how much of the glow reaches it (Horror/Throat).
+    /// </summary>
+    static Mesh BuildMouthMesh()
+    {
+        const int sides = 32, rings = 8;
+        const float rx = 0.05f, ry = 0.078f, rimZ = 0.046f, deepZ = 0.024f;
+        var verts = new List<Vector3>();
+        var colors = new List<Color>();
+        var tris = new List<int>();
+        var flesh = new Color(0.07f, 0.006f, 0.005f);
+        float seed = Random.Range(0f, 100f);
+        float Fold(float a) => 1f + 0.09f * Mathf.Sin(a * 7f + seed) + 0.05f * Mathf.Sin(a * 13f - seed * 0.7f);
+
+        // The throat: rings from the rim down to its depths.
+        for (int k = 0; k <= rings; k++)
+        {
+            float t = k / (float)rings;
+            float shrink = 1f - Mathf.Pow(t, 0.8f) * 0.92f;
+            float z = Mathf.Lerp(rimZ, deepZ, 1f - (1f - t) * (1f - t));
+            for (int i = 0; i < sides; i++)
+            {
+                float a = i * Mathf.PI * 2f / sides;
+                float fold = Mathf.Lerp(Fold(a), 1f, t * 0.5f);
+                verts.Add(new Vector3(Mathf.Cos(a) * rx * shrink * fold, Mathf.Sin(a) * ry * shrink * fold, z));
+                var c = flesh * (1f - 0.7f * t);
+                c.a = Mathf.Pow(t, 1.6f);
+                colors.Add(c);
+            }
+        }
+        for (int k = 0; k < rings; k++)
+            for (int i = 0; i < sides; i++)
+            {
+                int a = k * sides + i, b = k * sides + (i + 1) % sides, c = a + sides, d = b + sides;
+                tris.Add(a); tris.Add(c); tris.Add(b);
+                tris.Add(b); tris.Add(c); tris.Add(d);
+            }
+        int deep = verts.Count;
+        verts.Add(new Vector3(0f, 0f, deepZ - 0.004f));
+        colors.Add(new Color(0f, 0f, 0f, 1f));
+        for (int i = 0; i < sides; i++)
+        {
+            tris.Add(deep); tris.Add(rings * sides + (i + 1) % sides); tris.Add(rings * sides + i);
+        }
+
+        // The lips: a thick ring round the rim.
+        const int tube = 6;
+        int lipStart = verts.Count;
+        for (int i = 0; i < sides; i++)
+        {
+            float a = i * Mathf.PI * 2f / sides;
+            float fold = Fold(a);
+            Vector3 dir = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f);
+            Vector3 centre = new Vector3(dir.x * (rx * fold + 0.004f), dir.y * (ry * fold + 0.004f), rimZ);
+            for (int j = 0; j < tube; j++)
+            {
+                float b = j * Mathf.PI * 2f / tube;
+                float thick = 0.006f + 0.002f * Mathf.Sin(a * 5f + seed);
+                verts.Add(centre + (dir * Mathf.Cos(b) + Vector3.forward * Mathf.Sin(b)) * thick);
+                colors.Add(new Color(0.035f, 0.004f, 0.004f, 0.04f));
+            }
+        }
+        for (int i = 0; i < sides; i++)
+            for (int j = 0; j < tube; j++)
+            {
+                int a = lipStart + i * tube + j, b = lipStart + i * tube + (j + 1) % tube;
+                int c = lipStart + ((i + 1) % sides) * tube + j, d = lipStart + ((i + 1) % sides) * tube + (j + 1) % tube;
+                tris.Add(a); tris.Add(c); tris.Add(b);
+                tris.Add(b); tris.Add(c); tris.Add(d);
+            }
+
+        // The fangs: top and bottom rows, longest toward the middle of each, every one a little different.
+        var root = new Color(0.1f, 0.085f, 0.07f, 0.05f);
+        var tip = new Color(0.5f, 0.46f, 0.38f, 0.12f);
+        foreach (var (firstDeg, lastDeg, count) in new[] { (25f, 155f, 9), (205f, 335f, 8) })
+            for (int n = 0; n < count; n++)
+            {
+                float deg = Mathf.Lerp(firstDeg, lastDeg, (n + Random.Range(-0.25f, 0.25f)) / (count - 1f));
+                float a = deg * Mathf.Deg2Rad;
+                float fold = Fold(a);
+                Vector3 baseAt = new Vector3(Mathf.Cos(a) * rx * fold * 0.97f, Mathf.Sin(a) * ry * fold * 0.97f, rimZ - 0.001f);
+                float middle = 1f - Mathf.Abs((deg - (firstDeg + lastDeg) * 0.5f) / ((lastDeg - firstDeg) * 0.5f));
+                float length = Random.Range(0.016f, 0.024f) + 0.02f * middle;
+                Vector3 inward = new Vector3(-baseAt.x, -baseAt.y * 0.8f, 0f).normalized;
+                Vector3 dir = (inward * 0.8f + Vector3.back * 0.45f).normalized;
+                AddFang(verts, colors, tris, baseAt, dir, length, Random.Range(0.0045f, 0.0065f), root, tip);
+            }
+
+        var mesh = new Mesh { name = "Scour Mouth" };
+        mesh.SetVertices(verts);
+        mesh.SetColors(colors);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>One fang: a four-sided spike from a broad root to a point, curving a little back as it goes.</summary>
+    static void AddFang(List<Vector3> verts, List<Color> colors, List<int> tris, Vector3 at, Vector3 dir, float length, float width, Color root, Color tip)
+    {
+        Vector3 side = Vector3.Cross(dir, Vector3.forward).normalized;
+        if (side.sqrMagnitude < 0.001f) side = Vector3.right;
+        Vector3 up = Vector3.Cross(side, dir).normalized;
+        const int segments = 3;
+        int start = verts.Count;
+        for (int k = 0; k <= segments; k++)
+        {
+            float t = k / (float)segments;
+            Vector3 centre = at + dir * length * t + Vector3.back * length * 0.25f * t * t; // curving back down the throat
+            float w = width * (1f - t) * (1f - 0.3f * t);
+            var c = Color.Lerp(root, tip, t);
+            verts.Add(centre + side * w); colors.Add(c);
+            verts.Add(centre + up * w * 0.6f); colors.Add(c);
+            verts.Add(centre - side * w); colors.Add(c);
+            verts.Add(centre - up * w * 0.6f); colors.Add(c);
+        }
+        for (int k = 0; k < segments; k++)
+            for (int j = 0; j < 4; j++)
+            {
+                int a = start + k * 4 + j, b = start + k * 4 + (j + 1) % 4, c = a + 4, d = b + 4;
+                tris.Add(a); tris.Add(c); tris.Add(b);
+                tris.Add(b); tris.Add(c); tris.Add(d);
+            }
+    }
+
+    /// <summary>
     /// Not a grin: a mouth that drops open, far too wide and tall, a ring of thin fangs round its rim, and
     /// inside it a light, burning the colour of its eyes, glaring out of it: lighting what it faces, a faint
     /// cone of glare spilling out ahead. Closed it's nothing at all. (Its size follows mouthOpen.)
@@ -1939,25 +2116,19 @@ public class ShadowEntity : MonoBehaviour
     void BuildMouth()
     {
         mouth = Pivot(headPivot, "Mouth", new Vector3(0f, -0.005f, 0.11f));
-        var dark = MaterialFactory.NoFog(new Color(0.05f, 0.005f, 0.004f));
-        var hole = CreatePart(PrimitiveType.Sphere, dark, mouth).transform;
-        hole.localScale = new Vector3(0.095f, 0.15f, 0.04f) * scale;
-        // The light down its throat: a blazing core, brightest in the middle.
-        mouthGlowMat = MaterialFactory.NoFog(glowColor * 4f);
-        var core = CreatePart(PrimitiveType.Sphere, mouthGlowMat, mouth).transform;
-        core.localPosition = new Vector3(0f, 0f, 0.006f) * scale;
-        core.localScale = new Vector3(0.06f, 0.11f, 0.03f) * scale;
-        // Thin fangs all round the rim, pointing in.
-        var toothMat = MaterialFactory.Unlit(new Color(0.5f, 0.48f, 0.42f));
-        for (int i = 0; i < 12; i++)
-        {
-            float a = i / 12f * Mathf.PI * 2f;
-            Vector3 rim = new Vector3(Mathf.Cos(a) * 0.046f, Mathf.Sin(a) * 0.074f, 0.014f);
-            var tooth = CreatePart(PrimitiveType.Cube, toothMat, mouth).transform;
-            tooth.localPosition = rim * scale;
-            tooth.localRotation = Quaternion.Euler(0f, 0f, a * Mathf.Rad2Deg + 90f);
-            tooth.localScale = new Vector3(0.006f, 0.026f, 0.005f) * scale;
-        }
+        // Throat, lips and fangs in one mesh (Horror/Throat): the light burns deep down its throat, the
+        // fangs dark against it.
+        Shader throat = Shader.Find("Horror/Throat");
+        mouthGlowMat = throat != null ? new Material(throat) : MaterialFactory.NoFog(glowColor * 4f);
+        mouthGlowMat.renderQueue = MaterialFactory.FogFreeQueue(2000);
+        var mouthMesh = new GameObject("Mouth Mesh");
+        mouthMesh.transform.SetParent(mouth, false);
+        mouthMesh.transform.localScale = Vector3.one * scale;
+        mouthMesh.AddComponent<MeshFilter>().sharedMesh = BuildMouthMesh();
+        var mouthRenderer = mouthMesh.AddComponent<MeshRenderer>();
+        mouthRenderer.sharedMaterial = mouthGlowMat;
+        mouthRenderer.shadowCastingMode = ShadowCastingMode.Off;
+        mouthRenderer.receiveShadows = false;
         mouth.localScale = new Vector3(1f, 0.001f, 1f);
         mouth.gameObject.SetActive(false);
 
