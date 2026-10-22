@@ -98,6 +98,8 @@ public class LampSpawner : MonoBehaviour
 
         // Old trails worn between them, coming and going.
         LampTrails.Build(transform, lamps, generator);
+        // And by each lamp, a signpost pointing the way to the nearest others.
+        LampSignpost.BuildAll(lamps, generator);
     }
 
     /// <summary>Copies the Lamp Settings onto a lamp.</summary>
