@@ -315,6 +315,7 @@ public class ShadowEntity : MonoBehaviour
     {
         Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         GroundLeaves.Register(transform, 0.35f); // even unseen, the leaves where it steps give it away
+        gameObject.AddComponent<ScourSmoke>(); // black smoke from its feet as it walks
         scale = height / 2.4f;
         BuildSilhouette();
         BuildFragments();
