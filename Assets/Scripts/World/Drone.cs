@@ -229,10 +229,12 @@ public class DroneUnit : MonoBehaviour
                 var g = lampGlows[used++];
                 g.gameObject.SetActive(true);
                 g.SetPositionAndRotation(at, Quaternion.LookRotation(at - eye, view.transform.up));
-                float size = Mathf.Max(0.6f, d * lampGlowSize) * (lamp.IsLit ? 1f : 0.35f);
+                // The dark ones (the ones still to find) stand out most: bigger, cold blue-white, pulsing.
+                float pulse = 0.65f + 0.35f * Mathf.Sin(Time.time * 4f + lamp.transform.position.x);
+                float size = Mathf.Max(0.6f, d * lampGlowSize) * (lamp.IsLit ? 1f : 1.6f * (0.85f + 0.15f * pulse));
                 g.localScale = Vector3.one * size;
                 var block = new MaterialPropertyBlock();
-                Color c = lamp.IsLit ? lamp.lightColor * 1.4f : new Color(0.3f, 0.25f, 0.2f);
+                Color c = lamp.IsLit ? lamp.lightColor * 1.4f : new Color(0.55f, 0.85f, 1f) * (1.6f * pulse);
                 block.SetColor("_Color", c);
                 g.GetComponent<Renderer>().SetPropertyBlock(block);
             }
@@ -648,6 +650,57 @@ public class DroneUnit : MonoBehaviour
 
     // ---------------------------------------------------------------- The picture
 
+    /// <summary>
+    /// On the drone's screen, every lamp still dark is marked: a target bracket over it and how far it is from
+    /// the drone, or, off the edge of the picture, an arrow at the edge pointing to it.
+    /// </summary>
+    void MarkDarkLamps(float unit)
+    {
+        if (view == null) return;
+        float w = Screen.width, h = Screen.height, margin = 50f * unit;
+        foreach (var lamp in Lamp.All)
+        {
+            if (lamp == null || lamp.IsLit) continue;
+            Vector3 at = WorldWrap.NearestImage(lamp.BulbPosition, view.transform.position);
+            Vector3 sp = view.WorldToScreenPoint(at);
+            float dist = (at - view.transform.position).magnitude;
+            bool behind = sp.z < 0f;
+            if (behind) { sp.x = w - sp.x; sp.y = h - sp.y; }
+            var pos = new Vector2(sp.x, h - sp.y);
+            bool off = behind || pos.x < margin || pos.x > w - margin || pos.y < margin || pos.y > h - margin;
+            Color c = new Color(0.6f, 0.9f, 1f, 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 4f));
+            GUI.color = c;
+            if (off)
+            {
+                Vector2 centre = new Vector2(w, h) * 0.5f, dir = pos - centre;
+                if (dir.sqrMagnitude < 1f) dir = Vector2.down;
+                float sx = (w * 0.5f - margin) / Mathf.Max(Mathf.Abs(dir.x), 0.001f), sy = (h * 0.5f - margin) / Mathf.Max(Mathf.Abs(dir.y), 0.001f);
+                pos = centre + dir * Mathf.Min(sx, sy);
+                Matrix4x4 keep = GUI.matrix;
+                GUIUtility.RotateAroundPivot(Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg, pos);
+                GUI.DrawTexture(new Rect(pos.x - 14f * unit, pos.y - 2f * unit, 18f * unit, 4f * unit), Texture2D.whiteTexture);
+                GUIUtility.RotateAroundPivot(35f, pos);
+                GUI.DrawTexture(new Rect(pos.x - 9f * unit, pos.y - 2f * unit, 10f * unit, 4f * unit), Texture2D.whiteTexture);
+                GUIUtility.RotateAroundPivot(-70f, pos);
+                GUI.DrawTexture(new Rect(pos.x - 9f * unit, pos.y - 2f * unit, 10f * unit, 4f * unit), Texture2D.whiteTexture);
+                GUI.matrix = keep;
+            }
+            else
+            {
+                // A bracket round it.
+                float r = 14f * unit, t = 2f * unit, l = 7f * unit;
+                foreach (var (cx, cy) in new[] { (-1f, -1f), (1f, -1f), (-1f, 1f), (1f, 1f) })
+                {
+                    Vector2 corner = pos + new Vector2(cx * r, cy * r);
+                    GUI.DrawTexture(new Rect(cx < 0 ? corner.x : corner.x - l, corner.y - t * 0.5f, l, t), Texture2D.whiteTexture);
+                    GUI.DrawTexture(new Rect(corner.x - t * 0.5f, cy < 0 ? corner.y : corner.y - l, t, l), Texture2D.whiteTexture);
+                }
+            }
+            GUI.Label(new Rect(pos.x - 60f * unit, pos.y + 16f * unit, 120f * unit, 22f * unit), $"LAMP {dist:0}m", bigStyle != null ? new GUIStyle(hudStyle) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(14f * unit) } : GUI.skin.label);
+        }
+        GUI.color = Color.white;
+    }
+
     void OnGUI()
     {
         if (!piloting || GameOverScreen.IsActive) return;
@@ -672,6 +725,8 @@ public class DroneUnit : MonoBehaviour
             GUI.color = new Color(0f, 0f, 0f, 0.6f); // dropouts
             GUI.DrawTexture(new Rect(0f, Random.Range(0f, h), w, Random.Range(10f, 60f) * unit), Texture2D.whiteTexture);
         }
+
+        MarkDarkLamps(unit);
 
         // The frame: corner marks, the crosshair, the readouts.
         GUI.color = hud;
