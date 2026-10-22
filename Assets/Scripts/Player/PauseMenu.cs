@@ -80,10 +80,13 @@ public class PauseMenu : MonoBehaviour
     {
         if (song == null)
         {
-            song = ProceduralAudio.AddSource(gameObject, ProceduralAudio.PauseSong, true, false, 0f);
+            // On its own object: the echo filter would otherwise also sit on the menu's clipless UI source.
+            var songObject = new GameObject("Pause Song");
+            songObject.transform.SetParent(transform, false);
+            song = ProceduralAudio.AddSource(songObject, ProceduralAudio.PauseSong, true, false, 0f);
             song.ignoreListenerPause = true;  // it plays while everything else is paused
             song.ignoreListenerVolume = true; // music: the music volume sets it
-            songEcho = gameObject.AddComponent<AudioEchoFilter>();
+            songEcho = songObject.AddComponent<AudioEchoFilter>();
             songEcho.delay = 420f;
             songEcho.decayRatio = 0.6f;
             songEcho.wetMix = 0f;

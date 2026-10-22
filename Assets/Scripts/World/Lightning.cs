@@ -40,6 +40,9 @@ public class Lightning : MonoBehaviour
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => Instance = null;
 
+    Light shadowingMoon;          // the moon, while its shadows are off for a flash
+    LightShadows moonShadows;
+
     void Awake() { Tuning.Apply(this); Instance = this; } // (saved tuning first)
     void OnDestroy() { if (Instance == this) Instance = null; }
 
@@ -200,8 +203,21 @@ public class Lightning : MonoBehaviour
             for (int k = 0; k < shape.Length; k++) lines[i].SetPosition(k, eye + shape[k] * Distance);
         }
 
-        // The flash over the forest, from the bolt's direction (shadows where the render pipeline allows).
+        // The flash over the forest, from the bolt's direction, throwing shadows. Only one directional light
+        // can (HDRP), so the moon's are off while it lasts.
         flash.enabled = level > 0.01f;
+        Light moon = RenderSettings.sun != flash ? RenderSettings.sun : null;
+        if (flash.enabled && moon != null && moon.shadows != LightShadows.None)
+        {
+            moonShadows = moon.shadows;
+            moon.shadows = LightShadows.None;
+            shadowingMoon = moon;
+        }
+        else if (!flash.enabled && shadowingMoon != null)
+        {
+            shadowingMoon.shadows = moonShadows;
+            shadowingMoon = null;
+        }
         if (flash.enabled)
         {
             flash.intensity = flashIntensity * level;
