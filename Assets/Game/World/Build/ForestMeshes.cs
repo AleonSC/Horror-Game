@@ -1,45 +1,47 @@
 using UnityEngine;
 
-namespace Game.Editor
+namespace Game.World.Build
 {
     /// <summary>
-    /// Simple stand-in shapes for the look test scene: pines, dead trees, rocks, grass and twigs. They only need
-    /// to read right as silhouettes in fog; proper trees come with world generation (milestone 3).
+    /// The forest's shapes, made in code: pines (drooping ragged tiers on a bare trunk), dead trees (forked bare
+    /// limbs), bushes, grass clumps, twigs, rocks and logs. Trees come in levels of detail (0 full, 1 simpler,
+    /// 2 a rough shape for far off in the fog). They read as silhouettes in fog; a tree pack can replace them.
     /// </summary>
-    public static class LookTestMeshes
+    public static class ForestMeshes
     {
-        /// <summary>A tall pine: a bare trunk, then drooping, ragged tiers of boughs up to a point.</summary>
-        public static (MeshBuilder trunk, MeshBuilder needles) Pine(System.Random rng)
+        /// <summary>A tall pine: a bare trunk, then drooping, ragged tiers of boughs up to a point. height &lt;= 0: random.</summary>
+        public static (MeshBuilder trunk, MeshBuilder needles) Pine(System.Random rng, float height = -1f, int lod = 0)
         {
             var trunk = new MeshBuilder();
             var needles = new MeshBuilder();
-            float height = Range(rng, 14f, 22f);
+            if (height <= 0f) height = Range(rng, 14f, 22f);
             float radius = Range(rng, 0.22f, 0.36f);
-            trunk.AddTube(Vector3.down * 0.3f, Vector3.up * height, radius * 1.25f, 0.03f, 8);
+            trunk.AddTube(Vector3.down * 0.3f, Vector3.up * height, radius * 1.25f, 0.03f, lod == 0 ? 8 : lod == 1 ? 6 : 4);
 
             float crownStart = height * Range(rng, 0.35f, 0.5f);
-            int tiers = rng.Next(9, 13);
+            int tiers = lod == 0 ? rng.Next(9, 13) : lod == 1 ? 6 : 3;
+            int segments = lod == 0 ? 14 : lod == 1 ? 9 : 6;
             for (int t = 0; t < tiers; t++)
             {
                 float f = t / (float)(tiers - 1);              // 0 bottom tier, 1 top
                 float y = Mathf.Lerp(crownStart, height - 0.6f, f);
                 float reach = Mathf.Lerp(Range(rng, 2.2f, 3.2f), 0.4f, Mathf.Pow(f, 0.9f));
-                float droop = Mathf.Lerp(1.2f, 0.4f, f);
-                AddSkirt(needles, rng, y, reach, droop, 14);
+                float droop = Mathf.Lerp(1.2f, 0.4f, f) * (lod == 2 ? 2f : 1f);
+                AddSkirt(needles, rng, y, reach, droop, segments);
             }
             return (trunk, needles);
         }
 
-        /// <summary>A dead tree: a bare trunk forking into a few crooked limbs.</summary>
-        public static MeshBuilder DeadTree(System.Random rng)
+        /// <summary>A dead tree: a bare trunk forking into a few crooked limbs. height &lt;= 0: random.</summary>
+        public static MeshBuilder DeadTree(System.Random rng, float height = -1f, int lod = 0)
         {
             var b = new MeshBuilder();
-            float height = Range(rng, 8f, 15f);
+            if (height <= 0f) height = Range(rng, 8f, 15f);
             float radius = Range(rng, 0.18f, 0.3f);
             Vector3 top = new Vector3(Range(rng, -0.6f, 0.6f), height, Range(rng, -0.6f, 0.6f));
-            b.AddTube(Vector3.down * 0.3f, top, radius, radius * 0.25f, 7);
+            b.AddTube(Vector3.down * 0.3f, top, radius, radius * 0.25f, lod == 0 ? 7 : 4);
 
-            int limbs = rng.Next(3, 7);
+            int limbs = lod == 2 ? 3 : rng.Next(3, 7);
             for (int i = 0; i < limbs; i++)
             {
                 float along = Range(rng, 0.4f, 0.9f);
@@ -49,7 +51,8 @@ namespace Game.Editor
                 float length = Range(rng, 1.5f, 4f) * (1.2f - along * 0.5f);
                 Vector3 end = start + dir * length;
                 float r = radius * Mathf.Lerp(0.5f, 0.2f, along);
-                b.AddTube(start, end, r, r * 0.2f, 5);
+                b.AddTube(start, end, r, r * 0.2f, lod == 0 ? 5 : 3);
+                if (lod > 0) continue;
                 // A twig or two off each limb.
                 for (int k = 0; k < 2; k++)
                 {
@@ -116,6 +119,35 @@ namespace Game.Editor
                 b.AddTriangle(c, d, e);
                 b.AddTriangle(d, t, e);
             }
+            return b;
+        }
+
+        /// <summary>A bush about a metre across: clumps of leaves, low and wide, upright, or leaning.</summary>
+        public static MeshBuilder Bush(System.Random rng, int kind)
+        {
+            var b = new MeshBuilder();
+            int clumps = rng.Next(6, 11);
+            for (int i = 0; i < clumps; i++)
+            {
+                float a = Range(rng, 0f, Mathf.PI * 2f);
+                float r = Range(rng, 0f, kind == 1 ? 0.18f : 0.4f);
+                float y = kind == 1 ? Range(rng, 0.2f, 1.1f) : Range(rng, 0.15f, 0.55f);
+                Vector3 c = new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r);
+                if (kind == 2) c += new Vector3(0f, 0f, y * 0.6f); // leaning over
+                float size = Range(rng, 0.22f, 0.38f);
+                var blob = Rock(rng);
+                b.Append(blob, Matrix4x4.TRS(c, Quaternion.Euler(Range(rng, 0f, 360f), Range(rng, 0f, 360f), 0f), new Vector3(size, size * 0.8f, size) * 1.4f));
+            }
+            return b;
+        }
+
+        /// <summary>A fallen log a metre long (along z) and half a metre thick; scale it to length.</summary>
+        public static MeshBuilder Log(System.Random rng)
+        {
+            var b = new MeshBuilder();
+            float r = Range(rng, 0.2f, 0.3f);
+            b.AddTube(new Vector3(0f, r * 0.8f, -0.5f), new Vector3(0f, r * 0.8f, 0.5f), r, r * Range(rng, 0.75f, 0.95f), 7, capTop: true);
+            b.AddTube(new Vector3(0f, r * 0.8f, 0.5f), new Vector3(0f, r * 0.8f, -0.5f), r * 0.8f, r, 7, capTop: true);
             return b;
         }
 

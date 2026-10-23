@@ -44,6 +44,29 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>A lit material with a texture, tiled, ready for GPU instancing (the forest's ground, plants, rocks).</summary>
+        public static Material LitTextured(string name, Color color, float smoothness, Texture2D texture, Vector2 tiling, bool doubleSided = false)
+        {
+            var m = Lit(name, color, smoothness, doubleSided);
+            if (texture != null)
+            {
+                m.SetTexture("_BaseColorMap", texture);
+                m.SetTextureScale("_BaseColorMap", tiling);
+            }
+            m.enableInstancing = true;
+            HDMaterial.ValidateMaterial(m);
+            return m;
+        }
+
+        /// <summary>A lit material that also glows (a lamp's glass).</summary>
+        public static Material LitGlow(string name, Color color, Color glow)
+        {
+            var m = Lit(name, color, 0.6f);
+            HDMaterial.SetEmissiveColor(m, glow);
+            HDMaterial.ValidateMaterial(m);
+            return m;
+        }
+
         public static void SetGlow(Material m, Color glow)
         {
             if (m != null) m.SetColor("_EmissiveColor", glow);

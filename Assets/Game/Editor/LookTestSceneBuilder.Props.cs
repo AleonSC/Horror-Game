@@ -3,6 +3,9 @@ using Game.Core;
 using Game.Player;
 using Game.Rendering;
 using Game.World;
+using Game.World.Build;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering.HighDefinition;
 
@@ -64,6 +67,29 @@ namespace Game.Editor
             lamp.marker = marker.GetComponent<Renderer>();
             lamp.glass = glass.GetComponent<Renderer>();
             lamp.crank = crank.transform;
+        }
+
+        /// <summary>
+        /// Game > Build Forest Scene: the real game scene (Assets/Scenes/Forest.unity). It holds only the world
+        /// builder and the player; the forest itself is generated from the run's seed when Play starts.
+        /// </summary>
+        [MenuItem("Game/Build Forest Scene")]
+        public static void BuildForest()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            const string path = "Assets/Scenes/Forest.unity";
+            System.IO.Directory.CreateDirectory("Assets/Scenes");
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            new GameObject("World Builder").AddComponent<WorldBuilder>();
+            BuildPlayer();
+            EditorSceneManager.SaveScene(scene, path);
+
+            // First in the build, so a build starts in the forest.
+            var scenes = new List<EditorBuildSettingsScene> { new EditorBuildSettingsScene(path, true) };
+            foreach (var s in EditorBuildSettings.scenes) if (s.path != path) scenes.Add(s);
+            EditorBuildSettings.scenes = scenes.ToArray();
+            AssetDatabase.SaveAssets();
+            Debug.Log($"Forest scene built: {path}. Press Play: the world is generated from the run's seed.");
         }
 
         // The player: a body that walks (on the PlayerBody layer), with the camera and flashlight at eye height.

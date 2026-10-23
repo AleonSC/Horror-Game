@@ -4,6 +4,7 @@ using Game.Core;
 using Game.Player;
 using Game.Rendering;
 using Game.World;
+using Game.World.Build;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -67,7 +68,7 @@ namespace Game.Editor
             var assets = new List<Object>();
 
             // Materials
-            var groundTex = GroundTexture(rng);
+            var groundTex = GroundTexture.Build(rng.Next());
             assets.Add(groundTex);
             var mats = new Dictionary<string, Material>
             {
@@ -209,57 +210,14 @@ namespace Game.Editor
             return best;
         }
 
-        // Dark earth with leaf litter: specks and blotches of brown, ochre and near-black.
-        static Texture2D GroundTexture(System.Random rng)
-        {
-            const int size = 256;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Ground Litter", wrapMode = TextureWrapMode.Repeat };
-            var px = new Color[size * size];
-            Color soil = new Color(0.11f, 0.085f, 0.065f), dark = new Color(0.05f, 0.04f, 0.035f), leaf = new Color(0.26f, 0.17f, 0.09f);
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float u = x / (float)size, v = y / (float)size;
-                float n = Tileable(u, v, 4, 2f) * 0.6f + Tileable(u, v, 16, 9f) * 0.4f;
-                px[y * size + x] = Color.Lerp(dark, soil, Mathf.SmoothStep(0.2f, 0.8f, n));
-            }
-            for (int i = 0; i < 900; i++) // leaves
-            {
-                int cx = rng.Next(size), cy = rng.Next(size);
-                float r = 1.5f + (float)rng.NextDouble() * 3f;
-                Color c = Color.Lerp(leaf, soil, (float)rng.NextDouble() * 0.7f);
-                for (int dy = -4; dy <= 4; dy++)
-                for (int dx = -4; dx <= 4; dx++)
-                {
-                    if (dx * dx + dy * dy * 2f > r * r) continue;
-                    int xx = (cx + dx + size) % size, yy = (cy + dy + size) % size;
-                    px[yy * size + xx] = Color.Lerp(px[yy * size + xx], c, 0.8f);
-                }
-            }
-            tex.SetPixels(px);
-            tex.Apply(true);
-            return tex;
-        }
-
-        static float Tileable(float u, float v, int period, float seed)
-        {
-            // Blend four offset samples so the noise wraps at the texture edge.
-            float s = period;
-            float a = Mathf.PerlinNoise(u * s + seed, v * s + seed);
-            float b = Mathf.PerlinNoise((u - 1f) * s + seed, v * s + seed);
-            float c = Mathf.PerlinNoise(u * s + seed, (v - 1f) * s + seed);
-            float d = Mathf.PerlinNoise((u - 1f) * s + seed, (v - 1f) * s + seed);
-            return Mathf.Lerp(Mathf.Lerp(a, b, u), Mathf.Lerp(c, d, u), v);
-        }
-
         // ------------------------------------------------------------------ Trees and undergrowth
 
         static void PlaceTrees(System.Random rng, Dictionary<(int, int, string), MeshBuilder> cells, Transform colliderRoot)
         {
             var pines = new List<(MeshBuilder trunk, MeshBuilder needles)>();
             var dead = new List<MeshBuilder>();
-            for (int i = 0; i < 8; i++) pines.Add(LookTestMeshes.Pine(rng));
-            for (int i = 0; i < 5; i++) dead.Add(LookTestMeshes.DeadTree(rng));
+            for (int i = 0; i < 8; i++) pines.Add(ForestMeshes.Pine(rng));
+            for (int i = 0; i < 5; i++) dead.Add(ForestMeshes.DeadTree(rng));
 
             var placed = new List<Vector2>();
             const float minSpacing = 2.2f;
@@ -317,7 +275,7 @@ namespace Game.Editor
                 bool verge = fromPath < 2.5f;                          // thicker along the path's edges
                 if (!verge && meadow < 0.45f && rng.NextDouble() < 0.7) continue;
                 float h = verge ? Range(rng, 0.35f, 0.8f) : Range(rng, 0.25f, 0.9f);
-                var clump = LookTestMeshes.GrassClump(rng, h);
+                var clump = ForestMeshes.GrassClump(rng, h);
                 var m = Matrix4x4.TRS(new Vector3(p.x, GroundHeight(p.x, p.y), p.y), Quaternion.Euler(0f, Range(rng, 0f, 360f), 0f), Vector3.one);
                 Cell(cells, p, rng.NextDouble() < 0.65 ? "drygrass" : "grass").Append(clump, m);
             }
@@ -327,11 +285,11 @@ namespace Game.Editor
                 var p = new Vector2(Range(rng, -HalfSize, HalfSize), Range(rng, -HalfSize, HalfSize));
                 if (DistanceToPath(p) < 0.9f) continue;
                 var m = Matrix4x4.TRS(new Vector3(p.x, GroundHeight(p.x, p.y), p.y), Quaternion.Euler(0f, Range(rng, 0f, 360f), 0f), Vector3.one * Range(rng, 0.7f, 1.6f));
-                Cell(cells, p, "twigs").Append(LookTestMeshes.Twigs(rng), m);
+                Cell(cells, p, "twigs").Append(ForestMeshes.Twigs(rng), m);
             }
 
             var rocks = new List<MeshBuilder>();
-            for (int i = 0; i < 6; i++) rocks.Add(LookTestMeshes.Rock(rng));
+            for (int i = 0; i < 6; i++) rocks.Add(ForestMeshes.Rock(rng));
             for (int i = 0; i < 70; i++)
             {
                 var p = new Vector2(Range(rng, -HalfSize, HalfSize), Range(rng, -HalfSize, HalfSize));

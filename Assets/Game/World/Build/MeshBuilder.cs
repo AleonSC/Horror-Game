@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Game.Editor
+namespace Game.World.Build
 {
     /// <summary>Collects triangles and turns them into a Mesh. Shapes can be added with a transform (for merging).</summary>
     public sealed class MeshBuilder

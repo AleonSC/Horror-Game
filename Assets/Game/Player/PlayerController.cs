@@ -257,6 +257,13 @@ namespace Game.Player
 
         public void StartGroggy() => groggy = config.settings.groggyTime;
 
+        /// <summary>Where the run starts (and where you wake if you haven't lit a lamp yet).</summary>
+        public void SetSpawn(Vector3 position, Quaternion facing)
+        {
+            SpawnPoint = position;
+            SpawnFacing = facing;
+        }
+
         void UpdateCursor(bool uiOpen)
         {
             if (uiOpen) return;

@@ -43,17 +43,19 @@ namespace Game.World
         {
             config = Services.TryGet<GameSetup>(out var setup) ? setup.Get<LampConfig>() : null;
             if (config == null) config = ScriptableObject.CreateInstance<LampConfig>();
+            zone = new SafeZone($"Lamp {index}", transform.position, config.settings.safeRadius) { Active = false };
+        }
+
+        // (In Start, not Awake: a lamp made in code gets its parts assigned just after it's added.)
+        void Start()
+        {
+            zone.Name = $"Lamp {index}";
             if (marker != null) markerMat = marker.material;
             if (glass != null)
             {
                 glassMat = glass.material;
                 glassGlow = glassMat.HasProperty("_EmissiveColor") ? glassMat.GetColor("_EmissiveColor") : Color.white;
             }
-            zone = new SafeZone($"Lamp {index}", transform.position, config.settings.safeRadius) { Active = false };
-        }
-
-        void Start()
-        {
             if (Services.TryGet<SafeZones>(out var zones)) zones.Add(zone);
             if (Services.TryGet<EventBus>(out var events)) resetSub = events.Subscribe<RunReset>(_ => PutOut());
             if (lampLight != null && lampLight.GetComponent<FogGlowLight>() == null) lampLight.gameObject.AddComponent<FogGlowLight>();
@@ -105,6 +107,7 @@ namespace Game.World
         void Update()
         {
             var s = config.settings;
+            zone.Center = transform.position; // (the world wraps: the lamp moves to its nearest copy)
             if (!Lit && meter > 0f && Time.time - lastClick > s.drainDelay)
                 meter = Mathf.Max(0f, meter - s.drainRate * Time.deltaTime);
             litLevel = Mathf.MoveTowards(litLevel, Lit ? 1f : meter * 0.15f, Time.deltaTime * (Lit ? 0.8f : 2f));

@@ -197,10 +197,10 @@ run read the way it's designed.
 ### 3.2 The map
 
 - **320 m x 320 m**, **wrapping**: walk off one edge and you come back in on the other, seamlessly. Terrain
-  is built from periodic functions so it tiles. Every registered static object is drawn at whichever
-  copy of its position is nearest the player; when the player crosses an edge, they and everything near
-  them shift by one map width (only things half a map away visibly jump, deep in the fog). All distance
-  maths uses the wrapped difference.
+  is built from periodic functions so it tiles. Every piece of the static world (each 32 m chunk of ground
+  with its colliders, lamps, structures) is kept at whichever copy of its position is nearest the camera,
+  and instanced vegetation is drawn the same way; the player is never moved (only things half a map away
+  visibly jump, deep in the fog). All distance maths uses the wrapped difference.
 - **Seed**: an int on `WorldGenConfig`; "randomize each run" toggle. Log the seed in the session recorder.
 
 ### 3.3 Terrain

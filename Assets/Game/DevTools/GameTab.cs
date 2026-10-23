@@ -2,6 +2,7 @@ using Game.Audio;
 using Game.Core;
 using Game.Entities;
 using Game.Player;
+using Game.World.Build;
 using UnityEngine;
 
 namespace Game.DevTools
@@ -32,6 +33,7 @@ namespace Game.DevTools
             DevStyle.Row("Lamps lit", $"{run.LampsLit} / {GameRun.LampCount}");
             if (GUILayout.Button("Restart run", DevStyle.Button)) root.Restart();
 
+            if (Services.TryGet<WorldBuilder>(out var world) && world.Plan != null) DrawWorld(world, root);
             if (Services.TryGet<PlayerController>(out var player)) DrawPlayer(player);
             if (Services.TryGet<ScourSpawner>(out var spawner)) DrawScours(spawner);
 
@@ -72,6 +74,16 @@ namespace Game.DevTools
             GUILayout.Label("Threat nearby", DevStyle.MutedLabel);
             int threat = DevStyle.Choice((int)inputs.Threat, "None", "Dread", "Hush");
             if (threat != (int)inputs.Threat) events.Publish(new ThreatLevelChanged((ThreatLevel)threat));
+        }
+
+        static void DrawWorld(WorldBuilder world, GameRoot root)
+        {
+            GUILayout.Label("World", DevStyle.Section);
+            var plan = world.Plan;
+            DevStyle.Row("Seed", plan.Seed.ToString());
+            DevStyle.Row("Forest", $"{world.Forest.InstanceCount} things, {world.Forest.DrawnInstances} drawn in {world.Forest.DrawCalls} calls");
+            foreach (var t in world.Timings) GUILayout.Label(t, DevStyle.MutedLabel);
+            GUILayout.Label("Restart run makes a new world (with Randomize Seed Each Run on, in GameSetup).", DevStyle.MutedLabel);
         }
 
         static void DrawPlayer(PlayerController player)
