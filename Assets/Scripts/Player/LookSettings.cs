@@ -84,6 +84,13 @@ public static class LookSettings
         Add(s, typeof(Flashlight), "boost", 0f, 6f, "0.00", "Multiplies the Lighting tab's flashlight brightness.");
         Add(s, typeof(Flashlight), "nearDimDistance", 0f, 12f, "0.0", "Pointed at something closer than this, the beam dims.");
         Add(s, typeof(Flashlight), "nearDimAmount", 0f, 1f, "0.00", "How bright it is right up close (share of full).");
+        Add(s, typeof(Flashlight), "rangeReach", 1f, 5f, "0.00", "How far past Range the light really reaches, so the beam fades out gradually.");
+        Add(s, typeof(Flashlight), "spillStrength", 0f, 0.5f, "0.000", "The wide faint glow round the beam (share of its brightness).");
+        Add(s, typeof(Flashlight), "spillAngle", 40f, 150f, "0", "How wide the spill is (degrees).");
+        Add(s, typeof(Flashlight), "spillFogGlow", 0f, 1f, "0.00", "How much the spill lights the fog.");
+        Add(s, typeof(Flashlight), "bounceStrength", 0f, 1f, "0.00", "Light bouncing back off what it's pointed at close by.");
+        Add(s, typeof(Flashlight), "bounceDistance", 2f, 30f, "0.0", "Beyond this, nothing bounces back (metres).");
+        Add(s, typeof(Flashlight), "bounceRange", 1f, 20f, "0.0", "How far the bounced light reaches (metres).");
         Add(s, typeof(Flashlight), "swaySpeed", 0f, 15f, "0.0", "How quickly the beam follows your view.");
         Add(s, typeof(Flashlight), "maxLagAngle", 0f, 30f, "0", "How far the beam can trail behind where you look.");
 

@@ -295,7 +295,7 @@ public class HdrpAtmosphere : MonoBehaviour
                 var hd = light.GetComponent<HDAdditionalLightData>();
                 if (hd == null) hd = light.gameObject.AddComponent<HDAdditionalLightData>();
                 hd.useRayTracedShadows = RayTracingActive && rayTracedShadows && light.shadows != LightShadows.None;
-                if (light.type == LightType.Point)
+                if (light.type == LightType.Point && !light.name.StartsWith("Flashlight")) // (not the flashlight's bounce)
                 {
                     hd.volumetricDimmer = lampFogGlow;
                     pointLights.Add(light);

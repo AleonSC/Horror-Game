@@ -158,7 +158,7 @@ public class LightingSettings : MonoBehaviour
         v.moonShadows = moon == null ? 0 : moon.shadows == LightShadows.None ? 0 : moon.shadows == LightShadows.Hard ? 1 : 2;
         v.flashlightShadows = flashlight == null || flashlight.flashlight.shadows != LightShadows.None;
         v.flashlightIntensity = flashlight != null ? flashlight.intensity : 20.4f;
-        v.flashlightRange = flashlight != null ? flashlight.flashlight.range : 24f;
+        v.flashlightRange = flashlight != null ? flashlight.range : 24f;
         v.flashlightAngle = flashlight != null ? flashlight.flashlight.spotAngle : 31f;
         v.flashlightFeather = flashlight == null || flashlight.featherEdge;
         v.flashlightSoftness = flashlight != null ? flashlight.edgeFeather : 0f;
@@ -224,7 +224,7 @@ public class LightingSettings : MonoBehaviour
             flashlight.intensity = v.flashlightIntensity;
             flashlight.color = v.flashlightColor;
             flashlight.flashlight.color = v.flashlightColor;
-            flashlight.flashlight.range = v.flashlightRange;
+            flashlight.range = v.flashlightRange; // (the light reaches further: the beam fades out round here)
             flashlight.flashlight.spotAngle = v.flashlightAngle;
             if (!v.flashlightFeather) flashlight.flashlight.innerSpotAngle = v.flashlightAngle * 0.5f;
             flashlight.featherEdge = v.flashlightFeather;

@@ -9,6 +9,10 @@ using UnityEngine.Rendering.HighDefinition;
 /// It runs on a battery that drains while it's on. When the battery gets low the beam dims and
 /// flickers; when it's empty the flashlight won't turn on. Batteries found around the map refill it.
 /// The battery bar is drawn in the bottom left of the screen.
+///
+/// Like a real torch it's more than the beam: a wide, faint spill round it (so the edges of your view
+/// aren't black), light bouncing back off whatever it's pointed at close by (tinted by it, lighting up
+/// you and the space round you), and a beam that fades out gradually past Range instead of stopping dead.
 /// </summary>
 public class Flashlight : MonoBehaviour
 {
@@ -25,6 +29,25 @@ public class Flashlight : MonoBehaviour
     public LightShadows shadows = LightShadows.Soft;
     [Tooltip("Extra brightness on top of Intensity (HDRP's lights fall off more than URP's did; the lighting panel's Brightness still sets Intensity).")]
     public float boost = 2f;
+
+    [Tooltip("How far past Range the light really reaches (a multiple), so the beam dies away gradually instead of stopping dead at Range.")]
+    public float rangeReach = 2.5f;
+
+    [Header("Spill")]
+    [Tooltip("The wide, faint glow round the beam, as a share of the beam's brightness. 0: none.")]
+    [Range(0f, 0.5f)] public float spillStrength = 0.08f;
+    [Tooltip("How wide the spill is (degrees).")]
+    public float spillAngle = 85f;
+    [Range(0f, 1f), Tooltip("How much the spill lights the fog (a share of Fog Glow). Low, or the near fog goes milky.")]
+    public float spillFogGlow = 0.3f;
+
+    [Header("Bounce")]
+    [Tooltip("Light bouncing back off what the beam hits close by, lighting you and the space round you (tinted by the surface). 0: none.")]
+    [Range(0f, 1f)] public float bounceStrength = 0.25f;
+    [Tooltip("Beyond this the beam's too spread out for any bounce to show (metres).")]
+    public float bounceDistance = 12f;
+    [Tooltip("How far the bounced light reaches (metres).")]
+    public float bounceRange = 7f;
 
     [Header("Up close")]
     [Tooltip("Pointed at something nearer than this (the ground at your feet), the beam dims, so close things don't blaze white.")]
@@ -97,6 +120,7 @@ public class Flashlight : MonoBehaviour
         flashlight.color = color;
         flashlight.shadows = shadows;
         flashlight.enabled = startOn;
+        BuildSpillAndBounce();
 
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
@@ -172,6 +196,7 @@ public class Flashlight : MonoBehaviour
             Toggle();
 
         if (IsOn) UpdateBattery();
+        UpdateSpillAndBounce(); // (always: they follow the beam on and off, however it's switched)
     }
 
     void UpdateBattery()
@@ -198,9 +223,110 @@ public class Flashlight : MonoBehaviour
             flickerLevel = Random.Range(0f, 0.5f);
         }
 
+        Probe();
         flashlight.intensity = intensity * boost * Mathf.Lerp(1f, 0.45f, low) * flickerLevel * NearDim();
+        flashlight.range = range * Mathf.Max(1f, rangeReach);
         var hd = flashlight.GetComponent<HDAdditionalLightData>();
         if (hd != null) hd.volumetricDimmer = fogGlow;
+    }
+
+    // ---------------------------------------------------------------- Spill and bounce
+
+    Light spill, bounce;
+    HDAdditionalLightData spillHd, bounceHd;
+    bool probeHit;
+    RaycastHit probe;
+    float bounceLevel;
+    Color bounceTint = Color.white;
+    Collider tintFrom;
+
+    /// <summary>The spill (a wide faint spot on the beam) and the bounce (a soft point light where it lands).</summary>
+    void BuildSpillAndBounce()
+    {
+        spill = new GameObject("Flashlight Spill").AddComponent<Light>();
+        spill.transform.SetParent(flashlight.transform, false);
+        spill.type = LightType.Spot;
+        spill.shadows = LightShadows.None;
+        spill.enabled = false;
+        spillHd = spill.gameObject.AddComponent<HDAdditionalLightData>();
+
+        bounce = new GameObject("Flashlight Bounce").AddComponent<Light>();
+        bounce.transform.SetParent(transform, false);
+        bounce.type = LightType.Point;
+        bounce.shadows = LightShadows.None;
+        bounce.enabled = false;
+        bounceHd = bounce.gameObject.AddComponent<HDAdditionalLightData>();
+    }
+
+    /// <summary>What the beam is pointed at (one ray a frame, for the bounce and the up-close dimming).</summary>
+    void Probe()
+    {
+        Transform t = flashlight.transform;
+        float reach = Mathf.Max(nearDimDistance, bounceDistance);
+        probeHit = reach > 0f && Physics.Raycast(t.position, t.forward, out probe, reach, ~0, QueryTriggerInteraction.Ignore);
+    }
+
+    void UpdateSpillAndBounce()
+    {
+        if (spill == null || bounce == null) return;
+        bool on = flashlight.enabled;
+        float beam = flashlight.intensity; // (with the battery, flicker and up-close dimming in it)
+
+        // Spill: the same light, much wider and fainter, fading smoothly from the middle out.
+        spill.enabled = on && spillStrength > 0f;
+        if (spill.enabled)
+        {
+            spill.spotAngle = Mathf.Clamp(spillAngle, flashlight.spotAngle, 170f);
+            spill.innerSpotAngle = Mathf.Min(flashlight.spotAngle * 0.5f, spill.spotAngle * 0.3f);
+            spill.color = flashlight.color;
+            spill.intensity = beam * spillStrength;
+            spill.range = flashlight.range * 0.6f; // (it spreads out: it doesn't carry as far)
+            if (spillHd != null) spillHd.volumetricDimmer = fogGlow * spillFogGlow;
+        }
+
+        // Bounce: where the beam lands, a soft glow comes back toward you, tinted by what it hit. (The light a
+        // beam throws back is about the same whatever the distance: further off, the spot it lights is
+        // bigger and dimmer. It's the distance back to you that makes a far wall's bounce fade, so the glow
+        // sits between the wall and you, and fades out toward bounceDistance.)
+        float target = 0f;
+        if (on && bounceStrength > 0f && probeHit)
+        {
+            float fade = 1f - Mathf.SmoothStep(0f, 1f, probe.distance / Mathf.Max(bounceDistance, 0.1f));
+            target = beam * bounceStrength * 0.1f * fade;
+            if (probe.collider != tintFrom)
+            {
+                tintFrom = probe.collider;
+                bounceTint = SurfaceTint(probe.collider);
+            }
+            // Off the surface (no hot spot on it) and partway back toward you.
+            Vector3 back = (flashlight.transform.position - probe.point).normalized * Mathf.Min(0.6f, probe.distance * 0.4f);
+            Vector3 at = probe.point + probe.normal * 0.5f + back;
+            bool far = (bounce.transform.position - at).sqrMagnitude > 9f;
+            bounce.transform.position = far || bounceLevel <= 0.001f ? at : Vector3.Lerp(bounce.transform.position, at, 1f - Mathf.Exp(-12f * Time.deltaTime));
+        }
+        bounceLevel = Mathf.MoveTowards(bounceLevel, target, Time.deltaTime * Mathf.Max(target, bounceLevel, 0.5f) * 6f);
+        bounce.enabled = bounceLevel > 0.001f;
+        if (bounce.enabled)
+        {
+            bounce.intensity = bounceLevel;
+            bounce.range = bounceRange;
+            bounce.color = Color.Lerp(flashlight.color, flashlight.color * bounceTint, 0.7f);
+            if (bounceHd != null) bounceHd.volumetricDimmer = 0f; // (no glowing ball of fog where it lands)
+        }
+    }
+
+    /// <summary>The colour of what the beam hit (its material's colour, brightened to full: only the hue matters), or white.</summary>
+    static Color SurfaceTint(Collider c)
+    {
+        var r = c.GetComponent<Renderer>();
+        if (r == null) r = c.GetComponentInChildren<Renderer>();
+        var mat = r != null ? r.sharedMaterial : null;
+        if (mat == null) return Color.white;
+        Color col = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : mat.HasProperty("_Color") ? mat.GetColor("_Color") : Color.white;
+        float most = Mathf.Max(col.maxColorComponent, 0.0001f);
+        col /= most;
+        col.a = 1f;
+        return Color.Lerp(Color.white, col, 0.6f);
     }
 
     float nearDim = 1f;
@@ -211,10 +337,9 @@ public class Flashlight : MonoBehaviour
     /// </summary>
     float NearDim()
     {
-        Transform t = flashlight.transform;
         float target = 1f;
-        if (nearDimDistance > 0f && Physics.Raycast(t.position, t.forward, out var hit, nearDimDistance, ~0, QueryTriggerInteraction.Ignore))
-            target = Mathf.Lerp(nearDimAmount, 1f, Mathf.SmoothStep(0f, 1f, hit.distance / nearDimDistance));
+        if (nearDimDistance > 0f && probeHit && probe.distance < nearDimDistance)
+            target = Mathf.Lerp(nearDimAmount, 1f, Mathf.SmoothStep(0f, 1f, probe.distance / nearDimDistance));
         nearDim = Mathf.MoveTowards(nearDim, target, Time.deltaTime * 2.5f);
         return nearDim;
     }
