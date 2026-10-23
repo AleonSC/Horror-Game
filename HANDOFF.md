@@ -89,6 +89,12 @@ to a dark room (`PortalDoor.cs`), and rifts (`RiftEvent.cs`, now spawn-on-demand
 
 ## Recent work on `hdrp` (newest first)
 
+- **Reference theme** (Lighting tab): aims at the owner's reference picture (pale blue-grey fog brighter
+  than the shadows, thick patchy mist, muted graded picture, scours with a dark lit body and eyes that
+  throw a red pool on the ground). It sets the Lighting values plus Look settings (`LightingSettings.Reference`,
+  its `look` text). Scours gained `litBody`, `bodyColor`, `bodySmoothness`, `eyeGlowRange`, `eyeGlowShadows`;
+  HdrpAtmosphere's `noTonemapping` became `tonemapMode` (0 none, 1 neutral, 2 ACES). Look settings for
+  scours are kept and given to new scours as they spawn (`LookSettings.ApplyTo`).
 - **Dev tools rebuilt** (F9; `Player/DevTools.cs`, styled by `Player/DevSkin.cs`): tabs Game, Lighting, Look.
   Game has **Invincible**: the player becomes a moving safe zone (`SafeZones` source), so nothing can take
   them and scours circle round them like a lamp (the giant's catch is skipped too). **Look**

@@ -25,7 +25,43 @@ public class LightingSettings : MonoBehaviour
         public Color fogColor;
         public float fogDensity;
         public Color flashlightColor;
+
+        // Optional extras (the Reference theme): the picture, the sky, and Look tab settings (LookSettings text).
+        [System.NonSerialized] public bool setsPicture;
+        [System.NonSerialized] public float exposure, contrast, saturation, vignette, grain, stars = 1f, clouds = 0.5f;
+        [System.NonSerialized] public string look;
     }
+
+    /// <summary>
+    /// "Reference": the look of the owner's reference picture. Pale blue-grey fog brighter than the shadows,
+    /// so trees stand dark against it and fade with distance; thick, patchy ground mist; muted colour, soft
+    /// contrast, vignette and grain; scours with a dark body the fog shows the shape of, and eyes that throw
+    /// a red glow on the ground ahead of them. Kept out of the themes array, so saved tuning can't drop it.
+    /// </summary>
+    static readonly Theme Reference = new Theme
+    {
+        name = "Reference",
+        moonColor = new Color(0.55f, 0.6f, 0.72f), moonIntensity = 0.12f, moonHeight = 40f,
+        ambient = new Color(0.05f, 0.055f, 0.065f),
+        fogColor = new Color(0.16f, 0.17f, 0.2f), fogDensity = 0.06f,
+        flashlightColor = new Color(1f, 0.93f, 0.82f),
+        setsPicture = true, exposure = 0f, contrast = 8f, saturation = -40f, vignette = 0.38f, grain = 0.25f,
+        stars = 0.35f, clouds = 0.75f,
+        look =
+            "HdrpAtmosphere.fogDistanceScale = 0.8\n" +
+            "HdrpAtmosphere.volumetricAlbedo = 0.7\n" +
+            "HdrpAtmosphere.fogAnisotropy = 0.35\n" +
+            "GroundMist.density = 0.9\n" +
+            "GroundMist.mistHeight = 1.4\n" +
+            "GroundMist.mistColor = 0.09, 0.095, 0.11, 1\n" +
+            "GroundMist.patchiness = 0.35\n" +
+            "GroundMist.flashlightStrength = 0.05\n" +
+            "ShadowEntity.litBody = true\n" +
+            "ShadowEntity.eyeLightStrength = 4\n" +
+            "ShadowEntity.eyeGlowRange = 12\n" +
+            "NightSky.cloudColor = 0.11, 0.115, 0.13, 1\n",
+    };
+    const int ReferenceIndex = -2;
 
     public Theme[] themes =
     {
@@ -144,6 +180,17 @@ public class LightingSettings : MonoBehaviour
         v.fogBrightness = 1f;
         v.fogDensity = t.fogDensity;
         v.flashlightColor = t.flashlightColor;
+        if (t.setsPicture)
+        {
+            v.exposure = t.exposure;
+            v.contrast = t.contrast;
+            v.saturation = t.saturation;
+            v.vignette = t.vignette;
+            v.grain = t.grain;
+            v.starBrightness = t.stars;
+            v.cloudCover = t.clouds;
+        }
+        if (!string.IsNullOrEmpty(t.look)) LookSettings.ReadText(t.look, null, out _);
     }
 
     void Apply(bool save = true)
@@ -246,7 +293,7 @@ public class LightingSettings : MonoBehaviour
 
     void LogValues()
     {
-        string theme = v.theme >= 0 ? themes[v.theme].name : "Original";
+        string theme = v.theme >= 0 ? themes[v.theme].name : v.theme == ReferenceIndex ? Reference.name : "Original";
         Debug.Log($"Lighting values (based on '{theme}'):\n" +
                   $"  moon colour {v.moonColor}, intensity {v.moonIntensity:0.000}, height {v.moonHeight:0}°, shadows {ShadowNames[v.moonShadows]}\n" +
                   $"  ambient {v.ambientColor * v.ambientScale}\n" +
@@ -284,7 +331,8 @@ public class LightingSettings : MonoBehaviour
 
         GUILayout.Label("Theme", headerStyle);
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Original", v.theme < 0 ? selectedStyle : buttonStyle)) { UseTheme(original, -1); changed = true; }
+        if (GUILayout.Button("Original", v.theme == -1 ? selectedStyle : buttonStyle)) { UseTheme(original, -1); changed = true; }
+        if (GUILayout.Button(Reference.name, v.theme == ReferenceIndex ? selectedStyle : buttonStyle)) { UseTheme(Reference, ReferenceIndex); changed = true; }
         for (int i = 0; i < themes.Length; i++)
         {
             if (i == 3 || i == 7) { GUILayout.EndHorizontal(); GUILayout.BeginHorizontal(); }

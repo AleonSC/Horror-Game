@@ -23,8 +23,10 @@ public static class LookSettings
     internal static void ResetStatics()
     {
         defaults.Clear();
+        values.Clear();
         targets.Clear();
         targetsTime = -1f;
+        defaultsMade.Clear();
         savedApplied = false;
     }
 
@@ -38,6 +40,7 @@ public static class LookSettings
         public string field;
         public float min, max;
         public FieldInfo info;
+        public bool spawned; // its components come and go (scours): its value is kept and given to new ones
         public string Key => type.Name + "." + field;
     }
 
@@ -45,6 +48,7 @@ public static class LookSettings
     public static readonly List<string> Sections = new List<string>();
 
     static readonly Dictionary<string, object> defaults = new Dictionary<string, object>();
+    static readonly Dictionary<string, object> values = new Dictionary<string, object>(); // set here (for spawned ones)
     static readonly Dictionary<Type, Object[]> targets = new Dictionary<Type, Object[]>();
     static float targetsTime = -1f;
     static bool savedApplied;
@@ -53,7 +57,7 @@ public static class LookSettings
     {
         string s = "Exposure & glow";
         Add(s, typeof(HdrpAtmosphere), "exposure", -5f, 3f, "0.00", "Fixed exposure. Lower is brighter.");
-        Add(s, typeof(HdrpAtmosphere), "noTonemapping", 0f, 1f, null, "Tonemapping off (as in URP). On, HDRP's ACES crushes the dark end.");
+        Add(s, typeof(HdrpAtmosphere), "tonemapMode", 0f, 2f, null, "0 none (as in URP), 1 neutral (softer highlights), 2 ACES (filmic; crushes the dark).");
         Add(s, typeof(HdrpAtmosphere), "bloomOverride", 0f, 1f, null, "Use the bloom below instead of the project's own.");
         Add(s, typeof(HdrpAtmosphere), "bloomIntensity", 0f, 1f, "0.00", "Glow round bright things (eyes, embers, bulbs).");
 
@@ -106,19 +110,28 @@ public static class LookSettings
         Add(s, typeof(Lamp), "lightColor", 0f, 1f, null, "The colour of its light.");
         Add(s, typeof(Lamp), "markerColor", 0f, 1f, null, "The colour of the marker over an unlit lamp.");
 
+        s = "Scours";
+        Add(s, typeof(ShadowEntity), "litBody", 0f, 1f, null, "Off: flat black. On: a dark body light and fog show the shape of. New scours only.", true);
+        Add(s, typeof(ShadowEntity), "bodyColor", 0f, 0.3f, null, "Its body's colour, with Lit body on. New scours only.", true);
+        Add(s, typeof(ShadowEntity), "bodySmoothness", 0f, 1f, "0.00", "How wet and shiny it is, with Lit body on. New scours only.", true);
+        Add(s, typeof(ShadowEntity), "eyeLightStrength", 0f, 10f, "0.00", "How much its eyes light what's round it.", true);
+        Add(s, typeof(ShadowEntity), "eyeGlowRange", 1f, 30f, "0.0", "How far its eyes' glow reaches: the red pool on the ground.", true);
+        Add(s, typeof(ShadowEntity), "eyeGlowShadows", 0f, 1f, null, "The eye glow casts shadows (costly with many). New scours only.", true);
+        Add(s, typeof(ShadowEntity), "eyeColor", 0f, 1f, null, "Its eyes' colour. New scours only.", true);
+
         s = "Night sky";
         Add(s, typeof(NightSky), "cloudColor", 0f, 0.3f, null, "The clouds' colour.");
         Add(s, typeof(NightSky), "cloudSpeed", 0f, 0.03f, "0.0000", "How fast the clouds move.");
     }
 
-    static void Add(string section, Type type, string field, float min, float max, string format, string tip)
+    static void Add(string section, Type type, string field, float min, float max, string format, string tip, bool spawned = false)
     {
         var info = type.GetField(field, BindingFlags.Public | BindingFlags.Instance);
         if (info == null) { Debug.LogWarning($"LookSettings: no field {type.Name}.{field}"); return; }
         if (!Sections.Contains(section)) Sections.Add(section);
         Knobs.Add(new Knob
         {
-            section = section, type = type, field = field, info = info, min = min, max = max, format = format, tip = tip,
+            section = section, type = type, field = field, info = info, min = min, max = max, format = format, tip = tip, spawned = spawned,
             label = Nice(field),
         });
     }
@@ -156,19 +169,56 @@ public static class LookSettings
                 foreach (var k in Knobs)
                     if (k.type == type && !defaults.ContainsKey(k.Key)) defaults[k.Key] = k.info.GetValue(found[0]);
         }
+        if (!defaultsMade.Contains(type)) MakeDefaults(type);
         return found;
     }
 
-    public static bool Available(Knob k) => Targets(k.type).Length > 0;
+    static readonly HashSet<Type> defaultsMade = new HashSet<Type>();
+
+    /// <summary>
+    /// Defaults for a spawned type that may not be in the scene yet: read off a switched-off stand-in (it
+    /// never wakes), with its saved tuning.
+    /// </summary>
+    static void MakeDefaults(Type type)
+    {
+        defaultsMade.Add(type);
+        bool needed = false;
+        foreach (var k in Knobs) if (k.type == type && k.spawned && !defaults.ContainsKey(k.Key)) needed = true;
+        if (!needed) return;
+        var go = new GameObject("Look defaults");
+        go.SetActive(false);
+        try
+        {
+            var c = go.AddComponent(type);
+            Tuning.Apply(c as MonoBehaviour);
+            foreach (var k in Knobs)
+                if (k.type == type && !defaults.ContainsKey(k.Key)) defaults[k.Key] = k.info.GetValue(c);
+        }
+        finally { Object.Destroy(go); }
+    }
+
+    public static bool Available(Knob k) => k.spawned || Targets(k.type).Length > 0;
 
     public static object Get(Knob k)
     {
         var t = Targets(k.type);
-        return t.Length > 0 && t[0] != null ? k.info.GetValue(t[0]) : null;
+        if (t.Length > 0 && t[0] != null) return k.info.GetValue(t[0]);
+        if (values.TryGetValue(k.Key, out var v)) return v;
+        return defaults.TryGetValue(k.Key, out var d) ? d : null;
+    }
+
+    /// <summary>A new component (a scour as it spawns) takes the values set here.</summary>
+    public static void ApplyTo(Component c)
+    {
+        if (values.Count == 0 || c == null) return;
+        var type = c.GetType();
+        foreach (var k in Knobs)
+            if (k.type == type && values.TryGetValue(k.Key, out var v)) k.info.SetValue(c, v);
     }
 
     public static void Set(Knob k, object value)
     {
+        values[k.Key] = value;
         foreach (var t in Targets(k.type))
         {
             if (t == null) continue;
@@ -192,6 +242,7 @@ public static class LookSettings
     public static void ResetAll()
     {
         foreach (var k in Knobs) Reset(k);
+        values.Clear();
         PlayerPrefs.DeleteKey(SaveKey);
         PlayerPrefs.Save();
         dirty = false;

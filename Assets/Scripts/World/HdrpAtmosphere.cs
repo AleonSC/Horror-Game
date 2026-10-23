@@ -36,8 +36,8 @@ public class HdrpAtmosphere : MonoBehaviour
 
     [Tooltip("Fixed exposure (EV100). Lower is brighter. -1.9 makes lights about as bright as they were in URP.")]
     public float exposure = -1.9f;
-    [Tooltip("Tonemapping off, as in URP. HDRP's default (ACES) makes the dark much darker.")]
-    public bool noTonemapping = true;
+    [Tooltip("Tonemapping: 0 none (as in URP), 1 neutral (softer highlights), 2 ACES (filmic, but it makes the dark much darker).")]
+    [Range(0, 2)] public int tonemapMode = 0;
     [Tooltip("HDRP fog's mean free path is this divided by the old fog density (bigger = thinner fog).")]
     public float fogDistanceScale = 0.85f;
     [Tooltip("Volumetric fog: how much the lights show in the air (the beams and glows in the mist).")]
@@ -234,8 +234,8 @@ public class HdrpAtmosphere : MonoBehaviour
         bool classic = ClassicLook;
         float mul = ExposureMultiplier;
         exposureFx.fixedExposure.Override(exposure);
-        tonemapping.active = noTonemapping;
-        tonemapping.mode.Override(TonemappingMode.None);
+        tonemapping.active = true;
+        tonemapping.mode.Override(tonemapMode == 1 ? TonemappingMode.Neutral : tonemapMode == 2 ? TonemappingMode.ACES : TonemappingMode.None);
 
         // Ambient: a flat sky in the ambient colour (only re-baked when it changes).
         Color ambient = RenderSettings.ambientLight.linear / mul;

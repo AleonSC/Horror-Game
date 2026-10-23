@@ -177,6 +177,16 @@ public class ShadowEntity : MonoBehaviour
     public float maxEyeWiden = 1.6f;
     [Tooltip("Strength of the red light the eyes cast on the surroundings.")]
     public float eyeLightStrength = 0.3f;
+    [Tooltip("How far the glow from its eyes reaches (metres). Long and strong, it throws a red pool on the ground ahead of it.")]
+    public float eyeGlowRange = 6f;
+    [Tooltip("The eye glow casts shadows (costly with many scours).")]
+    public bool eyeGlowShadows = false;
+
+    [Header("Body")]
+    [Tooltip("Off: a flat black silhouette. On: a dark body the light and fog pick the shape out of (bones, ribs). New scours only.")]
+    public bool litBody = false;
+    public Color bodyColor = new Color(0.05f, 0.042f, 0.038f);
+    [Range(0f, 1f)] public float bodySmoothness = 0.35f;
     [Tooltip("Eyeshine: how bright the eyes flare when the flashlight beam crosses them, like an animal's in headlights.")]
     public float eyeshineBrightness = 9f;
     public Color eyeshineColor = new Color(1f, 0.55f, 0.35f);
@@ -316,6 +326,7 @@ public class ShadowEntity : MonoBehaviour
     void Awake()
     {
         Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
+        LookSettings.ApplyTo(this); // and the dev tools' Look tab
         GroundLeaves.Register(transform, 0.35f); // even unseen, the leaves where it steps give it away
         scale = height / 2.4f;
         BuildSilhouette();
@@ -1464,7 +1475,7 @@ public class ShadowEntity : MonoBehaviour
         MaterialFactory.SetColor(eyeMat, color * brightness);
         eyeLight.color = Color.Lerp(eyeColor, dismissColor, blue);
         eyeLight.intensity = brightness * eyeLightStrength * (1f + dismissGlow * blue);
-        eyeLight.range = Mathf.Lerp(6f, 12f, blue);
+        eyeLight.range = Mathf.Lerp(eyeGlowRange, Mathf.Max(12f, eyeGlowRange * 1.5f), blue);
     }
 
     void SetVisible(bool visible)
@@ -1598,7 +1609,7 @@ public class ShadowEntity : MonoBehaviour
         var shader = Shader.Find("Horror/Haze");
         if (shader == null) return fallback;
         shinMat = new Material(shader) { renderQueue = MaterialFactory.FogFreeQueue(2000) };
-        shinMat.SetColor("_Color", Color.black);
+        shinMat.SetColor("_Color", litBody ? new Color(bodyColor.r * 0.6f, bodyColor.g * 0.6f, bodyColor.b * 0.6f, 1f) : Color.black);
         shinMat.SetFloat("_Haze", 0f);
         shinMat.SetFloat("_GroundHaze", 1f);
         shinMat.SetFloat("_WispScale", 3f);
@@ -1673,7 +1684,8 @@ public class ShadowEntity : MonoBehaviour
         visual = new GameObject("Silhouette").transform;
         visual.SetParent(posture, false);
 
-        Material black = MaterialFactory.Unlit(Color.black);
+        // A flat black silhouette, or (litBody) a dark body the light and fog can show the shape of.
+        Material black = litBody ? MaterialFactory.Lit(bodyColor, bodySmoothness) : MaterialFactory.Unlit(Color.black);
 
         // A model saved in the model editor, if there is one to use (not while capturing the game's own look).
         var model = capturing ? null : EnemyModel.ForGame("Scour");
@@ -1782,7 +1794,7 @@ public class ShadowEntity : MonoBehaviour
         eyeLight.type = LightType.Point;
         eyeLight.color = eyeColor;
         eyeLight.range = 6f;
-        eyeLight.shadows = LightShadows.None;
+        eyeLight.shadows = eyeGlowShadows ? LightShadows.Soft : LightShadows.None;
 
         bodyRenderers = visual.GetComponentsInChildren<Renderer>();
         SetEyes(1f, eyeIntensity);
@@ -1897,7 +1909,7 @@ public class ShadowEntity : MonoBehaviour
         eyeLight.type = LightType.Point;
         eyeLight.color = eyeColor;
         eyeLight.range = 6f;
-        eyeLight.shadows = LightShadows.None;
+        eyeLight.shadows = eyeGlowShadows ? LightShadows.Soft : LightShadows.None;
 
         bodyRenderers = visual.GetComponentsInChildren<Renderer>();
         SetEyes(1f, eyeIntensity);
