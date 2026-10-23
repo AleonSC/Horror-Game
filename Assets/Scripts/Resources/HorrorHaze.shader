@@ -6,8 +6,8 @@
 // Far-off shapes in the fog (the giant, its chains, the landmark tree) are drawn "fog aware"
 // (MaterialFactory.MakeFogAware). They're solid, drawn after HDRP's fog (which would bury them), so they'd
 // paint over the glow your flashlight makes in the mist in front of them, a black silhouette cut out of
-// the beam: so they add that glow back themselves, worked out along the view ray from the flashlight's
-// cone (_HorrorSpot*, set by HdrpAtmosphere). They also mark the stencil, so the stars aren't drawn
+// the beam (or round a lamp): so they add that glow back themselves, worked out along the view ray from
+// the flashlight's cone and the nearest lamps (_HorrorSpot*, _HorrorPoint*, set by HdrpAtmosphere). They also mark the stencil, so the stars aren't drawn
 // over them.
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Haze"
@@ -58,6 +58,27 @@ Shader "Horror/Haze"
             float4 _HorrorSpotPos;   // the flashlight: xyz position (world), w range
             float4 _HorrorSpotDir;   // xyz direction, w cos(outer half-angle)
             float4 _HorrorSpotColor; // rgb how bright the fog glows in it, w cos(inner half-angle)
+            float4 _HorrorPointPos[4];   // the nearest lamps: xyz position (world), w range
+            float4 _HorrorPointColor[4]; // rgb how bright the fog glows round each
+            float _HorrorPointCount;
+
+            /// The lamps' glow in the mist along the view ray, from the camera out to dist: for each, the
+            /// light falling off with distance squared, summed along the ray (worked out exactly).
+            float3 LampGlow(float3 ro, float3 rd, float dist)
+            {
+                float3 sum = 0;
+                for (int k = 0; k < 4; k++)
+                {
+                    if (k >= _HorrorPointCount) break;
+                    float3 toL = _HorrorPointPos[k].xyz - ro;
+                    float along = dot(toL, rd);                           // nearest point of the ray to it
+                    float h = max(length(toL - rd * along), 0.5);         // how far it is from the ray
+                    float glow = (atan((dist - along) / h) - atan(-along / h)) / h;
+                    float reach = saturate(1 - h / max(_HorrorPointPos[k].w, 0.001));
+                    sum += _HorrorPointColor[k].rgb * glow * reach * reach;
+                }
+                return sum;
+            }
 
             /// The flashlight's glow in the mist along the view ray, from the camera out to dist.
             float3 BeamGlow(float3 ro, float3 rd, float dist)
@@ -128,7 +149,8 @@ Shader "Horror/Haze"
                     float3 ro = HorrorCameraAbsolute();
                     float3 toHere = i.world - ro;
                     float dist = length(toHere);
-                    col += BeamGlow(ro, toHere / max(dist, 0.001), dist);
+                    float3 rd = toHere / max(dist, 0.001);
+                    col += BeamGlow(ro, rd, dist) + LampGlow(ro, rd, dist);
                 }
                 return float4(col, 1);
             }

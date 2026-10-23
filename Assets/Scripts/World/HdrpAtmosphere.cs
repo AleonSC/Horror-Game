@@ -46,6 +46,8 @@ public class HdrpAtmosphere : MonoBehaviour
     public float volumetricDistance = 70f;
     [Tooltip("How bright the flashlight's glow in the mist is drawn over the giant and other far-off shapes (to match the beam round them).")]
     public float beamOverShapes = 1f;
+    [Range(0f, 2f), Tooltip("How much lamps, torches and other round lights light up the fog round them (HDRP volumetrics; 1 is HDRP's normal). Low, or the mist round every lamp blazes.")]
+    public float lampFogGlow = 0.3f;
 
     [Header("Ray tracing (DirectX 12 and a ray tracing graphics card)")]
     [Tooltip("Use ray tracing where the graphics card and the project support it.")]
@@ -94,6 +96,8 @@ public class HdrpAtmosphere : MonoBehaviour
     Color lastAmbient = new Color(-1f, 0f, 0f);
     readonly HashSet<Light> unitsSet = new HashSet<Light>();
     float lightScan;
+    readonly List<Light> pointLights = new List<Light>();
+    readonly Vector4[] pointPos = new Vector4[4], pointColor = new Vector4[4];
     Flashlight flashlight;
 
     /// <summary>What HDRP multiplies scene light by at this exposure (so colours can be divided back by it).</summary>
@@ -212,6 +216,7 @@ public class HdrpAtmosphere : MonoBehaviour
         }
 
         UpdateBeamOverShapes(mul, classic);
+        UpdateLampsOverShapes(mul, classic);
 
         // Each camera's background: its own colour, not the sky.
         foreach (var cam in Camera.allCameras)
@@ -229,6 +234,7 @@ public class HdrpAtmosphere : MonoBehaviour
         if (lightScan <= 0f)
         {
             lightScan = 1f;
+            pointLights.Clear();
             foreach (var light in FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (unitsSet.Add(light))
@@ -240,6 +246,11 @@ public class HdrpAtmosphere : MonoBehaviour
                 var hd = light.GetComponent<HDAdditionalLightData>();
                 if (hd == null) hd = light.gameObject.AddComponent<HDAdditionalLightData>();
                 hd.useRayTracedShadows = RayTracingActive && rayTracedShadows && light.shadows != LightShadows.None;
+                if (light.type == LightType.Point)
+                {
+                    hd.volumetricDimmer = lampFogGlow;
+                    pointLights.Add(light);
+                }
             }
             unitsSet.RemoveWhere(l => l == null);
         }
@@ -279,6 +290,46 @@ public class HdrpAtmosphere : MonoBehaviour
         Shader.SetGlobalVector("_HorrorSpotPos", new Vector4(t.position.x, t.position.y, t.position.z, beam.range));
         Shader.SetGlobalVector("_HorrorSpotDir", new Vector4(t.forward.x, t.forward.y, t.forward.z, outer));
         Shader.SetGlobalVector("_HorrorSpotColor", new Vector4(c.r, c.g, c.b, inner));
+    }
+
+    /// <summary>
+    /// The few nearest lamps, torches and other round lights, likewise: their glow in the mist, drawn over
+    /// the far-off shapes in front of which it hangs.
+    /// </summary>
+    void UpdateLampsOverShapes(float mul, bool classic)
+    {
+        int count = 0;
+        bool fogOn = RenderSettings.fog && RenderSettings.fogDensity > 0f;
+        var cam = Camera.main;
+        if (fogOn && !classic && cam != null)
+        {
+            Vector3 eye = cam.transform.position;
+            float meanFreePath = Mathf.Clamp(fogDistanceScale / RenderSettings.fogDensity, 1f, 5000f);
+            float scatter = volumetricAlbedo / meanFreePath / (4f * Mathf.PI);
+            // The four nearest that are on (insertion into a short sorted list).
+            var near = new List<(float d, Light l)>(5);
+            foreach (var light in pointLights)
+            {
+                if (light == null || !light.isActiveAndEnabled || light.intensity <= 0f) continue;
+                float d = (light.transform.position - eye).sqrMagnitude;
+                if (d > 70f * 70f) continue;
+                int at = near.Count;
+                while (at > 0 && near[at - 1].d > d) at--;
+                if (at < 4) { near.Insert(at, (d, light)); if (near.Count > 4) near.RemoveAt(4); }
+            }
+            foreach (var (_, light) in near)
+            {
+                Vector3 p = light.transform.position;
+                Color c = light.color.linear * (light.intensity * scatter * lampFogGlow * mul * beamOverShapes);
+                pointPos[count] = new Vector4(p.x, p.y, p.z, light.range);
+                pointColor[count] = new Vector4(c.r, c.g, c.b, 0f);
+                count++;
+            }
+        }
+        for (int i = count; i < 4; i++) pointColor[i] = Vector4.zero;
+        Shader.SetGlobalVectorArray("_HorrorPointPos", pointPos);
+        Shader.SetGlobalVectorArray("_HorrorPointColor", pointColor);
+        Shader.SetGlobalFloat("_HorrorPointCount", count);
     }
 
     static bool Approximately(Color a, Color b) =>
