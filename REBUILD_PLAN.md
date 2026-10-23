@@ -542,14 +542,15 @@ Behaviour (numbers are defaults):
 
 - **Appears** 22-32 m away within 70 degrees of where you're facing, materializing (1.2 s); half are
   "duckers" that peek from behind trunks and snap back when looked at.
-- **Creeps** while you're not looking (within 55 degrees of your view counts as looking): every 4-8 s
-  (faster with aggression) it steps 2.5 m closer. A creep that would bring it within 3 m takes you.
-- **Approached in the dark** (within 14 m, flashlight not on it): it grows (to 1.8x) and advances at 0.5 m/s
+- **Creeps** while you're not looking (within 45 degrees of your view counts as looking): every 3-6 s
+  (faster with aggression) it steps 3 m closer. With your flashlight off, looking doesn't hold it: it
+  creeps even while watched. A creep that would bring it within 3 m takes you.
+- **Approached in the dark** (within 14 m, flashlight not on it): it grows (to 1.8x) and advances at 0.75 m/s
   with a pounding cue. Reaching you, it takes you.
 - **Faced down**: walk at it with the beam on it (within 14 m): its eyes turn blue, it vibrates, you slow
   to a stop 2.5 m away; it builds to a crescendo (2.5 s, 15% faster per lamp, min 0.8 s, x difficulty)
   and is dismissed: drawn back through a ragged red-edged black portal that opens behind it. Costs 10%
-  battery. It comes back 10-18 s later somewhere new.
+  battery. It comes back 7-12 s later somewhere new.
 - **Provoked**: flash the light on/off at it 4 times within 2.2 s and it shrieks and charges your face at
   22 m/s, vanishes, and returns sooner and angrier (aggression up to 4).
 - **Safe zones**: can't enter; circles at the edge (+1.5 m) while unwatched. A lamp lit right next to it

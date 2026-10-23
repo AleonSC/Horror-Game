@@ -257,7 +257,10 @@ namespace Game.Entities
 
         void TryCreep(float dist, Vector3 target)
         {
-            if (LookedAt())
+            // Watching it holds it still, but in the dark (light off) only if the setting says so.
+            bool lightOn = player.Flashlight != null && player.Flashlight.IsOn;
+            bool held = LookedAt() && (lightOn || !s.creepsWhenWatchedInDark);
+            if (held)
             {
                 creepTimer = Random.Range(1f, 2f); // watched: try again shortly
                 return;

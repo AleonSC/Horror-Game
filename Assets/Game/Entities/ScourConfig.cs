@@ -23,9 +23,9 @@ namespace Game.Entities
         [Range(10f, 180f), Tooltip("Appears within this many degrees of where you're facing.")]
         public float spawnViewAngle = 70f;
         [Range(0f, 60f), Tooltip("After being driven off, back this many seconds later (at least)...")]
-        public float minReturnDelay = 10f;
+        public float minReturnDelay = 7f;
         [Range(0f, 60f), Tooltip("...and at most.")]
-        public float maxReturnDelay = 18f;
+        public float maxReturnDelay = 12f;
         [Range(20f, 150f), Tooltip("Get this far away and it vanishes and comes back closer.")]
         public float relocateDistance = 50f;
         [Range(0f, 1f), Tooltip("Share that peek from behind trunks and duck back when looked at.")]
@@ -33,21 +33,23 @@ namespace Game.Entities
 
         [Header("Creeping")]
         [Range(0.5f, 20f), Tooltip("Seconds between creeps (shortest)...")]
-        public float minCreepInterval = 4f;
+        public float minCreepInterval = 3f;
         [Range(0.5f, 30f), Tooltip("...and longest. Quicker with aggression.")]
-        public float maxCreepInterval = 8f;
+        public float maxCreepInterval = 6f;
         [Range(0.5f, 8f), Tooltip("Metres per creep.")]
-        public float creepStep = 2.5f;
+        public float creepStep = 3f;
         [Range(10f, 90f), Tooltip("Within this many degrees of your view counts as looking at it.")]
-        public float lookAngle = 55f;
+        public float lookAngle = 45f;
         [Range(1f, 6f), Tooltip("A creep that would bring it this close takes you.")]
         public float killDistance = 3f;
+        [Tooltip("Looking at it only holds it still while your flashlight is on. In the dark it creeps even while you watch.")]
+        public bool creepsWhenWatchedInDark = true;
 
         [Header("In the dark")]
         [Range(3f, 30f), Tooltip("Within this, with no light on it, it grows and comes for you.")]
         public float reactDistance = 14f;
         [Range(0f, 5f), Tooltip("Metres a second it advances.")]
-        public float advanceSpeed = 0.5f;
+        public float advanceSpeed = 0.75f;
         [Range(0f, 0.5f), Tooltip("How fast it grows while advancing (scale a second).")]
         public float growRate = 0.03f;
         [Range(1f, 3f)] public float maxGrowth = 1.8f;

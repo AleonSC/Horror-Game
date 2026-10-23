@@ -27,10 +27,11 @@ until it is.
 - **A calm minute.** The first scour appears after 60 seconds (Assets/Config/Entities/ScourConfig, "First Delay").
   To skip the wait: F9 > Game > **Make one appear now**.
 - **The scour** appears 22-32 m ahead. Half of them peek out from behind a trunk and duck back when you look.
-  - **Look away** and it creeps 2.5 m closer every 4-8 seconds. A creep that would bring it within 3 m takes you.
+  - **Look away** and it creeps 3 m closer every 3-6 seconds. **With your light off, it creeps even while you watch it.**
+    A creep that would bring it within 3 m takes you.
   - **Get near it in the dark** (within 14 m, the light not on it) and it grows and comes for you, with a pounding beat.
   - **Face it down**: walk at it with the beam on it. Its eyes turn blue, you slow to a stop 2.5 m away, it
-    shudders to a crescendo and is drawn back through a red-edged hole. That costs 10% battery. It's back 10-18 s later.
+    shudders to a crescendo and is drawn back through a red-edged hole. That costs 10% battery. It's back 7-12 s later.
   - **Flash the light on and off at it 4 times quickly** and it shrieks and charges your face, then vanishes.
     It comes back sooner and angrier.
   - **Taken**: you're held, it walks up to you, a hole tears open behind it, it drags you through, and the
