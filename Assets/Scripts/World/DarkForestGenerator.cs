@@ -429,6 +429,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Blind Entity Spawner").AddComponent<BlindEntitySpawner>();
         if (spawnEntity && Application.isPlaying && FindAnyObjectByType<FlyingEntitySpawner>() == null)
             new GameObject("Flying Entity Spawner").AddComponent<FlyingEntitySpawner>();
+        if (Application.isPlaying && FindAnyObjectByType<Shelter>() == null)
+            new GameObject("Shelter").AddComponent<Shelter>(); // inside somewhere: the outside goes quiet
         if (Application.isPlaying && FindAnyObjectByType<DevTools>() == null)
             new GameObject("Dev Tools").AddComponent<DevTools>();
         if (Application.isPlaying && FindAnyObjectByType<ModelEditor>() == null)

@@ -176,7 +176,7 @@ public class WeatherSystem : MonoBehaviour
     void UpdateAudio(Vector3 listener)
     {
         float smoothing = Time.deltaTime * 0.8f;
-        float quiet = (1f - 0.9f * EntityDread.Silence) * (1f - PortalDoor.RoomQuiet); // hushed near an entity, gone in the room
+        float quiet = (1f - 0.9f * EntityDread.Silence) * (1f - Shelter.OutsideQuiet); // hushed near an entity, gone in the room
         if (EntityDread.Silence > 0f) smoothing = Mathf.Max(smoothing, Time.deltaTime * 1.5f);
         windSource.volume = Mathf.MoveTowards(windSource.volume, windVolume * Mathf.Clamp01(0.3f + CurrentWind * 0.8f) * quiet, smoothing);
         windSource.pitch = Mathf.Lerp(0.85f, 1.15f, Mathf.Clamp01(CurrentWind));
@@ -184,7 +184,7 @@ public class WeatherSystem : MonoBehaviour
 
         // Strong gusts make nearby trunks groan.
         creakCooldown -= Time.deltaTime;
-        if (creakCooldown <= 0f && CurrentWind > creakThreshold && pivots.Count > 0 && PortalDoor.RoomQuiet < 0.05f)
+        if (creakCooldown <= 0f && CurrentWind > creakThreshold && pivots.Count > 0 && Shelter.OutsideQuiet < 0.05f)
         {
             creakCooldown = Random.Range(2f, 7f);
             Transform tree = NearbyTree(listener, 25f);

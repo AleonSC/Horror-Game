@@ -483,7 +483,8 @@ public class Flashlight : MonoBehaviour
         {
             float stamina = player.Stamina;
             staminaShown = Mathf.MoveTowards(staminaShown, stamina >= 0.999f ? 0.35f : 1f, Time.unscaledDeltaTime * 2f);
-            var bar = new Rect(body.x, body.y - 12f * unit, body.width, 6f * unit);
+            // (Longer with each snack eaten: there's more of it.)
+            var bar = new Rect(body.x, body.y - 12f * unit, body.width * (1f + player.StaminaBonus), 6f * unit);
             DrawRect(bar, new Color(0f, 0f, 0f, 0.5f * staminaShown));
             Color tint = player.Winded ? new Color(0.9f, 0.3f, 0.2f) : Color.Lerp(new Color(0.9f, 0.45f, 0.25f), new Color(0.75f, 0.9f, 0.75f), Mathf.InverseLerp(0.15f, 0.6f, stamina));
             tint.a = 0.9f * staminaShown;

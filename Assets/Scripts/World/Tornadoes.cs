@@ -209,6 +209,6 @@ public class Tornadoes : MonoBehaviour
             t.debris[i].gameObject.SetActive(grow > 0.5f);
         }
 
-        if (t.roar != null) t.roar.volume = roarVolume * grow * (1f - PortalDoor.RoomQuiet);
+        if (t.roar != null) t.roar.volume = roarVolume * grow * (1f - Shelter.OutsideQuiet);
     }
 }

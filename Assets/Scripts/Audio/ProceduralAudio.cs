@@ -823,6 +823,33 @@ public static class ProceduralAudio
             Burst(t, 0f, 0.005f) * 0.6f + Ring(t, 0f, 2200f, 160f) * 0.3f + Ring(t, 0f, 300f, 50f) * 0.45f, 0.75f);
     }
 
+    static AudioClip snackEat;
+    /// <summary>A crinkly wrapper torn open, then a few crunchy bites.</summary>
+    public static AudioClip SnackEat => snackEat != null ? snackEat : (snackEat = Take(nameof(snackEat)) ?? MakeSnackEat());
+
+    static AudioClip MakeSnackEat()
+    {
+        float lp = 0f, hp = 0f;
+        float[] bites = { 0.75f, 1.15f, 1.5f, 1.95f, 2.3f };
+        return Shot("Snack Eat", 2.7f, t =>
+        {
+            float w = White();
+            lp += (w - lp) * 0.35f;
+            hp = w - lp;
+            // The wrapper: bright crackly rustling, in bursts, for the first half second.
+            float crinkle = t < 0.6f ? hp * (0.4f + 0.6f * Mathf.Abs(Mathf.Sin(t * 37f) * Mathf.Sin(t * 11f))) * Mathf.Sin(Mathf.PI * t / 0.6f) : 0f;
+            // Bites: a sharp crunch, then a dull chew.
+            float crunch = 0f;
+            foreach (float b in bites)
+            {
+                if (t < b || t > b + 0.3f) continue;
+                float u = t - b;
+                crunch += (w * Mathf.Exp(-u * 40f) * 0.9f + lp * Mathf.Exp(-u * 9f) * 0.6f) * (0.7f + 0.3f * Mathf.Sin(u * 230f));
+            }
+            return crinkle * 0.6f + crunch;
+        }, 0.6f);
+    }
+
     static AudioClip MakePickup()
     {
         float lp = 0f;

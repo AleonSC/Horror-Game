@@ -121,6 +121,8 @@ public class GameOverScreen : MonoBehaviour
 
         var flashlight = FindAnyObjectByType<Flashlight>();
         if (flashlight != null) flashlight.ResetBattery();
+        var runner = FindAnyObjectByType<FirstPersonController>();
+        if (runner != null) runner.ResetStaminaBonus(); // (the snacks are back in the tents)
 
         var hotbar = FindAnyObjectByType<Hotbar>();
         if (hotbar != null) hotbar.ResetInventory();

@@ -119,7 +119,7 @@ public class Shockwave : MonoBehaviour
         Vector3 d = player.transform.position - o;
         d.y = 0f;
         float toPlayer = d.magnitude - radius; // metres until it reaches you
-        float quiet = 1f - PortalDoor.RoomQuiet;
+        float quiet = 1f - Shelter.OutsideQuiet;
         bool full = strength > 0.6f;
 
         // You hear it coming: a roar building over the last few seconds (the big one only).

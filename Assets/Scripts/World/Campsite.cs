@@ -66,7 +66,7 @@ public class Campsite : MonoBehaviour
         // ---- The tent: a proper canvas A-frame, sides sagging a little between the poles, back closed, two
         // door flaps (open, or shut with E), guy ropes out to pegs. Tilted to sit on the slope. Big enough to
         // crawl into: crouched, you fit under the ridge; standing, your head's against the canvas.
-        var tent = AnchorOnGround("Tent", new Vector3(-1.9f, 0f, 0.6f), R(-25f, 25f), 1.5f, 1.6f, Ground);
+        var tent = tentRoot = AnchorOnGround("Tent", new Vector3(-1.9f, 0f, 0.6f), R(-25f, 25f), 1.5f, 1.6f, Ground);
         tent.gameObject.AddComponent<Refuge>(); // shelter: the entities keep 5m off it
         const float tentWidth = 1.45f, tentHeight = 1.7f, tentLength = 3f;
         MeshPart(tent, "Canvas", BuildTentMesh(tentWidth, tentHeight, tentLength, R(0.04f, 0.08f)), canvas);
@@ -290,6 +290,17 @@ public class Campsite : MonoBehaviour
         if (lantern != null) lantern.SetOn(false);
     }
     TentLantern lantern;
+    Transform tentRoot;
+
+    /// <summary>True if a point (your head) is inside the tent, under the canvas.</summary>
+    public bool InTent(Vector3 point)
+    {
+        if (tentRoot == null) return false;
+        Vector3 l = tentRoot.InverseTransformPoint(point);
+        const float width = 1.45f, height = 1.7f, length = 3f; // (as built)
+        if (l.y < -0.3f || l.y > height || Mathf.Abs(l.z) > length * 0.5f - 0.05f) return false;
+        return Mathf.Abs(l.x) < width * (1f - Mathf.Clamp01(l.y / height)) + 0.1f; // under the sloping sides
+    }
 
     [Range(0f, 1f), Tooltip("Chance of a portable radio on the log (the blind one comes for it when it plays).")]
     public float radioChance = 0.3f;
@@ -313,6 +324,16 @@ public class Campsite : MonoBehaviour
         BatterySpawner.Create(backpack, new Vector3(-0.2f, 0f, -0.45f), Random.Range(0f, 360f));
         ItemPickup.CreateFlareGun(backpack, new Vector3(0.35f, 0.02f, 0.15f), Random.Range(0f, 360f));
         ItemPickup.CreateGlowsticks(backpack, new Vector3(-0.35f, 0.02f, -0.05f), Random.Range(0f, 360f));
+        // A snack left in the tent, on the blanket toward the front (eat it: more stamina).
+        if (tentRoot != null)
+        {
+            foreach (var old in tentRoot.GetComponentsInChildren<Snack>())
+            {
+                if (Application.isPlaying) Destroy(old.gameObject);
+                else DestroyImmediate(old.gameObject);
+            }
+            Snack.Create(tentRoot, new Vector3(Random.Range(-0.45f, 0.45f), 0.075f, Random.Range(0.35f, 0.95f)), Random.Range(0f, 360f));
+        }
         // Now and then, the car's key fob, dropped by the pack.
         if (Random.value < keyFobChance)
             ItemPickup.CreateKeyFob(backpack, new Vector3(0.3f, 0f, -0.4f), Random.Range(0f, 360f));

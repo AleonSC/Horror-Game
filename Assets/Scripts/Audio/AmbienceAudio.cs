@@ -99,7 +99,7 @@ public class AmbienceAudio : MonoBehaviour
         float closeness = Mathf.Clamp01(Mathf.InverseLerp(tensionDistance, 3f, nearest));
         // Right up close it all drops away (EntityDread): the silence is the warning.
         // ...and in the dark room behind the lone door, the whole forest fades away.
-        float quiet = (1f - 0.9f * EntityDread.Silence) * (1f - PortalDoor.RoomQuiet);
+        float quiet = (1f - 0.9f * EntityDread.Silence) * (1f - Shelter.OutsideQuiet);
         if (reverb != null)
         {
             // In the room: a vast, echoing hall. Out here: the woods.
@@ -114,7 +114,7 @@ public class AmbienceAudio : MonoBehaviour
         UpdateChorus(listener, quiet);
 
         noiseTimer -= Time.deltaTime;
-        if (noiseTimer <= 0f && (EntityDread.Silence > 0.3f || PortalDoor.RoomQuiet > 0.05f)) noiseTimer = 2f; // nothing stirs while it's close, or in the room
+        if (noiseTimer <= 0f && (EntityDread.Silence > 0.3f || Shelter.OutsideQuiet > 0.05f)) noiseTimer = 2f; // nothing stirs while it's close, or in the room
         if (noiseTimer <= 0f)
         {
             noiseTimer = Random.Range(minNoiseInterval, maxNoiseInterval);

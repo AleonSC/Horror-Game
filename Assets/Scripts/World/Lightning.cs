@@ -104,7 +104,7 @@ public class Lightning : MonoBehaviour
             if (thunderTimer <= 0f)
             {
                 thunder.pitch = Random.Range(0.85f, 1.05f);
-                thunder.PlayOneShot(ProceduralAudio.Thunder, thunderVolumeNow * (1f - PortalDoor.RoomQuiet));
+                thunder.PlayOneShot(ProceduralAudio.Thunder, thunderVolumeNow * (1f - Shelter.OutsideQuiet));
             }
         }
     }

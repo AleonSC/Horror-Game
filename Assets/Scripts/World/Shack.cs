@@ -52,6 +52,15 @@ public class Shack : MonoBehaviour
     }
     float floorY;
 
+    /// <summary>True if a point is really inside (within the walls, not out in the doorway).</summary>
+    public bool Interior(Vector3 point)
+    {
+        Vector3 l = transform.InverseTransformPoint(point);
+        return Mathf.Abs(l.x) < width * 0.5f - 0.05f
+            && l.z > -depth * 0.5f + 0.05f && l.z < depth * 0.5f - 0.1f
+            && l.y > floorY - 0.3f && l.y < floorY + wallHeight + 0.3f;
+    }
+
     void OnEnable() => All.Add(this);
     void OnDisable() => All.Remove(this);
 

@@ -28,6 +28,7 @@ public class LampInteractor : MonoBehaviour
     TentLantern focusedLantern;
     CarRadio focusedRadio;
     LightableTorch focusedTorch;
+    Snack focusedSnack;
     Flashlight flashlight;
     Hotbar hotbar;
     GUIStyle labelStyle, smallStyle;
@@ -47,6 +48,7 @@ public class LampInteractor : MonoBehaviour
         focusedSwitch = null;
         focusedLantern = null;
         focusedRadio = null;
+        focusedSnack = null;
         if (DroneUnit.Piloting) return; // (your hands are on the remote)
         focusedTorch = null;
         if (hotbar == null) hotbar = GetComponent<Hotbar>();
@@ -67,6 +69,7 @@ public class LampInteractor : MonoBehaviour
             focusedLantern = target.GetComponentInParent<TentLantern>();
             focusedRadio = target.GetComponentInParent<CarRadio>();
             focusedTorch = target.GetComponentInParent<LightableTorch>();
+            focusedSnack = target.GetComponentInParent<Snack>();
         }
 
         bool click = HorrorInput.ClickPressed, use = HorrorInput.InteractPressed;
@@ -91,6 +94,8 @@ public class LampInteractor : MonoBehaviour
             focusedSwitch.car.ToggleLights();
         else if (focusedLantern != null)
             focusedLantern.Toggle();
+        else if (focusedSnack != null)
+            focusedSnack.Eat(GetComponent<FirstPersonController>());
         else if (focusedItem != null)
             focusedItem.PickUp(hotbar);
         else if (focused != null && !focused.IsLit)
@@ -101,7 +106,7 @@ public class LampInteractor : MonoBehaviour
 
     /// <summary>True when the thing being looked at is a door (nothing ahead of it in the order things are picked).</summary>
     bool DoorIsTarget => focusedDoor != null && focusedTorch == null && focusedButton == null && focusedRadio == null
-                         && (focusedSwitch == null || focusedSwitch.car == null) && focusedItem == null && focusedLantern == null;
+                         && (focusedSwitch == null || focusedSwitch.car == null) && focusedItem == null && focusedLantern == null && focusedSnack == null;
 
     /// <summary>
     /// Picks the interactable nearest to the line of sight, within reach and aimRadius of it,
@@ -128,7 +133,7 @@ public class LampInteractor : MonoBehaviour
 
             float offAxis = Vector3.Distance(closest, eye + forward * ahead);
             // (The radio's a good size: it gets no extra leeway, or it's picked from metres off.)
-            bool small = owner is ItemPickup || owner is BatteryPickup;
+            bool small = owner is ItemPickup || owner is BatteryPickup || owner is Snack;
             float allowed = (aimRadius + ahead * aimSpreadPerMetre) * (small ? smallItemLeeway : 1f);
             if (owner is LightableTorch) allowed = 0.25f + ahead * 0.05f; // you have to actually look at a torch
             if (offAxis > allowed) continue;
@@ -162,7 +167,7 @@ public class LampInteractor : MonoBehaviour
             var col = directHits[i].collider;
             if (col == null) continue;
             Component owner = Owner(col);
-            if (!(owner is ItemPickup || owner is BatteryPickup || owner is CarRadio)) continue;
+            if (!(owner is ItemPickup || owner is BatteryPickup || owner is CarRadio || owner is Snack)) continue;
             var shack = owner.GetComponentInParent<Shack>();
             if (shack != null && !shack.Contains(cam.position)) continue; // not through a shack's walls
             float d = directHits[i].distance;
@@ -174,7 +179,8 @@ public class LampInteractor : MonoBehaviour
     /// <summary>The interactable a collider belongs to, if any.</summary>
     static Component Owner(Collider col)
     {
-        Component c = col.GetComponentInParent<LightableTorch>();
+        Component c = col.GetComponentInParent<Snack>();
+        if (c == null) c = col.GetComponentInParent<LightableTorch>();
         if (c == null) c = col.GetComponentInParent<WatchtowerButton>();
         if (c == null) c = col.GetComponentInParent<CarRadio>();
         if (c == null) c = col.GetComponentInParent<CarHeadlightSwitch>();
@@ -267,6 +273,7 @@ public class LampInteractor : MonoBehaviour
                 $"Turn on the headlights · battery {Mathf.CeilToInt(car.Battery * 100f)}%";
         }
         else if (focusedLantern != null) prompt = focusedLantern.Prompt;
+        else if (focusedSnack != null) prompt = "Eat the " + focusedSnack.DisplayName;
         else if (focusedItem != null) prompt = $"Take the {focusedItem.DisplayName}";
         else if (focusedDoor != null)
             prompt = focusedDoor.locked && !focusedDoor.IsOpen ? focusedDoor.lockedMessage

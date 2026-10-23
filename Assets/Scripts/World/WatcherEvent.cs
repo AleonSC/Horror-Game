@@ -287,7 +287,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             {
                 Shockwave.Begin(landedAt, shockwaveSpeed);
                 audioSource.pitch = 0.45f;
-                audioSource.PlayOneShot(ProceduralAudio.Thunder, 0.8f * (1f - PortalDoor.RoomQuiet)); // the far-off crack as it goes out
+                audioSource.PlayOneShot(ProceduralAudio.Thunder, 0.8f * (1f - Shelter.OutsideQuiet)); // the far-off crack as it goes out
             }
         }
 
@@ -295,7 +295,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         UpdateSearchlights(dt);
         UpdateEmptyChains();
         UpdateHaze();
-        audioSource.volume = 1f - PortalDoor.RoomQuiet; // the giant's booms don't reach the dark room
+        audioSource.volume = 1f - Shelter.OutsideQuiet; // the giant's booms don't reach the dark room
 
         // The sky turns red as the eye opens, and stays that way while the giant walks.
         float targetRed = phase == Phase.Waiting || phase == Phase.Done ? 0f : 1f;
@@ -656,7 +656,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         if (chantTime < 0f || chantSource == null) return;
 
         chantTime += dt;
-        chantSource.volume = 1f - PortalDoor.RoomQuiet;
+        chantSource.volume = 1f - Shelter.OutsideQuiet;
         float length = chantSource.clip != null ? chantSource.clip.length : 1f;
         // How hard it's chanting: the words, not the echo after.
         float strength = Mathf.Clamp01(chantTime / 0.4f) * Mathf.Clamp01((length - 4f - chantTime) / 1.2f + 1f);

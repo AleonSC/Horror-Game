@@ -94,7 +94,7 @@ public class RainDrops : MonoBehaviour
         // The sound: nothing until the 5th lamp, then just audible, a little more from the 7th.
         float lit = Lamp.TimesLit;
         float loud = lit < 5f ? 0f : lit < 7f ? soundAtLamp5 : soundAtLamp7;
-        loud *= (1f - 0.8f * EntityDread.Silence) * (1f - PortalDoor.RoomQuiet);
+        loud *= (1f - 0.8f * EntityDread.Silence) * (1f - Shelter.OutsideQuiet);
         sound.volume = Mathf.MoveTowards(sound.volume, loud, Mathf.Max(soundAtLamp7, 0.01f) * dt / Mathf.Max(rampTime * 0.6f, 0.1f));
         if (sound.volume > 0.001f && !sound.isPlaying) { sound.time = Random.Range(0f, sound.clip.length * 0.9f); sound.Play(); }
         else if (sound.volume <= 0.001f && sound.isPlaying) sound.Stop();

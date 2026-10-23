@@ -53,6 +53,16 @@ public class FirstPersonController : MonoBehaviour
     [Tooltip("Run it right out and you can't run again until it's back to this.")]
     [Range(0f, 1f)] public float windedUntil = 0.35f;
 
+    /// <summary>
+    /// Extra stamina from snacks eaten this run (StaminaBonus 0.25: running lasts a quarter as long again).
+    /// The bar shows it as longer. Cleared when the run starts over.
+    /// </summary>
+    public float StaminaBonus { get; private set; }
+    public void AddStaminaBonus(float amount) => StaminaBonus = Mathf.Max(0f, StaminaBonus + amount);
+    public void ResetStaminaBonus() => StaminaBonus = 0f;
+    /// <summary>Back to full stamina, breath caught.</summary>
+    public void RestoreStamina() { Stamina = 1f; Winded = false; }
+
     /// <summary>Stamina, 1 fresh to 0 spent. Running uses it; it comes back slowly.</summary>
     public float Stamina { get; private set; } = 1f;
     /// <summary>Run right out of breath: no running until you've got some back.</summary>
@@ -75,7 +85,7 @@ public class FirstPersonController : MonoBehaviour
     {
         if (IsRunning)
         {
-            Stamina = Mathf.Max(0f, Stamina - dt / Mathf.Max(sprintTime, 0.1f));
+            Stamina = Mathf.Max(0f, Stamina - dt / Mathf.Max(sprintTime * (1f + StaminaBonus), 0.1f));
             if (Stamina <= 0f) Winded = true;
         }
         else

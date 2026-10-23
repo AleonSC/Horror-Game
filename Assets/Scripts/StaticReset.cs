@@ -70,6 +70,7 @@ public static class StaticReset
         DevTools.ResetStatics();
         LookSettings.ResetStatics();
         TreePack.ResetStatics();
+        Shelter.ResetStatics();
         DevSkin.ResetStatics();
         InventoryScreen.ResetStatics();
         IntroText.ResetStatics();
