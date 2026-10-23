@@ -32,10 +32,20 @@ public class DarkForestGenerator : MonoBehaviour
     [Header("Ground")]
     public float groundVertexSpacing = 1f;
     public float groundBumpiness = 1.5f;
+    [Tooltip("Big hills and ridges rising out of the forest, to climb and see the skyline from (0 for none).")]
+    public int hillCount = 4;
+    [Tooltip("How high they rise (metres), at random between these.")]
+    public Vector2 hillHeight = new Vector2(7f, 13f);
+    [Tooltip("How far out their slopes reach (metres), at random between these. Some are stretched into ridges.")]
+    public Vector2 hillRadius = new Vector2(30f, 50f);
+    [Range(0f, 1f), Tooltip("How bare their tops are of trees (1: bald tops, open to the sky).")]
+    public float hillBaldTops = 0.75f;
 
     [Header("Trees")]
     public int treeCount = 2800;
     public float minTreeSpacing = 2.2f;
+    [Range(0f, 0.5f), Tooltip("Now and then a tree that would have stood somewhere just isn't there: a gap here and there in the forest.")]
+    public float treeGapChance = 0.12f;
     [Range(0f, 1f), Tooltip("Portion of trees that are dead/bare instead of pines.")]
     public float deadTreeRatio = 0.3f;
     [Tooltip("Chance a tree has vines hanging from its branches (they swing in the wind and when brushed).")]
@@ -243,6 +253,13 @@ public class DarkForestGenerator : MonoBehaviour
         public float kx, kz, amplitude, phase;
     }
     TerrainWave[] terrainWaves;
+
+    struct Hill
+    {
+        public Vector2 center;
+        public float radius, height, cos, sin, stretch, seed;
+    }
+    readonly List<Hill> hills = new List<Hill>();
     Material groundMat, barkMat, deadBarkMat, rockMat;
     Material[] foliageMats;
     Mesh sphereMesh;
@@ -274,6 +291,7 @@ public class DarkForestGenerator : MonoBehaviour
         rng = new System.Random(seed);
         noiseOffset = new Vector2(Range(0f, 10000f), Range(0f, 10000f));
         BuildTerrainWaves();
+        PlanHills();
         PlanPonds();
 
         root = new GameObject(RootName).transform;
@@ -432,7 +450,67 @@ public class DarkForestGenerator : MonoBehaviour
         float h = 0f;
         foreach (var w in terrainWaves)
             h += w.amplitude * Mathf.Sin(w.kx * x + w.kz * z + w.phase);
+        foreach (var hill in hills) h += hill.height * HillProfile(hill, x, z);
         return h;
+    }
+
+    /// <summary>
+    /// How far up a hill a point is: 1 on its top, 0 off it. The top is a little flat, the slopes ease in
+    /// and out, the outline wanders with direction, and some hills are stretched along a line into ridges.
+    /// </summary>
+    float HillProfile(Hill hill, float x, float z)
+    {
+        float dx = Wrapped(x - hill.center.x), dz = Wrapped(z - hill.center.y);
+        float along = dx * hill.cos + dz * hill.sin, across = -dx * hill.sin + dz * hill.cos;
+        along /= hill.stretch;
+        float d = Mathf.Sqrt(along * along + across * across);
+        if (d > hill.radius * 1.2f) return 0f;
+        float a = Mathf.Atan2(across, along);
+        float r = hill.radius * (0.85f + 0.3f * Mathf.PerlinNoise(hill.seed + Mathf.Cos(a) * 1.1f, hill.seed + Mathf.Sin(a) * 1.1f));
+        float t = Mathf.Clamp01((d / r - 0.15f) / 0.85f);
+        return 1f - t * t * (3f - 2f * t);
+    }
+
+    /// <summary>The highest any hill lifts this point (0 to 1), for thinning trees toward the tops.</summary>
+    float HillTop(float x, float z)
+    {
+        float top = 0f;
+        foreach (var hill in hills) top = Mathf.Max(top, HillProfile(hill, x, z));
+        return top;
+    }
+
+    /// <summary>
+    /// Picks the hills: away from where you start (which stays flat) and from each other, some stretched
+    /// into ridges.
+    /// </summary>
+    void PlanHills()
+    {
+        hills.Clear();
+        float half = areaSize * 0.5f;
+        for (int attempt = 0; attempt < hillCount * 40 && hills.Count < hillCount; attempt++)
+        {
+            float radius = Range(Mathf.Min(hillRadius.x, hillRadius.y), Mathf.Max(hillRadius.x, hillRadius.y));
+            var c = new Vector2(Range(-half, half), Range(-half, half));
+            if (new Vector2(Wrapped(c.x), Wrapped(c.y)).magnitude < clearingRadius + radius * 1.3f) continue;
+            bool crowded = false;
+            foreach (var other in hills)
+            {
+                var d = new Vector2(Wrapped(c.x - other.center.x), Wrapped(c.y - other.center.y));
+                if (d.magnitude < (radius + other.radius) * 0.8f) { crowded = true; break; }
+            }
+            if (crowded) continue;
+            float angle = Range(0f, Mathf.PI * 2f);
+            hills.Add(new Hill
+            {
+                center = c,
+                radius = radius,
+                height = Range(Mathf.Min(hillHeight.x, hillHeight.y), Mathf.Max(hillHeight.x, hillHeight.y)),
+                cos = Mathf.Cos(angle),
+                sin = Mathf.Sin(angle),
+                stretch = Range(0f, 1f) < 0.5f ? Range(1.4f, 2.2f) : 1f, // half are ridges
+                seed = Range(0f, 100f),
+            });
+        }
     }
 
     /// <summary>A difference along one axis, the short way round when the map loops.</summary>
@@ -618,7 +696,8 @@ public class DarkForestGenerator : MonoBehaviour
         int attempts = treeCount * 15;
         PlaceLandmarkTree(parent, half);
 
-        for (int a = 0; a < attempts && placed.Count < treeCount; a++)
+        int gaps = 0;
+        for (int a = 0; a < attempts && placed.Count + gaps < treeCount; a++)
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             float distFromCenter = p.magnitude;
@@ -631,10 +710,15 @@ public class DarkForestGenerator : MonoBehaviour
             float edgeBoost = wrapWorld ? 0f : Mathf.InverseLerp(half * 0.6f, half, Mathf.Max(Mathf.Abs(p.x), Mathf.Abs(p.y)));
             // Trees right at the clearing edge are sparse so the spawn feels open.
             float clearingFade = Mathf.InverseLerp(clearingRadius, clearingRadius * 2f, distFromCenter);
-            if (Range(0f, 1f) > (density * 1.4f + edgeBoost) * clearingFade) continue;
+            // The hilltops thin out to bare crowns, open to the sky.
+            float top = hills.Count > 0 ? HillTop(p.x, p.y) : 0f;
+            float bald = 1f - hillBaldTops * top * top;
+            if (Range(0f, 1f) > (density * 1.4f + edgeBoost) * clearingFade * bald) continue;
 
             if (!HasSpace(p, grid, cell)) continue;
             AddToGrid(p, grid, cell);
+            // Now and then a tree that would have stood here doesn't: its spot is kept empty.
+            if (Range(0f, 1f) < treeGapChance) { gaps++; continue; }
             placed.Add(p);
 
             var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.1f, p.y);
