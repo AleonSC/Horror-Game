@@ -66,7 +66,9 @@ AudioMixerSnapshotController:
   m_Name: DarkRoom
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: 58c44ad5ebe62ab47877c5c216ec3120
-  m_FloatValues: {}
+  m_FloatValues:
+    eae32337d5f5ba648acf3c98948a6ce6: -80
+    1972ebedbc63cec4ab011e3a23589fc3: -80
   m_TransitionOverrides: {}
 --- !u!244 &-3278834306687040593
 AudioMixerEffectController:
@@ -172,7 +174,13 @@ AudioMixerController:
   m_SuspendThreshold: -80
   m_EnableSuspend: 1
   m_UpdateMode: 1
-  m_ExposedParameters: []
+  m_ExposedParameters:
+  - guid: 9580f138c0d26a646a65d7f9674af8b9
+    name: EffectsVolume
+  - guid: 9e99b69e1853fe44eb0bddd7d995994b
+    name: MasterVolume
+  - guid: e94757e38783e974a89b22b836152540
+    name: MusicVolume
   m_AudioMixerGroupViews:
   - guids:
     - 6e9704fa6cc8bba4b8e39433abf5121e
@@ -187,7 +195,7 @@ AudioMixerController:
     - 88e7f35aa4d5bbc47ae944ee29f7897b
     name: View
   m_CurrentViewIndex: 0
-  m_TargetSnapshot: {fileID: 284831644231613909}
+  m_TargetSnapshot: {fileID: 24500006}
 --- !u!243 &24300002
 AudioMixerGroupController:
   m_ObjectHideFlags: 0
@@ -244,7 +252,9 @@ AudioMixerSnapshotController:
   m_Name: Sheltered
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: 79d792918997aeb49ae1b7dce68c9c07
-  m_FloatValues: {}
+  m_FloatValues:
+    eae32337d5f5ba648acf3c98948a6ce6: -80
+    1972ebedbc63cec4ab011e3a23589fc3: -12
   m_TransitionOverrides: {}
 --- !u!243 &1630264612709044510
 AudioMixerGroupController:
@@ -295,7 +305,8 @@ AudioMixerSnapshotController:
   m_Name: Dread
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: 9ca6b03881f68bd419b4e75bb7d0f21e
-  m_FloatValues: {}
+  m_FloatValues:
+    2ade583268febd645a218bd9625e911a: -20
   m_TransitionOverrides: {}
 --- !u!244 &2785890827684364197
 AudioMixerEffectController:
@@ -420,7 +431,10 @@ AudioMixerSnapshotController:
   m_Name: Hush
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: 7d45060ddfef2284cb1f11007e330df7
-  m_FloatValues: {}
+  m_FloatValues:
+    2ade583268febd645a218bd9625e911a: -40
+    e94757e38783e974a89b22b836152540: -40
+    1972ebedbc63cec4ab011e3a23589fc3: -30
   m_TransitionOverrides: {}
 --- !u!243 &9203489174282963961
 AudioMixerGroupController:
