@@ -89,6 +89,14 @@ to a dark room (`PortalDoor.cs`), and rifts (`RiftEvent.cs`, now spawn-on-demand
 
 ## Recent work on `hdrp` (newest first)
 
+- **Tree packs** (`World/TreePack.cs`, `Editor/TreePackSetup.cs`): the owner's tree pack goes in the
+  `Resources/TreePack` asset (Horror > Tree Pack > Open Settings; drag the prefabs into Prefabs). The
+  generator grows them set up like its own trees (`BuildPackTree`: a "Tree" with a trunk CapsuleCollider,
+  a "Sway" pivot holding the prefab), so wind, felling, scour peeking and building keep-outs all work. The
+  prefab's own colliders are removed by default. TreeFall cuts packs per material (submesh), only LOD 0,
+  finds the bark by material name (bark/trunk/wood/stem) or else by which material hugs the trunk, and
+  needs Read/Write meshes (Horror > Tree Pack > Allow Felling); without them a pack tree never falls.
+  Horror > Tree Pack > Check lists non-HDRP materials and other problems.
 - **Reference theme** (Lighting tab): aims at the owner's reference picture (pale blue-grey fog brighter
   than the shadows, thick patchy mist, muted graded picture, scours with a dark lit body and eyes that
   throw a red pool on the ground). It sets the Lighting values plus Look settings (`LightingSettings.Reference`,

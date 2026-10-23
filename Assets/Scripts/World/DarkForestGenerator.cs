@@ -46,7 +46,7 @@ public class DarkForestGenerator : MonoBehaviour
     public float maxBigTreeSize = 2.5f;
     [Tooltip("Perlin scale for tree density patches (lower = bigger patches).")]
     public float densityNoiseScale = 0.05f;
-    [Tooltip("Optional tree prefabs. If set, these are used instead of procedural trees.")]
+    [Tooltip("Optional tree prefabs (used if there's no TreePack asset: Horror > Tree Pack > Open Settings, which has more options).")]
     public GameObject[] treePrefabs;
 
     [Header("Grass")]
@@ -638,13 +638,31 @@ public class DarkForestGenerator : MonoBehaviour
             placed.Add(p);
 
             var pos = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.1f, p.y);
-            if (treePrefabs != null && treePrefabs.Length > 0)
+            // From the pack, or the game's own (a dead tree stays the game's own, if keepProceduralDeadTrees).
+            // (Without a pack nothing extra is rolled, so the same seed grows the same forest as before.)
+            int deadRoll = -1; // -1: not rolled yet
+            bool usePack = false;
+            if (HasTreePack)
             {
-                var prefab = treePrefabs[rng.Next(treePrefabs.Length)];
-                if (prefab == null) continue;
-                var t = Instantiate(prefab, pos, Quaternion.Euler(0f, Range(0f, 360f), 0f), parent);
-                t.transform.localScale *= Range(0.8f, 1.3f);
-                SwayPivots.Add(t.transform);
+                deadRoll = Range(0f, 1f) < deadTreeRatio ? 1 : 0;
+                usePack = !(Pack.keepProceduralDeadTrees && deadRoll == 1) && Range(0f, 1f) < Pack.share;
+            }
+            if (usePack)
+            {
+                int sways = SwayPivots.Count;
+                var built = BuildPackTree(pos, parent);
+                if (built == null || Intrudes(built, keepOuts))
+                {
+                    SwayPivots.RemoveRange(sways, SwayPivots.Count - sways);
+                    placed.RemoveAt(placed.Count - 1);
+                    var c = new Vector2Int(Mathf.FloorToInt(p.x / cell), Mathf.FloorToInt(p.y / cell));
+                    if (grid.TryGetValue(c, out var list)) list.Remove(p);
+                    if (built != null)
+                    {
+                        if (Application.isPlaying) Destroy(built.gameObject);
+                        else DestroyImmediate(built.gameObject);
+                    }
+                }
             }
             else
             {
@@ -654,7 +672,8 @@ public class DarkForestGenerator : MonoBehaviour
                     for (int k = 0; k < 6; k++) // keep later trees back from its wide trunk
                         AddToGrid(p + new Vector2(Mathf.Cos(k * Mathf.PI / 3f), Mathf.Sin(k * Mathf.PI / 3f)) * 1.6f, grid, cell);
                 int sways = SwayPivots.Count, vines = VineAnchors.Count;
-                if (Range(0f, 1f) < deadTreeRatio) BuildDeadTree(pos, parent, size);
+                bool dead = deadRoll >= 0 ? deadRoll == 1 : Range(0f, 1f) < deadTreeRatio;
+                if (dead) BuildDeadTree(pos, parent, size);
                 else BuildPineTree(pos, parent, size);
 
                 // Its branches and needles mustn't reach into a shack (or the tower, a tent, the car): if they
@@ -672,6 +691,72 @@ public class DarkForestGenerator : MonoBehaviour
                 }
             }
         }
+    }
+
+    TreePack treePack;
+    bool treePackLoaded;
+
+    /// <summary>The tree pack to grow from: Resources/TreePack, or else one made from treePrefabs.</summary>
+    TreePack Pack
+    {
+        get
+        {
+            if (treePackLoaded) return treePack;
+            treePackLoaded = true;
+            treePack = TreePack.Load();
+            if ((treePack == null || !treePack.HasTrees) && treePrefabs != null && treePrefabs.Length > 0)
+            {
+                treePack = ScriptableObject.CreateInstance<TreePack>();
+                treePack.prefabs = treePrefabs;
+            }
+            return treePack;
+        }
+    }
+
+    bool HasTreePack => Pack != null && Pack.HasTrees;
+
+    /// <summary>
+    /// A tree from the pack, set up the way the game's own are, so everything that works with trees works
+    /// with it: a "Tree" at the spot holding a fixed trunk collider, and under it a "Sway" pivot (bent by the
+    /// wind, and what TreeFall fells) holding the prefab, turned and sized at random. The prefab's own
+    /// colliders go (unless keepPrefabColliders), as they often wrap the whole crown.
+    /// </summary>
+    Transform BuildPackTree(Vector3 pos, Transform parent)
+    {
+        GameObject prefab = null;
+        var pack = Pack;
+        for (int tries = 0; tries < 8 && prefab == null; tries++) prefab = pack.prefabs[rng.Next(pack.prefabs.Length)];
+        if (prefab == null) return null;
+
+        var tree = new GameObject("Tree (" + prefab.name + ")").transform;
+        tree.SetParent(parent, false);
+        tree.position = pos;
+        var sway = new GameObject("Sway").transform;
+        sway.SetParent(tree, false);
+
+        float size = Range(Mathf.Min(pack.scale.x, pack.scale.y), Mathf.Max(pack.scale.x, pack.scale.y));
+        var model = Instantiate(prefab, sway, false);
+        model.name = prefab.name;
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
+        model.transform.localScale = prefab.transform.localScale * size;
+        if (!pack.keepPrefabColliders)
+            foreach (var col in model.GetComponentsInChildren<Collider>(true))
+            {
+                if (Application.isPlaying) Destroy(col);
+                else DestroyImmediate(col);
+            }
+
+        // The trunk collider: as tall as the tree, as thick as the setting (scaled with it).
+        float top = 0f;
+        foreach (var r in model.GetComponentsInChildren<Renderer>()) top = Mathf.Max(top, r.bounds.max.y - pos.y);
+        var trunk = tree.gameObject.AddComponent<CapsuleCollider>();
+        trunk.radius = Mathf.Max(0.05f, pack.trunkRadius * size);
+        trunk.height = Mathf.Max(top, trunk.radius * 2f + 0.5f);
+        trunk.center = new Vector3(0f, trunk.height * 0.5f, 0f);
+
+        SwayPivots.Add(sway);
+        return tree;
     }
 
     List<KeepOut> keepOuts = new List<KeepOut>();
@@ -746,8 +831,20 @@ public class DarkForestGenerator : MonoBehaviour
             foreach (var filter in filters)
             {
                 var mesh = filter.sharedMesh;
-                if (mesh == null || !mesh.isReadable) continue;
+                if (mesh == null) continue;
                 Matrix4x4 m = k.toLocal * filter.transform.localToWorldMatrix;
+                if (!mesh.isReadable)
+                {
+                    // (A pack's mesh without Read/Write: its bounding box's corners and middle stand in.)
+                    Bounds b = mesh.bounds;
+                    for (int i = 0; i < 9; i++)
+                    {
+                        Vector3 corner = i == 8 ? b.center : b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                        Vector3 v = m.MultiplyPoint3x4(corner);
+                        if (v.x > k.min.x && v.x < k.max.x && v.y > k.min.y && v.y < k.max.y && v.z > k.min.z && v.z < k.max.z) return true;
+                    }
+                    continue;
+                }
                 var verts = mesh.vertices;
                 for (int i = 0; i < verts.Length; i++)
                 {

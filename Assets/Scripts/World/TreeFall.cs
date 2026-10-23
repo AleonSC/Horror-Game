@@ -43,7 +43,8 @@ public class TreeFall : MonoBehaviour
     {
         if (swayPivot == null || swayPivot.parent == null || !swayPivot.gameObject.activeInHierarchy) return false;
         var trunk = swayPivot.parent.GetComponent<CapsuleCollider>();
-        return trunk != null && trunk.enabled && swayPivot.parent.GetComponent<TreeFall>() == null;
+        return trunk != null && trunk.enabled && swayPivot.parent.GetComponent<TreeFall>() == null
+            && HasReadableMesh(swayPivot); // (a pack tree without Read/Write meshes stays standing)
     }
 
     /// <summary>
@@ -185,13 +186,43 @@ public class TreeFall : MonoBehaviour
         for (int i = 1; i < count; i++) breakHeights.Add(bounds[i]);
 
         // The meshes to cut up, read once (in sway space) for all the sections and measurements.
+        // (A pack tree: one mesh can hold bark and leaves as separate materials, each its own source; and
+        // only its most detailed level (LOD 0) is cut, not the simpler copies of it.)
         var sources = new List<Source>();
+        var skip = LowerLods(sway);
         foreach (var filter in sway.GetComponentsInChildren<MeshFilter>())
         {
             var renderer = filter.GetComponent<MeshRenderer>();
-            if (renderer == null || filter.sharedMesh == null || !filter.sharedMesh.isReadable) continue;
-            sources.Add(new Source(filter.sharedMesh, sway.worldToLocalMatrix * filter.transform.localToWorldMatrix, renderer.sharedMaterial));
-            if (filter.name == "Trunk" || filter.name == "Bark") barkMaterial = renderer.sharedMaterial;
+            if (renderer == null || skip.Contains(renderer) || filter.sharedMesh == null || !filter.sharedMesh.isReadable) continue;
+            var mesh = filter.sharedMesh;
+            var mats = renderer.sharedMaterials;
+            Matrix4x4 toSway = sway.worldToLocalMatrix * filter.transform.localToWorldMatrix;
+            var shared = new SourceVertices(mesh, toSway);
+            for (int sub = 0; sub < mesh.subMeshCount; sub++)
+            {
+                Material mat = sub < mats.Length ? mats[sub] : mats.Length > 0 ? mats[mats.Length - 1] : null;
+                if (mat == null) continue;
+                sources.Add(new Source(shared, sub, mat));
+                if (barkMaterial == null && (filter.name == "Trunk" || filter.name == "Bark" || IsBarkName(mat.name))) barkMaterial = mat;
+            }
+        }
+
+        // No material named like bark: the one hugging the trunk's line closest is the bark (the leaves spread wide).
+        if (barkMaterial == null && sources.Count > 0)
+        {
+            float closest = float.MaxValue;
+            foreach (var source in sources)
+            {
+                if (source.tris.Length == 0) continue;
+                float sum = 0f;
+                for (int k = 0; k < source.tris.Length; k += 3)
+                {
+                    Vector3 v = source.vtx[source.tris[k]].pos;
+                    sum += new Vector2(v.x, v.z).magnitude;
+                }
+                float mean = sum / (source.tris.Length / 3);
+                if (mean < closest) { closest = mean; barkMaterial = source.mat; }
+            }
         }
 
         BuildStumpBase(sources);
@@ -313,24 +344,20 @@ public class TreeFall : MonoBehaviour
         sway.gameObject.SetActive(false); // the sections replace it
     }
 
-    /// <summary>A mesh to cut up, read once: its vertices in sway space, and its triangles.</summary>
-    class Source
+    /// <summary>A mesh's vertices, read once, in sway space (shared by its materials' sources).</summary>
+    class SourceVertices
     {
         public readonly Mesh mesh;
-        public readonly Material mat;
         public readonly Vtx[] vtx;
-        public readonly int[] tris;
         public readonly bool hasT, hasUV;
 
-        public Source(Mesh mesh, Matrix4x4 toSway, Material mat)
+        public SourceVertices(Mesh mesh, Matrix4x4 toSway)
         {
             this.mesh = mesh;
-            this.mat = mat;
             Vector3[] verts = mesh.vertices;
             Vector3[] normals = mesh.normals;
             Vector4[] tangents = mesh.tangents;
             Vector2[] uvs = mesh.uv;
-            tris = mesh.triangles;
             bool hasN = normals.Length == verts.Length;
             hasT = tangents.Length == verts.Length;
             hasUV = uvs.Length == verts.Length;
@@ -347,6 +374,55 @@ public class TreeFall : MonoBehaviour
                 };
             }
         }
+    }
+
+    /// <summary>One material's part of a mesh to cut up: its triangles, over the mesh's shared vertices.</summary>
+    class Source
+    {
+        public readonly Mesh mesh;
+        public readonly Material mat;
+        public readonly Vtx[] vtx;
+        public readonly int[] tris;
+        public readonly bool hasT, hasUV;
+
+        public Source(SourceVertices shared, int submesh, Material mat)
+        {
+            mesh = shared.mesh;
+            vtx = shared.vtx;
+            hasT = shared.hasT;
+            hasUV = shared.hasUV;
+            this.mat = mat;
+            tris = mesh.GetTriangles(submesh);
+        }
+    }
+
+    /// <summary>A material that's a tree's bark (a pack's, going by its name).</summary>
+    static bool IsBarkName(string name)
+    {
+        name = name.ToLowerInvariant();
+        return name.Contains("bark") || name.Contains("trunk") || name.Contains("wood") || name.Contains("stem");
+    }
+
+    /// <summary>The renderers of a tree's simpler levels of detail (all but LOD 0), which aren't cut up.</summary>
+    static HashSet<Renderer> LowerLods(Transform root)
+    {
+        var skip = new HashSet<Renderer>();
+        foreach (var group in root.GetComponentsInChildren<LODGroup>(true))
+        {
+            var lods = group.GetLODs();
+            for (int i = 1; i < lods.Length; i++)
+                foreach (var r in lods[i].renderers) if (r != null) skip.Add(r);
+        }
+        // Billboard and other non-mesh renderers are never cut either (only MeshFilters are read).
+        return skip;
+    }
+
+    /// <summary>True if a tree has meshes that can be cut up (a pack's need Read/Write ticked on import).</summary>
+    static bool HasReadableMesh(Transform sway)
+    {
+        foreach (var filter in sway.GetComponentsInChildren<MeshFilter>())
+            if (filter.sharedMesh != null && filter.sharedMesh.isReadable) return true;
+        return false;
     }
 
     struct Vtx
@@ -934,9 +1010,9 @@ public class TreeFall : MonoBehaviour
         foreach (var source in sources)
         {
             if (source.mat != barkMaterial) continue;
-            foreach (var v in source.vtx)
+            foreach (int index in source.tris)
             {
-                Vector3 p = v.pos;
+                Vector3 p = source.vtx[index].pos;
                 if (Mathf.Abs(p.y - at) < 0.3f && new Vector2(p.x, p.z).magnitude < expected * 3f + 0.1f) near.Add(new Vector2(p.x, p.z));
             }
         }
