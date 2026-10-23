@@ -47,3 +47,10 @@ Desktop.ini
 *.apk
 *.aab
 *.exe
+
+# Asset Store packs: their licence doesn't allow sharing them in a public repo, so they stay
+# on your PC only. Put future packs in Assets/Packs/ and they're left out automatically.
+/[Aa]ssets/polyperfect/
+/[Aa]ssets/polyperfect.meta
+/[Aa]ssets/[Pp]acks/
+/[Aa]ssets/[Pp]acks.meta
