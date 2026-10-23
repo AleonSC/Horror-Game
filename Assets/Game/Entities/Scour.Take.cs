@@ -35,6 +35,7 @@ namespace Game.Entities
             body.SetGrowth(growth);
             body.SetVisible(true);
             body.Face(takeStart);
+            body.SetPose(ScourPose.Neutral, 1, false, 2f);
             caughtSent = false;
             Play(Sound.Shriek, 0.5f, 0.7f, 20f); // low and quiet: it has you
             if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Breath, MixerNames.Player, 0.9f, 0.8f);
@@ -62,6 +63,8 @@ namespace Game.Entities
                 transform.position = p;
                 body.Face(takeStart);
                 body.Shudder(s.crescendoVibration * 0.15f);
+                body.SetMouth(Mathf.Lerp(0.3f, 1.2f, u));
+                if (u > 0.75f && body.Pose != ScourPose.Reach) body.SetPose(ScourPose.Reach, RandomSide(), false, 3f); // a hand coming up for you
                 LookAtIt(eyeHeight, 2.2f, Mathf.Lerp(0.3f, 2.2f, u * u), dt);
                 return;
             }
@@ -69,7 +72,12 @@ namespace Game.Entities
             if (t < tPortal)
             {
                 // It takes hold of you, its face right up to yours.
-                if (t - dt < tGrasp) Play(Sound.Moan, 0.8f, 0.6f, 15f);
+                if (t - dt < tGrasp)
+                {
+                    Play(Sound.Moan, 0.8f, 0.6f, 15f);
+                    body.SetPose(ScourPose.Lunge, 1, false, 6f); // both hands, its face right up to yours
+                }
+                body.SetMouth(1.6f);
                 float u = (t - tGrasp) / s.graspTime;
                 Vector3 p = takeStart + takeForward * Mathf.Lerp(0.9f, 0.75f, u);
                 p.y = PlayerSense.GroundHeight(p);

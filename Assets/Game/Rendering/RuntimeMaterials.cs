@@ -28,6 +28,22 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>A lit material (the scour's fangs, or its optional dark lit body).</summary>
+        public static Material Lit(string name, Color color, float smoothness, bool doubleSided = false)
+        {
+            var m = new Material(Shader.Find("HDRP/Lit")) { name = name };
+            m.SetColor("_BaseColor", color);
+            m.SetFloat("_Smoothness", smoothness);
+            m.SetFloat("_Metallic", 0f);
+            if (doubleSided)
+            {
+                m.SetFloat("_DoubleSidedEnable", 1f);
+                m.SetFloat("_DoubleSidedNormalMode", 1f);
+            }
+            HDMaterial.ValidateMaterial(m);
+            return m;
+        }
+
         public static void SetGlow(Material m, Color glow)
         {
             if (m != null) m.SetColor("_EmissiveColor", glow);

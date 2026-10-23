@@ -58,7 +58,7 @@ namespace Game.Entities
             s = settings;
             gameObject.layer = Layers.Entities;
             body = gameObject.AddComponent<ScourBody>();
-            body.Build(s.height, rng.NextDouble() < s.extraArmsChance, rng);
+            body.Build(s, rng);
             Hide(firstDelay);
         }
 
@@ -102,6 +102,8 @@ namespace Game.Entities
             if (portal != null) portal.Close();
             portal = null;
             body.SetVisible(false);
+            body.ShutMouth();
+            body.SetPose(ScourPose.Neutral, 1, true);
             growth = 1f;
             body.SetGrowth(1f);
             if (State == ScourState.Taking && player != null) player.SetHeld(false);
@@ -120,6 +122,8 @@ namespace Game.Entities
             body.Face(player.transform.position);
             body.SetVisible(true);
             body.SetMaterialize(0f);
+            if (ducker) body.SetPose(ScourPose.Peek, 1, true);
+            else body.SetPose(PoseShape.RandomCreepPose(() => Random.value), RandomSide(), true);
             huntProgress = 0f;
             eyeFlare = 1f;
             blue = 0f;      // (red again, whatever happened last time)
@@ -239,6 +243,9 @@ namespace Game.Entities
             float progress = Mathf.Max(Mathf.InverseLerp(s.maxSpawnDistance, s.killDistance, dist), Mathf.InverseLerp(1f, s.maxGrowth, growth));
             if (progress > huntProgress) huntProgress = Mathf.MoveTowards(huntProgress, progress, dt * 0.4f);
 
+            // The last few metres: its mouth drops open, red light glaring out of it.
+            body.SetMouth(Mathf.InverseLerp(s.mouthOpenDistance, s.mouthFullDistance, dist));
+
             bool eyesLit = PlayerSense.InBeam(player, body.EyePoint, 0f, ducker);
             if (WatchForFlashing(eyesLit || lit)) return;
             UpdateEyes(closeness, eyesLit);
@@ -294,6 +301,7 @@ namespace Game.Entities
                 {
                     transform.position = spot;
                     body.Face(target);
+                    body.SetPose(ScourPose.Peek, 1, true);
                     Play(Sound.Creep, 0.7f, Random.Range(0.85f, 1.15f), 25f);
                     if (Services.TryGet<EventBus>(out var ev)) ev.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept behind a tree at {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
                     return;
@@ -304,6 +312,8 @@ namespace Game.Entities
             MoveTo(next);
             peekTree = null; // stepped out into the open
             body.Face(target);
+            // A new pose for when you look back (it moved unseen, so it can snap).
+            body.SetPose(PoseShape.RandomCreepPose(() => Random.value), RandomSide(), true);
             Play(Sound.Creep, 0.7f, Random.Range(0.85f, 1.15f), 25f);
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept to {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
         }
@@ -400,6 +410,7 @@ namespace Game.Entities
             float c = Mathf.Clamp01(timer / CrescendoDuration);
             float e = c * c; // slow build, violent finish
             body.Shudder(Mathf.Lerp(s.vibration, s.crescendoVibration, e), e);
+            body.SetMouth(Mathf.Lerp(0.7f, 1.5f, e)); // stretching wider and wider
             blue = Mathf.Max(blue, Mathf.SmoothStep(0f, 1f, c));
             body.SetEyes(Mathf.Lerp(1.6f, 4f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 1.5f, e), blue, 0f, s.eyeLight * (1f + 4f * blue), s.eyeLightRange);
             player.AddShake(s.cameraShake * e);
@@ -416,6 +427,7 @@ namespace Game.Entities
             retreatFrom = transform.position;
             Vector3 centre = transform.position + retreatDir * 0.45f + Vector3.up * s.height * 0.52f;
             portal = ScourPortal.Open(centre, -retreatDir, new Vector2(0.8f, 1.45f) * (s.height / 2.4f), 0.35f);
+            body.ShutMouth();
             Play(Sound.Portal, 1f, 1f, 35f);
             SetState(ScourState.Retreating, "driven off");
         }
@@ -438,6 +450,7 @@ namespace Game.Entities
         void StartCharging()
         {
             peekTree = null;
+            body.SetPose(ScourPose.Lunge, 1, false, 12f);
             Play(Sound.Shriek, 1f, 1.2f, 50f);
             SetState(ScourState.Charging, "provoked: charging");
         }
@@ -451,6 +464,7 @@ namespace Game.Entities
             body.Face(player.transform.position);
             body.Shudder(s.crescendoVibration);
             body.SetEyes(2.8f, s.spawnEyeGlow * 1.5f, 0f, 0f, s.eyeLight, s.eyeLightRange);
+            body.SetMouth(1.6f);
             player.AddShake(Mathf.Lerp(0.3f, s.cameraShake * 1.5f, Mathf.InverseLerp(15f, s.chargeStopDistance, dist)));
 
             if (dist <= s.chargeStopDistance || timer > 3f)
@@ -467,6 +481,8 @@ namespace Game.Entities
         }
 
         // ------------------------------------------------------------------ Helpers
+
+        static int RandomSide() => Random.value < 0.5f ? -1 : 1;
 
         void MoveTo(Vector3 p)
         {

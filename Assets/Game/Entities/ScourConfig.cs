@@ -112,7 +112,21 @@ namespace Game.Entities
         public float eyeLight = 0.15f;
         [Range(0.5f, 10f)] public float eyeLightRange = 3f;
 
+        [Header("Mouth")]
+        [Range(1f, 15f), Tooltip("Its mouth starts to drop open within this distance...")]
+        public float mouthOpenDistance = 6f;
+        [Range(0.5f, 10f), Tooltip("...and is fully open at this distance.")]
+        public float mouthFullDistance = 2.8f;
+        [Range(0f, 30f), Tooltip("How brightly its throat glows.")]
+        public float throatGlow = 6f;
+        [Range(0f, 30f), Tooltip("The red glare out of its mouth (candela when fully open).")]
+        public float mouthGlare = 3f;
+        [Range(1f, 15f), Tooltip("How far the glare reaches (metres): a red pool on the ground ahead of it.")]
+        public float mouthGlareRange = 7f;
+
         [Header("Body")]
+        [Tooltip("Off: a flat black silhouette. On: a very dark body the light picks the bones out of. New scours only.")]
+        public bool litBody;
         [Range(1f, 4f)] public float height = 2.4f;
         [Range(0f, 1f), Tooltip("Chance of an extra pair of arms.")]
         public float extraArmsChance = 0.25f;
