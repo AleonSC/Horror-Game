@@ -104,12 +104,26 @@ public class TreeFall : MonoBehaviour
                 break;
 
             case Phase.Falling:
-                // Physics has it now. It splinters when it hits something, or once it's tipped well over
-                // (a soft landing, a slide down a slope, or caught on another tree), or failing all that, in time.
+                // Physics has it now. It splinters when it hits something, or once it's tipped well over (a
+                // soft landing, a slide down a slope). It never splinters still standing: caught on another
+                // tree and stuck there (not tipping any further), it slips free of whatever's holding it up
+                // and carries on down (Unstick).
                 timer -= dt;
-                if (pieces.Count > 0 && pieces[0] != null && Vector3.Angle(pieces[0].transform.up, Vector3.up) > 62f)
+                if (pieces.Count == 0 || pieces[0] == null) break;
+                float tilt = Vector3.Angle(pieces[0].transform.up, Vector3.up);
+                if (tilt > 62f)
+                {
                     Splinter(pieces[pieces.Count > 1 ? 1 : 0].worldCenterOfMass, Mathf.Max(6f, pieces[0].angularVelocity.magnitude * height * 0.5f));
-                else if (timer <= 0f) Splinter(sway.position, 6f);
+                    break;
+                }
+                stuckFor = tilt < lastTilt + 4f * dt ? stuckFor + dt : 0f; // (tipping slower than 4 degrees a second)
+                lastTilt = Mathf.Max(lastTilt, tilt);
+                if (stuckFor > 0.6f || timer <= 0f)
+                {
+                    Unstick();
+                    stuckFor = 0f;
+                    timer = Mathf.Max(timer, 3f);
+                }
                 break;
 
             case Phase.Settling:
@@ -183,6 +197,9 @@ public class TreeFall : MonoBehaviour
         BuildStumpBase(sources);
 
         Vector3 swayAxisWorld = tree.TransformDirection(fallAxis);
+        fallAxisWorld = swayAxisWorld;
+        lastTilt = 0f;
+        stuckFor = 0f;
         for (int i = 0; i < count; i++)
         {
             float lo = bounds[i], hi = bounds[i + 1];
@@ -515,6 +532,37 @@ public class TreeFall : MonoBehaviour
     }
 
     /// <summary>The tree breaks apart where it hits: joints snap, shards fly, and each section finds its own rest.</summary>
+    Vector3 fallAxisWorld;
+    float lastTilt, stuckFor;
+
+    /// <summary>
+    /// Caught on something (another tree's trunk, a branch) and stuck leaning: it stops touching whatever it's
+    /// caught on (everything but the ground) and gets a shove the way it was going, so it carries on down.
+    /// </summary>
+    void Unstick()
+    {
+        var own = new HashSet<Collider>();
+        foreach (var body in pieces) if (body != null) foreach (var c in body.GetComponentsInChildren<Collider>()) own.Add(c);
+        foreach (var body in pieces)
+        {
+            if (body == null) continue;
+            foreach (var mine in body.GetComponentsInChildren<Collider>())
+            {
+                Bounds b = mine.bounds;
+                foreach (var other in Physics.OverlapBox(b.center, b.extents * 1.15f + Vector3.one * 0.2f, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (own.Contains(other) || IsGround(other)) continue;
+                    Physics.IgnoreCollision(mine, other);
+                }
+            }
+            body.WakeUp();
+            body.angularVelocity += fallAxisWorld * 0.6f;
+        }
+    }
+
+    static bool IsGround(Collider c) =>
+        c is TerrainCollider || (c is MeshCollider m && m.sharedMesh != null && m.sharedMesh.name == "Forest Ground");
+
     void Splinter(Vector3 impactPoint, float impactSpeed)
     {
         if (splintered) return;
