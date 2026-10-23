@@ -1,22 +1,36 @@
-# Unity generated
-[Ll]ibrary/
-[Tt]emp/
-[Oo]bj/
-[Bb]uild/
-[Bb]uilds/
-[Ll]ogs/
-[Uu]ser[Ss]ettings/
-[Mm]emoryCaptures/
-[Rr]ecordings/
+# Unity: folders Unity rebuilds itself (only at the project root, so an Assets folder
+# that happens to be called "Library" or "Build" isn't ignored by mistake)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Unity: generated files
+sysinfo.txt
+crashlytics-build.properties
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+/[Aa]ssets/[Ss]treaming[Aa]ssets/aa.meta
+/[Aa]ssets/[Ss]treaming[Aa]ssets/aa/*
 
 # IDE / OS
 .vs/
 .vscode/
 .idea/
+.consulo/
 *.csproj
+*.unityproj
 *.sln
+*.slnx
 *.suo
 *.user
+*.userprefs
 *.pidb
 *.booproj
 *.svd
@@ -24,11 +38,12 @@
 *.mdb
 *.opendb
 *.VC.db
+*.tmp
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Builds
 *.apk
 *.aab
-*.unitypackage
-crashlytics-build.properties
+*.exe
