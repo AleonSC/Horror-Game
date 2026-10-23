@@ -30,6 +30,9 @@ namespace Game.DevTools
 
         public bool IsOpen => open;
 
+        /// <summary>Frame time in milliseconds, smoothed (the plan's budget: under 16.6, under 8 in the look test).</summary>
+        public float FrameMs { get; private set; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
         {
@@ -42,8 +45,8 @@ namespace Game.DevTools
             Services.Register(this);
             AddTab(new GameTab());
             AddTab(new SessionTab());
-            AddTab(new PlaceholderTab("Lighting", "Lighting themes and the main look sliders arrive with the look test scene (milestone 1)."));
-            AddTab(new PlaceholderTab("Look", "Every look setting as a slider arrives with the look test scene (milestone 1)."));
+            AddTab(new LightingTab());
+            AddTab(new LookTab());
 
             if (Services.TryGet<PlayerPreferences>(out var prefs)) current = Mathf.Max(0, IndexOf(prefs.devTab));
         }
@@ -57,6 +60,9 @@ namespace Game.DevTools
 
         void Update()
         {
+            float ms = Time.unscaledDeltaTime * 1000f;
+            FrameMs = FrameMs <= 0f ? ms : Mathf.Lerp(FrameMs, ms, 0.05f);
+
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
             if (keyboard.f9Key.wasPressedThisFrame) SetOpen(!open);
@@ -76,6 +82,11 @@ namespace Game.DevTools
         {
             if (value == open) return;
             open = value;
+            if (Services.TryGet<UiState>(out var ui))
+            {
+                if (open) ui.PanelOpened();
+                else ui.PanelClosed();
+            }
             if (open)
             {
                 // Free the mouse while the window is open, and put it back as it was afterwards.
@@ -135,13 +146,5 @@ namespace Game.DevTools
 
             GUI.matrix = oldMatrix;
         }
-    }
-
-    sealed class PlaceholderTab : IDevTab
-    {
-        readonly string message;
-        public PlaceholderTab(string title, string message) { Title = title; this.message = message; }
-        public string Title { get; }
-        public void Draw() => GUILayout.Label(message, DevStyle.MutedLabel);
     }
 }

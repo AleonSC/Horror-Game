@@ -4,6 +4,8 @@
     "references": [
         "Game.Core",
         "Game.Audio",
+        "Game.Rendering",
+        "Game.Player",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

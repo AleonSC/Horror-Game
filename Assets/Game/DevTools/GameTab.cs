@@ -19,6 +19,9 @@ namespace Game.DevTools
                 return;
             }
 
+            if (Services.TryGet<DevWindow>(out var window) && window.FrameMs > 0f)
+                DevStyle.Row("Frame", $"{window.FrameMs:0.0} ms ({1000f / window.FrameMs:0} fps)");
+
             var run = root.Run;
             GUILayout.Label("Run", DevStyle.Section);
             DevStyle.Row("Run", run.RunNumber.ToString());

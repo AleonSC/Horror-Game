@@ -18,7 +18,7 @@ namespace Game.DevTools
         static bool ready;
         static Texture2D pill, knob;
 
-        public static GUIStyle PanelStyle, Title, Label, MutedLabel, Tab, TabActive, Button, Section, Mono;
+        public static GUIStyle PanelStyle, Title, Label, MutedLabel, Tab, TabActive, Button, Section, Mono, SectionButton, SmallButton, TextField;
 
         // Styles are rebuilt each Play session (they'd survive it when domain reload is off).
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -53,6 +53,9 @@ namespace Game.DevTools
             };
             Tab = new GUIStyle(Button) { normal = { background = null, textColor = Muted }, hover = { background = raised, textColor = Text } };
             TabActive = new GUIStyle(Button) { normal = { background = raised, textColor = Amber }, hover = { background = raised, textColor = Amber } };
+            SectionButton = new GUIStyle(Section) { hover = { textColor = Text }, active = { textColor = Text } };
+            SmallButton = new GUIStyle(Button) { fixedWidth = 26, fixedHeight = 20, padding = new RectOffset(0, 0, 0, 0) };
+            TextField = new GUIStyle(Button) { alignment = TextAnchor.MiddleLeft, normal = { background = raised, textColor = Text }, hover = { background = raised, textColor = Text }, focused = { background = raisedHover, textColor = Text } };
         }
 
         /// <summary>A label with a pill switch on the right. Returns the new value.</summary>

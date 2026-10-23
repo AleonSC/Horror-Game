@@ -2,6 +2,7 @@ using System.Collections;
 using Game.Audio;
 using Game.Core;
 using Game.DevTools;
+using Game.Rendering;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -23,6 +24,8 @@ namespace Game.Tests
             Assert.IsTrue(Services.TryGet<AudioStateController>(out _), "Sound controller wasn't attached");
             Assert.IsTrue(Services.TryGet<SessionRecorder>(out _), "Session recorder wasn't attached");
             Assert.IsTrue(Services.TryGet<DevWindow>(out _), "Dev window wasn't attached");
+            Assert.IsTrue(Services.TryGet<LookController>(out var look), "Look controller wasn't attached");
+            Assert.IsNotNull(look.Config, "No look config");
             LogAssert.NoUnexpectedReceived();
         }
 

@@ -13,6 +13,8 @@ MonoBehaviour:
   m_Name: GameSetup
   m_EditorClassIdentifier: 
   configs:
+  - {fileID: 11400000, guid: 4ccbad1bf54e4d6686e786c0820933d1, type: 2}
+  - {fileID: 11400000, guid: a1ed0f0ce0ae4b6084e014a374b5a743, type: 2}
   - {fileID: 11400000, guid: 09cc4f99362042129607dcde677e0419, type: 2}
   randomizeSeedEachRun: 1
   fixedSeed: 12345

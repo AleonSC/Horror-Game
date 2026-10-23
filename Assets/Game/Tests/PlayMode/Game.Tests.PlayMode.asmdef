@@ -5,6 +5,8 @@
         "Game.Core",
         "Game.Audio",
         "Game.DevTools",
+        "Game.Rendering",
+        "Game.Player",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
