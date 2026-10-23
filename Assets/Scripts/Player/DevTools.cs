@@ -40,6 +40,9 @@ public class DevTools : MonoBehaviour
         if (IsOpen) IsOpen = false;
     }
 
+    /// <summary>Closes the window (the model editor takes over the screen and the mouse).</summary>
+    public static void Close() => IsOpen = false;
+
     /// <summary>Lights or puts out lamps until exactly this many are lit.</summary>
     static void SetLampsLit(int count)
     {
@@ -165,6 +168,8 @@ public class DevTools : MonoBehaviour
         GUILayout.Label("F1 steps through: everything, then structures, lamps, items, creatures, then off.", small);
         GUILayout.Space(10f * unit);
 
+        if (GUILayout.Button("Model editor (F10): design the enemies", button)) ModelEditor.Open();
+        GUILayout.Space(6f * unit);
         if (GUILayout.Button("Restart the run", button)) GameOverScreen.RestartRun();
 
         GUILayout.EndScrollView();

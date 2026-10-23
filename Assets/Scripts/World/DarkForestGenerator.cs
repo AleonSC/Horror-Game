@@ -355,6 +355,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Flying Entity Spawner").AddComponent<FlyingEntitySpawner>();
         if (Application.isPlaying && FindAnyObjectByType<DevTools>() == null)
             new GameObject("Dev Tools").AddComponent<DevTools>();
+        if (Application.isPlaying && FindAnyObjectByType<ModelEditor>() == null)
+            new GameObject("Model Editor").AddComponent<ModelEditor>(); // F10: design the enemies
         if (Application.isPlaying && FindAnyObjectByType<SpawnDebugOverlay>() == null)
             new GameObject("Spawn Debug Overlay").AddComponent<SpawnDebugOverlay>();
         if (Application.isPlaying && FindAnyObjectByType<MusicManager>() == null)

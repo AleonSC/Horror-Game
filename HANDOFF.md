@@ -89,6 +89,12 @@ to a dark room (`PortalDoor.cs`), and rifts (`RiftEvent.cs`, now spawn-on-demand
 
 ## Recent work on `hdrp` (newest first)
 
+- **Model editor** (F10, or Dev Tools > Model editor; `Player/ModelEditor.cs`, `World/EnemyModel.cs`): the
+  owner designs enemies from simple shapes on joints (body, head, arms, hips), with eyes, mouth, legs and
+  notes, and saves them as JSON in `Assets/Scripts/Resources/EnemyModels/<Enemy>.json` (or copies the JSON
+  to paste into chat). A saved **Scour** model with `useInGame` is what new scours are built from
+  (`ShadowEntity.BuildFromModel`; its legs, mouth, eye glow and twitching are kept). The other enemies'
+  models are designs to be built for real: read their JSON and notes and recreate them in code.
 - A scour that catches you drags you backwards through a red-edged black portal (`ScourPortal.cs`), then
   the game-over fade. The wings and the flight to the giant are gone. (`WatcherEvent.ReachFor` is now
   unused.)

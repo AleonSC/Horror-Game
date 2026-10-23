@@ -47,6 +47,8 @@ public static class StaticReset
         PortalDoor.ResetStatics();
         RiftEvent.ResetStatics();
         ScourPortal.ResetStatics();
+        ModelEditor.ResetStatics();
+        EnemyModel.ResetStatics();
         HdrpAtmosphere.ResetStatics();
         EntityDread.ResetStatics();
         MusicCue.ResetStatics();

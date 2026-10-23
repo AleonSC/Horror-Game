@@ -1582,7 +1582,8 @@ public class ShadowEntity : MonoBehaviour
     // The legs: long, limp, and dragged. Each foot is a weight on the end of the leg (Verlet): gravity pulls
     // it down, the ground stops it and holds it back, and the hip hauls it along when the leg's at full
     // stretch. The knee is placed between hip and foot (bending forward, the way a knee does).
-    const float ThighLength = 0.68f, ShinLength = 0.7f, FootLength = 0.2f; // (for a 2.4m figure)
+    const float FootLength = 0.2f; // (for a 2.4m figure)
+    float thighLength = 0.68f, shinLength = 0.7f; // (likewise; a model can change them)
     readonly Transform[] legPivots = new Transform[2], kneePivots = new Transform[2], footPivots = new Transform[2];
     readonly Vector3[] footPos = new Vector3[2], footPrev = new Vector3[2];
     bool feetPlaced;
@@ -1604,7 +1605,7 @@ public class ShadowEntity : MonoBehaviour
             Transform hip = legPivots[i];
             Vector3 h = hip.position;
             float size = hip.lossyScale.y;
-            float thigh = ThighLength * scale * size, shin = ShinLength * scale * size, reach = (thigh + shin) * 0.995f;
+            float thigh = thighLength * scale * size, shin = shinLength * scale * size, reach = (thigh + shin) * 0.995f;
 
             // Placed afresh (it's only just appeared, or jumped): the feet on the ground under the hips.
             if (!feetPlaced || (footPos[i] - h).sqrMagnitude > reach * reach * 4f)
@@ -1689,25 +1690,15 @@ public class ShadowEntity : MonoBehaviour
 
         Material black = MaterialFactory.Unlit(Color.black);
 
+        // A model saved in the model editor, if there is one to use.
+        var model = EnemyModel.ForGame("Scour");
+        if (model != null) { BuildFromModel(model, black); return; }
+
         // Proportions are for a 2.4m figure (+z is forward). Everything is too long and too thin,
         // and the joints bend the wrong way.
         for (int side = -1; side <= 1; side += 2)
         {
-            // Legs: long and thin, too long for it (the knees jut up when it stands), with long bony feet.
-            // They hang limp from the hips and drag along the ground behind it as it moves (LegDrag).
-            Vector3 hip = new Vector3(side * 0.11f, 1.12f, -0.02f);
-            var legPivot = Pivot(visual, "Leg", hip);
-            Bone(legPivot, black, Vector3.zero, Vector3.down * ThighLength, 0.06f);
-            var kneePivot = Pivot(legPivot, "Knee", Vector3.down * ThighLength);
-            Knob(kneePivot, black, Vector3.zero, 0.075f);
-            Bone(kneePivot, black, Vector3.zero, Vector3.down * ShinLength, 0.04f);
-            var footPivot = Pivot(kneePivot, "Foot", Vector3.down * ShinLength);
-            Knob(footPivot, black, Vector3.zero, 0.05f);
-            Bone(footPivot, black, Vector3.zero, new Vector3(0f, -0.02f, FootLength), 0.035f);
-            Bone(footPivot, black, new Vector3(0f, -0.02f, FootLength), new Vector3(0f, -0.04f, FootLength + 0.08f), 0.018f); // the toes
-            legPivots[side < 0 ? 0 : 1] = legPivot;
-            kneePivots[side < 0 ? 0 : 1] = kneePivot;
-            footPivots[side < 0 ? 0 : 1] = footPivot;
+            BuildLeg(side, new Vector3(side * 0.11f, 1.12f, -0.02f), black, 0.06f);
 
             // Ribs curling round from the spine.
             for (int r = 0; r < 4; r++)
@@ -1803,6 +1794,91 @@ public class ShadowEntity : MonoBehaviour
         eyeLight = new GameObject("Eye Glow").AddComponent<Light>();
         eyeLight.transform.SetParent(headPivot, false);
         eyeLight.transform.localPosition = new Vector3(0f, 0.12f, 0.25f) * scale;
+        eyeLight.type = LightType.Point;
+        eyeLight.color = eyeColor;
+        eyeLight.range = 6f;
+        eyeLight.shadows = LightShadows.None;
+
+        bodyRenderers = visual.GetComponentsInChildren<Renderer>();
+        SetEyes(1f, eyeIntensity);
+    }
+
+    /// <summary>
+    /// A leg from the hip (in 2.4m-figure units): long and thin, too long for it (the knees jut up when it
+    /// stands), with a long bony foot. It hangs limp and drags along the ground behind it (LegDrag).
+    /// </summary>
+    void BuildLeg(int side, Vector3 hip, Material mat, float thickness)
+    {
+        var legPivot = Pivot(visual, "Leg", hip);
+        Bone(legPivot, mat, Vector3.zero, Vector3.down * thighLength, thickness);
+        var kneePivot = Pivot(legPivot, "Knee", Vector3.down * thighLength);
+        Knob(kneePivot, mat, Vector3.zero, thickness * 1.25f);
+        Bone(kneePivot, mat, Vector3.zero, Vector3.down * shinLength, thickness * 0.67f);
+        var footPivot = Pivot(kneePivot, "Foot", Vector3.down * shinLength);
+        Knob(footPivot, mat, Vector3.zero, thickness * 0.83f);
+        Bone(footPivot, mat, Vector3.zero, new Vector3(0f, -0.02f, FootLength), thickness * 0.58f);
+        Bone(footPivot, mat, new Vector3(0f, -0.02f, FootLength), new Vector3(0f, -0.04f, FootLength + 0.08f), thickness * 0.3f); // the toes
+        int i = side < 0 ? 0 : 1;
+        legPivots[i] = legPivot;
+        kneePivots[i] = kneePivot;
+        footPivots[i] = footPivot;
+    }
+
+    /// <summary>
+    /// Built from a model made in the model editor (EnemyModel, ModelEditor) instead: its shapes, on its
+    /// joints, with this scour's own dragging legs from its hips, its mouth where the model says, its eyes
+    /// (the model's first two eye parts) widening and burning as they do, and its head and arms twitching.
+    /// </summary>
+    void BuildFromModel(EnemyModel model, Material black)
+    {
+        float k = height / Mathf.Max(model.height, 0.01f); // model metres to this scour's
+        float toFigure = k / Mathf.Max(scale, 0.0001f);     // model metres to 2.4m-figure units
+        Color firstEye = Color.clear;
+        foreach (var part in model.parts) if (part.eye) { firstEye = part.color; break; }
+        if (firstEye.a > 0f) eyeColor = firstEye;
+        eyeMat = MaterialFactory.NoFog(eyeColor * eyeIntensity);
+
+        var materials = new Dictionary<string, Material>();
+        Material MaterialFor(ModelPart part)
+        {
+            if (part.eye) return eyeMat;
+            string key = ColorUtility.ToHtmlStringRGBA(part.color) + "/" + part.glow;
+            if (materials.TryGetValue(key, out var m)) return m;
+            m = part.glow > 0f ? MaterialFactory.NoFog(part.color * part.glow)
+                : part.color.maxColorComponent < 0.01f ? black : MaterialFactory.Lit(part.color, 0.1f);
+            materials[key] = m;
+            return m;
+        }
+        var built = model.Build(visual, k, MaterialFor, false, false);
+        foreach (var go in built.parts) go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.On;
+
+        headPivot = built.head;
+        leftArm = built.armLeft;
+        rightArm = built.armRight;
+        // The eyes SetEyes works on: the first two (stand-ins if the model has fewer).
+        leftEye = built.eyes.Count > 0 ? built.eyes[0] : new GameObject("No Eye").transform;
+        rightEye = built.eyes.Count > 1 ? built.eyes[1] : new GameObject("No Eye").transform;
+        if (leftEye.parent == null) leftEye.SetParent(headPivot, false);
+        if (rightEye.parent == null) rightEye.SetParent(headPivot, false);
+        eyeBaseScale = leftEye.localScale;
+
+        if (model.legs)
+        {
+            thighLength = model.thigh * toFigure;
+            shinLength = model.shin * toFigure;
+            BuildLeg(-1, model.hipLeft * toFigure, black, model.legThickness * toFigure / Mathf.Max(bulk, 0.01f));
+            BuildLeg(1, model.hipRight * toFigure, black, model.legThickness * toFigure / Mathf.Max(bulk, 0.01f));
+        }
+
+        Vector3 mouthAt = model.mouth * toFigure;
+        BuildMouth(mouthAt);
+
+        // The glow round its eyes: a little in front of them.
+        Vector3 eyesAt = (leftEye.localPosition + rightEye.localPosition) * 0.5f / Mathf.Max(scale, 0.0001f);
+        if (built.eyes.Count == 0) eyesAt = new Vector3(0f, 0.12f, 0.12f);
+        eyeLight = new GameObject("Eye Glow").AddComponent<Light>();
+        eyeLight.transform.SetParent(headPivot, false);
+        eyeLight.transform.localPosition = (eyesAt + Vector3.forward * 0.12f) * scale;
         eyeLight.type = LightType.Point;
         eyeLight.color = eyeColor;
         eyeLight.range = 6f;
@@ -1990,9 +2066,12 @@ public class ShadowEntity : MonoBehaviour
     /// inside it a light, burning the colour of its eyes, glaring out of it: lighting what it faces, a faint
     /// cone of glare spilling out ahead. Closed it's nothing at all. (Its size follows mouthOpen.)
     /// </summary>
-    void BuildMouth()
+    void BuildMouth() => BuildMouth(new Vector3(0f, -0.005f, 0.11f));
+
+    /// <summary>The mouth, at this point on the head (2.4m-figure units).</summary>
+    void BuildMouth(Vector3 at)
     {
-        mouth = Pivot(headPivot, "Mouth", new Vector3(0f, -0.005f, 0.11f));
+        mouth = Pivot(headPivot, "Mouth", at);
         // Throat, lips and fangs in one mesh (Horror/Throat): the light burns deep down its throat, the
         // fangs dark against it.
         Shader throat = Shader.Find("Horror/Throat");
@@ -2012,7 +2091,7 @@ public class ShadowEntity : MonoBehaviour
         // The glare: a real light thrown out ahead of it, and a faint cone of it in the air.
         mouthLight = new GameObject("Mouth Glare").AddComponent<Light>();
         mouthLight.transform.SetParent(headPivot, false);
-        mouthLight.transform.localPosition = new Vector3(0f, -0.005f, 0.12f) * scale;
+        mouthLight.transform.localPosition = (at + new Vector3(0f, 0f, 0.01f)) * scale;
         mouthLight.type = LightType.Spot;
         mouthLight.spotAngle = 55f;
         mouthLight.range = 14f;
@@ -2026,7 +2105,7 @@ public class ShadowEntity : MonoBehaviour
             mouthBeamMat.SetFloat("_FadeOut", 0.65f); // (thinning to nothing, no hard end)
             var go = new GameObject("Mouth Glare Cone");
             go.transform.SetParent(headPivot, false);
-            go.transform.localPosition = new Vector3(0f, -0.005f, 0.13f) * scale;
+            go.transform.localPosition = (at + new Vector3(0f, 0f, 0.02f)) * scale;
             go.AddComponent<MeshFilter>().sharedMesh = WatcherEvent.BuildBeamMesh();
             var r = go.AddComponent<MeshRenderer>();
             r.sharedMaterial = mouthBeamMat;
