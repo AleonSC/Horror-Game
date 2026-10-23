@@ -310,11 +310,21 @@ public class PauseMenu : MonoBehaviour
         bool classic = HdrpAtmosphere.ClassicLook;
         if (Item(13, classic ? "GRAPHICS: CLASSIC" : "GRAPHICS: ENHANCED", x, y)) HdrpAtmosphere.ClassicLook = !classic;
         y += 48f;
-        if (!classic && HdrpAtmosphere.RayTracingAvailable)
+        if (!classic)
         {
-            bool rt = HdrpAtmosphere.RayTracingWanted;
-            if (Item(14, rt ? "RAY TRACING: ON" : "RAY TRACING: OFF", x, y)) HdrpAtmosphere.RayTracingWanted = !rt;
-            y += 48f;
+            if (HdrpAtmosphere.RayTracingAvailable)
+            {
+                bool rt = HdrpAtmosphere.RayTracingWanted;
+                if (Item(14, rt ? "RAY TRACING: ON" : "RAY TRACING: OFF", x, y)) HdrpAtmosphere.RayTracingWanted = !rt;
+                y += 48f;
+            }
+            else
+            {
+                // Shown anyway, with why, so it's clear it isn't just missing.
+                GUI.Label(S(new Rect(x, y, 900f, 30f)), "RAY TRACING: NOT AVAILABLE", smallStyle);
+                GUI.Label(S(new Rect(x, y + 26f, 900f, 30f)), HdrpAtmosphere.RayTracingProblem, valueStyle);
+                y += 62f;
+            }
         }
 
         y += 24f;

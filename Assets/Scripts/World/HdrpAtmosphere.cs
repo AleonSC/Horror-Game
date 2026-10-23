@@ -42,8 +42,8 @@ public class HdrpAtmosphere : MonoBehaviour
     public float fogDistanceScale = 0.85f;
     [Tooltip("Volumetric fog: how much the lights show in the air (the beams and glows in the mist).")]
     [Range(0f, 1f)] public float volumetricAlbedo = 0.55f;
-    [Tooltip("How far out the volumetric fog (the lit beams) reaches.")]
-    public float volumetricDistance = 70f;
+    [Tooltip("How far out the volumetric fog (the lit beams) reaches. Never less than the camera sees, or there's a hard line where it gives way to plain fog.")]
+    public float volumetricDistance = 150f;
     [Tooltip("How bright the flashlight's glow in the mist is drawn over the giant and other far-off shapes (to match the beam round them).")]
     public float beamOverShapes = 1f;
     [Range(0f, 2f), Tooltip("How much lamps, torches and other round lights light up the fog round them (HDRP volumetrics; 1 is HDRP's normal). Low, or the mist round every lamp blazes.")]
@@ -79,6 +79,20 @@ public class HdrpAtmosphere : MonoBehaviour
 
     /// <summary>True if this machine and project can ray trace at all (so the switch is worth showing).</summary>
     public static bool RayTracingAvailable => CanRayTrace();
+
+    /// <summary>Why ray tracing can't be used here (empty if it can).</summary>
+    public static string RayTracingProblem
+    {
+        get
+        {
+            if (!SystemInfo.supportsRayTracing)
+                return "this graphics card or graphics mode can't ray trace (it needs DirectX 12 and an RTX / RX 6000+ card)";
+            var asset = GraphicsSettings.currentRenderPipeline as HDRenderPipelineAsset;
+            if (asset == null || !asset.currentPlatformRenderPipelineSettings.supportRayTracing)
+                return "it's off in the project (HDRP Wizard > HDRP + DXR > Fix All, or tick Realtime Raytracing on the HDRP asset)";
+            return "";
+        }
+    }
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => RayTracingActive = false;
 
@@ -177,7 +191,7 @@ public class HdrpAtmosphere : MonoBehaviour
             bool solid = r is MeshRenderer || r is SkinnedMeshRenderer;
             if (solid)
                 foreach (var m in r.sharedMaterials)
-                    if (m == null || m.shader == null || !m.shader.name.StartsWith("HDRP/") || m.renderQueue >= (int)RenderQueue.GeometryLast)
+                    if (m == null || m.shader == null || !m.shader.name.StartsWith("HDRP/") || m.shader.name.Contains("Decal") || m.renderQueue >= (int)RenderQueue.GeometryLast)
                         solid = false;
             if (!solid) r.rayTracingMode = UnityEngine.Experimental.Rendering.RayTracingMode.Off;
         }
@@ -211,7 +225,10 @@ public class HdrpAtmosphere : MonoBehaviour
             fog.color.Override(RenderSettings.fogColor.linear / mul);
             fog.meanFreePath.Override(Mathf.Clamp(fogDistanceScale / RenderSettings.fogDensity, 1f, 5000f));
             fog.albedo.Override(Color.white * volumetricAlbedo);
-            fog.depthExtent.Override(volumetricDistance);
+            // Out at least as far as the camera sees: where volumetric fog gives way to plain fog, the two don't
+            // match (the lamps' and the flashlight's glow stops dead), leaving a hard line across the ground.
+            float far = Camera.main != null ? Camera.main.farClipPlane : volumetricDistance;
+            fog.depthExtent.Override(Mathf.Max(volumetricDistance, far));
             fog.enableVolumetricFog.Override(!classic); // (the classic look: no beams in the air, as in URP)
         }
 

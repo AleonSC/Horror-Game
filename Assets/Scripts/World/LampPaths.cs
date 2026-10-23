@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Faded paths worn into the dirt around a lamp post: a trodden ring circling the pole (as if something
 /// has paced round and round the light) and a few trails wandering off into the trees, thinning out to
-/// nothing. A see-through strip laid over the ground. LampSpawner adds one to each lamp.
+/// nothing. A strip laid just over the ground, drawn as a decal that darkens the ground under it. LampSpawner adds one to each lamp.
 /// </summary>
 public static class LampPaths
 {
@@ -16,7 +16,7 @@ public static class LampPaths
     public static void Build(Transform lamp, DarkForestGenerator generator)
     {
         if (material == null)
-            material = MaterialFactory.LitTransparent(ProceduralTextures.WornPath, Color.white, 0.02f);
+            material = MaterialFactory.GroundDecal(ProceduralTextures.WornPath, Color.white); // (blends into the ground under it)
 
         var vertices = new List<Vector3>();
         var uvs = new List<Vector2>();

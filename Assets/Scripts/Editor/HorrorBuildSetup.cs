@@ -79,6 +79,7 @@ public class HorrorBuildSetup : IPreprocessBuildWithReport
             m.renderQueue = (int)RenderQueue.Transparent - 50;
         });
         changed |= Ensure("Unlit", unlit, m => { });
+        changed |= Ensure("Decal", Shader.Find("HDRP/Decal"), m => { });
 
         if (changed)
         {

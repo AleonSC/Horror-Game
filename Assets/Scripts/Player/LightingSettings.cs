@@ -330,7 +330,7 @@ public class LightingSettings : MonoBehaviour
             if (GUILayout.Toggle(rt, classic ? " Ray tracing (off in the classic look)" : " Ray tracing", buttonStyle) != rt)
                 HdrpAtmosphere.RayTracingWanted = !rt;
         }
-        else GUILayout.Label("Ray tracing: not available (needs DirectX 12, a ray tracing card, and it ticked on the HDRP asset)", labelStyle);
+        else GUILayout.Label("Ray tracing: not available: " + HdrpAtmosphere.RayTracingProblem, labelStyle);
 
         GUILayout.Space(8f * unit);
         GUILayout.Label("Other lights", headerStyle);

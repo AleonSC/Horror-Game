@@ -59,6 +59,25 @@ public static class MaterialFactory
         return mat;
     }
 
+    /// <summary>
+    /// A decal for a mesh laid just over the ground (HDRP/Decal): it changes the colour of the ground under
+    /// it, where its texture's alpha says, so it's lit and fogged exactly as the ground is and fades into it
+    /// with no edge (worn paths). Falls back to a see-through lit material if there's no decal shader.
+    /// </summary>
+    public static Material GroundDecal(Texture texture, Color tint)
+    {
+        Shader shader = FindShader("Decal", "HDRP/Decal");
+        if (shader == null || !shader.name.Contains("Decal")) return LitTransparent(texture, tint);
+        var mat = new Material(shader);
+        if (mat.HasProperty("_BaseColorMap")) mat.SetTexture("_BaseColorMap", texture);
+        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", tint);
+        if (mat.HasProperty("_AffectAlbedo")) mat.SetFloat("_AffectAlbedo", 1f);
+        if (mat.HasProperty("_AffectNormal")) mat.SetFloat("_AffectNormal", 0f);
+        if (mat.HasProperty("_DecalBlend")) mat.SetFloat("_DecalBlend", 1f);
+        HDMaterial.ValidateMaterial(mat);
+        return mat;
+    }
+
     /// <summary>As above, with the texture tinted by a colour.</summary>
     public static Material LitTextured(Texture albedo, Texture normalMap, Color tint, float smoothness = 0.05f)
     {
