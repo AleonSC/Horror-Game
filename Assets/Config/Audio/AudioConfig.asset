@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 11358cae954c4f02a35a2c7bbc88dd2c, type: 3}
   m_Name: AudioConfig
   m_EditorClassIdentifier: 
-  mixer: {fileID: 0}
+  mixer: {fileID: 24100000, guid: 64927c1152bad284ba46f8d92c222061, type: 2}
   toOutdoors: 0.6
   toSheltered: 0.6
   toDarkRoom: 2
