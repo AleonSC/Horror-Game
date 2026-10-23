@@ -12,3 +12,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7797ff806ff64a72b14ebad290a0cfe2, type: 3}
   m_Name: FlashlightConfig
   m_EditorClassIdentifier: 
+  settings:
+    color: {r: 1, g: 0.93, b: 0.82, a: 1}
+    intensity: 15.518231
+    boost: 2
+    range: 24
+    rangeReach: 2.5
+    beamAngle: 31
+    edgeFeather: 0
+    shadows: 1
+    fogGlow: 0.22
+    spillStrength: 0.08
+    spillAngle: 85
+    spillFogGlow: 0.3
+    bounceStrength: 0.25
+    bounceDistance: 12
+    bounceRange: 7
+    nearDimDistance: 4
+    nearDim: 0.35
+    handOffset: {x: 0.25, y: -0.2, z: 0.2}
+    swaySpeed: 5.5
+    maxLag: 14
