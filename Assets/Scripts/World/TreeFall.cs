@@ -15,6 +15,8 @@ public class TreeFall : MonoBehaviour
     public float volume = 1f;
     public int shardCount = 14;
     public float settleTime = 10f;
+    [Tooltip("Seconds the broken logs lie there once they've settled before they sink away (when you're not looking), and are gone.")]
+    public float logLifetime = 25f;
 
     enum Phase { Cracking, Falling, Settling, Done }
 
@@ -1097,7 +1099,7 @@ public class TreeFall : MonoBehaviour
     static Material StumpTopMaterial => stumpTopMaterial != null ? stumpTopMaterial
         : (stumpTopMaterial = MaterialFactory.LitTextured(ProceduralTextures.EndGrain, null, new Color(0.75f, 0.62f, 0.45f), 0.05f));
 
-    /// <summary>Freezes the pieces where they lie: they stay as solid obstacles.</summary>
+    /// <summary>Freezes the pieces where they lie for a while; then they sink away and are gone (FallenLogFade).</summary>
     void Finish()
     {
         phase = Phase.Done;
@@ -1107,6 +1109,7 @@ public class TreeFall : MonoBehaviour
             if (IsLog(body) && Upright(body)) LayDown(body);
             body.isKinematic = true;
             body.interpolation = RigidbodyInterpolation.None;
+            body.gameObject.AddComponent<FallenLogFade>().linger = logLifetime * Random.Range(0.85f, 1.15f);
         }
         pieces.Clear();
         Destroy(this); // its work is done; the pieces stay
@@ -1203,5 +1206,42 @@ public class OwnedMesh : MonoBehaviour
     void OnDestroy()
     {
         if (mesh != null) Destroy(mesh);
+    }
+}
+
+/// <summary>
+/// A broken log from a fallen tree: it lies there a while, then, once you're not looking at it (or after a
+/// good while longer regardless), sinks into the ground and is removed. The stump stays.
+/// </summary>
+public class FallenLogFade : MonoBehaviour
+{
+    void Awake() => Tuning.Apply(this); // saved tuning (Inspector changes made in Play are kept)
+
+    public float linger = 25f;
+    [Tooltip("Seconds it takes to sink away.")]
+    public float sinkTime = 3f;
+
+    float age, sinking = -1f;
+    Renderer[] renderers;
+    Vector3 start;
+
+    void Start() => renderers = GetComponentsInChildren<Renderer>();
+
+    void Update()
+    {
+        age += Time.deltaTime;
+        if (sinking < 0f)
+        {
+            if (age < linger) return;
+            bool seen = false;
+            foreach (var r in renderers) if (r != null && r.isVisible) { seen = true; break; }
+            if (seen && age < linger * 2.5f) return; // (wait till you look away, unless it's been ages)
+            sinking = 0f;
+            start = transform.position;
+            foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false; // (nothing stands on a sinking log)
+        }
+        sinking += Time.deltaTime / Mathf.Max(sinkTime, 0.1f);
+        transform.position = start + Vector3.down * (1.5f * sinking * sinking);
+        if (sinking >= 1f) Destroy(gameObject);
     }
 }
