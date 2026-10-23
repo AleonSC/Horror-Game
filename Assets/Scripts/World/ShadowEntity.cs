@@ -26,7 +26,7 @@ public class ShadowEntity : MonoBehaviour
     // Static state is cleared when Play starts, so nothing carries over from the last session if the
     // editor's Enter Play Mode settings skip reloading scripts (no domain reload).
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
-    internal static void ResetStatics() { All.Clear(); Capturing = null; skinMaterial = null; }
+    internal static void ResetStatics() { All.Clear(); Capturing = null; }
 
     /// <summary>Seconds before the first entity of a run appears.</summary>
     public const float FirstEntityDelay = 60f;
@@ -349,6 +349,7 @@ public class ShadowEntity : MonoBehaviour
     void OnDestroy()
     {
         if (fragmentRoot != null) Destroy(fragmentRoot.gameObject);
+        if (shinMat != null) Destroy(shinMat);
     }
 
     void Update()
@@ -1579,33 +1580,67 @@ public class ShadowEntity : MonoBehaviour
 
     // ---------------------------------------------------------------- Body
 
-    // The legs: it stands on them, and when it moves it walks (LegWalk): hips swinging, knees bending.
-    readonly Transform[] legPivots = new Transform[2], kneePivots = new Transform[2];
-    readonly Quaternion[] kneeRest = new Quaternion[2];
+    // The legs, hanging loose: they trail behind and swing as it moves.
+    readonly Transform[] legPivots = new Transform[2];
+    readonly Transform[] kneePivots = new Transform[2];
+    readonly Vector2[] legSwing = new Vector2[2], legSwingVel = new Vector2[2];
+    readonly float[] kneeSwing = new float[2], kneeSwingVel = new float[2];
     Vector3 lastLegPos;
-    float stridePhase, striding;
+    Material shinMat;
 
     /// <summary>
-    /// Its legs walking as it moves (stepping in time with how far it's gone), and settling back to stand
-    /// still when it stops. Teleports (appearing somewhere new) don't count as walking.
+    /// The shins' material: black that melts into the fog toward the ground, the way the sky chains melt into
+    /// the clouds (Horror/Haze, its ground haze measured up from its feet, with drifting wisps through it).
     /// </summary>
-    void LegWalk()
+    Material ShinMaterial(Material fallback)
+    {
+        if (shinMat != null) return shinMat;
+        var shader = Shader.Find("Horror/Haze");
+        if (shader == null) return fallback;
+        shinMat = new Material(shader) { renderQueue = MaterialFactory.FogFreeQueue(2000) };
+        shinMat.SetColor("_Color", Color.black);
+        shinMat.SetFloat("_Haze", 0f);
+        shinMat.SetFloat("_GroundHaze", 1f);
+        shinMat.SetFloat("_WispScale", 3f);
+        UpdateShinFade();
+        return shinMat;
+    }
+
+    void UpdateShinFade()
+    {
+        if (shinMat == null) return;
+        shinMat.SetColor("_HazeColor", RenderSettings.fogColor);
+        shinMat.SetFloat("_HazeBase", transform.position.y + 0.03f * scale);
+        shinMat.SetFloat("_HazeHeight", 0.5f * scale);
+    }
+
+    /// <summary>
+    /// The legs ragdolling a little: loose from the hips and knees, they lag behind as it moves, trailing back
+    /// the way it came and swinging on, then settling, with a faint restless twitch.
+    /// </summary>
+    void LegDrag()
     {
         float dt = Time.deltaTime;
-        if (legPivots[0] == null || dt <= 0f) return;
+        if (dt <= 0f || legPivots[0] == null) return;
         Vector3 moved = transform.position - lastLegPos;
         lastLegPos = transform.position;
-        moved.y = 0f;
-        float speed = moved.magnitude > 2f * scale ? 0f : moved.magnitude / dt;
-        stridePhase += moved.magnitude > 2f * scale ? 0f : moved.magnitude / Mathf.Max(0.55f * scale, 0.01f) * Mathf.PI;
-        striding = Mathf.MoveTowards(striding, Mathf.Clamp01(speed / (0.8f * scale)), dt * 3f);
+        Vector3 velocity = moved / dt;
+        if (velocity.sqrMagnitude > 400f) velocity = Vector3.zero; // (appearing somewhere else, not moving)
+        Vector3 local = Quaternion.Inverse(transform.rotation) * velocity;
         for (int i = 0; i < 2; i++)
         {
-            float phase = stridePhase + i * Mathf.PI;
-            float swing = Mathf.Sin(phase) * 24f * striding;
-            float bend = Mathf.Max(0f, -Mathf.Cos(phase)) * 45f * striding; // the knee folds as the leg swings through
-            legPivots[i].localRotation = Quaternion.Euler(-swing, 0f, 0f);
-            kneePivots[i].localRotation = kneeRest[i] * Quaternion.Euler(bend, 0f, 0f);
+            // The legs trail behind the way it's moving (forward motion swings them back, sideways to the side).
+            Vector2 aim = new Vector2(Mathf.Clamp(local.z * 9f, -35f, 35f), Mathf.Clamp(-local.x * 9f, -25f, 25f));
+            aim += new Vector2(Mathf.PerlinNoise(Time.time * 1.3f, i * 5.1f) - 0.5f, Mathf.PerlinNoise(i * 3.7f, Time.time * 1.1f) - 0.5f) * 6f;
+            // A loose spring: it overshoots and swings.
+            legSwingVel[i] += (aim - legSwing[i]) * (28f * dt) - legSwingVel[i] * (3.5f * dt);
+            legSwing[i] += legSwingVel[i] * dt;
+            legPivots[i].localRotation = Quaternion.Euler(legSwing[i].x, 0f, legSwing[i].y);
+            // The shins swing on from the knees, a beat behind.
+            float kneeAim = Mathf.Clamp(-legSwingVel[i].x * 0.25f, -30f, 30f);
+            kneeSwingVel[i] += (kneeAim - kneeSwing[i]) * (20f * dt) - kneeSwingVel[i] * (3f * dt);
+            kneeSwing[i] += kneeSwingVel[i] * dt;
+            kneePivots[i].localRotation = Quaternion.Euler(kneeSwing[i], 0f, 0f);
         }
     }
 
@@ -1626,7 +1661,8 @@ public class ShadowEntity : MonoBehaviour
 
     void LateUpdate()
     {
-        LegWalk();
+        LegDrag();
+        UpdateShinFade();
     }
 
     void BuildSilhouette()
@@ -1643,18 +1679,52 @@ public class ShadowEntity : MonoBehaviour
         var model = capturing ? null : EnemyModel.ForGame("Scour");
         if (model != null) { BuildFromModel(model, black); return; }
 
-        // Sculpted (ScourBody): a gaunt, too-tall figure, standing upright, in dark, faintly wet skin that
-        // shows its shape only where light falls on it.
-        ScourBody.Ensure();
-        Material skin = SkinMaterial();
+        // Proportions are for a 2.4m figure (+z is forward). Everything is too long and too thin,
+        // and the joints bend the wrong way.
         for (int side = -1; side <= 1; side += 2)
         {
-            BuildLeg(side, Mirror(ScourBody.Hip, side), skin);
-            var arm = BuildArm(side, skin);
+            BuildLeg(side, new Vector3(side * 0.11f, 1.12f, -0.02f), black);
+
+            // Ribs curling round from the spine.
+            for (int r = 0; r < 4; r++)
+            {
+                float y = 1.78f - r * 0.1f;
+                Vector3 back = new Vector3(side * 0.03f, y, -0.08f);
+                Vector3 outer = new Vector3(side * 0.16f, y - 0.04f, 0.0f);
+                Vector3 front = new Vector3(side * 0.05f, y - 0.09f, 0.1f);
+                Bone(visual, black, back, outer, 0.016f);
+                Bone(visual, black, outer, front, 0.014f);
+            }
+
+            // Collarbones and bony shoulders.
+            Vector3 shoulder = new Vector3(side * 0.26f, 1.9f, 0.02f);
+            Bone(visual, black, new Vector3(0f, 1.88f, 0.08f), shoulder, 0.03f);
+            Knob(visual, black, shoulder, 0.075f);
+
+            // Arms hang past the knees; the elbow bends backwards.
+            var arm = Pivot(visual, "Arm", shoulder);
+            Vector3 elbow = new Vector3(side * 0.12f, -0.6f, -0.16f);
+            Vector3 wrist = new Vector3(side * 0.06f, -1.22f, 0.1f);
+            Bone(arm, black, Vector3.zero, elbow, 0.045f);
+            Bone(arm, black, elbow, wrist, 0.035f);
+            Knob(arm, black, elbow, 0.06f);
+
+            // Long, curling fingers.
+            var hand = Pivot(arm, "Hand", wrist);
+            for (int f = 0; f < 4; f++)
+            {
+                float spread = (f - 1.5f) * 0.035f;
+                var finger = Pivot(hand, "Finger", new Vector3(spread, 0f, 0.01f));
+                Vector3 mid = new Vector3(spread * 0.6f, -0.17f, 0.02f);
+                Vector3 tip = new Vector3(spread * 1.1f, -0.31f, 0.09f);
+                Bone(finger, black, Vector3.zero, mid, 0.013f);
+                Bone(finger, black, mid, tip, 0.01f);
+                fingers.Add(finger);
+                fingerRest.Add(finger.localRotation);
+            }
+
             if (side < 0) leftArm = arm; else rightArm = arm;
         }
-        Segment(visual, ScourBody.Torso, skin, Vector3.zero, Quaternion.identity, 1f);
-        Segment(visual, ScourBody.Neck, skin, Vector3.zero, Quaternion.identity, 1f);
 
         // Some have more arms than they should, sprouting from the ribs below the real ones.
         if (Random.value < extraArmsChance)
@@ -1662,21 +1732,47 @@ public class ShadowEntity : MonoBehaviour
             int pairs = Random.Range(1, Mathf.Max(1, maxExtraArmPairs) + 1);
             for (int pair = 0; pair < pairs; pair++)
                 for (int side = -1; side <= 1; side += 2)
-                    BuildExtraArm(skin, side, 1.62f - pair * 0.16f, pair);
+                    BuildExtraArm(black, side, 1.68f - pair * 0.2f, pair);
         }
 
-        // The head: a long skull, deep sockets, a hanging jaw.
-        headPivot = Pivot(visual, "Head", ScourBody.HeadJoint);
-        Segment(headPivot, ScourBody.Skull, skin, Vector3.zero, Quaternion.identity, 1f);
-        Segment(headPivot, ScourBody.Jaw, skin, Vector3.zero, Quaternion.identity, 1f);
+        // Hunched spine with knobbly vertebrae, a narrow pelvis and caved-in chest.
+        Vector3[] spine =
+        {
+            new Vector3(0f, 1.12f, -0.03f), new Vector3(0f, 1.45f, -0.1f),
+            new Vector3(0f, 1.78f, -0.04f), new Vector3(0f, 1.95f, 0.12f),
+        };
+        for (int i = 0; i < spine.Length - 1; i++)
+        {
+            Bone(visual, black, spine[i], spine[i + 1], 0.06f);
+            Knob(visual, black, spine[i] + new Vector3(0f, 0f, -0.035f), 0.055f);
+        }
+        var pelvis = CreatePart(PrimitiveType.Sphere, black, visual).transform;
+        pelvis.localPosition = new Vector3(0f, 1.12f, -0.02f) * scale;
+        pelvis.localScale = new Vector3(0.24f * bulk, 0.13f, 0.15f * bulk) * scale;
+        var chest = CreatePart(PrimitiveType.Capsule, black, visual).transform;
+        chest.localPosition = new Vector3(0f, 1.66f, -0.02f) * scale;
+        chest.localRotation = Quaternion.Euler(18f, 0f, 0f);
+        chest.localScale = new Vector3(0.24f * bulk, 0.22f, 0.13f * bulk) * scale;
+
+        // A long neck jutting forward, and a small, too-tall head.
+        Vector3 neckTop = new Vector3(0f, 2.12f, 0.24f);
+        Bone(visual, black, spine[spine.Length - 1], neckTop, 0.05f);
+        headPivot = Pivot(visual, "Head", neckTop);
+        var skull = CreatePart(PrimitiveType.Sphere, black, headPivot).transform;
+        skull.localPosition = new Vector3(0f, 0.1f, 0.02f) * scale;
+        skull.localScale = new Vector3(0.2f, 0.3f, 0.22f) * scale;
+        var jaw = CreatePart(PrimitiveType.Sphere, black, headPivot).transform;
+        jaw.localPosition = new Vector3(0f, -0.05f, 0.07f) * scale;
+        jaw.localRotation = Quaternion.Euler(20f, 0f, 0f);
+        jaw.localScale = new Vector3(0.12f, 0.1f, 0.16f) * scale;
 
         // Fog-free, so eyeshine glints back from far off in the mist.
         eyeMat = MaterialFactory.NoFog(eyeColor * eyeIntensity);
-        eyeBaseScale = new Vector3(0.03f, 0.022f, 0.018f) * scale;
+        eyeBaseScale = new Vector3(0.035f, 0.025f, 0.02f) * scale;
         leftEye = CreatePart(PrimitiveType.Sphere, eyeMat, headPivot).transform;
-        leftEye.localPosition = new Vector3(-0.05f, 0.12f, 0.112f) * scale;
+        leftEye.localPosition = new Vector3(-0.05f, 0.12f, 0.125f) * scale;
         rightEye = CreatePart(PrimitiveType.Sphere, eyeMat, headPivot).transform;
-        rightEye.localPosition = new Vector3(0.05f, 0.12f, 0.112f) * scale;
+        rightEye.localPosition = new Vector3(0.05f, 0.12f, 0.125f) * scale;
 
         BuildMouth();
 
@@ -1692,128 +1788,30 @@ public class ShadowEntity : MonoBehaviour
         SetEyes(1f, eyeIntensity);
     }
 
-    static Material skinMaterial;
-
-    /// <summary>Its skin: near black, faintly wet, so the flashlight picks out its ribs and tendons.</summary>
-    static Material SkinMaterial()
-    {
-        if (skinMaterial == null) skinMaterial = MaterialFactory.Lit(new Color(0.028f, 0.024f, 0.026f), 0.55f);
-        return skinMaterial;
-    }
-
-    static Vector3 Mirror(Vector3 rightSide, int side) => new Vector3(rightSide.x * side, rightSide.y, rightSide.z);
-
-    /// <summary>One sculpted piece (ScourBody units), on a pivot, scaled to this scour (and its bulk, thick times).</summary>
-    Transform Segment(Transform parent, Mesh mesh, Material mat, Vector3 at, Quaternion rotation, float thick)
-    {
-        var go = new GameObject(mesh.name);
-        go.transform.SetParent(parent, false);
-        go.transform.localPosition = at * scale;
-        go.transform.localRotation = rotation;
-        float w = Mathf.Lerp(1f, bulk, 0.5f) * thick;
-        go.transform.localScale = new Vector3(scale * w, scale, scale * w);
-        go.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var r = go.AddComponent<MeshRenderer>();
-        r.sharedMaterial = mat;
-        r.shadowCastingMode = ShadowCastingMode.On;
-        return go.transform;
-    }
-
-    /// <summary>A pivot whose -y points from one joint to the next (given in the parent's frame).</summary>
-    Transform Aim(Transform parent, string name, Vector3 at, Vector3 towardLocal)
-    {
-        var t = Pivot(parent, name, at);
-        t.localRotation = Quaternion.FromToRotation(Vector3.down, towardLocal);
-        return t;
-    }
-
     /// <summary>
-    /// An arm, from the shoulder: the shoulder pivot stays square (its poses and twitching turn it), and the
-    /// arm hangs from it: a long upper arm, a forearm corded with tendons, a long hand with
-    /// four jointed, clawed fingers and a thumb, curling and uncurling.
-    /// </summary>
-    Transform BuildArm(int side, Material mat)
-    {
-        Vector3 shoulder = Mirror(ScourBody.Shoulder, side), elbow = Mirror(ScourBody.Elbow, side), wrist = Mirror(ScourBody.Wrist, side);
-        var arm = Pivot(visual, "Arm", shoulder);
-        var upper = Aim(arm, "Upper Arm", Vector3.zero, elbow - shoulder);
-        Segment(upper, ScourBody.UpperArm, mat, Vector3.zero, Quaternion.identity, 1f);
-        // The elbow, then the forearm turning from the upper arm's line to the wrist.
-        var fore = Pivot(upper, "Forearm", Vector3.down * ScourBody.UpperArmLength);
-        fore.localRotation = Quaternion.Inverse(upper.localRotation) * Quaternion.FromToRotation(Vector3.down, wrist - elbow);
-        Segment(fore, ScourBody.Forearm, mat, Vector3.zero, Quaternion.identity, 1f);
-        BuildHand(Pivot(fore, "Hand", Vector3.down * ScourBody.ForearmLength), mat, side, 1f);
-        return arm;
-    }
-
-    /// <summary>A long hand hanging from the wrist: palm, four fingers in three joints each, a thumb; claws.</summary>
-    void BuildHand(Transform hand, Material mat, int side, float size)
-    {
-        hand.localRotation = Quaternion.Euler(-8f, 0f, side * 4f);
-        Segment(hand, ScourBody.Palm, mat, Vector3.zero, Quaternion.Euler(0f, side * 90f, 0f), size);
-        for (int f = 0; f < 4; f++)
-        {
-            // Across the end of the palm (the palm faces the body), splaying a little.
-            float across = (f - 1.5f) * 0.016f;
-            var finger = Pivot(hand, "Finger", new Vector3(0f, -ScourBody.PalmLength * 0.95f, across) * size);
-            finger.localRotation = Quaternion.Euler(Random.Range(5f, 18f), 0f, (f - 1.5f) * 4f * -side);
-            float length = f == 0 || f == 3 ? 0.85f : 1f;
-            FingerBones(finger, mat, ScourBody.FingerBones, length * size);
-            fingers.Add(finger);
-            fingerRest.Add(finger.localRotation);
-        }
-        var thumb = Pivot(hand, "Thumb", new Vector3(side * -0.01f, -ScourBody.PalmLength * 0.35f, 0.03f) * size);
-        thumb.localRotation = Quaternion.Euler(25f, 0f, side * -25f);
-        FingerBones(thumb, mat, ScourBody.ThumbBones, 0.9f * size);
-    }
-
-    /// <summary>A finger's joints, each bending a little more, ending in a claw.</summary>
-    void FingerBones(Transform root, Material mat, float[] bones, float size)
-    {
-        Mesh[] meshes = bones.Length == 3
-            ? new[] { ScourBody.FingerBase, ScourBody.FingerMid, ScourBody.FingerTip }
-            : new[] { ScourBody.FingerMid, ScourBody.FingerTip };
-        Transform at = root;
-        for (int k = 0; k < bones.Length; k++)
-        {
-            if (k > 0)
-            {
-                at = Pivot(at, "Joint", Vector3.down * bones[k - 1] * size);
-                at.localRotation = Quaternion.Euler(12f + k * 8f, 0f, 0f);
-            }
-            var seg = Segment(at, meshes[k], mat, Vector3.zero, Quaternion.identity, 1f);
-            seg.localScale *= size;
-        }
-    }
-
-    /// <summary>
-    /// A leg from the hip (2.4m-figure units): a long thigh, a shin with its sharp front edge and
-    /// hanging calf, an ankle, and a long narrow foot with long toes. It stands; LegWalk swings it.
+    /// A leg from the hip: the thigh angled forward, the shin sharply back, and then no foot at all: the shin
+    /// thins and fades away into nothing a little above the ground. It hangs loose from the hip and knee (LegDrag).
     /// </summary>
     void BuildLeg(int side, Vector3 hip, Material mat)
     {
-        Vector3 knee = hip + (Mirror(ScourBody.Knee, side) - Mirror(ScourBody.Hip, side));
-        Vector3 ankle = hip + (Mirror(ScourBody.Ankle, side) - Mirror(ScourBody.Hip, side));
+        Vector3 knee = hip + new Vector3(side * 0.04f, -0.5f, 0.16f);
         var legPivot = Pivot(visual, "Leg", hip);
-        var thigh = Aim(legPivot, "Thigh", Vector3.zero, knee - hip);
-        Segment(thigh, ScourBody.Thigh, mat, Vector3.zero, Quaternion.identity, 1f);
-        var kneePivot = Pivot(thigh, "Knee", Vector3.down * ScourBody.ThighLength);
-        kneePivot.localRotation = Quaternion.Inverse(thigh.localRotation) * Quaternion.FromToRotation(Vector3.down, ankle - knee);
-        Segment(kneePivot, ScourBody.Shin, mat, Vector3.zero, Quaternion.identity, 1f);
-        // The foot, flat on the ground, pointing forward (undoing the leg's turns).
-        var foot = Pivot(kneePivot, "Foot", Vector3.down * ScourBody.ShinLength);
-        foot.localRotation = Quaternion.Inverse(thigh.localRotation * kneePivot.localRotation) * Quaternion.Euler(0f, side * -6f, 0f);
-        Segment(foot, ScourBody.Foot, mat, Vector3.zero, Quaternion.identity, 1f);
-        for (int toe = 0; toe < 4; toe++)
+        Bone(legPivot, mat, Vector3.zero, knee - hip, 0.07f);
+        var kneePivot = Pivot(legPivot, "Knee", knee - hip);
+        Knob(kneePivot, mat, Vector3.zero, 0.085f);
+        // The shin, in pieces down from the knee, each thinner and fainter than the last.
+        Vector3 toward = new Vector3(side * -0.02f, -0.56f, -0.26f); // (knee down nearly to the ground)
+        const int pieces = 5;
+        var shin = ShinMaterial(mat);
+        for (int k = 0; k < pieces; k++)
         {
-            float across = (toe - 1.5f) * 0.017f;
-            var t = Segment(foot, ScourBody.Toe, mat, new Vector3(across, -0.075f, 0.2f), Quaternion.Euler(-80f, (toe - 1.5f) * 5f, 0f), 1f);
-            if (toe == 0 || toe == 3) t.localScale *= 0.85f;
+            // Thinning as it goes down, and melting into the fog toward the ground.
+            float t0 = k / (float)pieces, t1 = (k + 1) / (float)pieces;
+            var piece = Bone(kneePivot, shin, toward * t0, toward * t1, Mathf.Lerp(0.045f, 0.016f, t1));
+            if (t0 > 0.4f) piece.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
-        int i = side < 0 ? 0 : 1;
-        legPivots[i] = legPivot;
-        kneePivots[i] = kneePivot;
-        kneeRest[i] = kneePivot.localRotation;
+        legPivots[side < 0 ? 0 : 1] = legPivot;
+        kneePivots[side < 0 ? 0 : 1] = kneePivot;
     }
 
     bool capturing;
@@ -1883,9 +1881,8 @@ public class ShadowEntity : MonoBehaviour
 
         if (model.legs)
         {
-            ScourBody.Ensure();
-            BuildLeg(-1, model.hipLeft * toFigure, SkinMaterial());
-            BuildLeg(1, model.hipRight * toFigure, SkinMaterial());
+            BuildLeg(-1, model.hipLeft * toFigure, black);
+            BuildLeg(1, model.hipRight * toFigure, black);
         }
 
         Vector3 mouthAt = model.mouth * toFigure;
@@ -1910,19 +1907,32 @@ public class ShadowEntity : MonoBehaviour
     /// An extra arm growing out of the side of the ribcage at a height: thinner and longer than the real
     /// ones, splayed out, with its own curling fingers. It moves out of step with everything else.
     /// </summary>
-    void BuildExtraArm(Material mat, int side, float y, int pair)
+    void BuildExtraArm(Material black, int side, float y, int pair)
     {
-        Vector3 root = new Vector3(side * 0.13f, y, -0.01f);
+        Vector3 root = new Vector3(side * 0.15f, y, -0.02f);
+        Knob(visual, black, root, 0.045f);
+
         var arm = Pivot(visual, "Extra Arm", root);
         arm.localRotation = Quaternion.Euler(Random.Range(-25f, 15f), 0f, side * Random.Range(18f, 40f));
-        float length = 0.85f + pair * 0.08f; // thinner and a little shorter than the real ones, splayed out
-        var upper = Segment(arm, ScourBody.UpperArm, mat, Vector3.zero, Quaternion.Euler(-10f, 0f, 0f), 0.75f);
-        upper.localScale = Vector3.Scale(upper.localScale, new Vector3(1f, length, 1f));
-        var fore = Pivot(arm, "Forearm", Quaternion.Euler(-10f, 0f, 0f) * Vector3.down * ScourBody.UpperArmLength * length);
-        fore.localRotation = Quaternion.Euler(25f, 0f, 0f);
-        var lower = Segment(fore, ScourBody.Forearm, mat, Vector3.zero, Quaternion.identity, 0.75f);
-        lower.localScale = Vector3.Scale(lower.localScale, new Vector3(1f, length, 1f));
-        BuildHand(Pivot(fore, "Hand", Vector3.down * ScourBody.ForearmLength * length), mat, side, 0.85f);
+        float length = 1.15f + pair * 0.1f;
+        Vector3 elbow = new Vector3(side * 0.08f, -0.55f * length, 0.12f);
+        Vector3 wrist = new Vector3(side * 0.03f, -1.05f * length, -0.05f);
+        Bone(arm, black, Vector3.zero, elbow, 0.03f);
+        Bone(arm, black, elbow, wrist, 0.024f);
+        Knob(arm, black, elbow, 0.045f);
+
+        var hand = Pivot(arm, "Hand", wrist);
+        for (int f = 0; f < 3; f++)
+        {
+            float spread = (f - 1f) * 0.03f;
+            var finger = Pivot(hand, "Finger", new Vector3(spread, 0f, 0.01f));
+            Vector3 mid = new Vector3(spread * 0.6f, -0.15f, 0.03f);
+            Vector3 tip = new Vector3(spread * 1.2f, -0.28f, 0.1f);
+            Bone(finger, black, Vector3.zero, mid, 0.01f);
+            Bone(finger, black, mid, tip, 0.008f);
+            fingers.Add(finger);
+            fingerRest.Add(finger.localRotation);
+        }
 
         extraArms.Add(arm);
         extraArmRest.Add(arm.localRotation);
@@ -2202,6 +2212,27 @@ public class ShadowEntity : MonoBehaviour
             float curl = 15f + 25f * Mathf.Sin(t * 1.3f + i * 0.9f);
             fingers[i].localRotation = fingerRest[i] * Quaternion.Euler(curl, 0f, 0f);
         }
+    }
+
+    /// <summary>A thin cylinder between two points (in 2.4m-figure units, local to parent).</summary>
+    Transform Bone(Transform parent, Material mat, Vector3 a, Vector3 b, float thickness)
+    {
+        a *= scale;
+        b *= scale;
+        Vector3 d = b - a;
+        var bone = CreatePart(PrimitiveType.Cylinder, mat, parent).transform;
+        bone.localPosition = (a + b) * 0.5f;
+        bone.localRotation = Quaternion.FromToRotation(Vector3.up, d);
+        bone.localScale = new Vector3(thickness * bulk * scale, d.magnitude * 0.5f, thickness * bulk * scale);
+        return bone;
+    }
+
+    /// <summary>A knobbly joint.</summary>
+    void Knob(Transform parent, Material mat, Vector3 at, float size)
+    {
+        var knob = CreatePart(PrimitiveType.Sphere, mat, parent).transform;
+        knob.localPosition = at * scale;
+        knob.localScale = Vector3.one * (size * Mathf.Lerp(1f, bulk, 0.6f) * scale);
     }
 
     Transform Pivot(Transform parent, string name, Vector3 at)
