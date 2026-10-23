@@ -34,7 +34,7 @@ namespace Game.Player
 
         [Header("Stamina")]
         [Range(1f, 30f), Tooltip("Seconds of running on full stamina.")]
-        public float sprintTime = 9f;
+        public float sprintTime = 20f;
         [Range(1f, 30f), Tooltip("Seconds to recover fully, standing still.")]
         public float recoverTime = 7f;
         [Range(1f, 4f), Tooltip("Recovering while walking takes this many times longer.")]

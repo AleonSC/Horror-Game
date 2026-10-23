@@ -442,7 +442,7 @@ fall silent when something's near: the silence is the warning).
 | Acceleration / air control | 12 / 0.3 |
 | Jump height / gravity | 1.1 m / -20 |
 | Standing / crouch height | 1.8 / 1.0 m (eye 0.15 below the top) |
-| Sprint time (full stamina) | 9 s (x (1 + snack bonus)) |
+| Sprint time (full stamina) | 20 s (x (1 + snack bonus)) |
 | Recover time | 7 s standing (walking 1.67x slower), +5% per lamp lit |
 | Winded | run it out and you can't run until stamina is back to 35%; you pant (audible to the blind one close by) |
 | Head bob | 1.8 Hz, 0.05 m |

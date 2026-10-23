@@ -16,10 +16,10 @@ namespace Game.Tests
         }
 
         [Test]
-        public void Sprinting_LastsNineSeconds_ThenWinded()
+        public void Sprinting_LastsTwentySeconds_ThenWinded()
         {
             var st = new Stamina();
-            Run(st, 8.5f, true, true);
+            Run(st, 19.5f, true, true);
             Assert.IsFalse(st.Winded);
             Assert.Greater(st.Value, 0f);
             Run(st, 1f, true, true);
@@ -31,7 +31,7 @@ namespace Game.Tests
         public void Winded_UntilBackTo35Percent()
         {
             var st = new Stamina();
-            Run(st, 9.1f, true, true); // out at 9 s (then a moment of walking recovery)
+            Run(st, 20.1f, true, true); // out at 20 s (then a moment of walking recovery)
             Assert.IsTrue(st.Winded);
             Run(st, 7f * 0.3f, false, false); // about 30% back
             Assert.IsTrue(st.Winded);
@@ -45,7 +45,7 @@ namespace Game.Tests
             var standing = new Stamina();
             var walking = new Stamina();
             var lamps = new Stamina();
-            foreach (var st in new[] { standing, walking, lamps }) Run(st, 10f, true, true);
+            foreach (var st in new[] { standing, walking, lamps }) Run(st, 21f, true, true);
             Run(standing, 3f, false, false);
             Run(walking, 3f, false, true);
             Run(lamps, 3f, false, false, 5);
@@ -57,8 +57,8 @@ namespace Game.Tests
         public void SnackBonus_MakesSprintLast()
         {
             var st = new Stamina { Bonus = 0.25f };
-            Run(st, 10f, true, true);
-            Assert.IsFalse(st.Winded); // 9 s x 1.25 = 11.25 s
+            Run(st, 22f, true, true);
+            Assert.IsFalse(st.Winded); // 20 s x 1.25 = 25 s
         }
 
         [Test]
@@ -67,7 +67,7 @@ namespace Game.Tests
             var st = new Stamina();
             int on = 0, off = 0;
             st.WindedChanged += w => { if (w) on++; else off++; };
-            Run(st, 10f, true, true);
+            Run(st, 21f, true, true);
             st.Refill();
             Assert.AreEqual(1, on);
             Assert.AreEqual(1, off);
