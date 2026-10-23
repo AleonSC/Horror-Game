@@ -87,8 +87,8 @@ public static class TreePackSetup
             {
                 if (first) { bounds = r.bounds; first = false; } else bounds.Encapsulate(r.bounds);
                 foreach (var m in r.sharedMaterials)
-                    if (m != null && m.shader != null && !m.shader.name.StartsWith("HDRP/") && !m.shader.name.Contains("HDRP") && !m.shader.name.Contains("Nature/SpeedTree"))
-                        problems.Add($"material '{m.name}' uses '{m.shader.name}' (not HDRP: it'll be pink; convert it)");
+                    if (m != null && TreePack.NeedsConverting(m))
+                        problems.Add($"material '{m.name}' uses '{m.shader.name}' (not HDRP: the game swaps in an HDRP version as it grows the trees)");
             }
             foreach (var filter in prefab.GetComponentsInChildren<MeshFilter>(true))
                 if (filter.sharedMesh != null && !filter.sharedMesh.isReadable) { problems.Add("meshes without Read/Write (it won't fall: use Allow Felling)"); break; }

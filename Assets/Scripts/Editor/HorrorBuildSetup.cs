@@ -72,6 +72,13 @@ public class HorrorBuildSetup : IPreprocessBuildWithReport
             m.enableInstancing = true;
             m.SetFloat("_DoubleSidedEnable", 1f);
         });
+        changed |= Ensure("LitCutout", lit, m => // (tree pack leaves: TreePack.ToHdrp)
+        {
+            m.enableInstancing = true;
+            m.SetFloat("_DoubleSidedEnable", 1f);
+            m.SetFloat("_AlphaCutoffEnable", 1f);
+            m.renderQueue = (int)RenderQueue.AlphaTest;
+        });
         changed |= Ensure("LitTransparent", lit, m =>
         {
             m.SetFloat("_SurfaceType", 1f);

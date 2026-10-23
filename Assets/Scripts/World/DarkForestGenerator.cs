@@ -740,6 +740,7 @@ public class DarkForestGenerator : MonoBehaviour
         model.transform.localPosition = Vector3.zero;
         model.transform.localRotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
         model.transform.localScale = prefab.transform.localScale * size;
+        TreePack.ConvertMaterials(model); // (old built-in materials, like the Tree Creator's, would be pink)
         if (!pack.keepPrefabColliders)
             foreach (var col in model.GetComponentsInChildren<Collider>(true))
             {
