@@ -37,7 +37,13 @@ namespace Game.Entities
         Collider peekTree;
         bool ducker;
         float peekOut = 1f;
+        float appearedAt;
         bool everAppeared;
+
+        // A ducker appears tucked mostly behind its trunk, just an edge of it showing.
+        const float PeekOnAppear = 0.35f;
+        // For a moment after it appears, it lets itself be seen before ducking.
+        const float DuckGrace = 1.5f;
 
         public ScourState State { get; private set; } = ScourState.Hidden;
         public int Id => id;
@@ -115,6 +121,8 @@ namespace Game.Entities
             body.SetMaterialize(0f);
             huntProgress = 0f;
             eyeFlare = 1f;
+            blue = 0f;      // (red again, whatever happened last time)
+            eyeshine = 0f;
             Play(Sound.Appear, 0.8f, 1f, 45f);
             SetState(ScourState.Appearing, ducker ? "appearing (behind a tree)" : "appearing");
             if (!everAppeared && Services.TryGet<EventBus>(out var events)) events.Publish(new EntitySpawned(EntityKind.Scour, id, spot));
@@ -126,9 +134,10 @@ namespace Game.Entities
             timer += Time.deltaTime;
             float t = timer / Mathf.Max(0.05f, s.materializeTime);
             body.SetMaterialize(t);
-            UpdateEyes(0f, false);
+            UpdateEyes(0f, false); // (pure red: blue and eyeshine were reset when it began appearing)
             if (t < 1f) return;
             body.Shudder(0f);
+            appearedAt = Time.time;
             creepTimer = NextCreepDelay();
             SetState(ScourState.Stalking, "watching");
         }
@@ -151,7 +160,8 @@ namespace Game.Entities
 
                 ducker = Random.value < s.duckerChance && FindTreeNear(p, out peekTree);
                 if (!ducker) peekTree = null;
-                spot = ducker ? PeekSpot(1f) : p;
+                peekOut = PeekOnAppear;
+                spot = ducker ? PeekSpot(peekOut) : p;
                 return true;
             }
             spot = default;
@@ -324,9 +334,11 @@ namespace Game.Entities
         // A ducker snaps back behind its trunk when looked at, and leans out again when you look away.
         void UpdatePeeking(float dt)
         {
-            bool watched = PlayerSense.IsLookedAt(player, peekTree.transform.position + Vector3.up * 1.6f, s.lookAngle * 0.6f);
-            peekOut = Mathf.MoveTowards(peekOut, watched ? 0f : 1f, dt * (watched ? 6f : 0.8f));
-            transform.position = Vector3.MoveTowards(transform.position, PeekSpot(peekOut), 6f * dt);
+            bool watched = Time.time - appearedAt > DuckGrace &&
+                           PlayerSense.IsLookedAt(player, peekTree.transform.position + Vector3.up * 1.6f, s.lookAngle * 0.6f);
+            // Ducks back quickly (a sharp creep, not a jump), leans out again slowly.
+            peekOut = Mathf.MoveTowards(peekOut, watched ? 0f : 1f, dt * (watched ? 3f : 0.6f));
+            transform.position = Vector3.MoveTowards(transform.position, PeekSpot(peekOut), 2.5f * dt);
         }
 
         // ------------------------------------------------------------------ Eyes and the flashlight
