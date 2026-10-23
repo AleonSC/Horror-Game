@@ -1719,13 +1719,6 @@ public class ShadowEntity : MonoBehaviour
         return go.transform;
     }
 
-    /// <summary>A knot of bone at a joint, size across (ScourBody units).</summary>
-    void BoneKnot(Transform parent, Material mat, Vector3 at, float size)
-    {
-        var t = Segment(parent, ScourBody.Joint, mat, at, Quaternion.identity, 1f);
-        t.localScale = Vector3.one * size * scale;
-    }
-
     /// <summary>A pivot whose -y points from one joint to the next (given in the parent's frame).</summary>
     Transform Aim(Transform parent, string name, Vector3 at, Vector3 towardLocal)
     {
@@ -1736,20 +1729,18 @@ public class ShadowEntity : MonoBehaviour
 
     /// <summary>
     /// An arm, from the shoulder: the shoulder pivot stays square (its poses and twitching turn it), and the
-    /// arm hangs from it: a long upper arm, a knotted elbow, a forearm corded with tendons, a long hand with
+    /// arm hangs from it: a long upper arm, a forearm corded with tendons, a long hand with
     /// four jointed, clawed fingers and a thumb, curling and uncurling.
     /// </summary>
     Transform BuildArm(int side, Material mat)
     {
         Vector3 shoulder = Mirror(ScourBody.Shoulder, side), elbow = Mirror(ScourBody.Elbow, side), wrist = Mirror(ScourBody.Wrist, side);
         var arm = Pivot(visual, "Arm", shoulder);
-        BoneKnot(arm, mat, Vector3.zero, 0.11f);
         var upper = Aim(arm, "Upper Arm", Vector3.zero, elbow - shoulder);
         Segment(upper, ScourBody.UpperArm, mat, Vector3.zero, Quaternion.identity, 1f);
         // The elbow, then the forearm turning from the upper arm's line to the wrist.
         var fore = Pivot(upper, "Forearm", Vector3.down * ScourBody.UpperArmLength);
         fore.localRotation = Quaternion.Inverse(upper.localRotation) * Quaternion.FromToRotation(Vector3.down, wrist - elbow);
-        BoneKnot(fore, mat, Vector3.zero, 0.07f);
         Segment(fore, ScourBody.Forearm, mat, Vector3.zero, Quaternion.identity, 1f);
         BuildHand(Pivot(fore, "Hand", Vector3.down * ScourBody.ForearmLength), mat, side, 1f);
         return arm;
@@ -1759,7 +1750,6 @@ public class ShadowEntity : MonoBehaviour
     void BuildHand(Transform hand, Material mat, int side, float size)
     {
         hand.localRotation = Quaternion.Euler(-8f, 0f, side * 4f);
-        BoneKnot(hand, mat, Vector3.zero, 0.05f * size);
         Segment(hand, ScourBody.Palm, mat, Vector3.zero, Quaternion.Euler(0f, side * 90f, 0f), size);
         for (int f = 0; f < 4; f++)
         {
@@ -1797,7 +1787,7 @@ public class ShadowEntity : MonoBehaviour
     }
 
     /// <summary>
-    /// A leg from the hip (2.4m-figure units): a long thigh, a bony knee, a shin with its sharp front edge and
+    /// A leg from the hip (2.4m-figure units): a long thigh, a shin with its sharp front edge and
     /// hanging calf, an ankle, and a long narrow foot with long toes. It stands; LegWalk swings it.
     /// </summary>
     void BuildLeg(int side, Vector3 hip, Material mat)
@@ -1805,17 +1795,14 @@ public class ShadowEntity : MonoBehaviour
         Vector3 knee = hip + (Mirror(ScourBody.Knee, side) - Mirror(ScourBody.Hip, side));
         Vector3 ankle = hip + (Mirror(ScourBody.Ankle, side) - Mirror(ScourBody.Hip, side));
         var legPivot = Pivot(visual, "Leg", hip);
-        BoneKnot(legPivot, mat, Vector3.zero, 0.13f);
         var thigh = Aim(legPivot, "Thigh", Vector3.zero, knee - hip);
         Segment(thigh, ScourBody.Thigh, mat, Vector3.zero, Quaternion.identity, 1f);
         var kneePivot = Pivot(thigh, "Knee", Vector3.down * ScourBody.ThighLength);
         kneePivot.localRotation = Quaternion.Inverse(thigh.localRotation) * Quaternion.FromToRotation(Vector3.down, ankle - knee);
-        BoneKnot(kneePivot, mat, Vector3.zero, 0.1f);
         Segment(kneePivot, ScourBody.Shin, mat, Vector3.zero, Quaternion.identity, 1f);
         // The foot, flat on the ground, pointing forward (undoing the leg's turns).
         var foot = Pivot(kneePivot, "Foot", Vector3.down * ScourBody.ShinLength);
         foot.localRotation = Quaternion.Inverse(thigh.localRotation * kneePivot.localRotation) * Quaternion.Euler(0f, side * -6f, 0f);
-        BoneKnot(foot, mat, Vector3.zero, 0.06f);
         Segment(foot, ScourBody.Foot, mat, Vector3.zero, Quaternion.identity, 1f);
         for (int toe = 0; toe < 4; toe++)
         {
@@ -1926,7 +1913,6 @@ public class ShadowEntity : MonoBehaviour
     void BuildExtraArm(Material mat, int side, float y, int pair)
     {
         Vector3 root = new Vector3(side * 0.13f, y, -0.01f);
-        BoneKnot(visual, mat, root, 0.06f);
         var arm = Pivot(visual, "Extra Arm", root);
         arm.localRotation = Quaternion.Euler(Random.Range(-25f, 15f), 0f, side * Random.Range(18f, 40f));
         float length = 0.85f + pair * 0.08f; // thinner and a little shorter than the real ones, splayed out
@@ -1934,7 +1920,6 @@ public class ShadowEntity : MonoBehaviour
         upper.localScale = Vector3.Scale(upper.localScale, new Vector3(1f, length, 1f));
         var fore = Pivot(arm, "Forearm", Quaternion.Euler(-10f, 0f, 0f) * Vector3.down * ScourBody.UpperArmLength * length);
         fore.localRotation = Quaternion.Euler(25f, 0f, 0f);
-        BoneKnot(fore, mat, Vector3.zero, 0.055f);
         var lower = Segment(fore, ScourBody.Forearm, mat, Vector3.zero, Quaternion.identity, 0.75f);
         lower.localScale = Vector3.Scale(lower.localScale, new Vector3(1f, length, 1f));
         BuildHand(Pivot(fore, "Hand", Vector3.down * ScourBody.ForearmLength * length), mat, side, 0.85f);

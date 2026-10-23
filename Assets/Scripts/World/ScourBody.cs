@@ -5,8 +5,9 @@ using UnityEngine;
 /// The scour's body, sculpted: smooth meshes instead of sticks and balls. A gaunt, too-tall figure, standing
 /// upright: a starved torso (ribs showing down its sides, a sunken belly, every vertebra standing out down its
 /// back, shoulder blades jutting), a long neck strung with tendons, a long skull with a heavy brow, sunken
-/// cheeks and deep eye sockets, long thin arms with knotted elbows and tendons down the forearms, long hands
-/// with jointed, clawed fingers, long legs with bony knees, and narrow feet with long toes.
+/// cheeks and deep eye sockets, long thin arms with tendons down the forearms, long hands
+/// with jointed, clawed fingers, long legs, and narrow feet with long toes. Limbs run smoothly from one
+/// segment into the next (rounded ends overlapping at the joints).
 ///
 /// Every mesh is built once, in the units of a 2.4m figure (+z forward, +y up), and shared by every scour.
 /// Limb meshes run down their own -y from where they join on, so they hang from a pivot. Meshes are named
@@ -41,7 +42,7 @@ public static class ScourBody
 
     // ---------------------------------------------------------------- The meshes
 
-    public static Mesh Torso, Neck, Skull, Jaw, Joint, UpperArm, Forearm, Palm, FingerBase, FingerMid, FingerTip, Thigh, Shin, Foot, Toe;
+    public static Mesh Torso, Neck, Skull, Jaw, UpperArm, Forearm, Palm, FingerBase, FingerMid, FingerTip, Thigh, Shin, Foot, Toe;
 
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => Torso = null;
@@ -54,7 +55,6 @@ public static class ScourBody
         Neck = Name(BuildNeck(), "Scour Neck");
         Skull = Name(BuildSkull(), "Scour Skull");
         Jaw = Name(BuildJaw(), "Scour Jaw");
-        Joint = Name(BuildJoint(), "Scour Joint");
         UpperArm = Name(Limb(UpperArmLength, t => Keys(t, 0f, 0.042f, 0.25f, 0.036f, 0.7f, 0.032f, 1f, 0.036f), t => 1f, Tendons(0.04f, 0.4f, 0.9f)), "Scour Upper Arm");
         Forearm = Name(Limb(ForearmLength, t => Keys(t, 0f, 0.036f, 0.2f, 0.034f, 0.75f, 0.024f, 1f, 0.022f), t => 0.85f, Tendons(0.09f, 0.1f, 0.85f)), "Scour Forearm");
         Palm = Name(Limb(PalmLength, t => Keys(t, 0f, 0.022f, 0.4f, 0.034f, 1f, 0.03f), t => 0.42f, Tendons(0.05f, 0.3f, 1f), 10, 12), "Scour Palm");
@@ -65,7 +65,7 @@ public static class ScourBody
         Shin = Name(Limb(ShinLength, t => Keys(t, 0f, 0.05f, 0.1f, 0.045f, 0.3f, 0.05f, 0.8f, 0.03f, 1f, 0.03f), t => 0.9f, ShinDetail), "Scour Shin");
         Foot = Name(BuildFoot(), "Scour Foot");
         Toe = Name(Limb(0.09f, t => Keys(t, 0f, 0.012f, 0.3f, 0.011f, 0.85f, 0.006f, 1f, 0.001f), t => 0.75f, null, 8, 8), "Scour Toe");
-        foreach (var m in new[] { Torso, Neck, Skull, Jaw, Joint, UpperArm, Forearm, Palm, FingerBase, FingerMid, FingerTip, Thigh, Shin, Foot, Toe })
+        foreach (var m in new[] { Torso, Neck, Skull, Jaw, UpperArm, Forearm, Palm, FingerBase, FingerMid, FingerTip, Thigh, Shin, Foot, Toe })
             EnemyMeshes.Register(m);
     }
 
@@ -161,10 +161,25 @@ public static class ScourBody
         return 0.5f * (2f * p1 + (-p0 + p2) * u + (2f * p0 - 5f * p1 + 4f * p2 - p3) * u * u + (-p0 + 3f * p1 - 3f * p2 + p3) * u * u * u);
     }
 
-    /// <summary>A limb segment hanging down its own -y, length long.</summary>
+    /// <summary>
+    /// A limb segment hanging down its own -y, length long, its ends rounded off and reaching a little past
+    /// the joints (by the radius there), so each segment runs smoothly into the next with no seam or knob.
+    /// </summary>
     static Mesh Limb(float length, System.Func<float, float> radius, System.Func<float, float> squash,
-        System.Func<float, float, float> detail, int rings = 16, int sides = 14) =>
-        Loft(new[] { Vector3.zero, Vector3.down * length }, radius, t => radius(t) * squash(t), detail, rings, sides, Vector3.forward);
+        System.Func<float, float, float> detail, int rings = 16, int sides = 14)
+    {
+        float r0 = radius(0f), r1 = radius(1f), total = length + r0 + r1;
+        float T(float s) => Mathf.Clamp01((s * total - r0) / length);
+        float Dome(float s)
+        {
+            float d = s * total, e = total - d;
+            float u = d < r0 ? (r0 - d) / r0 : e < r1 ? (r1 - e) / r1 : 0f;
+            return Mathf.Sqrt(Mathf.Max(0f, 1f - u * u));
+        }
+        return Loft(new[] { Vector3.up * r0, Vector3.down * (length + r1) },
+            s => radius(T(s)) * Dome(s), s => radius(T(s)) * squash(T(s)) * Dome(s),
+            detail != null ? (s, a) => detail(T(s), a) : (System.Func<float, float, float>)null, rings + 8, sides, Vector3.forward);
+    }
 
     /// <summary>Normals, with the seam where each ring meets itself smoothed over.</summary>
     static Mesh Finish(List<Vector3> verts, List<int> tris, int cols, int rows)
@@ -311,10 +326,6 @@ public static class ScourBody
             return centre + tilt * p;
         }, 20, 28);
     }
-
-    /// <summary>A knot of bone for the joints (a lumpy ball, radius 1).</summary>
-    static Mesh BuildJoint() =>
-        Sculpt(d => d * (1f + 0.08f * (Mathf.PerlinNoise(d.x * 3f + 5f, d.y * 3f + d.z * 2f) - 0.5f)), 14, 18);
 
     /// <summary>The foot, from the ankle: long and narrow, high-arched, along +z to where the toes start.</summary>
     static Mesh BuildFoot()
