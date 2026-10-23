@@ -561,7 +561,7 @@ public class TreeFall : MonoBehaviour
     }
 
     static bool IsGround(Collider c) =>
-        c is TerrainCollider || (c is MeshCollider m && m.sharedMesh != null && m.sharedMesh.name == "Forest Ground");
+        c.GetType().Name == "TerrainCollider" || (c is MeshCollider m && m.sharedMesh != null && m.sharedMesh.name == "Forest Ground");
 
     void Splinter(Vector3 impactPoint, float impactSpeed)
     {
