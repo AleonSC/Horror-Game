@@ -88,6 +88,28 @@ public class Crawler : MonoBehaviour
     /// two back, each ending in a long-fingered hand flat on the ground. A gaping mouth of uneven teeth; two
     /// pale eyes in deep sockets.
     /// </summary>
+    /// <summary>
+    /// The crawler exactly as the game builds it, as a model (for the model editor): built on an object
+    /// that's switched off, so it never wakes, then turned into shapes and thrown away.
+    /// </summary>
+    internal static EnemyModel CaptureModel()
+    {
+        var go = new GameObject("Crawler (model capture)");
+        go.SetActive(false);
+        try
+        {
+            var c = go.AddComponent<Crawler>();
+            Tuning.Apply(c);
+            c.Build();
+            Transform head = null;
+            foreach (var t in go.GetComponentsInChildren<Transform>(true)) if (t.name == "Head") { head = t; break; }
+            var eyes = new List<Transform>();
+            foreach (var r in c.eyes) if (r != null) eyes.Add(r.transform);
+            return EnemyModel.FromHierarchy("Crawler", 0f, go.transform, head, null, null, null, null, null, eyes, null);
+        }
+        finally { Destroy(go); }
+    }
+
     void Build()
     {
         var skin = MaterialFactory.Lit(new Color(0.15f, 0.135f, 0.125f), 0.3f);

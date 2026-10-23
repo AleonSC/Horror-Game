@@ -816,6 +816,25 @@ public class BlindEntity : MonoBehaviour
         head.localRotation = Quaternion.Slerp(head.localRotation, headTarget, 1f - Mathf.Exp(-14f * dt));
     }
 
+    /// <summary>
+    /// The blind one exactly as the game builds it, as a model (for the model editor): built on an object
+    /// that's switched off, so it never wakes, then turned into shapes and thrown away.
+    /// </summary>
+    internal static EnemyModel CaptureModel()
+    {
+        var go = new GameObject("Blind One (model capture)");
+        go.SetActive(false);
+        try
+        {
+            var b = go.AddComponent<BlindEntity>();
+            Tuning.Apply(b);
+            b.scale = b.height / 2.4f;
+            b.Build();
+            return EnemyModel.FromHierarchy("Blind One", b.height, go.transform, b.head, b.arms[0], b.arms[1], b.legs[0], b.legs[1], b.mouth, null, null);
+        }
+        finally { Destroy(go); }
+    }
+
     void Build()
     {
         var black = MaterialFactory.Unlit(new Color(0.012f, 0.012f, 0.014f));

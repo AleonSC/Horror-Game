@@ -4,11 +4,12 @@ using UnityEngine;
 using UnityEngine.Rendering.HighDefinition;
 
 /// <summary>
-/// An in-game editor for the enemies' looks (F10, or Dev Tools > Model editor). Each enemy is a model of
-/// simple shapes on a few joints (EnemyModel): pick an enemy, add, move, turn, size and colour shapes, mark
-/// eyes, set the joints and legs, and save it. Saved models are JSON files (in the project, under
+/// An in-game editor for the characters' looks (F10, or Dev Tools > Model editor): the enemies, and the
+/// player's own simple body (seen from the drone). Each is a model of simple shapes on a few joints
+/// (EnemyModel), starting from exactly how the game builds it: pick one, add, move, turn, size and colour
+/// shapes, mark eyes, set the joints and legs, and save it. Saved models are JSON files (in the project, under
 /// Resources/EnemyModels) that can be sent along as a design; Copy puts the JSON on the clipboard to paste
-/// anywhere. A saved scour model with "Use in game" on is what new scours are built from.
+/// anywhere. A saved scour or player model with "Use in game" on is what the game builds them from.
 ///
 /// It shows the model on a lit turntable far below the world, while the game waits, paused. Right-drag to
 /// turn round it, middle-drag (or Shift + right-drag) to move, the wheel to zoom, click a shape to pick it.
@@ -142,12 +143,15 @@ public class ModelEditor : MonoBehaviour
 
     // ---------------------------------------------------------------- The model
 
-    /// <summary>Switches to an enemy: what's being edited, else what's saved, else a simple starting model.</summary>
+    /// <summary>
+    /// Switches to a character: what's being edited, else what's saved, else exactly how the game builds it
+    /// (or, if that can't be had, a simple stand-in).
+    /// </summary>
     void Select(string enemy)
     {
         enemyIndex = Mathf.Max(0, System.Array.IndexOf(EnemyModel.Enemies, enemy));
         if (!editing.ContainsKey(enemy))
-            editing[enemy] = EnemyModel.Load(enemy) ?? EnemyModel.Template(enemy);
+            editing[enemy] = EnemyModel.Load(enemy) ?? EnemyModel.Capture(enemy) ?? EnemyModel.Template(enemy);
         selected = -1;
         rebuild = true;
         FrameModel();
@@ -347,6 +351,7 @@ public class ModelEditor : MonoBehaviour
         {
             string path = Model.Save();
             unsaved.Remove(EnemyName);
+            if (EnemyName == "Player") { var body = FindAnyObjectByType<PlayerBody>(); if (body != null) body.Rebuild(); }
             Say($"Saved: {path}");
         }
         if (GUILayout.Button("Copy JSON", button))
@@ -377,13 +382,13 @@ public class ModelEditor : MonoBehaviour
             if (saved != null) { editing[EnemyName] = saved; unsaved.Remove(EnemyName); selected = -1; rebuild = true; FrameModel(); Say("Back to the saved model."); }
             else Say("Nothing saved yet.");
         }
-        if (GUILayout.Button("Start over", button))
+        if (GUILayout.Button("The game's look", button))
         {
-            editing[EnemyName] = EnemyModel.Template(EnemyName);
+            editing[EnemyName] = EnemyModel.Capture(EnemyName) ?? EnemyModel.Template(EnemyName);
             selected = -1;
             Changed();
             FrameModel();
-            Say("Started over from the simple model.");
+            Say("Back to exactly how the game builds it.");
         }
         if (GUILayout.Button("Delete saved", button))
         {
@@ -391,7 +396,9 @@ public class ModelEditor : MonoBehaviour
             Say("Deleted the saved model: the game goes back to its own look.");
         }
         GUILayout.EndHorizontal();
-        bool use = GUILayout.Toggle(Model.useInGame, EnemyName == "Scour" ? "  Use in game (new scours are built from it once saved)" : "  Use in game (only the scour can, for now: this one's a design)");
+        bool use = GUILayout.Toggle(Model.useInGame, EnemyName == "Scour" ? "  Use in game (new scours are built from it once saved)"
+            : EnemyName == "Player" ? "  Use in game (your body, seen from the drone, once saved)"
+            : "  Use in game (only the scour and the player can, for now: this one's a design)");
         if (use != Model.useInGame) { Model.useInGame = use; Changed(); }
         GUILayout.Space(8f * unit);
 
@@ -451,11 +458,18 @@ public class ModelEditor : MonoBehaviour
         float h = Model.height;
         GUILayout.Space(6f * unit);
         GUILayout.Label("Position (m, from what it's on)", small);
-        part.position = Vector3Field("pos", part.position, -h, h);
+        Vector3 pos = Vector3Field("pos", part.position, -h, h);
         GUILayout.Label("Rotation (degrees)", small);
-        part.rotation = Vector3Field("rot", part.rotation, -180f, 180f);
+        Vector3 rot = Vector3Field("rot", part.rotation, -180f, 180f);
         GUILayout.Label("Size (m)", small);
-        part.scale = Vector3Field("size", part.scale, 0.005f, h);
+        Vector3 size = Vector3Field("size", part.scale, 0.0005f, h);
+        if (pos != part.position || rot != part.rotation || size != part.scale)
+        {
+            part.position = pos;
+            part.rotation = rot;
+            part.scale = size;
+            Moved(selected);
+        }
         GUILayout.Space(6f * unit);
         GUILayout.Label("Colour", small);
         Color c = part.color;
@@ -463,9 +477,14 @@ public class ModelEditor : MonoBehaviour
         c.g = Number("Green", "g", c.g, 0f, 1f);
         c.b = Number("Blue", "b", c.b, 0f, 1f);
         c.a = 1f;
-        if (c != part.color) { part.color = c; Changed(); }
+        if (c != part.color) { part.color = c; unsaved.Add(EnemyName); } // (HighlightSelected colours it)
         float glow = Number("Glow", "glow", part.glow, 0f, 12f);
-        if (!Mathf.Approximately(glow, part.glow)) { part.glow = glow; Changed(); }
+        if (!Mathf.Approximately(glow, part.glow))
+        {
+            bool kindChanged = (glow > 0f) != (part.glow > 0f); // (lit, or glowing: a different material)
+            part.glow = glow;
+            if (kindChanged) Changed(); else unsaved.Add(EnemyName);
+        }
     }
 
     void DrawJoints()
@@ -474,12 +493,12 @@ public class ModelEditor : MonoBehaviour
         float h = m.height;
         GUILayout.Label("Joints", title);
         GUILayout.Label("Where the head, arms and hips are (m, from the ground under it). Shapes on them move with them.", small);
-        m.head = LabelledVector("Head", "head", m.head, -h, h * 1.2f);
-        m.armLeft = LabelledVector("Left arm", "armL", m.armLeft, -h, h * 1.2f);
-        m.armRight = LabelledVector("Right arm", "armR", m.armRight, -h, h * 1.2f);
-        m.hipLeft = LabelledVector("Left hip", "hipL", m.hipLeft, -h, h * 1.2f);
-        m.hipRight = LabelledVector("Right hip", "hipR", m.hipRight, -h, h * 1.2f);
-        m.mouth = LabelledVector("Mouth (from the head)", "mouth", m.mouth, -h * 0.3f, h * 0.3f);
+        m.head = Track(LabelledVector("Head", "head", m.head, -h, h * 1.2f), m.head);
+        m.armLeft = Track(LabelledVector("Left arm", "armL", m.armLeft, -h, h * 1.2f), m.armLeft);
+        m.armRight = Track(LabelledVector("Right arm", "armR", m.armRight, -h, h * 1.2f), m.armRight);
+        m.hipLeft = Track(LabelledVector("Left hip", "hipL", m.hipLeft, -h, h * 1.2f), m.hipLeft);
+        m.hipRight = Track(LabelledVector("Right hip", "hipR", m.hipRight, -h, h * 1.2f), m.hipRight);
+        m.mouth = Track(LabelledVector("Mouth (from the head)", "mouth", m.mouth, -h * 0.3f, h * 0.3f), m.mouth);
 
         GUILayout.Space(8f * unit);
         GUILayout.Label("Legs", title);
@@ -509,6 +528,24 @@ public class ModelEditor : MonoBehaviour
         return value;
     }
 
+    Vector3 Track(Vector3 value, Vector3 before)
+    {
+        if (value != before) Changed();
+        return value;
+    }
+
+    /// <summary>A shape moved, turned or resized: just that shape is put right (not the whole model rebuilt).</summary>
+    void Moved(int index)
+    {
+        unsaved.Add(EnemyName);
+        if (built == null || index < 0 || index >= built.parts.Count || built.parts[index] == null) { rebuild = true; return; }
+        var part = Model.parts[index];
+        var t = built.parts[index].transform;
+        t.localPosition = part.position;
+        t.localRotation = Quaternion.Euler(part.rotation);
+        t.localScale = part.scale;
+    }
+
     Vector3 LabelledVector(string name, string id, Vector3 v, float min, float max)
     {
         GUILayout.Label(name, small);
@@ -517,11 +554,9 @@ public class ModelEditor : MonoBehaviour
 
     Vector3 Vector3Field(string id, Vector3 v, float min, float max)
     {
-        Vector3 before = v;
         v.x = Number("x", id + "x", v.x, min, max);
         v.y = Number("y", id + "y", v.y, min, max);
         v.z = Number("z", id + "z", v.z, min, max);
-        if (v != before) Changed();
         return v;
     }
 

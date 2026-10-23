@@ -1690,8 +1690,8 @@ public class ShadowEntity : MonoBehaviour
 
         Material black = MaterialFactory.Unlit(Color.black);
 
-        // A model saved in the model editor, if there is one to use.
-        var model = EnemyModel.ForGame("Scour");
+        // A model saved in the model editor, if there is one to use (not while capturing the game's own look).
+        var model = capturing ? null : EnemyModel.ForGame("Scour");
         if (model != null) { BuildFromModel(model, black); return; }
 
         // Proportions are for a 2.4m figure (+z is forward). Everything is too long and too thin,
@@ -1822,6 +1822,36 @@ public class ShadowEntity : MonoBehaviour
         legPivots[i] = legPivot;
         kneePivots[i] = kneePivot;
         footPivots[i] = footPivot;
+    }
+
+    bool capturing;
+
+    /// <summary>
+    /// The scour exactly as the game builds it, as a model (for the model editor): built on an object that's
+    /// switched off, so it never wakes, then turned into shapes and thrown away. No extra arms; its dragged
+    /// legs and its mouth are left to the game, as they're made either way.
+    /// </summary>
+    internal static EnemyModel CaptureModel()
+    {
+        var go = new GameObject("Scour (model capture)");
+        go.SetActive(false);
+        try
+        {
+            var s = go.AddComponent<ShadowEntity>();
+            Tuning.Apply(s);
+            s.capturing = true;
+            s.extraArmsChance = 0f;
+            s.scale = s.height / 2.4f;
+            s.BuildSilhouette();
+            var model = EnemyModel.FromHierarchy("Scour", s.height, go.transform, s.headPivot, s.leftArm, s.rightArm,
+                s.legPivots[0], s.legPivots[1], s.mouth, new[] { s.leftEye, s.rightEye }, new[] { s.legPivots[0], s.legPivots[1] });
+            model.legs = true;
+            model.thigh = s.thighLength * s.scale;
+            model.shin = s.shinLength * s.scale;
+            model.legThickness = 0.06f * s.bulk * s.scale;
+            return model;
+        }
+        finally { Destroy(go); }
     }
 
     /// <summary>

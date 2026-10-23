@@ -3,15 +3,16 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// An enemy's look, as simple shapes (spheres, capsules, boxes, cylinders) placed on a few joints: the body
-/// (the ground under its feet), the head, each arm and each hip. Made and saved with the in-game model
+/// A character's look, as simple shapes (spheres, capsules, boxes, cylinders) placed on a few joints: the
+/// body (the ground under its feet), the head, each arm and each hip. Made and saved with the in-game model
 /// editor (ModelEditor, F10), as a JSON file per enemy that can be shared and read back.
 ///
 /// Numbers are in metres for an enemy of its usual height (height): each part's position and rotation are
 /// relative to the joint it's on (+z is forward, +y up), and the joints relative to the ground under it.
 /// The scour builds itself from its model when one is saved with useInGame on (its legs, mouth, eye glow
-/// and twitching are still its own, placed at the model's joints); the others' models are designs, for
-/// now, to be made into the real thing.
+/// and twitching are still its own, placed at the model's joints), and so does the player's body (PlayerBody,
+/// seen from the drone); the others' models are designs, for now, to be made into the real thing. Capture
+/// gives each enemy exactly as the game builds it, to start from.
 ///
 /// Saved to Assets/Scripts/Resources/EnemyModels/[name].json from the editor (so it's in the project and
 /// the build), or to the game's save folder in a build.
@@ -39,10 +40,13 @@ public class EnemyModel
 
     public List<ModelPart> parts = new List<ModelPart>();
 
-    /// <summary>The enemies the editor knows, with the height each is usually.</summary>
-    public static readonly string[] Enemies = { "Scour", "Blind One", "Crawler", "Flier", "Giant" };
+    /// <summary>The characters the editor knows: the enemies, and the player (seen from the drone).</summary>
+    public static readonly string[] Enemies = { "Scour", "Blind One", "Crawler", "Flier", "Giant", "Player" };
+
+    /// <summary>The characters the game builds from their saved model (the others' models are designs).</summary>
+    public static bool UsedInGame(string enemy) => enemy == "Scour" || enemy == "Player";
     public static readonly string[] Shapes = { "Sphere", "Capsule", "Cube", "Cylinder" };
-    public static readonly string[] Joints = { "Body", "Head", "ArmL", "ArmR" };
+    public static readonly string[] Joints = { "Body", "Head", "ArmL", "ArmR", "HipL", "HipR" };
 
     public EnemyModel Clone() => JsonUtility.FromJson<EnemyModel>(JsonUtility.ToJson(this));
 
@@ -175,6 +179,8 @@ public class EnemyModel
             case "Head": return b.head;
             case "ArmL": return b.armLeft;
             case "ArmR": return b.armRight;
+            case "HipL": return b.hipLeft;
+            case "HipR": return b.hipRight;
             default: return b.root;
         }
     }
@@ -219,13 +225,145 @@ public class EnemyModel
         else Object.DestroyImmediate(col);
     }
 
+    // ---------------------------------------------------------------- The game's own look
+
+    /// <summary>
+    /// The enemy exactly as the game builds it (every shape, where it is, its colour, which joint it's on),
+    /// made by its own building code; null if it can't be (then Template is a rough stand-in).
+    /// </summary>
+    public static EnemyModel Capture(string enemy)
+    {
+        try
+        {
+            switch (enemy)
+            {
+                case "Scour": return ShadowEntity.CaptureModel();
+                case "Blind One": return BlindEntity.CaptureModel();
+                case "Crawler": return Crawler.CaptureModel();
+                case "Flier": return FlyingEntity.CaptureModel();
+                case "Giant": return WatcherEvent.Instance != null ? WatcherEvent.Instance.CaptureModel() : null;
+                default: return Template(enemy);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[Horror] Couldn't capture the {enemy}'s look: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A model of what's been built under root (standing on the ground at root): every sphere, capsule, box
+    /// and cylinder that's showing, on the given joints (null for none), with the eyes marked. Anything under
+    /// skip (the scour's dragged legs, which the game makes itself) is left out, as are effects (beams,
+    /// glows) and anything that isn't one of those shapes (the scour's mouth, which the game makes too).
+    /// height 0 or less: worked out from how tall it is.
+    /// </summary>
+    public static EnemyModel FromHierarchy(string enemy, float height, Transform root, Transform head, Transform armLeft,
+        Transform armRight, Transform hipLeft, Transform hipRight, Transform mouth, ICollection<Transform> eyes, ICollection<Transform> skip)
+    {
+        var renderers = new List<MeshRenderer>();
+        float top = 0f;
+        foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (!ShownUnder(r.transform, root) || Under(r.transform, skip)) continue;
+            var filter = r.GetComponent<MeshFilter>();
+            if (filter == null || filter.sharedMesh == null || System.Array.IndexOf(Shapes, filter.sharedMesh.name) < 0) continue;
+            string shader = r.sharedMaterial != null ? r.sharedMaterial.shader.name : "";
+            if (shader.Contains("Beam") || shader.Contains("Glow") || shader.Contains("Smoke") || shader.Contains("Trail")) continue;
+            renderers.Add(r);
+            // (Its mesh's corners: a renderer under a switched-off object has no bounds of its own.)
+            Bounds b = filter.sharedMesh.bounds;
+            for (int k = 0; k < 8; k++)
+            {
+                Vector3 corner = b.center + Vector3.Scale(b.extents, new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1));
+                top = Mathf.Max(top, root.InverseTransformPoint(r.transform.TransformPoint(corner)).y);
+            }
+        }
+        if (height <= 0f) height = Mathf.Max(top, 0.1f);
+
+        Vector3 At(Transform t, Vector3 fallback) => t != null ? root.InverseTransformPoint(t.position) : fallback;
+        var m = new EnemyModel
+        {
+            enemy = enemy, height = height, legs = false,
+            head = At(head, new Vector3(0f, height * 0.9f, 0f)),
+            armLeft = At(armLeft, new Vector3(-height * 0.1f, height * 0.75f, 0f)),
+            armRight = At(armRight, new Vector3(height * 0.1f, height * 0.75f, 0f)),
+            hipLeft = At(hipLeft, new Vector3(-height * 0.05f, height * 0.45f, 0f)),
+            hipRight = At(hipRight, new Vector3(height * 0.05f, height * 0.45f, 0f)),
+        };
+        m.mouth = head != null && mouth != null ? root.InverseTransformVector(mouth.position - head.position) : new Vector3(0f, 0f, height * 0.05f);
+
+        var count = new Dictionary<string, int>();
+        foreach (var r in renderers)
+        {
+            Transform t = r.transform;
+            string attach = Under(t, head) ? "Head" : Under(t, armLeft) ? "ArmL" : Under(t, armRight) ? "ArmR"
+                : Under(t, hipLeft) ? "HipL" : Under(t, hipRight) ? "HipR" : "Body";
+            Vector3 joint = attach == "Head" ? m.head : attach == "ArmL" ? m.armLeft : attach == "ArmR" ? m.armRight
+                : attach == "HipL" ? m.hipLeft : attach == "HipR" ? m.hipRight : Vector3.zero;
+            string shape = r.GetComponent<MeshFilter>().sharedMesh.name;
+            bool eye = eyes != null && eyes.Contains(t);
+            Vector3 rootScale = root.lossyScale;
+            var part = new ModelPart
+            {
+                shape = shape,
+                attach = attach,
+                eye = eye,
+                position = root.InverseTransformPoint(t.position) - joint,
+                rotation = (Quaternion.Inverse(root.rotation) * t.rotation).eulerAngles,
+                scale = new Vector3(t.lossyScale.x / rootScale.x, t.lossyScale.y / rootScale.y, t.lossyScale.z / rootScale.z),
+            };
+            ReadColour(r.sharedMaterial, part);
+            string label = eye ? "Eye" : (attach == "Body" ? "" : attach + " ") + shape.ToLowerInvariant();
+            count.TryGetValue(label, out int n);
+            count[label] = ++n;
+            part.name = $"{char.ToUpperInvariant(label[0])}{label.Substring(1)} {n}";
+            m.parts.Add(part);
+        }
+        return m;
+    }
+
+    /// <summary>A material's colour, as a colour and a glow (HDR colours brighter than 1 glow).</summary>
+    static void ReadColour(Material mat, ModelPart part)
+    {
+        Color c = Color.black;
+        if (mat != null)
+        {
+            if (mat.HasProperty("_UnlitColor")) c = mat.GetColor("_UnlitColor");
+            else if (mat.HasProperty("_BaseColor")) c = mat.GetColor("_BaseColor");
+            else if (mat.HasProperty("_Color")) c = mat.GetColor("_Color");
+        }
+        float max = c.maxColorComponent;
+        if (max > 1.001f) { part.glow = max; c /= max; }
+        part.color = new Color(c.r, c.g, c.b, 1f);
+    }
+
+    static bool Under(Transform t, Transform parent) => parent != null && (t == parent || t.IsChildOf(parent));
+
+    static bool Under(Transform t, ICollection<Transform> parents)
+    {
+        if (parents == null) return false;
+        foreach (var p in parents) if (Under(t, p)) return true;
+        return false;
+    }
+
+    /// <summary>Shown, as far as everything between it and root goes (root itself may be switched off).</summary>
+    static bool ShownUnder(Transform t, Transform root)
+    {
+        for (; t != null && t != root; t = t.parent)
+            if (!t.gameObject.activeSelf) return false;
+        return true;
+    }
+
     // ---------------------------------------------------------------- Starting points
 
-    /// <summary>A simple starting model for this enemy, roughly its shape, to edit from.</summary>
+    /// <summary>A simple starting model for this character, roughly its shape, to edit from.</summary>
     public static EnemyModel Template(string enemy)
     {
         switch (enemy)
         {
+            case "Player": return Player();
             case "Blind One": return BlindOne();
             case "Crawler": return Crawler();
             case "Flier": return Flier();
@@ -236,6 +374,40 @@ public class EnemyModel
 
     static ModelPart P(string name, string shape, string attach, Vector3 pos, Vector3 rot, Vector3 size, Color color, float glow = 0f, bool eye = false) =>
         new ModelPart { name = name, shape = shape, attach = attach, position = pos, rotation = rot, scale = size, color = color, glow = glow, eye = eye };
+
+    /// <summary>
+    /// The player, simple: a hooded jacket, jeans, boots, a drone remote in the right hand (shown while
+    /// flying the drone). About 1.75m.
+    /// </summary>
+    static EnemyModel Player()
+    {
+        var jacket = new Color(0.2f, 0.22f, 0.16f);
+        var hood = new Color(0.14f, 0.15f, 0.11f);
+        var skin = new Color(0.72f, 0.56f, 0.46f);
+        var boots = new Color(0.1f, 0.08f, 0.06f);
+        var remote = new Color(0.12f, 0.12f, 0.13f);
+        var m = new EnemyModel
+        {
+            enemy = "Player", height = 1.75f,
+            head = new Vector3(0f, 1.55f, 0f), armLeft = new Vector3(-0.21f, 1.4f, 0f), armRight = new Vector3(0.21f, 1.4f, 0f),
+            hipLeft = new Vector3(-0.09f, 0.9f, 0f), hipRight = new Vector3(0.09f, 0.9f, 0f), mouth = new Vector3(0f, 0f, 0.1f),
+            thigh = 0.45f, shin = 0.45f, legThickness = 0.12f,
+            notes = "Seen from the drone. Its legs are drawn in the leg colour (the first shape's colour is used in the editor).",
+        };
+        m.parts.Add(P("Jacket", "Capsule", "Body", new Vector3(0f, 1.17f, 0f), Vector3.zero, new Vector3(0.38f, 0.33f, 0.24f), jacket));
+        m.parts.Add(P("Head", "Sphere", "Head", new Vector3(0f, 0.08f, 0.01f), Vector3.zero, new Vector3(0.2f, 0.24f, 0.21f), skin));
+        m.parts.Add(P("Hood", "Sphere", "Head", new Vector3(0f, 0.11f, -0.02f), Vector3.zero, new Vector3(0.24f, 0.26f, 0.25f), hood));
+        foreach (var (attach, side) in new[] { ("ArmL", -1f), ("ArmR", 1f) })
+        {
+            m.parts.Add(P(side < 0 ? "Sleeve L" : "Sleeve R", "Capsule", attach, new Vector3(0f, -0.27f, 0f), Vector3.zero, new Vector3(0.11f, 0.29f, 0.11f), jacket));
+            m.parts.Add(P(side < 0 ? "Hand L" : "Hand R", "Sphere", attach, new Vector3(0f, -0.6f, 0f), Vector3.zero, new Vector3(0.08f, 0.09f, 0.07f), skin));
+        }
+        m.parts.Add(P("Boot L", "Cube", "HipL", new Vector3(0f, -0.85f, 0.04f), Vector3.zero, new Vector3(0.11f, 0.1f, 0.26f), boots));
+        m.parts.Add(P("Boot R", "Cube", "HipR", new Vector3(0f, -0.85f, 0.04f), Vector3.zero, new Vector3(0.11f, 0.1f, 0.26f), boots));
+        m.parts.Add(P("Remote", "Cube", "ArmR", new Vector3(-0.09f, -0.66f, 0.02f), Vector3.zero, new Vector3(0.16f, 0.03f, 0.1f), remote));
+        m.parts.Add(P("Remote screen", "Cube", "ArmR", new Vector3(-0.09f, -0.645f, 0.02f), Vector3.zero, new Vector3(0.08f, 0.005f, 0.06f), new Color(0.3f, 0.6f, 0.9f), 1.5f));
+        return m;
+    }
 
     /// <summary>A scour, simplified: a hunched, too-thin black figure, long arms, a small tall head, two red eyes.</summary>
     static EnemyModel Scour()
@@ -338,7 +510,7 @@ public class ModelPart
     public string name = "Part";
     [Tooltip("Sphere, Capsule, Cube or Cylinder.")]
     public string shape = "Sphere";
-    [Tooltip("What it's on: Body, Head, ArmL or ArmR. It moves with that.")]
+    [Tooltip("What it's on: Body, Head, ArmL, ArmR, HipL or HipR. It moves with that.")]
     public string attach = "Body";
     [Tooltip("An eye: glows, and (on the scour) widens, flares and burns blue like its eyes do.")]
     public bool eye;

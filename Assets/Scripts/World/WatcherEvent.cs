@@ -946,6 +946,20 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         public Material black, eyeMaterial;
     }
 
+    /// <summary>
+    /// The giant exactly as the game builds it, as a model (for the model editor): a rig built and turned into
+    /// shapes, then thrown away.
+    /// </summary>
+    internal EnemyModel CaptureModel()
+    {
+        var rig = BuildRig("Giant (model capture)", MaterialFactory.Unlit(new Color(0.01f, 0.005f, 0.005f)), MaterialFactory.NoFog(new Color(4f, 0.2f, 0.05f)));
+        try
+        {
+            return EnemyModel.FromHierarchy("Giant", giantHeight, rig.root, rig.head, rig.arms[0], rig.arms[1], rig.legs[0], rig.legs[1], null, rig.eyes, null);
+        }
+        finally { Destroy(rig.root.gameObject); }
+    }
+
     GiantRig BuildRig(string name, Material black, Material eyes)
     {
         var rig = new GiantRig { black = black, eyeMaterial = eyes };

@@ -637,6 +637,27 @@ public class FlyingEntity : MonoBehaviour
     /// hooked beak and one great eye, ragged wings of separate long feathers, a fanned tail, and legs with
     /// hooked talons folded back under it. All black, a silhouette against the sky.
     /// </summary>
+    /// <summary>
+    /// The flier exactly as the game builds it, as a model (for the model editor): built on an object
+    /// that's switched off, so it never wakes, then turned into shapes and thrown away. Its wings are its
+    /// arms.
+    /// </summary>
+    internal static EnemyModel CaptureModel()
+    {
+        var go = new GameObject("Flier (model capture)");
+        go.SetActive(false);
+        try
+        {
+            var f = go.AddComponent<FlyingEntity>();
+            Tuning.Apply(f);
+            f.Build();
+            var model = EnemyModel.FromHierarchy("Flier", 0f, go.transform, f.head, f.shoulders[0], f.shoulders[1], f.legs[0], f.legs[1], null,
+                f.eye != null ? new[] { f.eye } : null, null);
+            return model;
+        }
+        finally { Destroy(go); }
+    }
+
     void Build()
     {
         // Fog-free, so it stays a crisp black shape against the sky at any distance instead of melting into it.

@@ -230,6 +230,7 @@ public class FirstPersonController : MonoBehaviour
     {
         Tuning.Apply(this); // saved tuning (Save Tuning on the component's menu), before anything uses it
         controller = GetComponent<CharacterController>();
+        if (GetComponent<PlayerBody>() == null) gameObject.AddComponent<PlayerBody>(); // (seen from the drone, never by you)
 
         if (cameraRoot == null)
         {
