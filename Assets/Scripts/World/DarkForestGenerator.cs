@@ -88,6 +88,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool spawnCar = true;
     [Tooltip("Stand a lone open door somewhere, between two lamp posts, that leads to a vast dark room.")]
     public bool spawnPortalDoor = true;
+    [Tooltip("Keep the lone door at least this far from where the player starts (the middle of the map).")]
+    public float portalDoorMinDistanceFromStart = 65f;
 
     [Header("Props")]
     public int rockCount = 480;
@@ -1326,7 +1328,7 @@ public class DarkForestGenerator : MonoBehaviour
         for (int attempt = 0; attempt < 500 && ShackPositions.Count < shackCount; attempt++)
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
-            if (p.magnitude < 30f) continue; // not right next to the spawn
+            if (p.magnitude < portalDoorMinDistanceFromStart) continue; // well away from where you start // not right next to the spawn
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), minShackSpacing)) continue;
             ShackPositions.Add(p);
 

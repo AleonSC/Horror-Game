@@ -19,8 +19,8 @@ public class LampSpawner : MonoBehaviour
 
     [Tooltip("How many lamps there are in the forest.")]
     public int lampCount = 10;
-    [Tooltip("Keep lamps at least this far from the middle of the map (where the player spawns).")]
-    public float minDistanceFromCenter = 15f;
+    [Tooltip("Keep lamps at least this far from the middle of the map, where the player starts (so none is in sight at the start).")]
+    public float minDistanceFromStart = 45f;
     public float minLampSpacing = 25f;
     [Tooltip("Keep lamps at least this far from any tree.")]
     public float treeClearance = 2f;
@@ -74,7 +74,7 @@ public class LampSpawner : MonoBehaviour
         for (int attempt = 0; attempt < lampCount * 200 && placed.Count < lampCount; attempt++)
         {
             var p = new Vector3(Random.Range(-half, half), 0f, Random.Range(-half, half));
-            if (new Vector2(p.x, p.z).magnitude < minDistanceFromCenter) continue;
+            if (new Vector2(p.x, p.z).magnitude < minDistanceFromStart) continue;
             if (TooClose(p, placed)) continue;
             if (generator != null && (NearTree(generator, p) || generator.IsNearStructure(p, 7f))) continue;
 
