@@ -37,6 +37,7 @@ namespace Game.Entities
         Collider peekTree;
         bool ducker;
         float peekOut = 1f;
+        float eyesSeen = 1f;
         float appearedAt;
         bool everAppeared;
 
@@ -122,6 +123,7 @@ namespace Game.Entities
             huntProgress = 0f;
             eyeFlare = 1f;
             blue = 0f;      // (red again, whatever happened last time)
+            eyesSeen = PlayerSense.Occluded(player.Head.position, spot + Vector3.up * s.height) ? 0f : 1f;
             eyeshine = 0f;
             Play(Sound.Appear, 0.8f, 1f, 45f);
             SetState(ScourState.Appearing, ducker ? "appearing (behind a tree)" : "appearing");
@@ -349,7 +351,11 @@ namespace Game.Entities
             float flash = s.spawnEyeGlow * Mathf.Lerp(0.1f, 1f, huntProgress);
             float glow = Mathf.Lerp(hunt, Mathf.Max(hunt, flash), eyeFlare);
             eyeshine = Mathf.MoveTowards(eyeshine, eyesLit ? 1f : 0f, Time.deltaTime * 6f);
-            body.SetEyes(Mathf.Lerp(1f, 1.6f, closeness), Mathf.Max(glow, eyeshine * s.eyeshine), blue, eyeshine * (1f - blue), s.eyeLight, s.eyeLightRange);
+            // The glow round its eyes is a light with no shadows: it would shine through a trunk into the
+            // fog. So it fades out while the eyes are hidden from you, and back when they're in sight.
+            bool hidden = PlayerSense.Occluded(player.Head.position, body.EyePoint);
+            eyesSeen = Mathf.MoveTowards(eyesSeen, hidden ? 0f : 1f, Time.deltaTime * 4f);
+            body.SetEyes(Mathf.Lerp(1f, 1.6f, closeness), Mathf.Max(glow, eyeshine * s.eyeshine), blue, eyeshine * (1f - blue), s.eyeLight * eyesSeen, s.eyeLightRange);
         }
 
         /// <summary>Counts flicks of the flashlight while it's on it. Enough, quickly enough, and it charges.</summary>
