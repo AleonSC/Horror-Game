@@ -52,5 +52,7 @@ Desktop.ini
 # on your PC only. Put future packs in Assets/Packs/ and they're left out automatically.
 /[Aa]ssets/polyperfect/
 /[Aa]ssets/polyperfect.meta
+/[Aa]ssets/Tree9/
+/[Aa]ssets/Tree9.meta
 /[Aa]ssets/[Pp]acks/
 /[Aa]ssets/[Pp]acks.meta
