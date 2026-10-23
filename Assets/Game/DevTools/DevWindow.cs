@@ -84,8 +84,12 @@ namespace Game.DevTools
             open = value;
             if (Services.TryGet<UiState>(out var ui))
             {
-                if (open) ui.PanelOpened();
-                else ui.PanelClosed();
+                if (open) ui.PanelOpened(takesKeys: false); // (you can still walk with it open)
+                else
+                {
+                    ui.PanelClosed(takesKeys: false);
+                    ui.Typing = false;
+                }
             }
             if (open)
             {
@@ -121,6 +125,9 @@ namespace Game.DevTools
         {
             if (!open || tabs.Count == 0) return;
             DevStyle.Ensure();
+            // While the search box has the keyboard, typing doesn't walk the player.
+            if (Event.current.type == EventType.Layout && Services.TryGet<UiState>(out var typingUi))
+                typingUi.Typing = GUIUtility.keyboardControl != 0;
 
             // Lay out on a 1080-high canvas, scaled to the screen.
             float scale = Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2f);

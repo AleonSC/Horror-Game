@@ -91,6 +91,7 @@ namespace Game.Player
             float dt = Time.deltaTime;
             var s = config.settings;
             bool uiOpen = Services.TryGet<UiState>(out var ui) && ui.AnyOpen;
+            bool keysTaken = ui != null && ui.KeysTaken;
             shake = Mathf.MoveTowards(shake, 0f, dt * Mathf.Max(2f, shake * 3f));
             groggy = Mathf.Max(0f, groggy - dt);
 
@@ -103,13 +104,10 @@ namespace Game.Player
             UpdateCursor(uiOpen);
             if (Cursor.lockState == CursorLockMode.Locked && !uiOpen) Look(s);
 
-            if (!uiOpen)
-            {
-                if (input.Use.WasPressedThisFrame() && Flashlight != null) Flashlight.Toggle();
-                if (input.Interact.WasPressedThisFrame() && Cursor.lockState == CursorLockMode.Locked) Interactor.TryInteract();
-            }
+            if (!keysTaken && input.Use.WasPressedThisFrame() && Flashlight != null) Flashlight.Toggle();
+            if (!uiOpen && input.Interact.WasPressedThisFrame() && Cursor.lockState == CursorLockMode.Locked) Interactor.TryInteract();
 
-            Move(s, dt, uiOpen);
+            Move(s, dt, keysTaken);
             Interactor.Update(head, s.reach, s.aimAssist);
         }
 
@@ -149,14 +147,14 @@ namespace Game.Player
             transform.rotation = Quaternion.Euler(0f, yaw, 0f);
         }
 
-        void Move(PlayerSettings s, float dt, bool uiOpen)
+        void Move(PlayerSettings s, float dt, bool keysTaken)
         {
-            Vector2 move = uiOpen ? Vector2.zero : input.Move.ReadValue<Vector2>();
+            Vector2 move = keysTaken ? Vector2.zero : input.Move.ReadValue<Vector2>();
             if (move.sqrMagnitude > 1f) move.Normalize();
             Moving = move.sqrMagnitude > 0.01f;
 
             // Crouch while held down (stand back up only if there's room).
-            bool wantCrouch = !uiOpen && input.Crouch.IsPressed();
+            bool wantCrouch = !keysTaken && input.Crouch.IsPressed();
             if (!wantCrouch && Crouching && !RoomToStand(s)) wantCrouch = true;
             Crouching = wantCrouch;
             float targetHeight = Crouching ? s.crouchingHeight : s.standingHeight;
@@ -165,7 +163,7 @@ namespace Game.Player
             body.center = new Vector3(0f, height * 0.5f, 0f);
 
             int lamps = Services.TryGet<GameRun>(out var run) ? run.LampsLit : 0;
-            bool wantSprint = !uiOpen && input.Sprint.IsPressed() && !Crouching && move.y > 0.1f;
+            bool wantSprint = !keysTaken && input.Sprint.IsPressed() && !Crouching && move.y > 0.1f;
             Running = Stamina.Tick(dt, wantSprint, Moving, s, lamps);
 
             float speed = Crouching ? s.crouchSpeed : Running ? s.runSpeed : s.walkSpeed;
@@ -182,7 +180,7 @@ namespace Game.Player
             if (body.isGrounded)
             {
                 if (velocity.y < 0f) velocity.y = -2f; // (keeps it pressed to slopes)
-                if (!uiOpen && !Crouching && input.Jump.WasPressedThisFrame())
+                if (!keysTaken && !Crouching && input.Jump.WasPressedThisFrame())
                     velocity.y = Mathf.Sqrt(2f * s.jumpHeight * -s.gravity);
             }
             velocity.y += s.gravity * dt;

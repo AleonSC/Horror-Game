@@ -36,6 +36,8 @@ namespace Game.Player
             if (keyboard.escapeKey.wasPressedThisFrame) SetCaptured(false);
             else if (mouse.leftButton.wasPressedThisFrame && Cursor.lockState != CursorLockMode.Locked && !uiOpen)
                 SetCaptured(true);
+            bool keysTaken = ui != null && ui.KeysTaken;
+            if (keysTaken) return;
             if (keyboard.gKey.wasPressedThisFrame) flying = !flying;
 
             if (Cursor.lockState == CursorLockMode.Locked && !uiOpen)
