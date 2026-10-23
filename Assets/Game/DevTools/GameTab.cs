@@ -1,5 +1,7 @@
 using Game.Audio;
 using Game.Core;
+using Game.Entities;
+using Game.Player;
 using UnityEngine;
 
 namespace Game.DevTools
@@ -29,6 +31,9 @@ namespace Game.DevTools
             DevStyle.Row("Time", SessionLog.FormatTime(run.Elapsed));
             DevStyle.Row("Lamps lit", $"{run.LampsLit} / {GameRun.LampCount}");
             if (GUILayout.Button("Restart run", DevStyle.Button)) root.Restart();
+
+            if (Services.TryGet<PlayerController>(out var player)) DrawPlayer(player);
+            if (Services.TryGet<ScourSpawner>(out var spawner)) DrawScours(spawner);
 
             GUILayout.Label("Sound state", DevStyle.Section);
             if (!Services.TryGet<AudioStateController>(out var audio))
@@ -67,6 +72,32 @@ namespace Game.DevTools
             GUILayout.Label("Threat nearby", DevStyle.MutedLabel);
             int threat = DevStyle.Choice((int)inputs.Threat, "None", "Dread", "Hush");
             if (threat != (int)inputs.Threat) events.Publish(new ThreatLevelChanged((ThreatLevel)threat));
+        }
+
+        static void DrawPlayer(PlayerController player)
+        {
+            GUILayout.Label("Player", DevStyle.Section);
+            if (player.Flashlight != null)
+                DevStyle.Row("Battery", $"{player.Flashlight.Battery.Charge * 100f:0}%{(player.Flashlight.IsOn ? " (on)" : "")}");
+            DevStyle.Row("Stamina", $"{player.Stamina.Value * 100f:0}%{(player.Stamina.Winded ? " (winded)" : "")}");
+            bool safe = Services.TryGet<SafeZones>(out var zones) && zones.Contains(player.transform.position);
+            DevStyle.Row("Safe", safe ? "yes" : "no");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Full battery", DevStyle.Button) && player.Flashlight != null) player.Flashlight.Battery.Add(1f);
+            if (GUILayout.Button("Full stamina", DevStyle.Button)) player.Stamina.Refill();
+            GUILayout.EndHorizontal();
+        }
+
+        static void DrawScours(ScourSpawner spawner)
+        {
+            GUILayout.Label("Scours", DevStyle.Section);
+            foreach (var scour in spawner.Scours)
+            {
+                if (scour == null) continue;
+                string where = scour.State == ScourState.Hidden ? "" : $", {scour.DistanceToPlayer:0.0} m";
+                DevStyle.Row($"#{scour.Id}", $"{scour.State}{where}");
+            }
+            if (GUILayout.Button("Make one appear now", DevStyle.Button)) spawner.AppearNow();
         }
     }
 }

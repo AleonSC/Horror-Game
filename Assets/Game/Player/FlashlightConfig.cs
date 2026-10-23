@@ -54,6 +54,14 @@ namespace Game.Player
         [Range(0f, 1f), Tooltip("How bright the beam is up close.")]
         public float nearDim = 0.35f;
 
+        [Header("Battery")]
+        [Range(10f, 600f), Tooltip("Seconds a full battery lasts with the light on.")]
+        public float batteryLife = 150f;
+        [Range(0f, 1f), Tooltip("Below this charge the beam dims and flickers more and more.")]
+        public float lowBattery = 0.2f;
+        [Range(0f, 1f), Tooltip("How bright the beam is when the battery's nearly dead.")]
+        public float lowDim = 0.45f;
+
         [Header("Hand")]
         [Tooltip("Where the flashlight is held, from the eye (right, up, forward; metres).")]
         public Vector3 handOffset = new Vector3(0.25f, -0.2f, 0.2f);

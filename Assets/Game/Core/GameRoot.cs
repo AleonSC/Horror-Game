@@ -18,6 +18,8 @@ namespace Game.Core
         public PlayerPreferences Preferences { get; private set; }
         public GameRun Run { get; private set; }
         public UiState Ui { get; private set; }
+        public SafeZones SafeZones { get; private set; }
+        public ScreenFade Fade { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void CreateOnPlay()
@@ -46,12 +48,16 @@ namespace Game.Core
             }
             Preferences = PlayerPreferences.Load(PlayerPreferences.DefaultPath);
             Ui = new UiState();
+            SafeZones = new SafeZones();
+            Fade = new ScreenFade();
 
             Services.Register(this);
             Services.Register(Events);
             Services.Register(Setup);
             Services.Register(Preferences);
             Services.Register(Ui);
+            Services.Register(SafeZones);
+            Services.Register(Fade);
 
             // A project left with Time Scale 0 (Project Settings > Time) would start frozen: nothing moves.
             if (Time.timeScale <= 0f)
@@ -74,6 +80,8 @@ namespace Game.Core
             if (Setup != null) Services.Unregister(Setup);
             if (Preferences != null) Services.Unregister(Preferences);
             if (Ui != null) Services.Unregister(Ui);
+            if (SafeZones != null) Services.Unregister(SafeZones);
+            if (Fade != null) Services.Unregister(Fade);
             if (Run != null) Services.Unregister(Run);
         }
 

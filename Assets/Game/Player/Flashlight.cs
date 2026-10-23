@@ -1,3 +1,4 @@
+using Game.Audio;
 using Game.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -8,8 +9,8 @@ namespace Game.Player
     /// <summary>
     /// The hand-held flashlight (section 4.6): a shadowed spot from the right hand that trails the view a
     /// little, a wide faint spill round it, light bounced back off whatever it lands on close by, and dimming
-    /// when pointed at something near. Put it on the camera. F switches it on and off (for now; the hotbar
-    /// takes this over later). Battery comes with the player in milestone 2.
+    /// when pointed at something near. Put it on the camera. It runs on a battery that dims and flickers when
+    /// low. F switches it on and off (the player does this when there is one; the hotbar takes it over later).
     /// </summary>
     public sealed class Flashlight : MonoBehaviour
     {
@@ -27,8 +28,20 @@ namespace Game.Player
         Color bounceTint = Color.white;
         Collider tintFrom;
 
+        float flickerTimer;
+        float flickerLevel = 1f;
+
         public bool IsOn { get; private set; } = true;
         public FlashlightSettings Settings => config.settings;
+        public FlashlightBattery Battery { get; } = new FlashlightBattery();
+        /// <summary>Counts every switch on or off (a scour watches for flashing).</summary>
+        public int ToggleCount { get; private set; }
+        /// <summary>The beam's own transform (it trails the camera a little).</summary>
+        public Transform Beam => hand;
+        /// <summary>How far the beam lights things (metres).</summary>
+        public float Reach => config.settings.range * Mathf.Max(1f, config.settings.rangeReach);
+        /// <summary>False when something else (the player) handles the F key.</summary>
+        public bool HandleInput = true;
 
         void Awake()
         {
@@ -68,12 +81,53 @@ namespace Game.Player
             if (cookie != null) Destroy(cookie);
         }
 
-        public void SetOn(bool on) => IsOn = on;
+        /// <summary>Switch on or off. A dead battery won't switch on (it just clicks).</summary>
+        public void Toggle()
+        {
+            if (!IsOn && Battery.Empty)
+            {
+                PlayClick(0.7f);
+                return;
+            }
+            IsOn = !IsOn;
+            ToggleCount++;
+            PlayClick(IsOn ? 1.1f : 0.9f);
+        }
+
+        void PlayClick(float pitch)
+        {
+            if (Services.TryGet<SoundPlayer>(out var sounds))
+                sounds.Play(Sound.Click, transform.position, MixerNames.Player, 0.5f, pitch, 6f);
+        }
 
         void Update()
         {
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.fKey.wasPressedThisFrame) SetOn(!IsOn);
+            if (HandleInput && keyboard != null && keyboard.fKey.wasPressedThisFrame) Toggle();
+
+            if (!IsOn) return;
+            var s = config.settings;
+            Battery.Drain(Time.deltaTime, s.batteryLife);
+            if (Battery.Empty)
+            {
+                IsOn = false;
+                ToggleCount++;
+                PlayClick(0.7f);
+                return;
+            }
+
+            // Low: flickers, more and more often and for longer as it dies.
+            float low = Battery.Lowness(s.lowBattery);
+            if (flickerTimer > 0f)
+            {
+                flickerTimer -= Time.deltaTime;
+                if (flickerTimer <= 0f) flickerLevel = 1f;
+            }
+            else if (low > 0f && Random.value < Mathf.Lerp(0.5f, 6f, low) * Time.deltaTime)
+            {
+                flickerTimer = Random.Range(0.03f, Mathf.Lerp(0.08f, 0.3f, low));
+                flickerLevel = Random.Range(0f, 0.5f);
+            }
         }
 
         void LateUpdate()
@@ -116,7 +170,8 @@ namespace Game.Player
             nearLevel = Mathf.Lerp(nearLevel, near, 1f - Mathf.Exp(-8f * Time.deltaTime));
 
             beam.color = s.color;
-            beam.intensity = s.intensity * s.boost * nearLevel; // (candela: a spot light's own unit in HDRP)
+            float power = Battery.Brightness(s.lowBattery, s.lowDim) * flickerLevel;
+            beam.intensity = s.intensity * s.boost * nearLevel * power; // (candela: a spot light's own unit in HDRP)
             beam.range = s.range * Mathf.Max(1f, s.rangeReach);
             beam.spotAngle = s.beamAngle;
             beam.innerSpotAngle = s.beamAngle * 0.95f; // (the cookie makes the falloff)

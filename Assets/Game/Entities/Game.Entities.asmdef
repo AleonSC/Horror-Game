@@ -1,0 +1,21 @@
+{
+    "name": "Game.Entities",
+    "rootNamespace": "Game.Entities",
+    "references": [
+        "Game.Core",
+        "Game.Audio",
+        "Game.Rendering",
+        "Game.Player",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

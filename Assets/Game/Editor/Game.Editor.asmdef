@@ -5,6 +5,7 @@
         "Game.Core",
         "Game.Rendering",
         "Game.Player",
+        "Game.World",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.HighDefinition.Runtime"
     ],

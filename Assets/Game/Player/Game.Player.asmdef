@@ -3,6 +3,7 @@
     "rootNamespace": "Game.Player",
     "references": [
         "Game.Core",
+        "Game.Audio",
         "Unity.InputSystem",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.HighDefinition.Runtime"

@@ -6,6 +6,7 @@
         "Game.Audio",
         "Game.Rendering",
         "Game.Player",
+        "Game.Entities",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

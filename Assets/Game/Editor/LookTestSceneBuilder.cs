@@ -3,6 +3,7 @@ using System.IO;
 using Game.Core;
 using Game.Player;
 using Game.Rendering;
+using Game.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -12,16 +13,18 @@ using UnityEngine.SceneManagement;
 namespace Game.Editor
 {
     /// <summary>
-    /// Game > Build Look Test Scene: makes a small patch of night forest for matching the look (milestone 1).
-    /// A path leads from where you stand, past a scour stand-in, to a clearing with a lamp post. Everything is
-    /// generated, so the scene and its assets live in Assets/Scenes/Generated (not in git): build it again any
-    /// time. The look itself is in Assets/Config/Look/LookConfig.
+    /// Builds the small test forests: a path leading to a clearing with a lamp post.
+    /// - Game > Build Look Test Scene (milestone 1): a scour stand-in on the path and a lit lamp, with a camera
+    ///   to walk round and match the look.
+    /// - Game > Build Scary Minute Scene (milestone 2): the real player, a lamp to crank, and a scour that
+    ///   comes for you after a calm start.
+    /// Everything is generated, so the scenes and their assets live in Assets/Scenes/Generated (not in git):
+    /// build them again any time.
     /// </summary>
-    public static class LookTestSceneBuilder
+    public static partial class LookTestSceneBuilder
     {
-        const string Folder = "Assets/Scenes/Generated/LookTest";
-        const string ScenePath = Folder + "/LookTest.unity";
-        const string AssetsPath = Folder + "/LookTestAssets.asset";
+        const string Root = "Assets/Scenes/Generated";
+        static string Folder, ScenePath, AssetsPath;
         const float HalfSize = 70f;     // the ground is 140 m across
         const float CellSize = 16f;     // scenery is merged into meshes this big
         const int Seed = 1234;
@@ -31,13 +34,21 @@ namespace Game.Editor
         static readonly Vector2[] PathPoints = { new Vector2(0f, -45f), new Vector2(1.5f, -28f), new Vector2(-1f, -14f), new Vector2(0.5f, -2f), Clearing };
 
         [MenuItem("Game/Build Look Test Scene")]
-        public static void Build()
+        public static void BuildLookTest() => Build("LookTest", false);
+
+        [MenuItem("Game/Build Scary Minute Scene")]
+        public static void BuildScaryMinute() => Build("ScaryMinute", true);
+
+        static void Build(string name, bool playable)
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            Folder = $"{Root}/{name}";
+            ScenePath = $"{Folder}/{name}.unity";
+            AssetsPath = $"{Folder}/{name}Assets.asset";
             try
             {
-                EditorUtility.DisplayProgressBar("Look test scene", "Building...", 0.1f);
-                BuildScene();
+                EditorUtility.DisplayProgressBar("Test scene", "Building...", 0.1f);
+                BuildScene(playable);
             }
             finally
             {
@@ -45,7 +56,7 @@ namespace Game.Editor
             }
         }
 
-        static void BuildScene()
+        static void BuildScene(bool playable)
         {
             Directory.CreateDirectory(Folder);
             AssetDatabase.Refresh();
@@ -73,6 +84,8 @@ namespace Game.Editor
                 ["glass"] = EditorMaterials.LitGlow("Lamp glass", new Color(1f, 0.85f, 0.6f), new Color(1f, 0.7f, 0.4f) * 6f),
                 ["scour"] = EditorMaterials.Unlit("Scour body", Color.black),
                 ["eyes"] = EditorMaterials.Glow("Scour eyes", new Color(1f, 0.005f, 0f) * 0.6f),
+                ["marker"] = EditorMaterials.Glow("Lamp marker", new Color(1f, 0.05f, 0.02f)),
+                ["crank"] = EditorMaterials.Lit("Crank", new Color(0.12f, 0.1f, 0.08f), 0.4f),
             };
             assets.AddRange(mats.Values);
 
@@ -104,15 +117,23 @@ namespace Game.Editor
                 MakeObject(mesh.name, sceneryRoot, mesh, mats[cell.Key.Item3], layer);
             }
 
-            BuildLamp(mats);
-            BuildScour(mats);
-            BuildCamera();
+            if (playable)
+            {
+                BuildPlayableLamp(mats);
+                BuildPlayer();
+            }
+            else
+            {
+                BuildLamp(mats);
+                BuildScour(mats);
+                BuildCamera();
+            }
 
             EditorUtility.DisplayProgressBar("Look test scene", "Saving...", 0.9f);
             SaveAssets(assets);
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
-            Debug.Log($"Look test scene built: {ScenePath}. Press Play, then F9 > Lighting / Look to tune.");
+            Debug.Log($"Test scene built: {ScenePath}. Press Play.");
         }
 
         // ------------------------------------------------------------------ Ground and path
@@ -326,81 +347,6 @@ namespace Game.Editor
             var key = (Mathf.FloorToInt(p.x / CellSize), Mathf.FloorToInt(p.y / CellSize), material);
             if (!cells.TryGetValue(key, out var b)) cells[key] = b = new MeshBuilder();
             return b;
-        }
-
-        // ------------------------------------------------------------------ Lamp, scour, camera
-
-        static void BuildLamp(Dictionary<string, Material> mats)
-        {
-            Vector2 at = Clearing + new Vector2(2f, 2f);
-            float y = GroundHeight(at.x, at.y);
-            var root = new GameObject("Lamp Post") { layer = Layers.Props }.transform;
-            root.position = new Vector3(at.x, y, at.y);
-
-            Primitive(PrimitiveType.Cylinder, "Post", root, new Vector3(0f, 1.6f, 0f), new Vector3(0.12f, 1.6f, 0.12f), mats["metal"], Layers.Props, keepCollider: true);
-            Primitive(PrimitiveType.Cube, "Head", root, new Vector3(0f, 3.35f, 0f), new Vector3(0.45f, 0.12f, 0.45f), mats["metal"], Layers.Props);
-            Primitive(PrimitiveType.Cube, "Glass", root, new Vector3(0f, 3.12f, 0f), new Vector3(0.32f, 0.34f, 0.32f), mats["glass"], Layers.Props);
-
-            var lightGo = new GameObject("Lamp Light");
-            lightGo.transform.SetParent(root, false);
-            lightGo.transform.localPosition = new Vector3(0f, 3.0f, 0f);
-            lightGo.AddHDLight(LightType.Point);
-            var light = lightGo.GetComponent<Light>();
-            light.color = new Color(1f, 0.75f, 0.45f);
-            light.intensity = 25f; // candela
-            light.range = 13f;
-            light.shadows = LightShadows.Soft;
-            lightGo.AddComponent<FogGlowLight>();
-        }
-
-        // A stand-in scour on the path ahead: a too-thin black figure with burning red eyes, 2.4 m tall.
-        static void BuildScour(Dictionary<string, Material> mats)
-        {
-            Vector2 at = new Vector2(0.4f, -18f);
-            var root = new GameObject("Scour Stand-in") { layer = Layers.Entities }.transform;
-            root.position = new Vector3(at.x, GroundHeight(at.x, at.y), at.y);
-            root.rotation = Quaternion.LookRotation(Vector3.back);
-            var body = mats["scour"];
-
-            Primitive(PrimitiveType.Capsule, "Body", root, new Vector3(0f, 1.45f, 0f), new Vector3(0.22f, 0.45f, 0.14f), body, Layers.Entities);
-            Primitive(PrimitiveType.Capsule, "Neck", root, new Vector3(0f, 2.0f, 0.06f), new Vector3(0.06f, 0.14f, 0.06f), body, Layers.Entities);
-            Primitive(PrimitiveType.Capsule, "Head", root, new Vector3(0f, 2.24f, 0.1f), new Vector3(0.17f, 0.15f, 0.17f), body, Layers.Entities);
-            foreach (float side in new[] { -1f, 1f })
-            {
-                Primitive(PrimitiveType.Capsule, "Upper Arm", root, new Vector3(0.2f * side, 1.55f, 0f), new Vector3(0.05f, 0.32f, 0.05f), body, Layers.Entities);
-                Primitive(PrimitiveType.Capsule, "Forearm", root, new Vector3(0.24f * side, 0.95f, 0.04f), new Vector3(0.045f, 0.32f, 0.045f), body, Layers.Entities);
-                Primitive(PrimitiveType.Capsule, "Hand", root, new Vector3(0.26f * side, 0.55f, 0.08f), new Vector3(0.04f, 0.12f, 0.04f), body, Layers.Entities);
-                Primitive(PrimitiveType.Capsule, "Thigh", root, new Vector3(0.09f * side, 0.85f, 0f), new Vector3(0.06f, 0.3f, 0.06f), body, Layers.Entities);
-                Primitive(PrimitiveType.Capsule, "Shin", root, new Vector3(0.09f * side, 0.3f, 0.02f), new Vector3(0.045f, 0.3f, 0.045f), body, Layers.Entities);
-                Primitive(PrimitiveType.Sphere, "Eye", root, new Vector3(0.055f * side, 2.27f, 0.25f), Vector3.one * 0.045f, mats["eyes"], Layers.Entities);
-            }
-
-            var glow = new GameObject("Eye Glow");
-            glow.transform.SetParent(root, false);
-            glow.transform.localPosition = new Vector3(0f, 2.27f, 0.4f);
-            glow.AddHDLight(LightType.Point);
-            var light = glow.GetComponent<Light>();
-            light.color = new Color(1f, 0.12f, 0.05f);
-            light.intensity = 0.6f; // candela
-            light.range = 3f;
-            light.shadows = LightShadows.None;
-            glow.AddComponent<FogGlowLight>().strength = 1.5f; // (a red haze round the head in the mist)
-        }
-
-        static void BuildCamera()
-        {
-            Vector2 at = PathPoints[0] + new Vector2(0f, 12f);
-            var go = new GameObject("Main Camera") { tag = "MainCamera" };
-            go.transform.position = new Vector3(at.x, GroundHeight(at.x, at.y) + 1.65f, at.y);
-            go.transform.rotation = Quaternion.LookRotation(Vector3.forward);
-            var cam = go.AddComponent<Camera>();
-            cam.fieldOfView = 60f;
-            cam.nearClipPlane = 0.05f;
-            cam.farClipPlane = 600f;
-            go.AddComponent<HDAdditionalCameraData>();
-            go.AddComponent<AudioListener>();
-            go.AddComponent<LookWalker>();
-            go.AddComponent<Flashlight>();
         }
 
         // ------------------------------------------------------------------ Helpers

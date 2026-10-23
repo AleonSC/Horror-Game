@@ -43,6 +43,32 @@ namespace Game.Core
         public override string ToString() => $"Caught by {By} #{EntityId}";
     }
 
+    /// <summary>The player woke up again after being taken (progress kept).</summary>
+    public readonly struct PlayerRespawned : IGameEvent
+    {
+        public readonly Vector3 Position;
+        public PlayerRespawned(Vector3 position) { Position = position; }
+        public override string ToString() => "Woke up again";
+    }
+
+    /// <summary>Ran out of breath (or got it back).</summary>
+    public readonly struct PlayerWinded : IGameEvent
+    {
+        public readonly bool Winded;
+        public PlayerWinded(bool winded) { Winded = winded; }
+        public override string ToString() => Winded ? "Winded" : "Got breath back";
+    }
+
+    /// <summary>An entity changed what it's doing (the session recorder logs these).</summary>
+    public readonly struct EntityStateChanged : IGameEvent
+    {
+        public readonly EntityKind Kind;
+        public readonly int EntityId;
+        public readonly string State;
+        public EntityStateChanged(EntityKind kind, int entityId, string state) { Kind = kind; EntityId = entityId; State = state; }
+        public override string ToString() => $"{Kind} #{EntityId}: {State}";
+    }
+
     public readonly struct EntitySpawned : IGameEvent
     {
         public readonly EntityKind Kind;
