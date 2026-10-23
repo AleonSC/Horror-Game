@@ -320,6 +320,19 @@ public class LightingSettings : MonoBehaviour
         if (newFlashShadows != v.flashlightShadows) { v.flashlightShadows = newFlashShadows; changed = true; }
 
         GUILayout.Space(8f * unit);
+        GUILayout.Label("Rendering", headerStyle);
+        bool classic = HdrpAtmosphere.ClassicLook;
+        if (GUILayout.Toggle(classic, " Classic look (as before HDRP: no light beams in the air, ray tracing, AO or reflections)", buttonStyle) != classic)
+            HdrpAtmosphere.ClassicLook = !classic;
+        if (HdrpAtmosphere.RayTracingAvailable)
+        {
+            bool rt = HdrpAtmosphere.RayTracingWanted;
+            if (GUILayout.Toggle(rt, classic ? " Ray tracing (off in the classic look)" : " Ray tracing", buttonStyle) != rt)
+                HdrpAtmosphere.RayTracingWanted = !rt;
+        }
+        else GUILayout.Label("Ray tracing: not available (needs DirectX 12, a ray tracing card, and it ticked on the HDRP asset)", labelStyle);
+
+        GUILayout.Space(8f * unit);
         GUILayout.Label("Other lights", headerStyle);
         bool newExtra = GUILayout.Toggle(v.extraShadows, " Shadows on lamps, torch & lighter (costly)", buttonStyle);
         if (newExtra != v.extraShadows) { v.extraShadows = newExtra; changed = true; }

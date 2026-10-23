@@ -307,6 +307,16 @@ public class PauseMenu : MonoBehaviour
             ApplySettings();
         }
 
+        bool classic = HdrpAtmosphere.ClassicLook;
+        if (Item(13, classic ? "GRAPHICS: CLASSIC" : "GRAPHICS: ENHANCED", x, y)) HdrpAtmosphere.ClassicLook = !classic;
+        y += 48f;
+        if (!classic && HdrpAtmosphere.RayTracingAvailable)
+        {
+            bool rt = HdrpAtmosphere.RayTracingWanted;
+            if (Item(14, rt ? "RAY TRACING: ON" : "RAY TRACING: OFF", x, y)) HdrpAtmosphere.RayTracingWanted = !rt;
+            y += 48f;
+        }
+
         y += 24f;
         if (Item(11, "BACK", x, y)) page = Page.Main;
     }

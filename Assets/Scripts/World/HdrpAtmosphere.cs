@@ -24,6 +24,10 @@ using UnityEngine.Rendering.HighDefinition;
 ///     things: costly). The game's own effects (beams, glows, mist, the sky dome, smoke, the portal views)
 ///     are kept out of the ray-traced scene, which only holds the solid world.
 ///
+/// Classic look (the pause menu's options, and the dev tools' Lighting tab) turns off what URP didn't
+/// have: volumetric fog, ray tracing, ambient occlusion and reflections, so it looks close to how the game
+/// looked before HDRP. It and the ray tracing switch are saved (PlayerPrefs).
+///
 /// DarkForestGenerator adds this when the forest is built.
 /// </summary>
 public class HdrpAtmosphere : MonoBehaviour
@@ -54,6 +58,25 @@ public class HdrpAtmosphere : MonoBehaviour
 
     /// <summary>True if ray tracing is on and this machine and project can do it.</summary>
     public static bool RayTracingActive { get; private set; }
+
+    const string ClassicKey = "Horror.ClassicLook", RayTracingKey = "Horror.RayTracing";
+
+    /// <summary>The look of the game before HDRP: no volumetric fog, ray tracing, ambient occlusion or reflections. Saved.</summary>
+    public static bool ClassicLook
+    {
+        get => PlayerPrefs.GetInt(ClassicKey, 0) == 1;
+        set { PlayerPrefs.SetInt(ClassicKey, value ? 1 : 0); PlayerPrefs.Save(); }
+    }
+
+    /// <summary>The player's ray tracing switch (it's only used where the machine can ray trace). Saved.</summary>
+    public static bool RayTracingWanted
+    {
+        get => PlayerPrefs.GetInt(RayTracingKey, 1) == 1;
+        set { PlayerPrefs.SetInt(RayTracingKey, value ? 1 : 0); PlayerPrefs.Save(); }
+    }
+
+    /// <summary>True if this machine and project can ray trace at all (so the switch is worth showing).</summary>
+    public static bool RayTracingAvailable => CanRayTrace();
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
     internal static void ResetStatics() => RayTracingActive = false;
 
@@ -116,22 +139,25 @@ public class HdrpAtmosphere : MonoBehaviour
         return asset != null && asset.currentPlatformRenderPipelineSettings.supportRayTracing;
     }
 
-    /// <summary>The ray-traced effects on the volume, on or off.</summary>
-    void ApplyRayTracing()
+    /// <summary>
+    /// The ray-traced effects on the volume, on or off; in the classic look, ambient occlusion, reflections
+    /// and global illumination are off altogether (ray traced or not).
+    /// </summary>
+    void ApplyRayTracing(bool classic)
     {
-        bool rt = rayTracing && CanRayTrace();
+        bool rt = rayTracing && RayTracingWanted && !classic && CanRayTrace();
         RayTracingActive = rt;
 
-        ambientOcclusion.active = rt && rayTracedAmbientOcclusion;
-        ambientOcclusion.rayTracing.Override(true);
-        ambientOcclusion.intensity.Override(1f);
+        ambientOcclusion.active = classic || (rt && rayTracedAmbientOcclusion);
+        ambientOcclusion.rayTracing.Override(!classic);
+        ambientOcclusion.intensity.Override(classic ? 0f : 1f);
 
-        reflections.active = rt && rayTracedReflections;
-        reflections.enabled.Override(true);
+        reflections.active = classic || (rt && rayTracedReflections);
+        reflections.enabled.Override(!classic);
         reflections.tracing.Override(RayCastingMode.RayTracing);
 
-        globalIllumination.active = rt && rayTracedGlobalIllumination;
-        globalIllumination.enable.Override(true);
+        globalIllumination.active = classic || (rt && rayTracedGlobalIllumination);
+        globalIllumination.enable.Override(!classic);
         globalIllumination.tracing.Override(RayCastingMode.RayTracing);
     }
 
@@ -157,6 +183,7 @@ public class HdrpAtmosphere : MonoBehaviour
     void LateUpdate()
     {
         if (volume == null) Build();
+        bool classic = ClassicLook;
         float mul = ExposureMultiplier;
         exposureFx.fixedExposure.Override(exposure);
         tonemapping.active = noTonemapping;
@@ -181,9 +208,10 @@ public class HdrpAtmosphere : MonoBehaviour
             fog.meanFreePath.Override(Mathf.Clamp(fogDistanceScale / RenderSettings.fogDensity, 1f, 5000f));
             fog.albedo.Override(Color.white * volumetricAlbedo);
             fog.depthExtent.Override(volumetricDistance);
+            fog.enableVolumetricFog.Override(!classic); // (the classic look: no beams in the air, as in URP)
         }
 
-        UpdateBeamOverShapes(mul);
+        UpdateBeamOverShapes(mul, classic);
 
         // Each camera's background: its own colour, not the sky.
         foreach (var cam in Camera.allCameras)
@@ -194,7 +222,7 @@ public class HdrpAtmosphere : MonoBehaviour
             data.backgroundColorHDR = cam.backgroundColor.linear / mul;
         }
 
-        ApplyRayTracing();
+        ApplyRayTracing(classic);
 
         // About once a second: new lights get the old units, and ray-traced shadows if they cast shadows.
         lightScan -= Time.unscaledDeltaTime;
@@ -230,12 +258,12 @@ public class HdrpAtmosphere : MonoBehaviour
     /// of them: as bright as HDRP's volumetric fog makes it (the fog's scattering, the light's volumetric
     /// multiplier, the exposure).
     /// </summary>
-    void UpdateBeamOverShapes(float mul)
+    void UpdateBeamOverShapes(float mul, bool classic)
     {
         if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
         Light beam = flashlight != null && flashlight.IsOn ? flashlight.flashlight : null;
         bool fogOn = RenderSettings.fog && RenderSettings.fogDensity > 0f;
-        if (beam == null || !beam.isActiveAndEnabled || !fogOn)
+        if (beam == null || !beam.isActiveAndEnabled || !fogOn || classic) // (no volumetric fog: no glow to match)
         {
             Shader.SetGlobalVector("_HorrorSpotColor", new Vector4(0f, 0f, 0f, 1f));
             return;
