@@ -30,7 +30,7 @@ namespace Game.Player
         public float edgeFeather = 0f;
         public bool shadows = true;
         [Range(0f, 2f), Tooltip("How much the beam shows in the fog and mist.")]
-        public float fogGlow = 0.22f;
+        public float fogGlow = 0.12f;
 
         [Header("Spill")]
         [Range(0f, 0.5f), Tooltip("A wide, faint light round the beam, so the edges of the view aren't black. 0: none.")]

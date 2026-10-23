@@ -29,6 +29,9 @@ namespace Game.Rendering
                     s.postExposure = 1.63f;
                     s.saturation = 40f;
                     s.moonColor = new Color(0.45f, 0.55f, 0.80f);
+                    s.moonBrightness = 0.25f;
+                    s.fogGlow = 0.55f;
+                    s.mistThickness = 5f;
                     s.fogColor = new Color(0.02f, 0.025f, 0.035f);
                     s.fogDensity = 0.05f;
                     s.vignette = 0f;

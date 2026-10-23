@@ -19,7 +19,7 @@ namespace Game.Rendering
 
         [Header("Picture")]
         [Range(-3f, 5f), Tooltip("Brightens or darkens the whole picture after lighting.")]
-        public float postExposure = 0.5f;
+        public float postExposure = 1.0f;
         [Range(-100f, 100f)] public float contrast = 35f;
         [Range(-100f, 100f)] public float saturation = 0f;
         [Tooltip("Tints the whole picture (white: no tint).")]
@@ -37,7 +37,7 @@ namespace Game.Rendering
         [Tooltip("Lights shine through the fog (beams, glows). Off is the classic look.")]
         public bool volumetricFog = true;
         [Range(0f, 1f), Tooltip("How strongly lights show up in the fog.")]
-        public float fogGlow = 0.55f;
+        public float fogGlow = 0.85f;
         [Range(-1f, 1f), Tooltip("Above 0 the fog glows most looking toward a light (halos round beams).")]
         public float fogAnisotropy = 0.2f;
         [Range(20f, 1000f), Tooltip("How far out lights show in the fog (metres). Never less than the camera sees, so there's no hard line where it gives way to plain fog.")]
@@ -53,7 +53,7 @@ namespace Game.Rendering
         [Header("Moon")]
         public Color moonColor = new Color(0.55f, 0.6f, 0.72f);
         [Range(0f, 5f), Tooltip("Moonlight brightness (lux).")]
-        public float moonBrightness = 0.25f;
+        public float moonBrightness = 0.35f;
         [Range(5f, 90f), Tooltip("How high the moon is (degrees).")]
         public float moonHeight = 35f;
         [Range(0f, 360f), Tooltip("Which way the moonlight comes from (degrees round).")]
@@ -67,7 +67,7 @@ namespace Game.Rendering
         [Tooltip("The mist's colour.")]
         public Color mistColor = new Color(0.80f, 0.82f, 0.86f);
         [Range(0.5f, 60f), Tooltip("How thick the mist is: the distance you can see through it (metres). Lower is thicker.")]
-        public float mistThickness = 5f;
+        public float mistThickness = 3f;
         [Range(0.3f, 6f), Tooltip("How high the mist reaches (metres).")]
         public float mistHeight = 1.4f;
         [Range(10f, 120f), Tooltip("How far round you the mist reaches (metres).")]

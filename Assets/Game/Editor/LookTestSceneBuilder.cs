@@ -381,10 +381,10 @@ namespace Game.Editor
             glow.AddHDLight(LightType.Point);
             var light = glow.GetComponent<Light>();
             light.color = new Color(1f, 0.12f, 0.05f);
-            light.intensity = 1.5f; // candela
-            light.range = 5f;
+            light.intensity = 0.6f; // candela
+            light.range = 3f;
             light.shadows = LightShadows.None;
-            glow.AddComponent<FogGlowLight>().strength = 3f; // (a red haze round the head in the mist)
+            glow.AddComponent<FogGlowLight>().strength = 1.5f; // (a red haze round the head in the mist)
         }
 
         static void BuildCamera()
