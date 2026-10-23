@@ -72,6 +72,8 @@ namespace Game.Player
             bounce = bounceGo.GetComponent<Light>();
             bounce.shadows = LightShadows.None;
             bounceData.volumetricDimmer = 0f; // (no glowing ball of fog where it lands)
+            bounceData.affectSpecular = false; // (a soft fill, never a shiny hot spot)
+            spillData.affectSpecular = false;
         }
 
         void Start() => hand.rotation = transform.rotation;
@@ -200,14 +202,16 @@ namespace Game.Player
             if (IsOn && s.bounceStrength > 0f && Probe(s.bounceDistance, out var hit))
             {
                 float fade = 1f - Mathf.SmoothStep(0f, 1f, hit.distance / Mathf.Max(s.bounceDistance, 0.1f));
-                target = beam.intensity * s.bounceStrength * 0.1f * fade;
+                target = beam.intensity * s.bounceStrength * 0.25f * fade; // (brighter, as it sits further off)
                 if (hit.collider != tintFrom)
                 {
                     tintFrom = hit.collider;
                     bounceTint = SurfaceTint(hit.collider);
                 }
-                Vector3 back = (hand.position - hit.point).normalized * Mathf.Min(0.6f, hit.distance * 0.4f);
-                Vector3 at = hit.point + hit.normal * 0.5f + back;
+                // Well off the surface and partway back toward you, so it fills the space instead of lighting a
+                // hard spot on whatever it's next to.
+                Vector3 back = (hand.position - hit.point).normalized * Mathf.Min(1.5f, hit.distance * 0.5f);
+                Vector3 at = hit.point + hit.normal * 1.2f + back;
                 var t = bounce.transform;
                 bool jump = (t.position - at).sqrMagnitude > 9f || bounceLevel <= 0.001f;
                 t.position = jump ? at : Vector3.Lerp(t.position, at, 1f - Mathf.Exp(-12f * Time.deltaTime));
