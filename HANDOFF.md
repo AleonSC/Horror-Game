@@ -89,6 +89,13 @@ to a dark room (`PortalDoor.cs`), and rifts (`RiftEvent.cs`, now spawn-on-demand
 
 ## Recent work on `hdrp` (newest first)
 
+- **Scours rebuilt, detailed** (`World/ScourBody.cs`): sculpted lofted meshes (starved torso with ribs,
+  vertebrae, shoulder blades; tendon-corded neck and limbs; long skull with brow and sockets; jointed clawed
+  hands; long feet), dark wet HDRP Lit skin. They stand and walk normally (`LegWalk`); the dragging-leg
+  ragdoll is gone. The meshes are registered in `EnemyMeshes` so the model editor can show and save them
+  (parts with shape "Mesh"). A previously saved Scour model with "Use in game" overrides this look.
+- **Flashlight**: `boost` (x2 on top of the lighting panel's intensity), a real beam-shaped cookie (hot
+  centre, spill, reflector rings), less fog glow.
 - **Session recorder** (F11; `Player/SessionRecorder.cs`): logs every change that matters (each scour by
   number and its state changes, the blind one/crawlers/fliers/giant, what the blind one hears and the
   script that made the noise, lamps and split times, safe zones, the drone, being caught, breath, storms,

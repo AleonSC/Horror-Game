@@ -23,6 +23,8 @@ public class Flashlight : MonoBehaviour
     public float intensity = 12f;
     public Color color = new Color(1f, 0.95f, 0.85f);
     public LightShadows shadows = LightShadows.Soft;
+    [Tooltip("Extra brightness on top of Intensity (HDRP's lights fall off more than URP's did; the lighting panel's Brightness still sets Intensity).")]
+    public float boost = 2f;
 
     [Header("Up close")]
     [Tooltip("Pointed at something nearer than this (the ground at your feet), the beam dims, so close things don't blaze white.")]
@@ -30,7 +32,7 @@ public class Flashlight : MonoBehaviour
     [Range(0f, 1f), Tooltip("How bright the beam is on something right in front of you, as a share of full.")]
     public float nearDimAmount = 0.35f;
     [Range(0f, 2f), Tooltip("How much the beam lights up the fog in the air (HDRP volumetrics). 1 is HDRP's normal.")]
-    public float fogGlow = 0.45f;
+    public float fogGlow = 0.22f;
 
     [Header("Edge")]
     [Tooltip("Soften the edge of the beam into a feathered fade instead of a hard circle.")]
@@ -91,7 +93,7 @@ public class Flashlight : MonoBehaviour
         flashlight.spotAngle = spotAngle;
         flashlight.innerSpotAngle = innerSpotAngle;
         ApplyFeather();
-        flashlight.intensity = intensity;
+        flashlight.intensity = intensity * boost;
         flashlight.color = color;
         flashlight.shadows = shadows;
         flashlight.enabled = startOn;
@@ -122,13 +124,18 @@ public class Flashlight : MonoBehaviour
             flashlight.cookie = null;
             return;
         }
-        flashlight.innerSpotAngle = Mathf.Lerp(spotAngle * 0.9f, spotAngle * 0.05f, edgeFeather);
+        flashlight.innerSpotAngle = spotAngle * 0.95f; // (the cookie does the falloff: a real beam's shape)
         flashlight.cookie = MakeFeatherCookie(edgeFeather);
     }
 
+    /// <summary>
+    /// The beam's shape, like a real flashlight's: a hot, bright centre, a softer spill round it falling away
+    /// to a feathered edge (feather: how soft), faint rings from the reflector, and the slight unevenness of a
+    /// cheap lens.
+    /// </summary>
     static Texture2D MakeFeatherCookie(float feather)
     {
-        const int n = 128;
+        const int n = 256;
         var tex = new Texture2D(n, n, TextureFormat.RGBA32, false, true)
         {
             name = "Flashlight Feather", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear,
@@ -141,8 +148,12 @@ public class Flashlight : MonoBehaviour
             {
                 float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
                 float r = Mathf.Sqrt(dx * dx + dy * dy);
-                float v = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(inner, 0.98f, r));
-                v *= 1f + 0.12f * Mathf.Exp(-Mathf.Pow((r - inner * 0.9f) / 0.08f, 2f)); // a faint reflector ring
+                float spill = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(inner, 0.98f, r));
+                float hot = Mathf.Exp(-Mathf.Pow(r / 0.28f, 2f));                      // the hot centre
+                float v = spill * 0.42f + hot * 0.58f;
+                v *= 1f + 0.07f * Mathf.Sin(r * 46f) * Mathf.SmoothStep(0.1f, 0.4f, r);  // reflector rings
+                v *= 1f - 0.12f * Mathf.Exp(-Mathf.Pow((r - 0.2f) / 0.025f, 2f));    // a darker ring round the hot spot
+                v *= 0.94f + 0.06f * Mathf.PerlinNoise(dx * 6f + 3.1f, dy * 6f + 7.7f); // the lens
                 v = Mathf.Clamp01(v);
                 byte b = (byte)Mathf.RoundToInt(v * 255f);
                 px[y * n + x] = new Color32(b, b, b, b);
@@ -187,7 +198,7 @@ public class Flashlight : MonoBehaviour
             flickerLevel = Random.Range(0f, 0.5f);
         }
 
-        flashlight.intensity = intensity * Mathf.Lerp(1f, 0.45f, low) * flickerLevel * NearDim();
+        flashlight.intensity = intensity * boost * Mathf.Lerp(1f, 0.45f, low) * flickerLevel * NearDim();
         var hd = flashlight.GetComponent<HDAdditionalLightData>();
         if (hd != null) hd.volumetricDimmer = fogGlow;
     }
@@ -292,7 +303,7 @@ public class Flashlight : MonoBehaviour
         flickerLevel = 1f;
         if (flashlight != null)
         {
-            flashlight.intensity = intensity;
+            flashlight.intensity = intensity * boost;
             flashlight.enabled = startOn;
         }
     }

@@ -447,6 +447,7 @@ public class ModelEditor : MonoBehaviour
         string name = GUILayout.TextField(part.name);
         if (name != part.name) { part.name = name; Changed(); }
 
+        if (part.shape == "Mesh") GUILayout.Label($"A detailed shape: {part.mesh}. (Pick a simple shape below to swap it for one.)", small);
         int shape = GUILayout.Toolbar(System.Array.IndexOf(EnemyModel.Shapes, part.shape), EnemyModel.Shapes, button);
         if (shape >= 0 && EnemyModel.Shapes[shape] != part.shape) { part.shape = EnemyModel.Shapes[shape]; Changed(); }
         GUILayout.Label("On (moves with it)", small);

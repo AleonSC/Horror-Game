@@ -50,6 +50,8 @@ public static class StaticReset
         ModelEditor.ResetStatics();
         EnemyModel.ResetStatics();
         SessionRecorder.ResetStatics();
+        ScourBody.ResetStatics();
+        EnemyMeshes.ResetStatics();
         HdrpAtmosphere.ResetStatics();
         EntityDread.ResetStatics();
         MusicCue.ResetStatics();

@@ -142,7 +142,16 @@ public class EnemyModel
 
         foreach (var part in parts)
         {
-            var go = GameObject.CreatePrimitive(ShapeOf(part.shape));
+            Mesh detailed = part.shape == "Mesh" ? EnemyMeshes.Get(part.mesh) : null;
+            GameObject go;
+            if (detailed != null)
+            {
+                go = new GameObject();
+                go.AddComponent<MeshFilter>().sharedMesh = detailed;
+                go.AddComponent<MeshRenderer>();
+                if (keepColliders) go.AddComponent<MeshCollider>().sharedMesh = detailed;
+            }
+            else go = GameObject.CreatePrimitive(ShapeOf(part.shape));
             go.name = string.IsNullOrEmpty(part.name) ? part.shape : part.name;
             go.transform.SetParent(JointOf(b, part.attach), false);
             go.transform.localPosition = part.position * scale;
@@ -268,7 +277,8 @@ public class EnemyModel
         {
             if (!ShownUnder(r.transform, root) || Under(r.transform, skip)) continue;
             var filter = r.GetComponent<MeshFilter>();
-            if (filter == null || filter.sharedMesh == null || System.Array.IndexOf(Shapes, filter.sharedMesh.name) < 0) continue;
+            if (filter == null || filter.sharedMesh == null) continue;
+            if (System.Array.IndexOf(Shapes, filter.sharedMesh.name) < 0 && !EnemyMeshes.Has(filter.sharedMesh)) continue; // (a shape, or one of the detailed ones)
             string shader = r.sharedMaterial != null ? r.sharedMaterial.shader.name : "";
             if (shader.Contains("Beam") || shader.Contains("Glow") || shader.Contains("Smoke") || shader.Contains("Trail")) continue;
             renderers.Add(r);
@@ -302,12 +312,15 @@ public class EnemyModel
                 : Under(t, hipLeft) ? "HipL" : Under(t, hipRight) ? "HipR" : "Body";
             Vector3 joint = attach == "Head" ? m.head : attach == "ArmL" ? m.armLeft : attach == "ArmR" ? m.armRight
                 : attach == "HipL" ? m.hipLeft : attach == "HipR" ? m.hipRight : Vector3.zero;
-            string shape = r.GetComponent<MeshFilter>().sharedMesh.name;
+            Mesh mesh = r.GetComponent<MeshFilter>().sharedMesh;
+            bool detailed = System.Array.IndexOf(Shapes, mesh.name) < 0;
+            string shape = detailed ? "Mesh" : mesh.name;
             bool eye = eyes != null && eyes.Contains(t);
             Vector3 rootScale = root.lossyScale;
             var part = new ModelPart
             {
                 shape = shape,
+                mesh = detailed ? mesh.name : "",
                 attach = attach,
                 eye = eye,
                 position = root.InverseTransformPoint(t.position) - joint,
@@ -315,7 +328,7 @@ public class EnemyModel
                 scale = new Vector3(t.lossyScale.x / rootScale.x, t.lossyScale.y / rootScale.y, t.lossyScale.z / rootScale.z),
             };
             ReadColour(r.sharedMaterial, part);
-            string label = eye ? "Eye" : (attach == "Body" ? "" : attach + " ") + shape.ToLowerInvariant();
+            string label = eye ? "Eye" : detailed ? mesh.name.Replace("Scour ", "") : (attach == "Body" ? "" : attach + " ") + shape.ToLowerInvariant();
             count.TryGetValue(label, out int n);
             count[label] = ++n;
             part.name = $"{char.ToUpperInvariant(label[0])}{label.Substring(1)} {n}";
@@ -508,8 +521,10 @@ public class EnemyModel
 public class ModelPart
 {
     public string name = "Part";
-    [Tooltip("Sphere, Capsule, Cube or Cylinder.")]
+    [Tooltip("Sphere, Capsule, Cube or Cylinder; or Mesh, for one of the game's detailed shapes (named in mesh).")]
     public string shape = "Sphere";
+    [Tooltip("With shape Mesh: which of the game's detailed shapes (EnemyMeshes), e.g. \"Scour Torso\".")]
+    public string mesh = "";
     [Tooltip("What it's on: Body, Head, ArmL, ArmR, HipL or HipR. It moves with that.")]
     public string attach = "Body";
     [Tooltip("An eye: glows, and (on the scour) widens, flares and burns blue like its eyes do.")]

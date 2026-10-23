@@ -51,7 +51,7 @@ public class GroundMist : MonoBehaviour
 
     [Header("Light In It")]
     [Tooltip("How brightly the flashlight lights the mist.")]
-    public float flashlightStrength = 0.05f;
+    public float flashlightStrength = 0.03f;
     [Tooltip("How brightly lamps and torches light it.")]
     public float lampStrength = 0.06f;
     public float lampSearchRange = 45f;
