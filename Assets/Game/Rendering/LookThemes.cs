@@ -26,6 +26,9 @@ namespace Game.Rendering
                     return s;
 
                 case "Owner Dark": // the owner's chosen lighting from the prototype: near-black fog, no vignette or grain
+                    s.postExposure = 1.63f;
+                    s.saturation = 40f;
+                    s.moonColor = new Color(0.45f, 0.55f, 0.80f);
                     s.fogColor = new Color(0.02f, 0.025f, 0.035f);
                     s.fogDensity = 0.05f;
                     s.vignette = 0f;
@@ -34,7 +37,7 @@ namespace Game.Rendering
                     return s;
 
                 case "Darker":
-                    s.postExposure = 1.1f;
+                    s.postExposure = -0.1f;
                     s.fogColor = new Color(0.09f, 0.10f, 0.12f);
                     s.ambient = new Color(0.035f, 0.04f, 0.055f);
                     s.moonBrightness = 0.15f;
@@ -42,7 +45,7 @@ namespace Game.Rendering
                     return s;
 
                 case "Pitch Black":
-                    s.postExposure = 0.8f;
+                    s.postExposure = -0.4f;
                     s.fogColor = new Color(0.01f, 0.012f, 0.016f);
                     s.fogDensity = 0.07f;
                     s.ambient = new Color(0.01f, 0.012f, 0.016f);

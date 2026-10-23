@@ -53,6 +53,13 @@ namespace Game.Core
             Services.Register(Preferences);
             Services.Register(Ui);
 
+            // A project left with Time Scale 0 (Project Settings > Time) would start frozen: nothing moves.
+            if (Time.timeScale <= 0f)
+            {
+                Debug.LogWarning("Time Scale was 0 at startup (Project Settings > Time). Setting it to 1.");
+                Time.timeScale = 1f;
+            }
+
             StartNewRun();
         }
 

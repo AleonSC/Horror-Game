@@ -19,9 +19,9 @@ namespace Game.Rendering
 
         [Header("Picture")]
         [Range(-3f, 5f), Tooltip("Brightens or darkens the whole picture after lighting.")]
-        public float postExposure = 1.63f;
+        public float postExposure = 0.5f;
         [Range(-100f, 100f)] public float contrast = 35f;
-        [Range(-100f, 100f)] public float saturation = 40f;
+        [Range(-100f, 100f)] public float saturation = 0f;
         [Tooltip("Tints the whole picture (white: no tint).")]
         public Color colorFilter = Color.white;
         [Range(0f, 1f), Tooltip("Darkened corners.")]
@@ -51,7 +51,7 @@ namespace Game.Rendering
         [Range(0f, 4f)] public float ambientStrength = 1f;
 
         [Header("Moon")]
-        public Color moonColor = new Color(0.45f, 0.55f, 0.80f);
+        public Color moonColor = new Color(0.55f, 0.6f, 0.72f);
         [Range(0f, 5f), Tooltip("Moonlight brightness (lux).")]
         public float moonBrightness = 0.25f;
         [Range(5f, 90f), Tooltip("How high the moon is (degrees).")]
