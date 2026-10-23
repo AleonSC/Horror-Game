@@ -21,6 +21,13 @@ public class TreePack : ScriptableObject
     [Tooltip("Keep the prefab's own colliders (often its whole crown, which you'd walk into). Off: just the trunk collider.")]
     public bool keepPrefabColliders = false;
 
+    [Header("Look (old materials the game converts; changes show live in Play and are kept)")]
+    [Tooltip("Brightens the leaves (their colour times this). Canopies seen from below are mostly in their own shade.")]
+    public float leafBrightness = 1.6f;
+    public float barkBrightness = 1f;
+    [Tooltip("Leaves lit the same on both faces, so ones seen from underneath aren't black (thin leaves let light through).")]
+    public bool leavesLitBothSides = true;
+
     public bool HasTrees
     {
         get
@@ -37,8 +44,32 @@ public class TreePack : ScriptableObject
     // ---------------------------------------------------------------- Materials
 
     static readonly System.Collections.Generic.Dictionary<Material, Material> converted = new System.Collections.Generic.Dictionary<Material, Material>();
+    static readonly System.Collections.Generic.Dictionary<Material, (Color tint, bool leaf)> convertedLook = new System.Collections.Generic.Dictionary<Material, (Color, bool)>();
     /// <summary>Clears this class's static state (StaticReset calls it when Play starts).</summary>
-    internal static void ResetStatics() => converted.Clear();
+    internal static void ResetStatics() { converted.Clear(); convertedLook.Clear(); }
+
+    /// <summary>The look settings on every converted material (after converting, and live as they're changed).</summary>
+    static void ApplyLook(Material mat, Color tint, bool leaf)
+    {
+        var pack = Load();
+        float bright = pack == null ? (leaf ? 1.6f : 1f) : leaf ? pack.leafBrightness : pack.barkBrightness;
+        Color c = tint * Mathf.Max(0f, bright);
+        c.a = tint.a; // (the alpha decides the cut-out: kept)
+        MaterialFactory.SetColor(mat, c);
+        if (leaf && mat.HasProperty("_DoubleSidedNormalMode"))
+        {
+            // None: the back face lit as the front (Flip or Mirror leave the undersides of a canopy black).
+            mat.SetFloat("_DoubleSidedNormalMode", pack == null || pack.leavesLitBothSides ? 2f : 1f);
+            UnityEngine.Rendering.HighDefinition.HDMaterial.ValidateMaterial(mat);
+        }
+    }
+
+    void OnValidate()
+    {
+        if (!Application.isPlaying) return;
+        foreach (var kv in convertedLook)
+            if (kv.Key != null) ApplyLook(kv.Key, kv.Value.tint, kv.Value.leaf);
+    }
 
     /// <summary>
     /// True if a material can't be drawn by HDRP (it shows pink): its shader has no HDRP pass (GBuffer,
@@ -91,6 +122,8 @@ public class TreePack : ScriptableObject
             MaterialFactory.SetDoubleSided(mat); // (also re-validates the material, setting the cut-out up)
         }
         converted[source] = mat;
+        convertedLook[mat] = (tint, leaf);
+        ApplyLook(mat, tint, leaf);
         Debug.Log($"[Horror] Tree pack: '{source.name}' ({(source.shader != null ? source.shader.name : "no shader")}) drawn with an HDRP stand-in{(leaf ? " (leaves: cut out, two-sided)" : "")}, texture {(albedo != null ? albedo.name : "none")}.");
         return mat;
     }
