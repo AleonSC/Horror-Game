@@ -89,6 +89,12 @@ to a dark room (`PortalDoor.cs`), and rifts (`RiftEvent.cs`, now spawn-on-demand
 
 ## Recent work on `hdrp` (newest first)
 
+- **Player character model** (`Player/PlayerCharacter.cs`, `Editor/PlayerCharacterSetup.cs`): the owner's
+  model and clips go in `Resources/PlayerCharacter` (Horror > Player Character > Open Settings). PlayerBody
+  uses it instead of the built figure, sized to `height`, animated with a PlayableGraph mixer (no Animator
+  Controller): idle, walk, run, crouch idle/walk, jump, winded, drone control, seated, with fallbacks for
+  empty slots; walk/run play at the player's pace; a remote goes in a humanoid rig's right hand while
+  flying the drone. Still only seen by other cameras (layer 29).
 - **Tree packs** (`World/TreePack.cs`, `Editor/TreePackSetup.cs`): the owner's tree pack goes in the
   `Resources/TreePack` asset (Horror > Tree Pack > Open Settings; drag the prefabs into Prefabs). The
   generator grows them set up like its own trees (`BuildPackTree`: a "Tree" with a trunk CapsuleCollider,
