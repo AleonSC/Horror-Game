@@ -1589,8 +1589,8 @@ public class ShadowEntity : MonoBehaviour
 
     /// <summary>
     /// The legs ragdolling: they hang from the hips and drag along the ground behind it as it glides, feet
-    /// scraping and catching, knees jutting; when it stops they lie where they fell. Off the ground (carried
-    /// up off the ground) they dangle and swing.
+    /// scraping and catching, knees jutting; when it stops they lie where they fell. Off the ground they
+    /// dangle and swing.
     /// </summary>
     void LegDrag()
     {
