@@ -239,7 +239,7 @@ public class EnemyModel
             {
                 case "Scour": return ShadowEntity.CaptureModel();
                 case "Blind One": return BlindEntity.CaptureModel();
-                case "Crawler": return Crawler.CaptureModel();
+                case "Crawler": return global::Crawler.CaptureModel(); // (the class, not the Crawler() template below)
                 case "Flier": return FlyingEntity.CaptureModel();
                 case "Giant": return WatcherEvent.Instance != null ? WatcherEvent.Instance.CaptureModel() : null;
                 default: return Template(enemy);
