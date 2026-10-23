@@ -1453,17 +1453,22 @@ public class Wildlife : MonoBehaviour
         perch.localPosition = new Vector3(0f, perchHeight, 0f);
         perch.localRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
 
-        // A bare branch sticking out of the trunk, drooping slightly, with a twig.
-        float length = Random.Range(0.9f, 1.5f);
-        var branch = Part(PrimitiveType.Cylinder, bark, perch, new Vector3(0f, -0.04f, radius + length * 0.5f), new Vector3(0.07f, length * 0.5f, 0.07f));
-        branch.localRotation = Quaternion.Euler(93f, 0f, 0f);
-        var twig = Part(PrimitiveType.Cylinder, bark, perch, new Vector3(0.12f, 0.08f, radius + length * 0.85f), new Vector3(0.025f, 0.18f, 0.025f));
-        twig.localRotation = Quaternion.Euler(40f, 0f, -50f);
+        // A bare branch growing out of the trunk: thick where it leaves the bark and tapering to a point,
+        // rising a little then sagging, kinked, with a few forked twigs off it. The owl sits on top, near
+        // the end.
+        float length = Random.Range(1.2f, 1.8f);
+        var branchMesh = BranchMesh(radius, length, out Vector3 owlSpot);
+        var branch = new GameObject("Branch");
+        branch.transform.SetParent(perch, false);
+        branch.AddComponent<MeshFilter>().sharedMesh = branchMesh;
+        var branchRenderer = branch.AddComponent<MeshRenderer>();
+        branchRenderer.sharedMaterial = bark;
+        OwnedMesh.Add(branch, branchMesh);
 
         // The owl, near the end of the branch.
         var body = new GameObject("Owl").transform;
         body.SetParent(perch, false);
-        body.localPosition = new Vector3(0f, 0f, radius + length * 0.7f);
+        body.localPosition = owlSpot;
         Part(PrimitiveType.Sphere, owlMat, body, new Vector3(0f, 0.16f, 0f), new Vector3(0.2f, 0.3f, 0.18f));
         for (int side = -1; side <= 1; side += 2)
         {
@@ -1487,6 +1492,105 @@ public class Wildlife : MonoBehaviour
         Part(PrimitiveType.Sphere, owlMat, head, new Vector3(0f, -0.015f, 0.08f), new Vector3(0.015f, 0.03f, 0.02f)); // beak
 
         return new Owl { head = head, tiltTimer = Random.Range(0f, 3f) };
+    }
+
+    /// <summary>
+    /// A branch, in its perch's space (out along +z from the trunk's middle): a tapering, kinked tube that
+    /// rises a little and sags toward its tip, with two or three forked twigs, all one mesh. owlSpot: a
+    /// point on top of it about two thirds of the way out.
+    /// </summary>
+    static Mesh BranchMesh(float trunkRadius, float length, out Vector3 owlSpot)
+    {
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var tris = new List<int>();
+        float total = trunkRadius + length;
+        float rise = Random.Range(0.05f, 0.18f), sag = Random.Range(0.12f, 0.3f), seed = Random.Range(0f, 100f);
+        float thick = Mathf.Clamp(trunkRadius * 0.35f, 0.06f, 0.11f);
+
+        Vector3 Along(float t) => new Vector3(
+            (Mathf.PerlinNoise(seed, t * 3f) - 0.5f) * 0.25f * t, // a wander side to side
+            rise * Mathf.Sin(t * Mathf.PI * 0.7f) - sag * t * t + (Mathf.PerlinNoise(seed + 7f, t * 4f) - 0.5f) * 0.08f * t,
+            t * total);
+        // Thick from inside the trunk, flaring where it leaves the bark, tapering to the tip.
+        float Radius(float t) => Mathf.Lerp(thick, 0.012f, Mathf.Pow(t, 0.8f)) * (t < 0.15f ? Mathf.Lerp(1.6f, 1f, t / 0.15f) : 1f);
+
+        Tube(verts, uvs, tris, Along, Radius, 0f, 1f, 14, 7);
+
+        // Twigs: from points along it, angling out and up, each thin and forked at its end.
+        int twigs = Random.Range(2, 4);
+        for (int k = 0; k < twigs; k++)
+        {
+            float at = Random.Range(0.35f, 0.85f);
+            Vector3 from = Along(at);
+            float side = Random.value < 0.5f ? -1f : 1f;
+            Vector3 dir = new Vector3(side * Random.Range(0.6f, 1f), Random.Range(0.2f, 0.8f), Random.Range(0.3f, 0.9f)).normalized;
+            float twigLength = Random.Range(0.25f, 0.5f);
+            float r0 = Radius(at) * 0.55f;
+            Vector3 bend = Vector3.down * Random.Range(0f, 0.08f);
+            Tube(verts, uvs, tris, t => from + dir * (t * twigLength) + bend * (t * t), t => Mathf.Lerp(r0, 0.006f, t), 0f, 1f, 5, 5);
+            // The fork.
+            Vector3 tip = from + dir * (twigLength * 0.7f) + bend * 0.5f;
+            Vector3 forkDir = (dir + new Vector3(0f, 0.5f, 0f) + Random.insideUnitSphere * 0.4f).normalized;
+            float forkLength = twigLength * 0.45f;
+            Tube(verts, uvs, tris, t => tip + forkDir * (t * forkLength), t => Mathf.Lerp(r0 * 0.5f, 0.005f, t), 0f, 1f, 4, 4);
+        }
+
+        const float sitAt = 0.7f;
+        owlSpot = Along(sitAt) + Vector3.up * (Radius(sitAt) * 0.8f);
+
+        var mesh = new Mesh { name = "Owl Branch" };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateTangents();
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    /// <summary>A tube along a path from t0 to t1 (rings of sides vertices at segments+1 points), closed at its far end.</summary>
+    static void Tube(List<Vector3> verts, List<Vector2> uvs, List<int> tris, System.Func<float, Vector3> path,
+        System.Func<float, float> radius, float t0, float t1, int segments, int sides)
+    {
+        int start = verts.Count;
+        float walked = 0f;
+        Vector3 last = path(t0);
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = Mathf.Lerp(t0, t1, i / (float)segments);
+            Vector3 p = path(t);
+            Vector3 ahead = path(Mathf.Min(t + 0.01f, t1)) - path(Mathf.Max(t - 0.01f, t0));
+            if (ahead.sqrMagnitude < 1e-10f) ahead = Vector3.forward;
+            ahead.Normalize();
+            Vector3 side = Vector3.Cross(ahead, Mathf.Abs(ahead.y) > 0.95f ? Vector3.right : Vector3.up).normalized;
+            Vector3 over = Vector3.Cross(side, ahead);
+            walked += (p - last).magnitude;
+            last = p;
+            float r = radius(t);
+            for (int j = 0; j <= sides; j++)
+            {
+                float a = j / (float)sides * Mathf.PI * 2f;
+                verts.Add(p + (side * Mathf.Cos(a) + over * Mathf.Sin(a)) * r);
+                uvs.Add(new Vector2(j / (float)sides, walked * 2f));
+            }
+        }
+        int row = sides + 1;
+        for (int i = 0; i < segments; i++)
+            for (int j = 0; j < sides; j++)
+            {
+                int q = start + i * row + j;
+                tris.Add(q); tris.Add(q + row); tris.Add(q + 1);
+                tris.Add(q + 1); tris.Add(q + row); tris.Add(q + row + 1);
+            }
+        // The tip, closed to a point.
+        Vector3 end = path(t1);
+        Vector3 onward = end - path(Mathf.Max(t0, t1 - 0.02f));
+        int tipIndex = verts.Count;
+        verts.Add(end + (onward.sqrMagnitude > 1e-10f ? onward.normalized : Vector3.forward) * radius(t1));
+        uvs.Add(new Vector2(0.5f, walked * 2f));
+        int lastRow = start + segments * row;
+        for (int j = 0; j < sides; j++) { tris.Add(lastRow + j); tris.Add(tipIndex); tris.Add(lastRow + j + 1); }
     }
 
     // ---------------------------------------------------------------- Helpers
