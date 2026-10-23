@@ -18,7 +18,7 @@ namespace Game.Entities
     {
         ScourSettings s;
         PlayerController player;
-        ScourBody body;
+        ScourLook body;
         ScourPortal portal;
         int id;
         float timer;
@@ -52,13 +52,13 @@ namespace Game.Entities
         public Vector3 Position => transform.position;
         public float DistanceToPlayer => player != null ? PlayerSense.FlatDistance(transform.position, player.transform.position) : float.MaxValue;
 
-        public void Init(int scourId, ScourSettings settings, float firstDelay, System.Random rng)
+        public void Init(int scourId, ScourConfig config, float firstDelay, System.Random rng)
         {
             id = scourId;
-            s = settings;
+            s = config.settings;
             gameObject.layer = Layers.Entities;
-            body = gameObject.AddComponent<ScourBody>();
-            body.Build(s, rng);
+            body = ScourLook.AddTo(gameObject, config);
+            body.Build(config, rng);
             Hide(firstDelay);
         }
 

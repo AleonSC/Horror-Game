@@ -8,6 +8,12 @@ namespace Game.Entities
     [CreateAssetMenu(menuName = "Game/Config/Scour", fileName = "ScourConfig")]
     public sealed class ScourConfig : GameConfig
     {
+        [Header("Look")]
+        [Tooltip("Use your own model instead of the built-in scour (affects new scours: press Play again).")]
+        public bool useCustomModel;
+        [Tooltip("Your scour prefab. Add a Scour Model Rig to it to say where its eyes, head, jaw and mouth are (docs/custom-scour.md).")]
+        public GameObject customModel;
+
         public ScourSettings settings = new ScourSettings();
     }
 

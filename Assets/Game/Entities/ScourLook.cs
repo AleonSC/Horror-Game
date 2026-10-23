@@ -1,0 +1,216 @@
+using Game.Core;
+using Game.Rendering;
+using UnityEngine;
+using UnityEngine.Rendering.HighDefinition;
+
+namespace Game.Entities
+{
+    /// <summary>
+    /// What a scour looks like, behind one set of calls the scour's logic makes (be visible, hold this pose, open
+    /// the mouth this much, eyes like this, shudder). Two looks plug in: the built-in procedural figure
+    /// (<see cref="ProceduralScourLook"/>) and the owner's own model (<see cref="ModelScourLook"/>), picked by
+    /// ScourConfig. The parts every look shares live here: materializing and shuddering, the glowing eyes and
+    /// their light, and the red glare from the mouth.
+    /// </summary>
+    public abstract class ScourLook : MonoBehaviour
+    {
+        protected static readonly Color Red = new Color(1f, 0.01f, 0f);
+        protected static readonly Color Blue = new Color(0.15f, 0.45f, 1f);
+        protected static readonly Color Warm = new Color(1f, 0.55f, 0.35f);
+        protected static readonly Color GlareColor = new Color(1f, 0.1f, 0.04f);
+
+        protected ScourSettings s;
+        protected Transform visual;
+        protected Renderer[] renderers = new Renderer[0];
+        protected Transform[] eyes = new Transform[0];
+        protected float mouth;
+        Vector3[] eyeScales = new Vector3[0];
+        Material eyeMat;
+        Light eyeLight, glare;
+
+        /// <summary>The point between the eyes, in the world.</summary>
+        public virtual Vector3 EyePoint
+        {
+            get
+            {
+                if (eyes.Length == 0) return transform.position + Vector3.up * s.height * transform.localScale.y;
+                Vector3 sum = Vector3.zero;
+                foreach (var e in eyes) sum += e.position;
+                return sum / eyes.Length;
+            }
+        }
+
+        /// <summary>Roughly the middle of the body (for "is the beam on it").</summary>
+        public abstract Vector3 Chest { get; }
+        public bool Visible { get; private set; } = true;
+        public ScourPose Pose { get; protected set; }
+
+        /// <summary>Pick and add the look ScourConfig asks for.</summary>
+        public static ScourLook AddTo(GameObject go, ScourConfig config)
+        {
+            if (config.useCustomModel && config.customModel != null)
+                return go.AddComponent<ModelScourLook>();
+            if (config.useCustomModel) Debug.LogWarning("ScourConfig: Use Custom Model is on but no model is set; using the built-in scour.");
+            return go.AddComponent<ProceduralScourLook>();
+        }
+
+        public void Build(ScourConfig config, System.Random rng)
+        {
+            s = config.settings;
+            visual = new GameObject("Visual").transform;
+            visual.SetParent(transform, false);
+            visual.gameObject.layer = Layers.Entities;
+            eyeMat = RuntimeMaterials.Glow("Scour eyes", Red);
+            BuildLook(config, rng);
+            renderers = visual.GetComponentsInChildren<Renderer>();
+        }
+
+        /// <summary>Make the figure under <see cref="visual"/>, and call AddEyes / AddEyeLight / AddGlare for its parts.</summary>
+        protected abstract void BuildLook(ScourConfig config, System.Random rng);
+
+        /// <summary>Hold a pose. Snap (when it can't be seen, after a creep) or ease into it.</summary>
+        public abstract void SetPose(ScourPose pose, int side, bool snap, float rate = 4f);
+
+        /// <summary>Each frame while visible: animate (pose, mouth, legs...). <paramref name="open"/> is the mouth, 0-1.6.</summary>
+        protected abstract void Animate(float dt, float open);
+
+        protected virtual void OnDestroy()
+        {
+            if (eyeMat != null) Destroy(eyeMat);
+        }
+
+        // ------------------------------------------------------------------ shared parts
+
+        /// <summary>Glowing eyes at these points (parented to <paramref name="bone"/>), or glow on the model's own eye renderers.</summary>
+        protected void AddEyes(Transform bone, Vector3[] localPoints, float size, Renderer[] ownEyes = null)
+        {
+            if (ownEyes != null && ownEyes.Length > 0)
+            {
+                eyes = new Transform[ownEyes.Length];
+                for (int i = 0; i < ownEyes.Length; i++)
+                {
+                    ownEyes[i].sharedMaterial = eyeMat;
+                    eyes[i] = ownEyes[i].transform;
+                }
+            }
+            else
+            {
+                eyes = new Transform[localPoints.Length];
+                for (int i = 0; i < localPoints.Length; i++)
+                {
+                    var eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    Destroy(eye.GetComponent<Collider>());
+                    eye.name = "Eye";
+                    eye.layer = Layers.Entities;
+                    eye.transform.SetParent(bone, false);
+                    eye.transform.localPosition = localPoints[i];
+                    eye.transform.localScale = new Vector3(1f, 0.65f, 0.6f) * size;
+                    eye.GetComponent<Renderer>().sharedMaterial = eyeMat;
+                    eyes[i] = eye.transform;
+                }
+            }
+            eyeScales = new Vector3[eyes.Length];
+            for (int i = 0; i < eyes.Length; i++) eyeScales[i] = eyes[i].localScale;
+        }
+
+        /// <summary>The red glow the eyes throw into the fog.</summary>
+        protected void AddEyeLight(Transform bone, Vector3 localPoint)
+        {
+            var go = new GameObject("Eye Glow");
+            go.transform.SetParent(bone, false);
+            go.transform.localPosition = localPoint;
+            go.AddHDLight(LightType.Point);
+            eyeLight = go.GetComponent<Light>();
+            eyeLight.shadows = LightShadows.None;
+            go.AddComponent<FogGlowLight>().strength = 1.5f;
+        }
+
+        /// <summary>The red glare out of its mouth when it opens (a spot, aimed out and down).</summary>
+        protected void AddGlare(Transform bone, Vector3 localPoint, Quaternion localRotation)
+        {
+            var go = new GameObject("Mouth Glare");
+            go.transform.SetParent(bone, false);
+            go.transform.localPosition = localPoint;
+            go.transform.localRotation = localRotation;
+            go.AddHDLight(LightType.Spot);
+            glare = go.GetComponent<Light>();
+            glare.shadows = LightShadows.None;
+            glare.color = GlareColor;
+            glare.enabled = false;
+            go.AddComponent<FogGlowLight>().strength = 0.8f;
+        }
+
+        // ------------------------------------------------------------------ what the logic sets
+
+        public void SetVisible(bool visible)
+        {
+            Visible = visible;
+            foreach (var r in renderers) if (r != null) r.enabled = visible;
+            if (eyeLight != null) eyeLight.enabled = visible;
+            if (glare != null) glare.enabled = visible && mouth > 0.01f;
+            OnVisibilityChanged(visible);
+        }
+
+        protected virtual void OnVisibilityChanged(bool visible) { }
+
+        /// <summary>The mouth: 0 shut, 1 open, up to 1.6 gaping wide. It eases there.</summary>
+        public void SetMouth(float open) => mouth = Mathf.MoveTowards(mouth, Mathf.Max(0f, open), Time.deltaTime * 2.5f);
+        public void ShutMouth() => mouth = 0f;
+
+        /// <summary>Materializing: 0 nothing, 1 whole. It pulls together from a smear in the air.</summary>
+        public void SetMaterialize(float t)
+        {
+            float v = Mathf.SmoothStep(0f, 1f, t);
+            visual.localScale = new Vector3(Mathf.Lerp(2.5f, 1f, v), Mathf.Lerp(0.05f, 1f, v), Mathf.Lerp(2.5f, 1f, v));
+            visual.localPosition = Vector3.up * (1f - v) * s.height * 0.5f + Random.insideUnitSphere * 0.15f * (1f - v);
+        }
+
+        /// <summary>Shudder by this many metres (and stretch: 0 none, 1 the crescendo's peak).</summary>
+        public void Shudder(float amount, float stretch = 0f)
+        {
+            visual.localPosition = Random.insideUnitSphere * amount;
+            visual.localScale = new Vector3(1f - 0.15f * stretch, 1f + 0.2f * stretch, 1f - 0.15f * stretch);
+            ShudderAmount = amount;
+        }
+
+        /// <summary>How hard it's shuddering right now (metres), for animators.</summary>
+        protected float ShudderAmount { get; private set; }
+
+        public void SetGrowth(float growth) => transform.localScale = Vector3.one * growth;
+
+        /// <summary>Eyes: widen (1 normal), glow (HDR), blue (0 red, 1 the cold blue of being driven off), shine (warm beam flare).</summary>
+        public void SetEyes(float widen, float glow, float blue, float shine, float lightStrength, float lightRange)
+        {
+            Color c = Color.Lerp(Color.Lerp(Red, Warm, shine), Blue, blue);
+            RuntimeMaterials.SetGlow(eyeMat, c * glow);
+            for (int i = 0; i < eyes.Length; i++)
+                eyes[i].localScale = new Vector3(eyeScales[i].x * widen, eyeScales[i].y * Mathf.Lerp(1f, widen, 0.6f), eyeScales[i].z);
+            if (eyeLight == null) return;
+            eyeLight.color = Color.Lerp(new Color(1f, 0.12f, 0.05f), Blue, blue);
+            eyeLight.intensity = glow * lightStrength;
+            eyeLight.range = lightRange;
+        }
+
+        /// <summary>Turn to face a point (yaw only).</summary>
+        public void Face(Vector3 point)
+        {
+            Vector3 d = point - transform.position;
+            d.y = 0f;
+            if (d.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(d);
+        }
+
+        void LateUpdate()
+        {
+            if (!Visible) return;
+            float open = Mathf.Clamp01(mouth);
+            if (glare != null)
+            {
+                glare.enabled = open > 0.01f;
+                glare.intensity = s.mouthGlare * open;
+                glare.range = s.mouthGlareRange;
+                glare.spotAngle = 55f;
+            }
+            Animate(Time.deltaTime, mouth);
+        }
+    }
+}

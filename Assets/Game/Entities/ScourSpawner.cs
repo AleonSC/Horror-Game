@@ -59,7 +59,7 @@ namespace Game.Entities
         {
             var go = new GameObject($"Scour #{nextId}");
             var scour = go.AddComponent<Scour>();
-            scour.Init(nextId++, config.settings, delay, rng);
+            scour.Init(nextId++, config, delay, rng);
             scours.Add(scour);
             return scour;
         }
