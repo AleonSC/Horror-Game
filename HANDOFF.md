@@ -89,6 +89,19 @@ to a dark room (`PortalDoor.cs`), and rifts (`RiftEvent.cs`, now spawn-on-demand
 
 ## Recent work on `hdrp` (newest first)
 
+- **Dev tools rebuilt** (F9; `Player/DevTools.cs`, styled by `Player/DevSkin.cs`): tabs Game, Lighting, Look.
+  Game has **Invincible**: the player becomes a moving safe zone (`SafeZones` source), so nothing can take
+  them and scours circle round them like a lamp (the giant's catch is skipped too). **Look**
+  (`Player/LookSettings.cs`) is a list of fields on the game's components (HdrpAtmosphere, Flashlight,
+  GroundMist, Lamp, NightSky) shown as sliders, saved in PlayerPrefs, with **Copy settings** (plain text,
+  `Type.field = value` lines, changed ones marked `*`, plus the Lighting tab's JSON) for the owner to paste
+  into chat. To make pasted values the defaults, set those fields' initialisers (and the LightingSettings
+  theme). Add a setting with one `Add(...)` line in LookSettings. HdrpAtmosphere gained fog anisotropy,
+  shadow distance, moon/flashlight shadow resolution and strength, contact shadows, screen-space AO and a
+  bloom override.
+- **Scours back to the original design**: the black stick figure (bones and knobs, ribs, backward elbows,
+  loose legs whose shins melt into the fog, `LegDrag`). The sculpted `ScourBody` meshes below are unused by
+  default (still there for saved models that use them).
 - **Scours rebuilt, detailed** (`World/ScourBody.cs`): sculpted lofted meshes (starved torso with ribs,
   vertebrae, shoulder blades; tendon-corded neck and limbs; long skull with brow and sockets; jointed clawed
   hands; long feet), dark wet HDRP Lit skin. They stand and walk normally (`LegWalk`); the dragging-leg
@@ -148,6 +161,6 @@ of building interiors, enemy lights cast shadows through plank gaps, rift event.
 - **Ground Mist**: density, height, patchiness, clearing round you and lamps, flashlight and lamp
   strength.
 - **Player > Flashlight**: brightness, range, near dim, fog glow.
-- **Dev tools (F9)**: lamps lit, field of view, Stick of Truth, spawn overlay, restart the run; Lighting
-  tab for the picture, moon, fog and flashlight.
+- **Dev tools (F9)**: Game (invincible, field of view, lamps lit, Stick of Truth, overlay, editors, restart),
+  Lighting (themes, picture, moon, fog, flashlight), Look (fine detail, copy and paste).
 - Saved tuning: **Horror > Open Saved Tuning**; right-click a component > **Clear Tuning** to reset it.

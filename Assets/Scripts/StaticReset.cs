@@ -68,6 +68,8 @@ public static class StaticReset
         PauseMenu.ResetStatics();
         MainMenu.ResetStatics();
         DevTools.ResetStatics();
+        LookSettings.ResetStatics();
+        DevSkin.ResetStatics();
         InventoryScreen.ResetStatics();
         IntroText.ResetStatics();
 

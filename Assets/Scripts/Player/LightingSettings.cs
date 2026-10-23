@@ -231,6 +231,19 @@ public class LightingSettings : MonoBehaviour
                 light.shadows = v.extraShadows ? LightShadows.Soft : LightShadows.None;
     }
 
+    /// <summary>Everything this panel sets, as JSON (the dev tools' Copy settings carries it).</summary>
+    public string ValuesJson() => JsonUtility.ToJson(v);
+
+    /// <summary>Takes settings copied with ValuesJson, applies them and saves them.</summary>
+    public void LoadValuesJson(string json)
+    {
+        if (!captured) Capture();
+        try { JsonUtility.FromJsonOverwrite(json, v); }
+        catch { return; }
+        if (v.theme >= themes.Length) v.theme = -1;
+        Apply();
+    }
+
     void LogValues()
     {
         string theme = v.theme >= 0 ? themes[v.theme].name : "Original";

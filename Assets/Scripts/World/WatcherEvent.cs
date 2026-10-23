@@ -914,7 +914,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         // And a tremor underfoot all the while it walks, growing as it nears.
         player.AddCameraShake(Mathf.Lerp(0.15f, 0.9f, closeness) * g);
 
-        if (giantDistance <= giantCatchDistance)
+        if (giantDistance <= giantCatchDistance && !DevTools.Invincible) // (the dev tools' invincibility: it walks on past)
         {
             phase = Phase.Done;
             shake = 4f;

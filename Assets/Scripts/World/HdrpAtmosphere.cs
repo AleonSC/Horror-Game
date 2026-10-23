@@ -48,6 +48,27 @@ public class HdrpAtmosphere : MonoBehaviour
     public float beamOverShapes = 1f;
     [Range(0f, 2f), Tooltip("How much lamps, torches and other round lights light up the fog round them (HDRP volumetrics; 1 is HDRP's normal). Low, or the mist round every lamp blazes.")]
     public float lampFogGlow = 0.3f;
+    [Range(-1f, 1f), Tooltip("Which way the fog throws light: above 0 it glows most looking toward a light (a halo round the beam), below 0 looking away from it. 0 is even.")]
+    public float fogAnisotropy = 0f;
+
+    [Header("Shadows & shading")]
+    [Tooltip("How far out things cast shadows, metres.")]
+    public float shadowDistance = 500f;
+    [Tooltip("Shadow map size for the moon and the flashlight (bigger is sharper and costlier).")]
+    public int moonShadowResolution = 2048;
+    public int flashlightShadowResolution = 1024;
+    [Range(0f, 1f), Tooltip("How dark the moon's shadows are (1 full, 0 none).")]
+    public float moonShadowStrength = 1f;
+    [Range(0f, 1f), Tooltip("How dark the flashlight's shadows are (1 full, 0 none).")]
+    public float flashlightShadowStrength = 1f;
+    [Tooltip("Small sharp shadows where things touch (contact shadows) for the moon and the flashlight.")]
+    public bool contactShadows = false;
+    [Range(0f, 1f)] public float contactShadowLength = 0.15f;
+    [Range(0f, 4f), Tooltip("Screen-space ambient occlusion (darkening in creases and under things) when ray tracing isn't doing it. 0 is off.")]
+    public float ambientOcclusionStrength = 0f;
+    [Tooltip("Use bloomIntensity instead of whatever bloom the project's default volume has.")]
+    public bool bloomOverride = false;
+    [Range(0f, 1f)] public float bloomIntensity = 0.2f;
 
     [Header("Ray tracing (DirectX 12 and a ray tracing graphics card)")]
     [Tooltip("Use ray tracing where the graphics card and the project support it.")]
@@ -105,6 +126,9 @@ public class HdrpAtmosphere : MonoBehaviour
     ScreenSpaceAmbientOcclusion ambientOcclusion;
     ScreenSpaceReflection reflections;
     GlobalIllumination globalIllumination;
+    HDShadowSettings shadowSettings;
+    ContactShadows contactShadowFx;
+    Bloom bloomFx;
     readonly HashSet<Renderer> rendererSeen = new HashSet<Renderer>();
     float rendererScan;
     Color lastAmbient = new Color(-1f, 0f, 0f);
@@ -147,6 +171,9 @@ public class HdrpAtmosphere : MonoBehaviour
         ambientOcclusion = profile.Add<ScreenSpaceAmbientOcclusion>(false);
         reflections = profile.Add<ScreenSpaceReflection>(false);
         globalIllumination = profile.Add<GlobalIllumination>(false);
+        shadowSettings = profile.Add<HDShadowSettings>(true);
+        contactShadowFx = profile.Add<ContactShadows>(true);
+        bloomFx = profile.Add<Bloom>(false);
     }
 
     /// <summary>True if this machine can ray trace and the HDRP asset has ray tracing ticked.</summary>
@@ -166,9 +193,12 @@ public class HdrpAtmosphere : MonoBehaviour
         bool rt = rayTracing && RayTracingWanted && !classic && CanRayTrace();
         RayTracingActive = rt;
 
-        ambientOcclusion.active = classic || (rt && rayTracedAmbientOcclusion);
-        ambientOcclusion.rayTracing.Override(!classic);
-        ambientOcclusion.intensity.Override(classic ? 0f : 1f);
+        // Ray traced, or else screen space if ambientOcclusionStrength asks for it; the classic look has none.
+        bool rtAO = rt && rayTracedAmbientOcclusion;
+        bool ssao = !classic && !rtAO && ambientOcclusionStrength > 0f;
+        ambientOcclusion.active = classic || rtAO || ssao;
+        ambientOcclusion.rayTracing.Override(rtAO);
+        ambientOcclusion.intensity.Override(classic ? 0f : rtAO ? 1f : ambientOcclusionStrength);
 
         reflections.active = classic || (rt && rayTracedReflections);
         reflections.enabled.Override(!classic);
@@ -225,6 +255,7 @@ public class HdrpAtmosphere : MonoBehaviour
             fog.color.Override(RenderSettings.fogColor.linear / mul);
             fog.meanFreePath.Override(Mathf.Clamp(fogDistanceScale / RenderSettings.fogDensity, 1f, 5000f));
             fog.albedo.Override(Color.white * volumetricAlbedo);
+            fog.anisotropy.Override(fogAnisotropy);
             // Out at least as far as the camera sees: where volumetric fog gives way to plain fog, the two don't
             // match (the lamps' and the flashlight's glow stops dead), leaving a hard line across the ground.
             float far = Camera.main != null ? Camera.main.farClipPlane : volumetricDistance;
@@ -245,6 +276,7 @@ public class HdrpAtmosphere : MonoBehaviour
         }
 
         ApplyRayTracing(classic);
+        ApplyShadows();
 
         // About once a second: new lights get the old units, and ray-traced shadows if they cast shadows.
         lightScan -= Time.unscaledDeltaTime;
@@ -279,6 +311,37 @@ public class HdrpAtmosphere : MonoBehaviour
             rendererScan = 2f;
             ExcludeEffectsFromRayTracing();
         }
+    }
+
+    /// <summary>Shadow distance, contact shadows and bloom on the volume; the moon's and flashlight's shadow maps.</summary>
+    void ApplyShadows()
+    {
+        shadowSettings.maxShadowDistance.Override(Mathf.Max(1f, shadowDistance));
+        contactShadowFx.enable.Override(contactShadows);
+        contactShadowFx.length.Override(contactShadowLength);
+        bloomFx.active = bloomOverride;
+        bloomFx.intensity.Override(bloomIntensity);
+
+        if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
+        ShadowMap(RenderSettings.sun, moonShadowResolution, moonShadowStrength);
+        ShadowMap(flashlight != null ? flashlight.flashlight : null, flashlightShadowResolution, flashlightShadowStrength);
+    }
+
+    readonly Dictionary<Light, (int, float, bool)> shadowMapSet = new Dictionary<Light, (int, float, bool)>();
+
+    void ShadowMap(Light light, int resolution, float strength)
+    {
+        if (light == null) return;
+        var hd = light.GetComponent<HDAdditionalLightData>();
+        if (hd == null) return;
+        var wanted = (resolution, strength, contactShadows);
+        if (shadowMapSet.TryGetValue(light, out var had) && had == wanted) return; // (only when something changed)
+        shadowMapSet[light] = wanted;
+        hd.SetShadowResolutionOverride(true);
+        hd.SetShadowResolution(Mathf.Clamp(Mathf.ClosestPowerOfTwo(Mathf.Max(resolution, 64)), 64, 8192));
+        hd.shadowDimmer = strength;
+        hd.useContactShadow.useOverride = true;
+        hd.useContactShadow.@override = contactShadows;
     }
 
     /// <summary>

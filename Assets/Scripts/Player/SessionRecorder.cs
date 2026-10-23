@@ -104,6 +104,9 @@ public class SessionRecorder : MonoBehaviour
         Log("session", $"Started {System.DateTime.Now:yyyy-MM-dd HH:mm}. Difficulty and settings as saved.");
     }
 
+    /// <summary>Shows or hides the recorder's panel (as F11 does).</summary>
+    public void TogglePanel() => showPanel = !showPanel;
+
     void Update()
     {
         float dt = Time.deltaTime;
