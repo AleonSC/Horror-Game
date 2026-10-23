@@ -4,10 +4,11 @@
 // Ignores the scene fog (it does its own). HDRP (see HorrorHDRP.hlsl).
 //
 // Far-off shapes in the fog (the giant, its chains, the landmark tree) are drawn "fog aware"
-// (MaterialFactory.MakeFogAware): rather than painting over the fog that's already there, they add the
-// difference between themselves and the plain fog colour. So light in the mist in front of them (your
-// flashlight's beam) stays on top, instead of being cut out in a black silhouette. They also mark the
-// stencil, so the stars aren't drawn over them.
+// (MaterialFactory.MakeFogAware). They're solid, drawn after HDRP's fog (which would bury them), so they'd
+// paint over the glow your flashlight makes in the mist in front of them, a black silhouette cut out of
+// the beam: so they add that glow back themselves, worked out along the view ray from the flashlight's
+// cone (_HorrorSpot*, set by HdrpAtmosphere). They also mark the stencil, so the stars aren't drawn
+// over them.
 // Lives in a Resources folder so it's always included in builds.
 Shader "Horror/Haze"
 {
@@ -54,6 +55,28 @@ Shader "Horror/Haze"
             float _Haze, _GroundHaze, _HazeBase, _HazeHeight, _WispScale;
             float _SkyFade, _SkyFadeStart, _SkyFadeLength;
             float _FogAware;
+            float4 _HorrorSpotPos;   // the flashlight: xyz position (world), w range
+            float4 _HorrorSpotDir;   // xyz direction, w cos(outer half-angle)
+            float4 _HorrorSpotColor; // rgb how bright the fog glows in it, w cos(inner half-angle)
+
+            /// The flashlight's glow in the mist along the view ray, from the camera out to dist.
+            float3 BeamGlow(float3 ro, float3 rd, float dist)
+            {
+                if (_HorrorSpotColor.r + _HorrorSpotColor.g + _HorrorSpotColor.b <= 0) return 0;
+                const int STEPS = 20;
+                float len = min(dist, _HorrorSpotPos.w);
+                float stepLen = len / STEPS;
+                float sum = 0;
+                for (int k = 0; k < STEPS; k++)
+                {
+                    float3 toP = ro + rd * ((k + 0.5) * stepLen) - _HorrorSpotPos.xyz;
+                    float d = length(toP);
+                    float cone = smoothstep(_HorrorSpotDir.w, _HorrorSpotColor.w, dot(toP / max(d, 0.001), _HorrorSpotDir.xyz));
+                    float fade = saturate(1 - d / max(_HorrorSpotPos.w, 0.001));
+                    sum += cone * fade * fade / max(d * d, 1);
+                }
+                return _HorrorSpotColor.rgb * sum * stepLen;
+            }
 
             struct v2f
             {
@@ -99,7 +122,15 @@ Shader "Horror/Haze"
                 float h = saturate(_Haze + ground + (wisps - 0.5) * 0.35 + sky);
                 float3 col = lerp(_Color.rgb, _HazeColor.rgb, h);
                 // Fog aware: added onto the fog already there, as the change from plain fog (often negative).
-                return _FogAware > 0.5 ? float4(col - _HazeColor.rgb, 1) : float4(col, 1);
+                if (_FogAware > 0.5)
+                {
+                    // Solid, with the flashlight's glow in the mist in front of it on top.
+                    float3 ro = HorrorCameraAbsolute();
+                    float3 toHere = i.world - ro;
+                    float dist = length(toHere);
+                    col += BeamGlow(ro, toHere / max(dist, 0.001), dist);
+                }
+                return float4(col, 1);
             }
             ENDHLSL
         }

@@ -40,6 +40,8 @@ public class HdrpAtmosphere : MonoBehaviour
     [Range(0f, 1f)] public float volumetricAlbedo = 0.55f;
     [Tooltip("How far out the volumetric fog (the lit beams) reaches.")]
     public float volumetricDistance = 70f;
+    [Tooltip("How bright the flashlight's glow in the mist is drawn over the giant and other far-off shapes (to match the beam round them).")]
+    public float beamOverShapes = 1f;
 
     [Header("Ray tracing (DirectX 12 and a ray tracing graphics card)")]
     [Tooltip("Use ray tracing where the graphics card and the project support it.")]
@@ -69,6 +71,7 @@ public class HdrpAtmosphere : MonoBehaviour
     Color lastAmbient = new Color(-1f, 0f, 0f);
     readonly HashSet<Light> unitsSet = new HashSet<Light>();
     float lightScan;
+    Flashlight flashlight;
 
     /// <summary>What HDRP multiplies scene light by at this exposure (so colours can be divided back by it).</summary>
     float ExposureMultiplier => 1f / (1.2f * Mathf.Pow(2f, exposure));
@@ -180,6 +183,8 @@ public class HdrpAtmosphere : MonoBehaviour
             fog.depthExtent.Override(volumetricDistance);
         }
 
+        UpdateBeamOverShapes(mul);
+
         // Each camera's background: its own colour, not the sky.
         foreach (var cam in Camera.allCameras)
         {
@@ -218,6 +223,34 @@ public class HdrpAtmosphere : MonoBehaviour
             rendererScan = 2f;
             ExcludeEffectsFromRayTracing();
         }
+    }
+
+    /// <summary>
+    /// The flashlight, for the far-off shapes (Horror/Haze, fog aware) to draw its glow in the mist in front
+    /// of them: as bright as HDRP's volumetric fog makes it (the fog's scattering, the light's volumetric
+    /// multiplier, the exposure).
+    /// </summary>
+    void UpdateBeamOverShapes(float mul)
+    {
+        if (flashlight == null) flashlight = FindAnyObjectByType<Flashlight>();
+        Light beam = flashlight != null && flashlight.IsOn ? flashlight.flashlight : null;
+        bool fogOn = RenderSettings.fog && RenderSettings.fogDensity > 0f;
+        if (beam == null || !beam.isActiveAndEnabled || !fogOn)
+        {
+            Shader.SetGlobalVector("_HorrorSpotColor", new Vector4(0f, 0f, 0f, 1f));
+            return;
+        }
+        Transform t = beam.transform;
+        var hd = beam.GetComponent<HDAdditionalLightData>();
+        float dimmer = hd != null ? hd.volumetricDimmer : 1f;
+        float meanFreePath = Mathf.Clamp(fogDistanceScale / RenderSettings.fogDensity, 1f, 5000f);
+        float scatter = volumetricAlbedo / meanFreePath / (4f * Mathf.PI); // per metre, scattered toward you
+        Color c = beam.color.linear * (beam.intensity * scatter * dimmer * mul * beamOverShapes);
+        float outer = Mathf.Cos(beam.spotAngle * 0.5f * Mathf.Deg2Rad);
+        float inner = Mathf.Cos(Mathf.Min(beam.innerSpotAngle, beam.spotAngle - 1f) * 0.5f * Mathf.Deg2Rad);
+        Shader.SetGlobalVector("_HorrorSpotPos", new Vector4(t.position.x, t.position.y, t.position.z, beam.range));
+        Shader.SetGlobalVector("_HorrorSpotDir", new Vector4(t.forward.x, t.forward.y, t.forward.z, outer));
+        Shader.SetGlobalVector("_HorrorSpotColor", new Vector4(c.r, c.g, c.b, inner));
     }
 
     static bool Approximately(Color a, Color b) =>

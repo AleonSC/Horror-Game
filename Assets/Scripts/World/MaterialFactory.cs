@@ -118,15 +118,15 @@ public static class MaterialFactory
 
     /// <summary>
     /// Makes a Horror/Haze material fog aware (see the shader): for far-off shapes in the fog (the giant,
-    /// its chains, the landmark tree), so light in the mist in front of them isn't cut out. Drawn just before
-    /// the stars (which they hide); order picks among them.
+    /// its chains, the landmark tree): solid, with the flashlight's glow in the mist in front of them added
+    /// back so the beam isn't cut out. Drawn just before the stars (which they hide); order picks among them.
     /// </summary>
     public static void MakeFogAware(Material haze, int order = 0)
     {
         if (!haze.HasProperty("_FogAware")) return;
         haze.SetFloat("_FogAware", 1f);
         haze.SetFloat("_SrcBlend", (float)BlendMode.One);
-        haze.SetFloat("_DstBlend", (float)BlendMode.One);
+        haze.SetFloat("_DstBlend", (float)BlendMode.Zero);
         haze.SetFloat("_StencilRef", 64f);
         haze.renderQueue = 2910 + Mathf.Clamp(order, 0, 30);
     }
