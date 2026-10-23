@@ -20,12 +20,12 @@ public class LampSpawner : MonoBehaviour
     [Tooltip("How many lamps there are in the forest.")]
     public int lampCount = 10;
     [Tooltip("Keep lamps at least this far from the middle of the map, where the player starts (so none is in sight at the start).")]
-    public float minDistanceFromStart = 45f;
+    public float minDistanceFromStart = 55f;
     public float minLampSpacing = 25f;
     [Tooltip("Keep lamps at least this far from any tree.")]
     public float treeClearance = 2f;
     [Tooltip("Each lamp stands in a small clearing: the trees within about this far of it are taken out (metres). 0: none.")]
-    public float clearingRadius = 7f;
+    public float clearingRadius = 12f;
     [Range(0f, 0.6f), Tooltip("How ragged the clearing's edge is (0: a neat circle).")]
     public float clearingRaggedness = 0.3f;
     [Tooltip("Map size when there's no DarkForestGenerator in the scene.")]

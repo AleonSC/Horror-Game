@@ -24,8 +24,8 @@ public class DarkForestGenerator : MonoBehaviour
     public bool randomizeSeed = false;
     [Tooltip("Width/length of the forest in meters.")]
     public float areaSize = 320f;
-    [Tooltip("Radius of the open clearing around the center where the player spawns.")]
-    public float clearingRadius = 8f;
+    [Tooltip("Radius of the open clearing around the center where the player spawns: the biggest on the map (bigger than any glade or lamp clearing), so the giant on the horizon shows over the trees.")]
+    public float clearingRadius = 28f;
     [Tooltip("Make the map loop: leaving one side brings you in on the opposite side. Off = invisible walls at the edges.")]
     public bool wrapWorld = true;
 
@@ -757,15 +757,17 @@ public class DarkForestGenerator : MonoBehaviour
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
             float distFromCenter = p.magnitude;
-            if (distFromCenter < clearingRadius) continue;
+            if (distFromCenter < clearingRadius * 0.85f) continue;
             if (IsNearStructure(new Vector3(p.x, 0f, p.y), 6.5f)) continue;
 
             // Patchy density: thin out trees in low-noise areas, thicker near the edges.
             float density = Mathf.PerlinNoise((p.x + noiseOffset.y) * densityNoiseScale, (p.y + noiseOffset.x) * densityNoiseScale);
             // Without wrapping, the edges get thicker so the walls feel like dense forest.
             float edgeBoost = wrapWorld ? 0f : Mathf.InverseLerp(half * 0.6f, half, Mathf.Max(Mathf.Abs(p.x), Mathf.Abs(p.y)));
-            // Trees right at the clearing edge are sparse so the spawn feels open.
-            float clearingFade = Mathf.InverseLerp(clearingRadius, clearingRadius * 2f, distFromCenter);
+            // Trees right at the clearing edge are sparse so the spawn feels open (a ragged edge, not a ring).
+            float clearingEdge = clearingRadius * (0.9f + 0.25f * Mathf.PerlinNoise(noiseOffset.x + Mathf.Atan2(p.y, p.x) * 1.5f, noiseOffset.y));
+            if (distFromCenter < clearingEdge) continue;
+            float clearingFade = Mathf.InverseLerp(clearingEdge, clearingEdge * 1.4f, distFromCenter);
             // The hilltops thin out to bare crowns, open to the sky.
             float top = hills.Count > 0 ? HillTop(p.x, p.y) : 0f;
             float bald = 1f - hillBaldTops * top * top;
@@ -2545,6 +2547,8 @@ public class DarkForestGenerator : MonoBehaviour
 
         var player = new GameObject("Player");
         player.transform.position = new Vector3(0f, GetGroundHeight(0f, 0f) + 0.1f, 0f);
+        // Facing a random way (the giant hangs that way, WatcherEvent, so it's in view from the start).
+        player.transform.rotation = Quaternion.Euler(0f, Range(0f, 360f), 0f);
 
         var cc = player.AddComponent<CharacterController>();
         cc.radius = 0.35f;

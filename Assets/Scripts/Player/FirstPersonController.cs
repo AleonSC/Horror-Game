@@ -216,6 +216,9 @@ public class FirstPersonController : MonoBehaviour
     int ladderContacts;
     Vector3 spawnPosition;
     Quaternion spawnRotation;
+    /// <summary>Which way the player faced when the run began (the giant hangs that way).</summary>
+    public Quaternion SpawnRotation => started ? spawnRotation : transform.rotation;
+    bool started;
 
     CharacterController controller;
     Vector3 horizontalVelocity;
@@ -246,6 +249,7 @@ public class FirstPersonController : MonoBehaviour
     {
         spawnPosition = transform.position;
         spawnRotation = transform.rotation;
+        started = true;
         if (lockCursor) SetCursorLocked(true);
         wakeTimer = wakeTime;
     }

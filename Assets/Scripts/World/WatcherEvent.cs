@@ -178,6 +178,17 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     float giantDistance, stridePhase, shake;
     float dream; // how strongly the dream hallway has taken hold
     float hangBearingAngle = -1f;       // compass direction it hangs in, from the player
+    [Tooltip("At the start it hangs within this many degrees either side of the way the player faces, so it's in view from the first moment.")]
+    public float startInViewAngle = 12f;
+
+    /// <summary>Its compass bearing: ahead of where the player starts, give or take a little.</summary>
+    float StartBearing()
+    {
+        if (player == null) player = FindAnyObjectByType<FirstPersonController>();
+        if (player == null) return Random.Range(0f, 360f);
+        float yaw = player.SpawnRotation.eulerAngles.y;
+        return Mathf.Repeat(yaw + Random.Range(-startInViewAngle, startInViewAngle), 360f);
+    }
     Transform chain;
     Vector3 chainBottom;                // where the snapped chain ends, relative to the player
     float fallStartScale, fallStartNeckHeight;
@@ -420,7 +431,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
                 });
             }
         }
-        if (hangBearingAngle < 0f) hangBearingAngle = Random.Range(0f, 360f);
+        if (hangBearingAngle < 0f) hangBearingAngle = StartBearing(); // (ahead of you as you start)
         giantBearing = Quaternion.Euler(0f, hangBearingAngle, 0f) * Vector3.forward;
         giant.gameObject.SetActive(true);
         chain.gameObject.SetActive(true);
@@ -1393,8 +1404,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
         searchPausing = false;
         gait = 1f;
         stepImpulse = 0f;
-        // It's back up on its chain, somewhere new (and you'll be drawn to look at it again).
-        hangBearingAngle = Random.Range(0f, 360f);
+        // It's back up on its chain, ahead of you again as you start over (and you'll be drawn to look at it).
+        hangBearingAngle = StartBearing();
         lookedUp = false;
         jolt = -1f;
         lampsSeen = -1;
