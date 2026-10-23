@@ -22,6 +22,8 @@ namespace Game.Core
         public bool classicLook;
         public bool rayTracing;
         public string difficulty = "Normal";
+        [Tooltip("Your own values for the Custom difficulty.")]
+        public DifficultySettings customDifficulty = new DifficultySettings();
         public string devTab = "Game";
 
         public static string DefaultPath => Path.Combine(Application.persistentDataPath, FileName);

@@ -18,7 +18,7 @@ namespace Game.UI
         static readonly Color Red = new Color(0.85f, 0.08f, 0.05f, 1f);
         static readonly Color Warm = new Color(1f, 0.78f, 0.45f, 1f);
 
-        GUIStyle prompt, small, message;
+        GUIStyle prompt, small, message, tiny, tinyRight;
         string lastPrompt;
         string spacedPrompt;
 
@@ -43,6 +43,7 @@ namespace Game.UI
                 if (!held) DrawCrosshair(player);
                 DrawLamps();
                 DrawMeters(player);
+                if (player.Hotbar != null) DrawHotbar(player.Hotbar);
             }
             DrawFade();
             GUI.matrix = old;
@@ -50,7 +51,13 @@ namespace Game.UI
 
         void DrawCrosshair(PlayerController player)
         {
-            var target = player.Interactor.Target;
+            IInteractable target = player.Interactor.Target;
+            bool door = false;
+            if (target == null && player.Interactor.Door != null)
+            {
+                target = player.Interactor.Door;
+                door = true;
+            }
             float size = target != null ? 5f : 3f;
             Rect(new Rect(W / 2 - size / 2, H / 2 - size / 2, size, size), new Color(1f, 1f, 1f, target != null ? 0.85f : 0.45f));
             if (target == null) return;
@@ -60,10 +67,10 @@ namespace Game.UI
                 lastPrompt = target.Prompt;
                 spacedPrompt = Spaced(target.Prompt);
             }
-            // ◆ C R A N K ◆ on a soft dark band, with the mouse glyph.
-            var band = new Rect(W / 2 - 150, H / 2 + 34, 300, 30);
+            // ◆ C R A N K ◆ on a soft dark band, with the mouse (or E) glyph.
+            var band = new Rect(W / 2 - 170, H / 2 + 34, 340, 30);
             Rect(band, Band);
-            Label(band, $"◆   {spacedPrompt}   ◆      [ LMB ]", prompt, Ink);
+            Label(band, $"◆   {spacedPrompt}   ◆      {(door ? "[ E ]" : "[ LMB ]")}", prompt, Ink);
 
             if (target is IProgressInteractable p && p.Progress > 0f)
             {
@@ -108,6 +115,79 @@ namespace Game.UI
             if (stamina.Value < 0.999f || stamina.Winded) Rect(new Rect(x, y - 12, length * stamina.Value, 4), sc);
         }
 
+        // Bottom centre: the eight slots, shown for a few seconds after a change (and while something's lit), the
+        // held item's name and what's left in it, and any hint ("You need a lighter.").
+        void DrawHotbar(Hotbar hotbar)
+        {
+            var items = hotbar.Items;
+            var held = items.Held;
+            float since = Time.unscaledTime - hotbar.LastChanged;
+            float show = Mathf.Clamp01((3f - since) / 0.6f);
+            if (!held.Empty && held.Lit) show = Mathf.Max(show, 0.5f);
+
+            const float size = 46f, gap = 6f;
+            float x0 = W / 2 - (Inventory.SlotCount * (size + gap) - gap) / 2, y = H - 92;
+            if (show > 0f)
+            {
+                for (int i = 0; i < Inventory.SlotCount; i++)
+                {
+                    var r = new Rect(x0 + i * (size + gap), y, size, size);
+                    var slot = items[i];
+                    bool selected = i == items.Selected;
+                    Rect(r, new Color(0f, 0f, 0f, (selected ? 0.7f : 0.45f) * show));
+                    if (selected) Outline(r, new Color(Warm.r, Warm.g, Warm.b, 0.9f * show));
+                    var ink = new Color(Ink.r, Ink.g, Ink.b, Ink.a * show);
+                    Label(new Rect(r.x + 4, r.y + 2, 20, 14), (i + 1).ToString(), tiny, new Color(1f, 1f, 1f, 0.35f * show));
+                    if (slot.Empty) continue;
+                    Label(new Rect(r.x, r.y + 12, size, 22), Short(slot.Kind), tiny, slot.Lit ? new Color(Warm.r, Warm.g, Warm.b, show) : ink);
+                    if (Inventory.Stacks(slot.Kind) && slot.Count > 1) Label(new Rect(r.x, r.y + 28, size - 4, 16), $"x{slot.Count}", tinyRight, ink);
+                    if (slot.Kind == ItemKind.Torch || slot.Kind == ItemKind.Lighter) // (burn or fuel left)
+                        Rect(new Rect(r.x + 4, r.yMax - 5, (size - 8) * Mathf.Clamp01(slot.Charge), 2), new Color(Warm.r, Warm.g, Warm.b, 0.8f * show));
+                }
+            }
+
+            if (!held.Empty && held.Kind != ItemKind.Flashlight)
+            {
+                string name = Spaced(Inventory.NameOf(held.Kind));
+                string extra = Detail(held, hotbar.Settings);
+                Label(new Rect(0, y - 26, W, 20), extra.Length > 0 ? $"{name}    {extra}" : name, prompt, Ink);
+            }
+
+            string hint = hotbar.Hint;
+            if (hint != null) Label(new Rect(0, H / 2 + 110, W, 24), hint, prompt, Ink);
+        }
+
+        static string Short(ItemKind kind)
+        {
+            switch (kind)
+            {
+                case ItemKind.Flashlight: return "LIGHT";
+                case ItemKind.Batteries: return "BATT";
+                case ItemKind.Torch: return "TORCH";
+                case ItemKind.Lighter: return "LIGHTER";
+                case ItemKind.FlareGun: return "FLARE";
+                case ItemKind.Glowsticks: return "GLOW";
+                case ItemKind.Camera: return "CAMERA";
+                case ItemKind.KeyFob: return "FOB";
+                default: return "";
+            }
+        }
+
+        static string Detail(ItemStack held, ItemSettings s)
+        {
+            switch (held.Kind)
+            {
+                case ItemKind.Torch: return held.Lit ? $"burning  {Mathf.CeilToInt(held.Charge * s.torchBurnTime)} s" : "F to light (uses lighter fuel)";
+                case ItemKind.Lighter: return $"fuel {Mathf.CeilToInt(held.Charge * 100f)}%{(held.Lit ? "" : "   F to open")}";
+                case ItemKind.Batteries: return $"x{held.Count}   F to put one in";
+                case ItemKind.Glowsticks: return $"x{held.Count}   F to crack and toss";
+                case ItemKind.Camera: return $"{Mathf.FloorToInt(held.Charge)} shots";
+                case ItemKind.FlareGun: return "one flare: F to fire it into the sky";
+                case ItemKind.KeyFob: return "F: the car chirps";
+                default: return "";
+            }
+        }
+
         void DrawFade()
         {
             if (!Services.TryGet<ScreenFade>(out var fade) || fade.Alpha <= 0f) return;
@@ -132,6 +212,8 @@ namespace Game.UI
             prompt = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Normal };
             small = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleLeft };
             message = new GUIStyle { fontSize = 34, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            tiny = new GUIStyle { fontSize = 11, alignment = TextAnchor.MiddleCenter };
+            tinyRight = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleRight };
         }
 
         static void Rect(Rect r, Color c)

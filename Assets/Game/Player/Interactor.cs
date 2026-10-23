@@ -11,12 +11,16 @@ namespace Game.Player
     {
         readonly Collider[] nearby = new Collider[32];
 
+        /// <summary>What a left click would use (never a door).</summary>
         public IInteractable Target { get; private set; }
+        /// <summary>The door E would open or shut.</summary>
+        public IDoor Door { get; private set; }
 
         public void Update(Transform eye, float reach, float assistDegrees)
         {
             Target = null;
-            float best = float.MaxValue;
+            Door = null;
+            float best = float.MaxValue, bestDoor = float.MaxValue;
             int mask = ~(Layers.Mask(Layers.PlayerBody) | Layers.Mask(Layers.Effects));
             int count = Physics.OverlapSphereNonAlloc(eye.position, reach + 0.5f, nearby, mask, QueryTriggerInteraction.Collide);
             for (int i = 0; i < count; i++)
@@ -29,10 +33,19 @@ namespace Game.Player
                 float angle = Vector3.Angle(eye.forward, to);
                 // Small things up close get extra leeway.
                 float leeway = assistDegrees + Mathf.Lerp(6f, 0f, dist / reach);
-                if (angle > leeway || angle >= best) continue;
+                bool door = candidate is IDoor;
+                if (angle > leeway || angle >= (door ? bestDoor : best)) continue;
                 if (Blocked(eye.position, candidate, to, dist, mask)) continue;
-                best = angle;
-                Target = candidate;
+                if (door)
+                {
+                    bestDoor = angle;
+                    Door = (IDoor)candidate;
+                }
+                else
+                {
+                    best = angle;
+                    Target = candidate;
+                }
             }
         }
 
@@ -40,6 +53,13 @@ namespace Game.Player
         {
             if (Target == null || !Target.CanInteract) return false;
             Target.Interact();
+            return true;
+        }
+
+        public bool TryUseDoor()
+        {
+            if (Door == null || !Door.CanInteract) return false;
+            Door.Interact();
             return true;
         }
 

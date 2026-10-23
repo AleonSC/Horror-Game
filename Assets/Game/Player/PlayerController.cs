@@ -35,6 +35,7 @@ namespace Game.Player
         public Transform Head => head;
         public Flashlight Flashlight { get; private set; }
         public Interactor Interactor { get; private set; }
+        public Hotbar Hotbar { get; private set; }
         public Stamina Stamina { get; } = new Stamina();
         public bool Crouching { get; private set; }
         public bool Running { get; private set; }
@@ -62,6 +63,8 @@ namespace Game.Player
             Interactor = new Interactor();
             input = new PlayerInputActions();
             if (GetComponent<CatchFlow>() == null) gameObject.AddComponent<CatchFlow>();
+            Hotbar = GetComponent<Hotbar>();
+            if (Hotbar == null) Hotbar = gameObject.AddComponent<Hotbar>();
 
             height = config.settings.standingHeight;
             yaw = transform.eulerAngles.y;
@@ -104,8 +107,10 @@ namespace Game.Player
             UpdateCursor(uiOpen);
             if (Cursor.lockState == CursorLockMode.Locked && !uiOpen) Look(s);
 
-            if (!keysTaken && input.Use.WasPressedThisFrame() && Flashlight != null) Flashlight.Toggle();
+            Hotbar.HandleSelection(keysTaken, uiOpen);
+            if (!keysTaken && input.Use.WasPressedThisFrame()) Hotbar.Use();
             if (!uiOpen && input.Interact.WasPressedThisFrame() && Cursor.lockState == CursorLockMode.Locked) Interactor.TryInteract();
+            if (!keysTaken && input.Door.WasPressedThisFrame()) Interactor.TryUseDoor();
 
             Move(s, dt, keysTaken);
             Interactor.Update(head, s.reach, s.aimAssist);
@@ -264,13 +269,12 @@ namespace Game.Player
 
         void UpdateCursor(bool uiOpen)
         {
+            // (Esc opens the pause menu, which frees the mouse; a click back in the game captures it again.)
             if (uiOpen) return;
-            var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetCursorCaptured(false);
-            else if (Cursor.lockState != CursorLockMode.Locked && input.Interact.WasPressedThisFrame()) SetCursorCaptured(true);
+            if (Cursor.lockState != CursorLockMode.Locked && input.Interact.WasPressedThisFrame()) SetCursorCaptured(true);
         }
 
-        static void SetCursorCaptured(bool captured)
+        public static void SetCursorCaptured(bool captured)
         {
             Cursor.lockState = captured ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !captured;

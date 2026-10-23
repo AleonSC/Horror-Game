@@ -1,6 +1,10 @@
 namespace Game.World.Generation
 {
-    /// <summary>Stage 7 (section 3.7): batteries scattered through the forest (items in structures come with them).</summary>
+    /// <summary>
+    /// Stage 7 (section 3.7): batteries scattered through the forest, and what's in each place: a shack's table
+    /// (torch and lighter, maybe a battery or the key fob), a campsite's tent (a snack) and backpack (flare gun,
+    /// glowsticks, batteries, maybe the key fob), the car's glove box (batteries) and trunk (the camera).
+    /// </summary>
     public sealed class PickupStage : IWorldStage
     {
         public string Name => "Pickups";
@@ -20,6 +24,36 @@ namespace Game.World.Generation
                 placed.Add(p);
                 plan.Batteries.Add(p);
             }
+
+            var loot = rng.Fork(7);
+            for (int i = 0; i < plan.Structures.Count; i++)
+            {
+                switch (plan.Structures[i].Kind)
+                {
+                    case StructureKind.Shack:
+                        Add(plan, i, LootPlace.Table, LootKind.Torch, 1);
+                        Add(plan, i, LootPlace.Table, LootKind.Lighter, 1);
+                        if (loot.Chance(s.shackBatteryChance)) Add(plan, i, LootPlace.Table, LootKind.Battery, 1);
+                        if (loot.Chance(s.keyFobChance)) Add(plan, i, LootPlace.Table, LootKind.KeyFob, 1);
+                        break;
+                    case StructureKind.Campsite:
+                        Add(plan, i, LootPlace.Tent, LootKind.Snack, 1);
+                        Add(plan, i, LootPlace.Backpack, LootKind.FlareGun, 1);
+                        Add(plan, i, LootPlace.Backpack, LootKind.Glowsticks, s.glowsticksInBackpack);
+                        Add(plan, i, LootPlace.Backpack, LootKind.Battery, s.batteriesInBackpack);
+                        if (loot.Chance(s.keyFobChance)) Add(plan, i, LootPlace.Backpack, LootKind.KeyFob, 1);
+                        break;
+                    case StructureKind.Car:
+                        Add(plan, i, LootPlace.GloveBox, LootKind.Battery, s.batteriesInGloveBox);
+                        Add(plan, i, LootPlace.Trunk, LootKind.Camera, 1);
+                        break;
+                }
+            }
+        }
+
+        static void Add(WorldPlan plan, int structure, LootPlace place, LootKind kind, int count)
+        {
+            if (count > 0) plan.Loot.Add(new Loot { Structure = structure, Place = place, Kind = kind, Count = count });
         }
     }
 }

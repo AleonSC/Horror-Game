@@ -6,15 +6,16 @@ using UnityEngine;
 namespace Game.Entities
 {
     /// <summary>
-    /// Keeps the scours (section 6.7). For now (milestone 2) there's one, appearing after a calm start; the
-    /// count rules (+1 per lamp, +1 a minute) come with the loop in milestone 4. Only runs in scenes with a
-    /// player.
+    /// Keeps the scours (section 6.7): the first after a calm start, one more per lamp lit, one more a minute for
+    /// ten minutes (see <see cref="ScourCount"/>). A flare in the sky drives them all off; a camera flash drives off
+    /// the ones in frame. Only runs in scenes with a player.
     /// </summary>
     public sealed class ScourSpawner : MonoBehaviour
     {
         readonly List<Scour> scours = new List<Scour>();
         ScourConfig config;
-        System.IDisposable resetSub;
+        readonly List<System.IDisposable> subs = new List<System.IDisposable>();
+        int fromClock;
         System.Random rng;
         int nextId = 1;
 
@@ -44,14 +45,58 @@ namespace Game.Entities
 
         void Start()
         {
-            if (Services.TryGet<EventBus>(out var events)) resetSub = events.Subscribe<RunReset>(_ => ResetAll());
+            if (Services.TryGet<EventBus>(out var events))
+            {
+                subs.Add(events.Subscribe<RunReset>(_ => ResetAll()));
+                subs.Add(events.Subscribe<LampLit>(_ => Spawn(Random.Range(config.settings.minLampJoinDelay, config.settings.maxLampJoinDelay))));
+                subs.Add(events.Subscribe<HuntsReset>(_ => DriveAllOff()));
+                subs.Add(events.Subscribe<FlashBurst>(OnFlash));
+            }
             Spawn(config.settings.firstDelay);
         }
 
         void OnDestroy()
         {
-            resetSub?.Dispose();
+            foreach (var sub in subs) sub.Dispose();
             Services.Unregister(this);
+        }
+
+        // The clock: one more a minute after the calm, for ten minutes.
+        void Update()
+        {
+            if (!Services.TryGet<GameRun>(out var run)) return;
+            var d = Difficulty.Now;
+            int due = ScourCount.FromClock(run.Elapsed, config.settings, d.timeBetweenScours, d.extraScours);
+            while (fromClock < due)
+            {
+                fromClock++;
+                Spawn(Random.Range(0f, 5f));
+            }
+        }
+
+        /// <summary>How many the clock has added so far.</summary>
+        public int FromClock => fromClock;
+
+        // A flare in the sky: every hunt starts over.
+        void DriveAllOff()
+        {
+            var s = config.settings;
+            foreach (var scour in scours)
+                if (scour != null) scour.DriveOff(Random.Range(s.minReturnDelay, s.maxReturnDelay) + 10f);
+        }
+
+        // The camera's flash: whatever's in frame, near enough, with nothing in the way.
+        void OnFlash(FlashBurst e)
+        {
+            foreach (var scour in scours)
+            {
+                if (scour == null || scour.State == ScourState.Hidden) continue;
+                Vector3 chest = scour.Position + Vector3.up * config.settings.height * 0.6f;
+                Vector3 to = chest - e.Position;
+                if (to.magnitude > e.Range || Vector3.Angle(e.Direction, to) > e.HalfAngle) continue;
+                if (PlayerSense.Occluded(e.Position, chest)) continue;
+                scour.DriveOff(e.Seconds);
+            }
         }
 
         /// <summary>Add a scour that appears after <paramref name="delay"/> seconds.</summary>
@@ -82,6 +127,7 @@ namespace Game.Entities
             foreach (var s in scours) if (s != null) Destroy(s.gameObject);
             scours.Clear();
             nextId = 1;
+            fromClock = 0;
             Spawn(config.settings.firstDelay);
         }
     }

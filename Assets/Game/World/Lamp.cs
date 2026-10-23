@@ -79,8 +79,13 @@ namespace Game.World
             if (meter >= 1f) TurnOn();
         }
 
-        // (Difficulty scales cranking speed; it arrives in milestone 4.)
-        static float DifficultyCrankSpeed() => 1f;
+        static float DifficultyCrankSpeed() => Difficulty.Now.crankSpeed;
+
+        /// <summary>Dev: light it at once.</summary>
+        public void LightNow()
+        {
+            if (!Lit) TurnOn();
+        }
 
         void TurnOn()
         {
@@ -93,7 +98,16 @@ namespace Game.World
             int timesLit = 1;
             if (Services.TryGet<GameRun>(out var run)) timesLit = run.RecordLampLit();
             if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.LampOn, transform.position + Vector3.up * 3f, MixerNames.World, 1f, 1f, 60f);
-            if (Services.TryGet<EventBus>(out var events)) events.Publish(new LampLit(index, timesLit, transform.position));
+            if (Services.TryGet<EventBus>(out var events))
+            {
+                events.Publish(new LampLit(index, timesLit, transform.position));
+                // The last one: the lone door unlocks, a heavy clunk heard everywhere.
+                if (timesLit == GameRun.LampCount)
+                {
+                    if (sounds != null) sounds.Play2D(Sound.Clunk, MixerNames.World, 1f, 0.8f);
+                    events.Publish(new DoorUnlocked());
+                }
+            }
         }
 
         void PutOut()

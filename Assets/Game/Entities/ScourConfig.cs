@@ -20,9 +20,19 @@ namespace Game.Entities
     [Serializable]
     public sealed class ScourSettings
     {
-        [Header("Appearing")]
+        [Header("How many")]
         [Range(0f, 300f), Tooltip("Seconds of calm before the first one appears.")]
         public float firstDelay = 60f;
+        [Range(10f, 600f), Tooltip("After the calm, one more joins every this many seconds (x difficulty)...")]
+        public float extraEvery = 60f;
+        [Range(0, 50), Tooltip("...this many times (x difficulty's 'how many').")]
+        public int extraCount = 10;
+        [Range(0f, 60f), Tooltip("When a lamp is lit one more joins, this many seconds later (at least)...")]
+        public float minLampJoinDelay = 4f;
+        [Range(0f, 60f), Tooltip("...and at most.")]
+        public float maxLampJoinDelay = 10f;
+
+        [Header("Appearing")]
         [Range(0.1f, 5f)] public float materializeTime = 1.2f;
         [Range(5f, 60f)] public float minSpawnDistance = 22f;
         [Range(5f, 80f)] public float maxSpawnDistance = 32f;

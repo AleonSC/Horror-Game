@@ -31,7 +31,12 @@ namespace Game.Player
         float flickerTimer;
         float flickerLevel = 1f;
 
-        public bool IsOn { get; private set; } = true;
+        bool switchedOn = true;
+
+        /// <summary>Shining: switched on, and in the hand.</summary>
+        public bool IsOn => switchedOn && !Stowed;
+        /// <summary>Put away while something else is held: dark, and not draining (it comes back as it was).</summary>
+        public bool Stowed { get; set; }
         public FlashlightSettings Settings => config.settings;
         public FlashlightBattery Battery { get; } = new FlashlightBattery();
         /// <summary>Counts every switch on or off (a scour watches for flashing).</summary>
@@ -86,15 +91,19 @@ namespace Game.Player
         /// <summary>Switch on or off. A dead battery won't switch on (it just clicks).</summary>
         public void Toggle()
         {
-            if (!IsOn && Battery.Empty)
+            if (Stowed) return;
+            if (!switchedOn && Battery.Empty)
             {
                 PlayClick(0.7f);
                 return;
             }
-            IsOn = !IsOn;
+            switchedOn = !switchedOn;
             ToggleCount++;
-            PlayClick(IsOn ? 1.1f : 0.9f);
+            PlayClick(switchedOn ? 1.1f : 0.9f);
         }
+
+        /// <summary>On, quietly (a restart).</summary>
+        public void SwitchOn() => switchedOn = true;
 
         void PlayClick(float pitch)
         {
@@ -109,10 +118,10 @@ namespace Game.Player
 
             if (!IsOn) return;
             var s = config.settings;
-            Battery.Drain(Time.deltaTime, s.batteryLife);
+            Battery.Drain(Time.deltaTime, s.batteryLife * Difficulty.Now.batteryLife);
             if (Battery.Empty)
             {
-                IsOn = false;
+                switchedOn = false;
                 ToggleCount++;
                 PlayClick(0.7f);
                 return;

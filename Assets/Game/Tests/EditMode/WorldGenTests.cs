@@ -144,5 +144,43 @@ namespace Game.Tests
             Assert.AreEqual(5f, Wrap.Into(325f, 320f), 1e-4f);
             Assert.AreEqual(315f, Wrap.Into(-5f, 320f), 1e-4f);
         }
+    
+        [Test]
+        public void EveryPlace_HasItsLoot()
+        {
+            foreach (int seed in new[] { 4, 5, 6 })
+            {
+                var plan = Plan(seed);
+                for (int i = 0; i < plan.Structures.Count; i++)
+                {
+                    var kind = plan.Structures[i].Kind;
+                    var loot = plan.Loot.FindAll(l => l.Structure == i);
+                    bool Has(LootPlace place, LootKind what) => loot.Exists(l => l.Place == place && l.Kind == what);
+                    if (kind == StructureKind.Shack)
+                    {
+                        Assert.IsTrue(Has(LootPlace.Table, LootKind.Torch) && Has(LootPlace.Table, LootKind.Lighter), $"seed {seed}: a shack without its torch and lighter");
+                    }
+                    else if (kind == StructureKind.Campsite)
+                    {
+                        Assert.IsTrue(Has(LootPlace.Tent, LootKind.Snack), $"seed {seed}: a tent without a snack");
+                        Assert.IsTrue(Has(LootPlace.Backpack, LootKind.FlareGun) && Has(LootPlace.Backpack, LootKind.Glowsticks), $"seed {seed}: a backpack without its flare gun and glowsticks");
+                    }
+                    else if (kind == StructureKind.Car)
+                    {
+                        Assert.IsTrue(Has(LootPlace.GloveBox, LootKind.Battery) && Has(LootPlace.Trunk, LootKind.Camera), $"seed {seed}: the car without its batteries and camera");
+                    }
+                    else Assert.AreEqual(0, loot.Count, $"seed {seed}: loot in a {kind}");
+                }
+            }
+        }
+
+        [Test]
+        public void Loot_IsTheSameForTheSameSeed()
+        {
+            var a = WorldGenerator.Generate(88, S);
+            var b = WorldGenerator.Generate(88, S);
+            Assert.AreEqual(a.Loot.Count, b.Loot.Count);
+            for (int i = 0; i < a.Loot.Count; i++) Assert.AreEqual(a.Loot[i].Kind, b.Loot[i].Kind);
+        }
     }
 }

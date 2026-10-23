@@ -20,6 +20,8 @@ namespace Game.Core
         public UiState Ui { get; private set; }
         public SafeZones SafeZones { get; private set; }
         public ScreenFade Fade { get; private set; }
+        public Difficulty Difficulty { get; private set; }
+        public PauseState Pause { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void CreateOnPlay()
@@ -50,6 +52,8 @@ namespace Game.Core
             Ui = new UiState();
             SafeZones = new SafeZones();
             Fade = new ScreenFade();
+            Difficulty = new Difficulty(Preferences);
+            Pause = new PauseState(Events, Ui);
 
             Services.Register(this);
             Services.Register(Events);
@@ -58,6 +62,8 @@ namespace Game.Core
             Services.Register(Ui);
             Services.Register(SafeZones);
             Services.Register(Fade);
+            Services.Register(Difficulty);
+            Services.Register(Pause);
 
             // A project left with Time Scale 0 (Project Settings > Time) would start frozen: nothing moves.
             if (Time.timeScale <= 0f)
@@ -82,12 +88,15 @@ namespace Game.Core
             if (Ui != null) Services.Unregister(Ui);
             if (SafeZones != null) Services.Unregister(SafeZones);
             if (Fade != null) Services.Unregister(Fade);
+            if (Difficulty != null) Services.Unregister(Difficulty);
+            if (Pause != null) Services.Unregister(Pause);
             if (Run != null) Services.Unregister(Run);
         }
 
         /// <summary>Throw the current run away and begin a new one (the pause menu's Restart).</summary>
         public void Restart()
         {
+            Pause.Resume();
             if (Run != null) Events.Publish(new RunReset(Run.RunNumber));
             StartNewRun();
         }

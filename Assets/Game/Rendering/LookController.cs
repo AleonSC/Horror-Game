@@ -26,6 +26,7 @@ namespace Game.Rendering
         ColorAdjustments colorAdjustments;
         Vignette vignette;
         FilmGrain grain;
+        MotionBlur motionBlur;
         Light moon;
         HDAdditionalLightData moonData;
         GroundMist mist;
@@ -103,6 +104,7 @@ namespace Game.Rendering
             colorAdjustments = profile.Add<ColorAdjustments>(true);
             vignette = profile.Add<Vignette>(true);
             grain = profile.Add<FilmGrain>(true);
+            motionBlur = profile.Add<MotionBlur>(true);
 
             var go = new GameObject("Look Volume");
             go.transform.SetParent(transform, false);
@@ -167,6 +169,9 @@ namespace Game.Rendering
             vignette.intensity.Override(s.vignette);
             grain.intensity.Override(s.grain);
             grain.type.Override(FilmGrainLookup.Medium3);
+            // Motion blur is the player's choice (options), not part of the look.
+            var prefs = Services.TryGet<PlayerPreferences>(out var p) ? p : null;
+            motionBlur.intensity.Override(prefs != null && prefs.motionBlur ? prefs.motionBlurStrength : 0f);
 
             moon.color = s.moonColor;
             moon.intensity = s.moonBrightness; // (lux: a directional light's own unit in HDRP)

@@ -93,6 +93,7 @@ namespace Game.World.Build
             float treeSize = art != null ? Mathf.Max(0.01f, art.treeSize) : 1f;
             settings.livingTreeHeights = Heights(living, treeSize);
             settings.deadTreeHeights = Heights(dead, treeSize);
+            settings.batteries = Mathf.RoundToInt(settings.batteries * Difficulty.Now.batteriesInForest);
 
             Timings.Clear();
             var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -146,10 +147,24 @@ namespace Game.World.Build
             }
 
             var props = new Placeholders(made, populator.Bark, populator.Needles, art);
-            foreach (var st in plan.Structures)
+            var loot = new List<Loot>();
+            for (int i = 0; i < plan.Structures.Count; i++)
             {
-                var go = props.Structure(st, plan.GroundAt(st.Position), root);
+                var st = plan.Structures[i];
+                loot.Clear();
+                foreach (var l in plan.Loot) if (l.Structure == i) loot.Add(l);
+                var go = props.Structure(st, plan.GroundAt(st.Position), root, loot);
                 wrap.Add(go.transform, go.transform.position);
+            }
+
+            // The batteries in the forest, each with its faint green light.
+            var pickups = new GameObject("Batteries").transform;
+            pickups.SetParent(root, false);
+            foreach (var b in plan.Batteries)
+            {
+                var at = new Vector3(b.x, plan.GroundAt(b) + 0.03f, b.y);
+                var pickup = Pickup.Create(Game.Player.ItemKind.Batteries, 1, at, (b.x * 37f + b.y * 11f) % 360f, pickups, glowing: true);
+                wrap.Add(pickup.transform, at);
             }
             var door = props.Door(plan.Door, plan.DoorYaw, plan.GroundAt(plan.Door), root);
             wrap.Add(door.transform, door.transform.position);

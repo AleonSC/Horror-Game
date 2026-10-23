@@ -31,7 +31,11 @@ namespace Game.DevTools
             DevStyle.Row("Seed", run.Seed.ToString());
             DevStyle.Row("Time", SessionLog.FormatTime(run.Elapsed));
             DevStyle.Row("Lamps lit", $"{run.LampsLit} / {GameRun.LampCount}");
+            DevStyle.Row("Difficulty", root.Difficulty != null ? root.Difficulty.Level : "Normal");
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button("Restart run", DevStyle.Button)) root.Restart();
+            if (GUILayout.Button("Light the nearest lamp", DevStyle.Button)) LightNearestLamp();
+            GUILayout.EndHorizontal();
 
             if (Services.TryGet<WorldBuilder>(out var world) && world.Plan != null) DrawWorld(world, root);
             if (Services.TryGet<PlayerController>(out var player)) DrawPlayer(player);
@@ -98,6 +102,21 @@ namespace Game.DevTools
             if (GUILayout.Button("Full battery", DevStyle.Button) && player.Flashlight != null) player.Flashlight.Battery.Add(1f);
             if (GUILayout.Button("Full stamina", DevStyle.Button)) player.Stamina.Refill();
             GUILayout.EndHorizontal();
+
+            if (player.Hotbar == null) return;
+            var items = player.Hotbar.Items;
+            var held = new System.Text.StringBuilder();
+            for (int i = 0; i < Inventory.SlotCount; i++)
+            {
+                var slot = items[i];
+                if (slot.Empty) continue;
+                if (held.Length > 0) held.Append(", ");
+                held.Append(Inventory.NameOf(slot.Kind));
+                if (slot.Count > 1) held.Append($" x{slot.Count}");
+                if (i == items.Selected) held.Append(" (held)");
+            }
+            GUILayout.Label(held.Length > 0 ? held.ToString() : "Carrying nothing.", DevStyle.MutedLabel);
+            if (GUILayout.Button("Give one of every item", DevStyle.Button)) GiveEverything(player.Hotbar);
         }
 
         static void DrawScours(ScourSpawner spawner)
@@ -109,7 +128,33 @@ namespace Game.DevTools
                 string where = scour.State == ScourState.Hidden ? "" : $", {scour.DistanceToPlayer:0.0} m";
                 DevStyle.Row($"#{scour.Id}", $"{scour.State}{where}");
             }
+            DevStyle.Row("From the clock", $"{spawner.FromClock} of {spawner.Settings.extraCount}");
             if (GUILayout.Button("Make one appear now", DevStyle.Button)) spawner.AppearNow();
+        }
+
+        static void GiveEverything(Hotbar hotbar)
+        {
+            hotbar.Give(ItemKind.Batteries, 3);
+            hotbar.Give(ItemKind.Torch);
+            hotbar.Give(ItemKind.Lighter);
+            hotbar.Give(ItemKind.FlareGun);
+            hotbar.Give(ItemKind.Glowsticks, hotbar.Settings.glowsticksPerBundle);
+            hotbar.Give(ItemKind.Camera);
+            hotbar.Give(ItemKind.KeyFob);
+        }
+
+        static void LightNearestLamp()
+        {
+            if (!Services.TryGet<PlayerController>(out var player)) return;
+            Game.World.Lamp best = null;
+            float bestDist = float.MaxValue;
+            foreach (var lamp in Object.FindObjectsByType<Game.World.Lamp>(FindObjectsSortMode.None))
+            {
+                if (lamp.Lit) continue;
+                float d = (lamp.transform.position - player.transform.position).sqrMagnitude;
+                if (d < bestDist) { bestDist = d; best = lamp; }
+            }
+            if (best != null) best.LightNow();
         }
     }
 }

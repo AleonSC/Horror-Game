@@ -113,6 +113,13 @@ namespace Game.World.Generation
         public float batteryFromStart = 8f;
         public float batteriesApart = 12f;
         public float batteryFromTrees = 1.2f;
+        [Range(0f, 1f), Tooltip("Chance of a battery on a shack's table.")]
+        public float shackBatteryChance = 0.5f;
+        [Range(0f, 1f), Tooltip("Chance of the car's key fob on a shack's table, and in a campsite's backpack.")]
+        public float keyFobChance = 0.2f;
+        public int glowsticksInBackpack = 10;
+        public int batteriesInBackpack = 2;
+        public int batteriesInGloveBox = 2;
 
         /// <summary>Your own trees' heights (set by the world builder from WorldArtConfig; empty: the built-in trees).</summary>
         [NonSerialized] public float[] livingTreeHeights, deadTreeHeights;

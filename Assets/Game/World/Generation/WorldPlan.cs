@@ -9,6 +9,20 @@ namespace Game.World.Generation
     public enum BushKind { Mound, Upright, Leaning }
 
     /// <summary>A round open space with a ragged edge; trees thin back in over <see cref="Thinning"/> of its radius.</summary>
+    /// <summary>What can be found in the places (section 3.7). Snacks are eaten where they're found.</summary>
+    public enum LootKind { Battery, Torch, Lighter, KeyFob, Snack, FlareGun, Glowsticks, Camera }
+    /// <summary>Where in a place it is.</summary>
+    public enum LootPlace { Table, Tent, Backpack, GloveBox, Trunk }
+
+    /// <summary>Something to find: which place (an index into the plan's structures), where in it, what and how many.</summary>
+    public struct Loot
+    {
+        public int Structure;
+        public LootPlace Place;
+        public LootKind Kind;
+        public int Count;
+    }
+
     public sealed class Clearing
     {
         public ClearingKind Kind;
@@ -147,6 +161,7 @@ namespace Game.World.Generation
         public readonly List<Spot> Boulders = new List<Spot>();
         public readonly List<Spot> Logs = new List<Spot>();
         public readonly List<Vector2> Batteries = new List<Vector2>();
+        public readonly List<Loot> Loot = new List<Loot>();
 
         public Clearing StartClearing => Clearings.Count > 0 ? Clearings[0] : null;
 

@@ -131,4 +131,59 @@ namespace Game.Core
         public ThreatLevelChanged(ThreatLevel level) { Level = level; }
         public override string ToString() => $"Threat: {Level}";
     }
+
+    /// <summary>Every hunt starts over (a flare in the sky, the watchtower's floodlights): whatever was hunting backs off.</summary>
+    public readonly struct HuntsReset : IGameEvent
+    {
+        public readonly string Why;
+        public HuntsReset(string why) { Why = why; }
+        public override string ToString() => $"Hunts reset ({Why})";
+    }
+
+    /// <summary>
+    /// A blinding flash (the camera): every entity inside the cone, with a clear line to it, is driven off for a while.
+    /// </summary>
+    public readonly struct FlashBurst : IGameEvent
+    {
+        public readonly Vector3 Position;
+        public readonly Vector3 Direction;
+        public readonly float Range;
+        public readonly float HalfAngle;
+        public readonly float Seconds;
+        public FlashBurst(Vector3 position, Vector3 direction, float range, float halfAngle, float seconds)
+        {
+            Position = position; Direction = direction; Range = range; HalfAngle = halfAngle; Seconds = seconds;
+        }
+        public override string ToString() => $"Camera flash ({Range:0} m)";
+    }
+
+    /// <summary>The key fob was pressed: the car chirps and flashes, wherever it is.</summary>
+    public readonly struct KeyFobPressed : IGameEvent
+    {
+        public override string ToString() => "Key fob pressed";
+    }
+
+    /// <summary>All ten lamps are lit: the lone door unlocks (a heavy clunk heard everywhere).</summary>
+    public readonly struct DoorUnlocked : IGameEvent
+    {
+        public override string ToString() => "The lone door unlocked";
+    }
+
+    /// <summary>The player picked something up (or ate it).</summary>
+    public readonly struct ItemPickedUp : IGameEvent
+    {
+        public readonly string Item;
+        public readonly int Count;
+        public ItemPickedUp(string item, int count) { Item = item; Count = count; }
+        public override string ToString() => Count > 1 ? $"Picked up {Item} x{Count}" : $"Picked up {Item}";
+    }
+
+    /// <summary>The player used the item in their hand.</summary>
+    public readonly struct ItemUsed : IGameEvent
+    {
+        public readonly string Item;
+        public readonly string What;
+        public ItemUsed(string item, string what) { Item = item; What = what; }
+        public override string ToString() => $"{Item}: {What}";
+    }
 }

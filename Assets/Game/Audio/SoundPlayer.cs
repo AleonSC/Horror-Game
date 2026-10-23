@@ -5,9 +5,6 @@ using UnityEngine.Audio;
 
 namespace Game.Audio
 {
-    /// <summary>The game's built-in sounds (made by <see cref="SoundSynth"/> at startup).</summary>
-    public enum Sound { Creep, Appear, Pound, Crescendo, Portal, Shriek, Moan, Heartbeat, Breath, Click, LampOn }
-
     /// <summary>
     /// Plays one-shot sounds from a pool of sources, each routed to a mixer group (so the sound states apply
     /// to it automatically). Builds the procedural clips when the game starts.
@@ -65,6 +62,18 @@ namespace Game.Audio
             Add(Sound.Breath, SoundSynth.Breath(9));
             Add(Sound.Click, SoundSynth.Click(10));
             Add(Sound.LampOn, SoundSynth.LampOn(11));
+            Add(Sound.Pickup, SoundSynth.Pickup(12));
+            Add(Sound.Ignite, SoundSynth.Ignite(13));
+            Add(Sound.Lighter, SoundSynth.Lighter(14));
+            Add(Sound.FlareShot, SoundSynth.FlareShot(15));
+            Add(Sound.FlareBurst, SoundSynth.FlareBurst(16));
+            Add(Sound.Crack, SoundSynth.Crack(17));
+            Add(Sound.Shutter, SoundSynth.Shutter(18));
+            Add(Sound.Chirp, SoundSynth.Chirp(19));
+            Add(Sound.DoorOpen, SoundSynth.DoorOpen(20));
+            Add(Sound.DoorShut, SoundSynth.DoorShut(21));
+            Add(Sound.Clunk, SoundSynth.Clunk(22));
+            Add(Sound.Eat, SoundSynth.Eat(23));
         }
 
         void Add(Sound sound, float[] samples)

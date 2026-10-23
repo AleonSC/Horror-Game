@@ -190,6 +190,185 @@ namespace Game.Audio
             return Normalize(s, 0.8f);
         }
 
+        /// <summary>Picking something up: a soft rustle and tap.</summary>
+        public static float[] Pickup(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.25f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * 0.35f;
+                s[i] = lp * Env(t, 0.01f, 0.25f, 0.15f) * 0.8f + (float)Math.Sin(2 * Math.PI * 520 * t) * Decay(t, 60f) * 0.3f;
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>A flame catching (torch, lighter): a soft whoomp of rushing air.</summary>
+        public static float[] Ignite(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.9f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * (0.04f + 0.25f * Decay(t, 5f));
+                s[i] = lp * Env(t, 0.06f, 0.9f, 0.6f) * 2f;
+            }
+            return Normalize(s, 0.6f);
+        }
+
+        /// <summary>A lighter's wheel striking: a scrape and a tick.</summary>
+        public static float[] Lighter(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.2f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float scrape = t < 0.08f ? Noise(rng) * (float)(0.5 + 0.5 * Math.Sin(2 * Math.PI * 180 * t)) : 0f;
+                float tick = t > 0.08f ? Noise(rng) * Decay(t - 0.08f, 90f) : 0f;
+                s[i] = scrape * 0.5f + tick;
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>The flare gun firing: a hard pop and a fizzing hiss.</summary>
+        public static float[] FlareShot(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.6f);
+            float hp = 0f, last = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                hp = 0.9f * (hp + n - last);
+                last = n;
+                float pop = ((float)Math.Sin(2 * Math.PI * 90 * t) + n) * Decay(t, 30f);
+                s[i] = pop + hp * Env(t, 0.02f, 1.6f, 0.8f) * 0.35f;
+            }
+            return Normalize(s, 0.9f);
+        }
+
+        /// <summary>A flare bursting high up: a far-off thump that rolls away.</summary>
+        public static float[] FlareBurst(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(2.5f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * 0.03f;
+                s[i] = (lp * 6f + (float)Math.Sin(2 * Math.PI * 45 * t) * 0.5f) * Decay(t, 1.8f) * Env(t, 0.01f, 2.5f, 0.5f);
+            }
+            return Normalize(s, 0.8f);
+        }
+
+        /// <summary>A glowstick cracking: a brittle snap.</summary>
+        public static float[] Crack(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.15f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                s[i] = Noise(rng) * (Decay(t, 140f) + 0.6f * (t > 0.03f ? Decay(t - 0.03f, 160f) : 0f));
+            }
+            return Normalize(s, 0.6f);
+        }
+
+        /// <summary>The camera: a shutter clack and the flash's rising whine.</summary>
+        public static float[] Shutter(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.9f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float clack = Noise(rng) * (Decay(t, 80f) + (t > 0.06f ? Decay(t - 0.06f, 90f) : 0f));
+                float whine = t > 0.15f ? (float)Math.Sin(2 * Math.PI * (2000 + 3000 * (t - 0.15f)) * t) * 0.08f * Env(t - 0.15f, 0.2f, 0.75f, 0.3f) : 0f;
+                s[i] = clack + whine;
+            }
+            return Normalize(s, 0.7f);
+        }
+
+        /// <summary>The car answering its key fob: two bright chirps.</summary>
+        public static float[] Chirp(int seed)
+        {
+            var s = Make(0.5f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float a = Env(t, 0.005f, 0.12f, 0.03f), b = Env(t - 0.25f, 0.005f, 0.12f, 0.03f);
+                s[i] = ((float)Math.Sin(2 * Math.PI * 1800 * t) + 0.5f * (float)Math.Sin(2 * Math.PI * 3600 * t)) * (a + b);
+            }
+            return Normalize(s, 0.7f);
+        }
+
+        /// <summary>A wooden door swinging: a slow creak.</summary>
+        public static float[] DoorOpen(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.9f);
+            float phase = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float f = 220f + 90f * (float)Math.Sin(t * 5f) + 40f * Noise(rng);
+                phase += f / SampleRate;
+                float stick = (phase % 1f) < 0.1f ? 1f : -0.1f; // (a stick-slip buzz)
+                s[i] = stick * Env(t, 0.1f, 0.9f, 0.3f) * 0.4f;
+            }
+            return Normalize(s, 0.45f);
+        }
+
+        /// <summary>A door shutting: a wooden knock.</summary>
+        public static float[] DoorShut(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.4f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                s[i] = ((float)Math.Sin(2 * Math.PI * 110 * t) + Noise(rng) * 0.5f) * Decay(t, 22f);
+            }
+            return Normalize(s, 0.8f);
+        }
+
+        /// <summary>A heavy lock giving way far off (the lone door unlocking): a deep metallic clunk with a long ring.</summary>
+        public static float[] Clunk(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(3f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float hit = ((float)Math.Sin(2 * Math.PI * 55 * t) + Noise(rng) * 0.5f) * Decay(t, 9f);
+                float ring = ((float)Math.Sin(2 * Math.PI * 233 * t) + 0.6f * (float)Math.Sin(2 * Math.PI * 377 * t)) * Decay(t, 1.4f) * 0.3f;
+                s[i] = hit + ring;
+            }
+            return Normalize(s, 0.9f);
+        }
+
+        /// <summary>Eating a snack: a wrapper crinkle and a crunch.</summary>
+        public static float[] Eat(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.7f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float crinkle = t < 0.3f ? Noise(rng) * (rng.NextDouble() < 0.02 ? 1f : 0.15f) : 0f;
+                float crunch = t > 0.35f ? Noise(rng) * Decay(t - 0.35f, 12f) * 0.7f : 0f;
+                s[i] = crinkle + crunch;
+            }
+            return Normalize(s, 0.6f);
+        }
+
         // ------------------------------------------------------------------ helpers
 
         static float[] Make(float seconds) => new float[Math.Max(1, (int)(seconds * SampleRate))];

@@ -19,7 +19,7 @@ until it is.
 | Space | jump |
 | F | flashlight on/off (battery: the bar bottom left) |
 | Left click | use what the crosshair is on (crank the lamp) |
-| Esc | free the mouse |
+| Esc | pause menu (it frees the mouse) |
 | F9 / F11 | dev window / session log |
 
 ## 3. What happens

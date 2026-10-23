@@ -11,6 +11,7 @@ instead. Leave a slot empty and the built-in one is used. Fill it and yours is u
 | The scour | `Assets/Config/Entities/ScourConfig` (see [custom-scour.md](custom-scour.md)) |
 | Any sound | `Assets/Config/Audio/AudioConfig` > **Sound Overrides** |
 | The flashlight's beam shape | `Assets/Config/Player/FlashlightConfig` > **Cookie** |
+| Items, held and lying in the world (flashlight, battery, torch, lighter, flare gun, glowstick, camera, key fob, snack) | `Assets/Config/Player/ItemsConfig` > **Art** |
 
 Later systems (the other creatures, items, the player's body, music, the HUD) will get slots the same way.
 
@@ -47,10 +48,29 @@ the ground. Your colliders are kept.
   contain **Marker** (blinks red while dark), **Glass** (glows when lit) and **Crank** (what the crosshair
   aims at).
 
+**Your shack, cabin, campsite and car** can say where things go, with children named:
+| Child | What it marks |
+| --- | --- |
+| `Table` | where the shack's items are laid out (on top of it) |
+| `Tent` | the tent's floor, where the snack lies |
+| `Backpack`, `GloveBox`, `Trunk` | what you click to search |
+| `Inside` | a **Box Collider** covering the inside: being in it is sheltered (the collider is only a marker) |
+| `Door` | the door: it swings about its pivot (the hinge), so it needs a collider |
+
+Anything you don't mark uses the built-in layout's spot. For **the lone door**, a child named `Door` swings
+(or the whole thing, if there isn't one).
+
+## Items
+
+In `ItemsConfig` > **Art**, a **held** model sits at the hand pointing forward (+Z). A **lying** one sits on
+the ground at its pivot (empty: the held model is used). A torch or lighter can have a child named
+**Flame**: it's shown only while lit, and the game's light sits there. Colliders in item models are removed.
+
 ## Sounds
 
 In `AudioConfig` > **Sound Overrides**, add an entry, pick the sound (Creep, Appear, Pound, Crescendo, Portal,
-Shriek, Moan, Heartbeat, Breath, Click, LampOn) and drag in one or more clips. With several clips, one is
+Shriek, Moan, Heartbeat, Breath, Click, LampOn, Pickup, Ignite, Lighter, FlareShot, FlareBurst, Crack, Shutter,
+Chirp, DoorOpen, DoorShut, Clunk, Eat) and drag in one or more clips. With several clips, one is
 picked at random each time.
 
 ## A note on git

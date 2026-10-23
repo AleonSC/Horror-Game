@@ -18,4 +18,7 @@ namespace Game.Core
     {
         float Progress { get; }
     }
+
+    /// <summary>A door (shack, cabin, tent flap, the lone door): used with E, never with a click, so frantic clicking never swings one.</summary>
+    public interface IDoor : IInteractable { }
 }

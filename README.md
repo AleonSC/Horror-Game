@@ -3,7 +3,7 @@
 A first-person forest horror game in Unity 6 (HDRP), rebuilt from scratch.
 
 - **The plan:** [`REBUILD_PLAN.md`](REBUILD_PLAN.md) describes the whole game and the order it's built in.
-- **Milestone guides:** [`docs/M0-setup.md`](docs/M0-setup.md) (setup), [`docs/M1-look.md`](docs/M1-look.md) (the look test scene), [`docs/M2-scary-minute.md`](docs/M2-scary-minute.md) (the player and one scour), [`docs/M3-world.md`](docs/M3-world.md) (the generated world), [`docs/custom-assets.md`](docs/custom-assets.md) (using your own art and sounds everywhere), [`docs/custom-scour.md`](docs/custom-scour.md) (your own scour model).
+- **Milestone guides:** [`docs/M0-setup.md`](docs/M0-setup.md) (setup), [`docs/M1-look.md`](docs/M1-look.md) (the look test scene), [`docs/M2-scary-minute.md`](docs/M2-scary-minute.md) (the player and one scour), [`docs/M3-world.md`](docs/M3-world.md) (the generated world), [`docs/M4-loop.md`](docs/M4-loop.md) (lamps, items, shelters, pause and difficulty), [`docs/custom-assets.md`](docs/custom-assets.md) (using your own art and sounds everywhere), [`docs/custom-scour.md`](docs/custom-scour.md) (your own scour model).
 - **The prototype** this remake is based on lives on the `hdrp` branch (code, shaders, and its
   `HANDOFF.md` notes). Use it as a reference for behaviour and feel, not structure.
 

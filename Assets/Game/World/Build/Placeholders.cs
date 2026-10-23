@@ -52,13 +52,15 @@ namespace Game.World.Build
             }
         }
 
-        public GameObject Structure(StructureSite site, float ground, Transform parent)
+        /// <param name="loot">What's to be found in this place (from the plan).</param>
+        public GameObject Structure(StructureSite site, float ground, Transform parent, IList<Loot> loot = null)
         {
             var prefab = PrefabFor(site.Kind);
             if (prefab != null)
             {
                 var placed = Object.Instantiate(prefab, new Vector3(site.Position.x, ground, site.Position.y), Quaternion.Euler(0f, site.Yaw, 0f), parent);
                 placed.name = site.Kind.ToString();
+                PlaceFittings.Fit(placed.transform, site.Kind, loot);
                 return placed;
             }
             var root = new GameObject(site.Kind.ToString()) { layer = Layers.Props };
@@ -68,23 +70,21 @@ namespace Game.World.Build
             switch (site.Kind)
             {
                 case StructureKind.Cabin:
-                    Box(t, new Vector3(0f, 1.6f, 0f), new Vector3(8f, 3.2f, 7f), wood);
-                    Box(t, new Vector3(0f, 3.5f, 0f), new Vector3(8.6f, 0.6f, 7.6f), darkWood);
-                    Box(t, new Vector3(0f, 1.1f, 3.52f), new Vector3(1.1f, 2.1f, 0.08f), darkWood, false); // door
+                    Room(t, new Vector3(8f, 3.2f, 7f), 1.1f, 2.1f, wood, darkWood);
+                    Table(t, PlaceFittings.CabinTableSpot);
                     break;
                 case StructureKind.Shack:
-                    Box(t, new Vector3(0f, 1.4f, 0f), new Vector3(4f, 2.8f, 5f), wood);
-                    Box(t, new Vector3(0f, 3.0f, 0f), new Vector3(4.5f, 0.4f, 5.5f), darkWood);
-                    Box(t, new Vector3(0f, 1.05f, 2.52f), new Vector3(1f, 2f, 0.08f), darkWood, false);
+                    Room(t, new Vector3(4f, 2.6f, 5f), 1f, 2f, wood, darkWood);
+                    Table(t, PlaceFittings.TableSpot);
                     break;
                 case StructureKind.Campsite:
-                    var tent = Box(t, new Vector3(-1.5f, 0.7f, 0f), new Vector3(1.4f, 1.4f, 2.4f), canvas);
-                    tent.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                    Tent(t, PlaceFittings.TentSpot, PlaceFittings.TentYaw);
                     for (int i = 0; i < 8; i++)
                     {
                         float a = i / 8f * Mathf.PI * 2f;
                         Shape(PrimitiveType.Sphere, t, new Vector3(1.5f + Mathf.Cos(a) * 0.5f, 0.08f, Mathf.Sin(a) * 0.5f), Vector3.one * 0.2f, stone, false);
                     }
+                    Box(t, PlaceFittings.BackpackSpot + new Vector3(0f, 0.25f, 0f), new Vector3(0.35f, 0.5f, 0.22f), canvas, false);
                     break;
                 case StructureKind.Watchtower:
                     for (int i = 0; i < 4; i++)
@@ -110,7 +110,65 @@ namespace Game.World.Build
                     LandmarkTree(t);
                     break;
             }
+            PlaceFittings.Fit(t, site.Kind, loot);
             return root;
+        }
+
+        // A hollow hut: walls with a doorway in the front (+Z) wall, a floor, a roof and a door that swings out.
+        void Room(Transform t, Vector3 size, float doorWidth, float doorHeight, Material walls, Material roof)
+        {
+            const float wall = 0.12f;
+            float w = size.x, h = size.y, d = size.z;
+            Box(t, new Vector3(0f, 0.025f, 0f), new Vector3(w, 0.05f, d), roof);                          // floor
+            Box(t, new Vector3(0f, h * 0.5f, -d * 0.5f + wall * 0.5f), new Vector3(w, h, wall), walls);     // back
+            Box(t, new Vector3(-w * 0.5f + wall * 0.5f, h * 0.5f, 0f), new Vector3(wall, h, d), walls);     // left
+            Box(t, new Vector3(w * 0.5f - wall * 0.5f, h * 0.5f, 0f), new Vector3(wall, h, d), walls);      // right
+            float side = (w - doorWidth) * 0.5f;
+            float front = d * 0.5f - wall * 0.5f;
+            Box(t, new Vector3(-(doorWidth + side) * 0.5f, h * 0.5f, front), new Vector3(side, h, wall), walls);
+            Box(t, new Vector3((doorWidth + side) * 0.5f, h * 0.5f, front), new Vector3(side, h, wall), walls);
+            Box(t, new Vector3(0f, (h + doorHeight) * 0.5f, front), new Vector3(doorWidth, h - doorHeight, wall), walls);
+            Box(t, new Vector3(0f, h + 0.15f, 0f), new Vector3(w + 0.5f, 0.3f, d + 0.5f), roof);            // roof
+
+            // The door hangs from its left edge.
+            var hinge = new GameObject("Door") { layer = Layers.Props }.transform;
+            hinge.SetParent(t, false);
+            hinge.localPosition = new Vector3(-doorWidth * 0.5f, 0f, d * 0.5f);
+            Box(hinge, new Vector3(doorWidth * 0.5f, doorHeight * 0.5f, 0f), new Vector3(doorWidth - 0.04f, doorHeight - 0.02f, 0.06f), darkWood);
+            hinge.gameObject.AddComponent<Door>();
+
+            PlaceFittings.AddShelter(t, t.name, new Bounds(new Vector3(0f, h * 0.5f, 0f), new Vector3(w - wall * 2f, h, d - wall * 2f)));
+        }
+
+        void Table(Transform t, Vector3 at)
+        {
+            Box(t, at + new Vector3(0f, 0.74f, 0f), new Vector3(1.2f, 0.05f, 0.7f), darkWood);
+            for (int i = 0; i < 4; i++)
+                Box(t, at + new Vector3(i % 2 == 0 ? -0.52f : 0.52f, 0.36f, i < 2 ? -0.28f : 0.28f), new Vector3(0.06f, 0.72f, 0.06f), darkWood, false);
+        }
+
+        // A low two-sided tent, open at the front (+Z of the tent): crouch to get in.
+        void Tent(Transform t, Vector3 at, float yaw)
+        {
+            const float halfWidth = 0.8f, ridge = 1.35f, length = 2.4f;
+            var tent = new GameObject("Tent") { layer = Layers.Props }.transform;
+            tent.SetParent(t, false);
+            tent.localPosition = at;
+            tent.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            float slant = Mathf.Sqrt(halfWidth * halfWidth + ridge * ridge);
+            float lean = Mathf.Atan2(halfWidth, ridge) * Mathf.Rad2Deg;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var panel = Box(tent, new Vector3(side * halfWidth * 0.5f, ridge * 0.5f, 0f), new Vector3(0.04f, slant, length), canvas);
+                panel.transform.localRotation = Quaternion.Euler(0f, 0f, -side * lean);
+            }
+            // The back closed with a stepped flap (three strips narrowing toward the ridge).
+            for (int i = 0; i < 3; i++)
+            {
+                float width = 2f * halfWidth * (1f - (i + 0.5f) / 3f);
+                Box(tent, new Vector3(0f, ridge * (i + 0.5f) / 3f, -length * 0.5f + 0.02f), new Vector3(width, ridge / 3f, 0.04f), canvas);
+            }
+            PlaceFittings.AddShelter(tent, "Tent", new Bounds(new Vector3(0f, 0.55f, 0f), new Vector3(halfWidth * 1.4f, 1.1f, length)));
         }
 
         // The giant pine (the plan's "7x scale"), a landmark you can find your way by.
@@ -141,6 +199,12 @@ namespace Game.World.Build
             {
                 var placed = Object.Instantiate(art.door, new Vector3(position.x, ground, position.y), Quaternion.Euler(0f, yaw, 0f), parent);
                 placed.name = "Lone Door";
+                // The part that swings: a child named "Door" (swinging about its pivot), or the whole thing.
+                Transform swing = placed.transform;
+                foreach (var c in placed.GetComponentsInChildren<Transform>(true))
+                    if (c != placed.transform && c.name == "Door") { swing = c; break; }
+                if (swing.GetComponent<Door>() == null) swing.gameObject.AddComponent<Door>();
+                if (swing.GetComponent<LoneDoor>() == null) swing.gameObject.AddComponent<LoneDoor>();
                 return placed;
             }
             var root = new GameObject("Lone Door") { layer = Layers.Props };
@@ -150,7 +214,13 @@ namespace Game.World.Build
             Box(t, new Vector3(-0.65f, 1.15f, 0f), new Vector3(0.14f, 2.3f, 0.2f), darkWood);
             Box(t, new Vector3(0.65f, 1.15f, 0f), new Vector3(0.14f, 2.3f, 0.2f), darkWood);
             Box(t, new Vector3(0f, 2.36f, 0f), new Vector3(1.44f, 0.14f, 0.2f), darkWood);
-            Box(t, new Vector3(0f, 1.1f, 0f), new Vector3(1.16f, 2.2f, 0.06f), wood);
+            // The door itself hangs from the left post.
+            var hinge = new GameObject("Door") { layer = Layers.Props }.transform;
+            hinge.SetParent(t, false);
+            hinge.localPosition = new Vector3(-0.58f, 0f, 0f);
+            Box(hinge, new Vector3(0.58f, 1.1f, 0f), new Vector3(1.16f, 2.2f, 0.06f), wood);
+            hinge.gameObject.AddComponent<Door>();
+            hinge.gameObject.AddComponent<LoneDoor>();
             return root;
         }
 

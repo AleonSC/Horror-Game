@@ -111,6 +111,22 @@ namespace Game.Entities
             timer = seconds;
         }
 
+        /// <summary>
+        /// Driven off by something else (a flare in the sky, a camera flash): it's snatched back through a hole and
+        /// gone for at least <paramref name="seconds"/>. One already gone stays gone at least that long.
+        /// </summary>
+        public void DriveOff(float seconds)
+        {
+            if (State == ScourState.Taking) return;
+            if (State == ScourState.Hidden)
+            {
+                timer = Mathf.Max(timer, seconds);
+                return;
+            }
+            Play(Sound.Portal, 0.8f, 1.2f, 35f);
+            Hide(seconds);
+        }
+
         void StartAppearing()
         {
             if (!TryPickSpawn(out var spot))
@@ -381,7 +397,8 @@ namespace Game.Entities
             get
             {
                 int lamps = Services.TryGet<GameRun>(out var run) ? run.LampsLit : 0;
-                return Mathf.Max(s.minCrescendoTime, s.crescendoTime / (1f + s.crescendoSpeedupPerLamp * lamps));
+                float time = s.crescendoTime / (1f + s.crescendoSpeedupPerLamp * lamps);
+                return Mathf.Max(s.minCrescendoTime, time) * Difficulty.Now.faceDownTime;
             }
         }
 
