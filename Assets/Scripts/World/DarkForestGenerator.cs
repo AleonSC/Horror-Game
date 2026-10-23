@@ -46,6 +46,16 @@ public class DarkForestGenerator : MonoBehaviour
     public float minTreeSpacing = 2.2f;
     [Range(0f, 0.5f), Tooltip("Now and then a tree that would have stood somewhere just isn't there: a gap here and there in the forest.")]
     public float treeGapChance = 0.12f;
+    [Tooltip("Every tree's size, as a multiple (the game's own and a pack's).")]
+    public float treeSizeScale = 0.85f;
+
+    [Header("Glades")]
+    [Tooltip("Natural clearings in the forest, open to the sky and thick with tall grass.")]
+    public int gladeCount = 14;
+    [Tooltip("How big across (radius, metres), at random between these.")]
+    public Vector2 gladeRadius = new Vector2(7f, 16f);
+    [Tooltip("Tall grass clumps per square metre in a glade (lamp clearings get it too).")]
+    public float tallGrassDensity = 0.55f;
     [Range(0f, 1f), Tooltip("Portion of trees that are dead/bare instead of pines.")]
     public float deadTreeRatio = 0.3f;
     [Tooltip("Chance a tree has vines hanging from its branches (they swing in the wind and when brushed).")]
@@ -260,6 +270,51 @@ public class DarkForestGenerator : MonoBehaviour
         public float radius, height, cos, sin, stretch, seed;
     }
     readonly List<Hill> hills = new List<Hill>();
+
+    struct Glade
+    {
+        public Vector2 center;
+        public float radius, seed;
+    }
+    readonly List<Glade> glades = new List<Glade>();
+
+    /// <summary>
+    /// Picks the glades: anywhere but right on top of each other or where you start (already a clearing),
+    /// and not on a hilltop (already bare).
+    /// </summary>
+    void PlanGlades()
+    {
+        glades.Clear();
+        float half = areaSize * 0.5f;
+        for (int attempt = 0; attempt < gladeCount * 40 && glades.Count < gladeCount; attempt++)
+        {
+            float radius = Range(Mathf.Min(gladeRadius.x, gladeRadius.y), Mathf.Max(gladeRadius.x, gladeRadius.y));
+            var c = new Vector2(Range(-half, half), Range(-half, half));
+            if (new Vector2(Wrapped(c.x), Wrapped(c.y)).magnitude < clearingRadius + radius + 6f) continue;
+            if (hills.Count > 0 && HillTop(c.x, c.y) > 0.6f) continue;
+            bool crowded = false;
+            foreach (var other in glades)
+                if (new Vector2(Wrapped(c.x - other.center.x), Wrapped(c.y - other.center.y)).magnitude < radius + other.radius + 10f) { crowded = true; break; }
+            if (crowded) continue;
+            glades.Add(new Glade { center = c, radius = radius, seed = Range(0f, 100f) });
+        }
+    }
+
+    /// <summary>How far into a glade a point is: 1 well inside, fading to 0 across its ragged edge.</summary>
+    float GladeAmount(float x, float z)
+    {
+        float most = 0f;
+        foreach (var g in glades)
+        {
+            float dx = Wrapped(x - g.center.x), dz = Wrapped(z - g.center.y);
+            float d = Mathf.Sqrt(dx * dx + dz * dz);
+            if (d > g.radius * 1.5f) continue;
+            float a = Mathf.Atan2(dz, dx);
+            float edge = g.radius * (0.75f + 0.5f * Mathf.PerlinNoise(g.seed + Mathf.Cos(a) * 1.4f, g.seed + Mathf.Sin(a) * 1.4f));
+            most = Mathf.Max(most, 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge * 0.75f, edge * 1.15f, d)));
+        }
+        return most;
+    }
     Material groundMat, barkMat, deadBarkMat, rockMat;
     Material[] foliageMats;
     Mesh sphereMesh;
@@ -292,6 +347,7 @@ public class DarkForestGenerator : MonoBehaviour
         noiseOffset = new Vector2(Range(0f, 10000f), Range(0f, 10000f));
         BuildTerrainWaves();
         PlanHills();
+        PlanGlades();
         PlanPonds();
 
         root = new GameObject(RootName).transform;
@@ -713,7 +769,10 @@ public class DarkForestGenerator : MonoBehaviour
             // The hilltops thin out to bare crowns, open to the sky.
             float top = hills.Count > 0 ? HillTop(p.x, p.y) : 0f;
             float bald = 1f - hillBaldTops * top * top;
-            if (Range(0f, 1f) > (density * 1.4f + edgeBoost) * clearingFade * bald) continue;
+            // And the glades: open in the middle, thinning in toward them at a ragged edge.
+            float open = glades.Count > 0 ? 1f - GladeAmount(p.x, p.y) : 1f;
+            if (open < 0.05f) continue;
+            if (Range(0f, 1f) > (density * 1.4f + edgeBoost) * clearingFade * bald * open) continue;
 
             if (!HasSpace(p, grid, cell)) continue;
             AddToGrid(p, grid, cell);
@@ -735,6 +794,7 @@ public class DarkForestGenerator : MonoBehaviour
             {
                 int sways = SwayPivots.Count;
                 var built = BuildPackTree(pos, parent);
+                if (built != null) built.localScale *= treeSizeScale;
                 if (built == null || Intrudes(built, keepOuts))
                 {
                     SwayPivots.RemoveRange(sways, SwayPivots.Count - sways);
@@ -763,6 +823,7 @@ public class DarkForestGenerator : MonoBehaviour
                 // Its branches and needles mustn't reach into a shack (or the tower, a tent, the car): if they
                 // would, it isn't there after all.
                 Transform built = parent.GetChild(parent.childCount - 1);
+                built.localScale *= treeSizeScale;
                 if (Intrudes(built, keepOuts))
                 {
                     SwayPivots.RemoveRange(sways, SwayPivots.Count - sways);
@@ -2006,6 +2067,68 @@ public class DarkForestGenerator : MonoBehaviour
         }
 
         AddTreeBaseGrass(parent, variants, materials);
+
+        // Tall grass, for the glades (and the lamps' clearings, LampSpawner): taller, thinner, more blades.
+        grassParent = parent;
+        grassMaterialSets = materials;
+        tallGrassVariants = new Mesh[5];
+        for (int i = 0; i < tallGrassVariants.Length; i++)
+        {
+            float t = i / (float)(tallGrassVariants.Length - 1);
+            tallGrassVariants[i] = BuildGrassMesh(
+                blades: Mathf.RoundToInt(Mathf.Lerp(45f, 80f, t)),
+                radius: Mathf.Lerp(0.25f, 0.45f, Range(0f, 1f)),
+                height: Mathf.Lerp(1.0f, 1.5f, t),
+                width: Mathf.Lerp(0.03f, 0.05f, Range(0f, 1f)));
+        }
+        foreach (var g in glades)
+            AddTallGrass(new Vector3(g.center.x, 0f, g.center.y), g.radius * 1.1f, 0f);
+    }
+
+    Transform grassParent;
+    Material[][] grassMaterialSets;
+    Mesh[] tallGrassVariants;
+
+    /// <summary>
+    /// Fills a clearing with tall grass (swaying in the wind): thickest in the middle, thinning out toward
+    /// the edge, none within keepClear of the middle (round a lamp), nor in buildings or the ponds.
+    /// </summary>
+    public void AddTallGrass(Vector3 center, float radius, float keepClear)
+    {
+        if (tallGrassVariants == null || grassParent == null || tallGrassDensity <= 0f) return;
+        int count = Mathf.RoundToInt(Mathf.PI * radius * radius * tallGrassDensity);
+        for (int i = 0; i < count; i++)
+        {
+            Vector2 offset = Random.insideUnitCircle * radius;
+            float t = offset.magnitude / Mathf.Max(radius, 0.01f);
+            if (offset.magnitude < keepClear) continue;
+            if (Random.value > 1f - t * t * 0.7f) continue; // (thinning toward the edge)
+            var p = new Vector2(center.x + offset.x, center.z + offset.y);
+            if (IsNearStructure(new Vector3(p.x, 0f, p.y), 2.5f) || InBuilding(p, 0.8f) || InPond(p)) continue;
+
+            var patch = new GameObject("Tall Grass");
+            patch.transform.SetParent(grassParent, false);
+            patch.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y) - 0.03f, p.y);
+            patch.transform.localRotation = Quaternion.Euler(Random.Range(-4f, 4f), Random.Range(0f, 360f), Random.Range(-4f, 4f));
+            float thickness = Random.Range(0.9f, 1.5f);
+            patch.transform.localScale = new Vector3(thickness, Random.Range(0.8f, 1.25f), thickness);
+            patch.AddComponent<MeshFilter>().sharedMesh = tallGrassVariants[Random.Range(0, tallGrassVariants.Length)];
+            var renderer = patch.AddComponent<MeshRenderer>();
+            renderer.sharedMaterials = grassMaterialSets[Random.Range(0, grassMaterialSets.Length)];
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            GrassPivots.Add(patch.transform);
+        }
+    }
+
+    /// <summary>True if a point is in one of the ponds' bowls.</summary>
+    bool InPond(Vector2 p)
+    {
+        foreach (var pond in ponds)
+        {
+            float dx = Wrapped(p.x - pond.center.x), dz = Wrapped(p.y - pond.center.y);
+            if (dx * dx + dz * dz < pond.radius * pond.radius * 1.1f) return true;
+        }
+        return false;
     }
 
     /// <summary>

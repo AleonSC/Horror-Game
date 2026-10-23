@@ -85,7 +85,11 @@ public class LampSpawner : MonoBehaviour
             p.y = GroundHeight(generator, p);
             placed.Add(p);
             // A small clearing round it, so it stands in the open with sky above (a lamp in a glade).
-            if (generator != null && clearingRadius > 0f) generator.ClearTreesAround(p, clearingRadius, clearingRaggedness);
+            if (generator != null && clearingRadius > 0f)
+            {
+                generator.ClearTreesAround(p, clearingRadius, clearingRaggedness);
+                generator.AddTallGrass(p, clearingRadius, 4f); // tall grass round it, but not right at its foot
+            }
 
             var lamp = new GameObject("Lamp").AddComponent<Lamp>();
             lamp.transform.SetParent(transform, false);
