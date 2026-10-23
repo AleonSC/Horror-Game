@@ -41,16 +41,23 @@ public class TreePack : ScriptableObject
     internal static void ResetStatics() => converted.Clear();
 
     /// <summary>
-    /// True if a material can't be drawn by HDRP (it shows pink): the old built-in pipeline's shaders, such as
-    /// the Tree Creator's (Nature/Tree Creator Bark and Leaves, their Optimized versions), Standard, legacy ones.
+    /// True if a material can't be drawn by HDRP (it shows pink): its shader has no HDRP pass (GBuffer,
+    /// Forward or ForwardOnly). That covers the old built-in pipeline's shaders: the Tree Creator's
+    /// (Hidden/Nature/Tree Creator ... Optimized), Standard, legacy and mobile ones, and URP's.
     /// </summary>
     public static bool NeedsConverting(Material m)
     {
         if (m == null || m.shader == null) return false;
-        string n = m.shader.name;
-        if (n.StartsWith("HDRP/") || n.StartsWith("Horror/")) return false;
-        return !m.shader.isSupported || n.StartsWith("Nature/") || n == "Standard" || n.StartsWith("Standard (")
-            || n.StartsWith("Legacy Shaders/") || n.StartsWith("Mobile/") || n.StartsWith("Hidden/InternalErrorShader");
+        var shader = m.shader;
+        if (shader.name.StartsWith("HDRP/") || shader.name.StartsWith("Horror/")) return false;
+        if (!shader.isSupported) return true;
+        var lightMode = new UnityEngine.Rendering.ShaderTagId("LightMode");
+        for (int pass = 0; pass < shader.passCount; pass++)
+        {
+            string mode = shader.FindPassTagValue(pass, lightMode).name;
+            if (mode == "GBuffer" || mode == "Forward" || mode == "ForwardOnly") return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -84,6 +91,7 @@ public class TreePack : ScriptableObject
             MaterialFactory.SetDoubleSided(mat); // (also re-validates the material, setting the cut-out up)
         }
         converted[source] = mat;
+        Debug.Log($"[Horror] Tree pack: '{source.name}' ({(source.shader != null ? source.shader.name : "no shader")}) drawn with an HDRP stand-in{(leaf ? " (leaves: cut out, two-sided)" : "")}, texture {(albedo != null ? albedo.name : "none")}.");
         return mat;
     }
 
