@@ -56,3 +56,6 @@ Desktop.ini
 /[Aa]ssets/Tree9.meta
 /[Aa]ssets/[Pp]acks/
 /[Aa]ssets/[Pp]acks.meta
+
+# Session recorder logs (copy them from the dev window, or send the file)
+/SessionLogs/

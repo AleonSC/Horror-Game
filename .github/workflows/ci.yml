@@ -1,0 +1,115 @@
+# Opens the project in Unity on every push: compiles it, runs the edit-mode and play-mode tests, then makes
+# a Windows build you can download from the run's page (Actions tab > the run > Artifacts).
+#
+# It needs your Unity licence as repository secrets (Settings > Secrets and variables > Actions):
+#   UNITY_LICENSE   the whole contents of your Unity licence file (Unity_lic.ulf)
+#   UNITY_EMAIL     your Unity account email
+#   UNITY_PASSWORD  your Unity account password
+# Until they're set, the run is skipped with a note rather than failing.
+# The Unity version comes from ProjectSettings/ProjectVersion.txt.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  licence:
+    name: Check for a Unity licence
+    runs-on: ubuntu-latest
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CI skipped: add the UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD repository secrets to turn it on (see .github/workflows/ci.yml)."
+          fi
+
+  tests:
+    name: Compile and test
+    needs: licence
+    if: needs.licence.outputs.present == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-tests-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/packages-lock.json') }}-${{ hashFiles('Assets/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-tests-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/packages-lock.json') }}-
+            Library-tests-
+
+      - uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          testMode: all
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Test results
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test results
+          path: ${{ steps.tests.outputs.artifactsPath }}
+          retention-days: 14
+
+  build:
+    name: Windows build
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-win64-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/packages-lock.json') }}-${{ hashFiles('Assets/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-win64-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/packages-lock.json') }}-
+            Library-win64-
+
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneWindows64
+          buildName: ScaryGame
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScaryGame-Windows
+          path: build/StandaloneWindows64
+          retention-days: 7

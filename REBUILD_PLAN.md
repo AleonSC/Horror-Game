@@ -57,7 +57,7 @@ to shelter: shacks, a cabin, tents, the car, lit lamps, a watchtower with floodl
 
 ### 2.1 Engine and pipeline: decided once
 
-- **Unity 6.0 LTS**, **HDRP** from the first commit (the prototype switched from URP to HDRP halfway
+- **Unity 6** (the project is on **6000.6.6f1**, see `ProjectSettings/ProjectVersion.txt`), **HDRP** from the first commit (the prototype switched from URP to HDRP halfway
   through, which rewrote every shader and material and caused weeks of visual bugs). DirectX 12 on
   Windows. Ray tracing is an optional extra, never assumed.
 - **Input System package** only (no legacy input fallback).
@@ -379,7 +379,8 @@ fog-ignoring things 2990.
 
 ### 5.1 Mixer (an AudioMixer asset, not per-script volume hacks)
 
-Groups: `Master > {Music, UI, Player, World > {Outside, Inside}, Entities, Stingers}`.
+Groups: `Master > {Music, UI, Effects > {Player, World > {Outside, Inside}, Entities, Stingers}}` (Effects
+gathers everything but music and UI so one volume slider covers it).
 
 Snapshots, blended by a single `AudioStateController`:
 

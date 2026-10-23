@@ -1,0 +1,20 @@
+{
+    "name": "Game.DevTools",
+    "rootNamespace": "Game.DevTools",
+    "references": [
+        "Game.Core",
+        "Game.Audio",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_EDITOR || DEVELOPMENT_BUILD"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
