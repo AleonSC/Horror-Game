@@ -29,6 +29,7 @@ until it is.
 - **The scour** appears 22-32 m ahead. Half of them peek out from behind a trunk and duck back when you look.
   - **Look away** and it creeps 3 m closer every 3-6 seconds. **With your light off, it creeps even while you watch it.**
     A creep that would bring it within 3 m takes you.
+  - **Some creeps take it behind a tree** on its way to you (35%): it hides behind the trunk and peeks out when you look away.
   - **Get near it in the dark** (within 14 m, the light not on it) and it grows and comes for you, with a pounding beat.
   - **Face it down**: walk at it with the beam on it. Its eyes turn blue, you slow to a stop 2.5 m away, it
     shudders to a crescendo and is drawn back through a red-edged hole. That costs 10% battery. It's back 7-12 s later.

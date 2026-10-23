@@ -44,6 +44,8 @@ namespace Game.Entities
         public float killDistance = 3f;
         [Tooltip("Looking at it only holds it still while your flashlight is on. In the dark it creeps even while you watch.")]
         public bool creepsWhenWatchedInDark = true;
+        [Range(0f, 1f), Tooltip("Chance a creep takes it to a tree on its way to you, to hide behind the trunk and peek out.")]
+        public float creepToTreeChance = 0.35f;
 
         [Header("In the dark")]
         [Range(3f, 30f), Tooltip("Within this, with no light on it, it grows and comes for you.")]
