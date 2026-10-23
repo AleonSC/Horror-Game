@@ -17,10 +17,10 @@ public class Flashlight : MonoBehaviour
     public Light flashlight;
     [Tooltip("On when the game starts? (Off: press F to turn it on.)")]
     public bool startOn = false;
-    public float range = 45f;
-    public float spotAngle = 60f;
+    public float range = 24f;
+    public float spotAngle = 31f;
     public float innerSpotAngle = 30f;
-    public float intensity = 12f;
+    public float intensity = 20.4f;
     public Color color = new Color(1f, 0.95f, 0.85f);
     public LightShadows shadows = LightShadows.Soft;
     [Tooltip("Extra brightness on top of Intensity (HDRP's lights fall off more than URP's did; the lighting panel's Brightness still sets Intensity).")]
@@ -38,7 +38,7 @@ public class Flashlight : MonoBehaviour
     [Tooltip("Soften the edge of the beam into a feathered fade instead of a hard circle.")]
     public bool featherEdge = true;
     [Range(0f, 1f), Tooltip("How soft the edge is: 0 a crisp ring, 1 a gentle fade from the centre outward.")]
-    public float edgeFeather = 0.6f;
+    public float edgeFeather = 0f;
     [Tooltip("Position of the light relative to the camera (slightly right/down, like a hand).")]
     public Vector3 localOffset = new Vector3(0.25f, -0.2f, 0.2f);
 

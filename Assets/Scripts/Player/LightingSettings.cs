@@ -75,6 +75,9 @@ public class LightingSettings : MonoBehaviour
         new Theme { name = "Bright (testing)", moonColor = new Color(0.7f, 0.75f, 0.9f), moonIntensity = 1f, moonHeight = 50f, ambient = new Color(0.25f, 0.27f, 0.3f), fogColor = new Color(0.05f, 0.06f, 0.08f), fogDensity = 0.015f, flashlightColor = Color.white },
     };
 
+    // The picture by default (the owner's chosen look); Reset Picture goes back to these.
+    const float DefaultExposure = 1.63f, DefaultContrast = 35f, DefaultSaturation = 40f;
+
     const string SaveKey = "Horror.Lighting.v2"; // v1 saves started from the too-dark default: ignored
 
     /// <summary>Everything the panel controls, as saved between sessions.</summary>
@@ -86,9 +89,9 @@ public class LightingSettings : MonoBehaviour
         public Color moonColor, ambientColor, fogColor, flashlightColor;
         public bool fogOn = true, flashlightShadows = true, extraShadows, flashlightFeather = true;
         public int moonShadows = 2; // 0 off, 1 hard, 2 soft
-        public float flashlightIntensity = 12f, flashlightRange = 45f, flashlightAngle = 60f, flashlightSoftness = 0.6f;
+        public float flashlightIntensity = 20.4f, flashlightRange = 24f, flashlightAngle = 31f, flashlightSoftness = 0f;
         public float starBrightness = 1f, cloudCover = 0.5f;
-        public float exposure, contrast, saturation, vignette, grain;
+        public float exposure = DefaultExposure, contrast = DefaultContrast, saturation = DefaultSaturation, vignette, grain;
     }
 
     Values v = new Values();
@@ -154,11 +157,11 @@ public class LightingSettings : MonoBehaviour
         v.fogOn = RenderSettings.fog;
         v.moonShadows = moon == null ? 0 : moon.shadows == LightShadows.None ? 0 : moon.shadows == LightShadows.Hard ? 1 : 2;
         v.flashlightShadows = flashlight == null || flashlight.flashlight.shadows != LightShadows.None;
-        v.flashlightIntensity = flashlight != null ? flashlight.intensity : 12f;
-        v.flashlightRange = flashlight != null ? flashlight.flashlight.range : 45f;
-        v.flashlightAngle = flashlight != null ? flashlight.flashlight.spotAngle : 60f;
+        v.flashlightIntensity = flashlight != null ? flashlight.intensity : 20.4f;
+        v.flashlightRange = flashlight != null ? flashlight.flashlight.range : 24f;
+        v.flashlightAngle = flashlight != null ? flashlight.flashlight.spotAngle : 31f;
         v.flashlightFeather = flashlight == null || flashlight.featherEdge;
-        v.flashlightSoftness = flashlight != null ? flashlight.edgeFeather : 0.6f;
+        v.flashlightSoftness = flashlight != null ? flashlight.edgeFeather : 0f;
         if (NightSky.Instance != null)
         {
             v.starBrightness = NightSky.Instance.starBrightness;
@@ -402,7 +405,9 @@ public class LightingSettings : MonoBehaviour
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Reset Picture", buttonStyle))
         {
-            v.exposure = v.contrast = v.saturation = 0f;
+            v.exposure = DefaultExposure;
+            v.contrast = DefaultContrast;
+            v.saturation = DefaultSaturation;
             v.vignette = 0f;
             v.grain = 0f;
             changed = true;
