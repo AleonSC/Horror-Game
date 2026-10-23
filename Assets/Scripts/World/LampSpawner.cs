@@ -24,6 +24,10 @@ public class LampSpawner : MonoBehaviour
     public float minLampSpacing = 25f;
     [Tooltip("Keep lamps at least this far from any tree.")]
     public float treeClearance = 2f;
+    [Tooltip("Each lamp stands in a small clearing: the trees within about this far of it are taken out (metres). 0: none.")]
+    public float clearingRadius = 7f;
+    [Range(0f, 0.6f), Tooltip("How ragged the clearing's edge is (0: a neat circle).")]
+    public float clearingRaggedness = 0.3f;
     [Tooltip("Map size when there's no DarkForestGenerator in the scene.")]
     public float areaSize = 320f;
 
@@ -80,6 +84,8 @@ public class LampSpawner : MonoBehaviour
 
             p.y = GroundHeight(generator, p);
             placed.Add(p);
+            // A small clearing round it, so it stands in the open with sky above (a lamp in a glade).
+            if (generator != null && clearingRadius > 0f) generator.ClearTreesAround(p, clearingRadius, clearingRaggedness);
 
             var lamp = new GameObject("Lamp").AddComponent<Lamp>();
             lamp.transform.SetParent(transform, false);

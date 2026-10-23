@@ -716,6 +716,38 @@ public class DarkForestGenerator : MonoBehaviour
     bool HasTreePack => Pack != null && Pack.HasTrees;
 
     /// <summary>
+    /// Opens a small clearing (a lamp's): every tree whose trunk stands within radius of center goes, with a
+    /// ragged edge (the radius wanders with direction, by up to raggedness of itself). The landmark tree is
+    /// never touched. Returns how many went.
+    /// </summary>
+    public int ClearTreesAround(Vector3 center, float radius, float raggedness = 0.3f)
+    {
+        float seed = (center.x * 0.137f + center.z * 0.071f) % 100f;
+        int removed = 0;
+        for (int i = SwayPivots.Count - 1; i >= 0; i--)
+        {
+            var pivot = SwayPivots[i];
+            if (pivot == null || pivot.parent == null) continue;
+            Transform tree = pivot.parent;
+            Vector3 at = WorldWrap.NearestImage(tree.position, center);
+            Vector2 d = new Vector2(at.x - center.x, at.z - center.z);
+            float angle = Mathf.Atan2(d.y, d.x);
+            float edge = radius * (1f + raggedness * (Mathf.PerlinNoise(seed + Mathf.Cos(angle) * 1.3f, seed + Mathf.Sin(angle) * 1.3f) * 2f - 1f));
+            if (d.magnitude > edge) continue;
+
+            SwayPivots.RemoveAt(i);
+            VineAnchors.RemoveAll(v => v.sway == pivot);
+            Vector2 flat = new Vector2(tree.position.x, tree.position.z);
+            for (int k = TreePositions.Count - 1; k >= 0; k--)
+                if ((TreePositions[k] - flat).sqrMagnitude < 0.01f) { TreePositions.RemoveAt(k); break; }
+            if (Application.isPlaying) Destroy(tree.gameObject);
+            else DestroyImmediate(tree.gameObject);
+            removed++;
+        }
+        return removed;
+    }
+
+    /// <summary>
     /// A tree from the pack, set up the way the game's own are, so everything that works with trees works
     /// with it: a "Tree" at the spot holding a fixed trunk collider, and under it a "Sway" pivot (bent by the
     /// wind, and what TreeFall fells) holding the prefab, turned and sized at random. The prefab's own
