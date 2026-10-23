@@ -34,6 +34,8 @@ public class Crawler : MonoBehaviour
     [Range(0f, 1f)] public float volume = 0.8f;
 
     enum State { Lurking, Leaping, Holding, Dropping, Fleeing }
+    /// <summary>What it's doing (for the session log).</summary>
+    public string StateName => state.ToString();
     State state = State.Lurking;
     FirstPersonController player;
     Flashlight flashlight;

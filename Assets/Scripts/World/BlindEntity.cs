@@ -73,6 +73,8 @@ public class BlindEntity : MonoBehaviour
     public float entranceDistance = 45f;
 
     enum State { Appearing, Roaming, Listening, Rushing, Searching, Taking, Banished }
+    /// <summary>What it's doing (for the session log).</summary>
+    public string StateName => state.ToString();
 
     State state = State.Appearing;
     Vector3 goal;
@@ -203,6 +205,8 @@ public class BlindEntity : MonoBehaviour
         if (dist > radius * Difficulty.BlindHearing) return;
         // Quiet sounds (ordinary walking, a door, a click) only carry to it from close by.
         if (radius <= 7.5f && dist > walkingHearing * Difficulty.BlindHearing) return;
+
+        SessionRecorder.Log("blindone", $"Blind One heard {Noise.LastSource} {dist:0}m away (it carries {radius:0}m), {(state == State.Rushing ? "already rushing: turns toward it" : "stops to listen, then goes")}.");
 
         // It knows roughly where: the further off, the rougher its guess. That spot is all it knows: go quiet
         // and it can only search round the last place it heard you.

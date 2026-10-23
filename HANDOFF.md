@@ -89,6 +89,12 @@ to a dark room (`PortalDoor.cs`), and rifts (`RiftEvent.cs`, now spawn-on-demand
 
 ## Recent work on `hdrp` (newest first)
 
+- **Session recorder** (F11; `Player/SessionRecorder.cs`): logs every change that matters (each scour by
+  number and its state changes, the blind one/crawlers/fliers/giant, what the blind one hears and the
+  script that made the noise, lamps and split times, safe zones, the drone, being caught, breath, storms,
+  falling trees, lightning) plus totals (running, walking at full stamina, recovering, standing, crouched,
+  safe, drone...). The owner copies it ("Copy everything") and pastes it for analysis; it's also saved to
+  `SessionLogs/` next to `Assets` when Play stops. Add lines anywhere with `SessionRecorder.Log`.
 - **Model editor** (F10, or Dev Tools > Model editor; `Player/ModelEditor.cs`, `World/EnemyModel.cs`): the
   owner designs enemies from simple shapes on joints (body, head, arms, hips), with eyes, mouth, legs and
   notes, and saves them as JSON in `Assets/Scripts/Resources/EnemyModels/<Enemy>.json` (or copies the JSON

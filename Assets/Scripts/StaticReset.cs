@@ -49,6 +49,7 @@ public static class StaticReset
         ScourPortal.ResetStatics();
         ModelEditor.ResetStatics();
         EnemyModel.ResetStatics();
+        SessionRecorder.ResetStatics();
         HdrpAtmosphere.ResetStatics();
         EntityDread.ResetStatics();
         MusicCue.ResetStatics();

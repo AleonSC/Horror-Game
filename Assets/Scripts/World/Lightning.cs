@@ -113,6 +113,7 @@ public class Lightning : MonoBehaviour
 
     void Strike(float bearing)
     {
+        SessionRecorder.Log("event", "Lightning.");
         strikeTime = Time.time;
         // Somewhere round the horizon, from up in the clouds down to the treeline.
         float top = Random.Range(30f, 55f), bottom = Random.Range(-2f, 6f);

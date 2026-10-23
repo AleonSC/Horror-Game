@@ -357,6 +357,8 @@ public class DarkForestGenerator : MonoBehaviour
             new GameObject("Dev Tools").AddComponent<DevTools>();
         if (Application.isPlaying && FindAnyObjectByType<ModelEditor>() == null)
             new GameObject("Model Editor").AddComponent<ModelEditor>(); // F10: design the enemies
+        if (Application.isPlaying && FindAnyObjectByType<SessionRecorder>() == null)
+            new GameObject("Session Recorder").AddComponent<SessionRecorder>(); // F11: what happened, to copy
         if (Application.isPlaying && FindAnyObjectByType<SpawnDebugOverlay>() == null)
             new GameObject("Spawn Debug Overlay").AddComponent<SpawnDebugOverlay>();
         if (Application.isPlaying && FindAnyObjectByType<MusicManager>() == null)

@@ -63,7 +63,9 @@ public class FallingTreeEvent : MonoBehaviour
         Vector3 away = pivot.position - player.transform.position;
         away.y = 0f;
         Vector3 fallDir = Quaternion.Euler(0f, Random.Range(-60f, 60f), 0f) * away.normalized;
-        return TreeFall.Fell(pivot, fallDir, 0.7f, 0.25f, volume, shardCount, settleTime) != null;
+        bool fell = TreeFall.Fell(pivot, fallDir, 0.7f, 0.25f, volume, shardCount, settleTime) != null;
+        if (fell) SessionRecorder.Log("event", $"A tree fell {Vector3.Distance(pivot.position, player.transform.position):0}m away.");
+        return fell;
     }
 
     Transform PickTree()

@@ -111,6 +111,8 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     public Color redAmbient = new Color(0.12f, 0.03f, 0.03f);
 
     enum Phase { Waiting, EyeOpening, EyeWatching, EyeClosing, Falling, GiantWalking, Done }
+    /// <summary>Where the event's got to (for the session log).</summary>
+    public string PhaseName => phase.ToString();
 
     Phase phase = Phase.Waiting;
 

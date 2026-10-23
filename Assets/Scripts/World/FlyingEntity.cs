@@ -58,6 +58,8 @@ public class FlyingEntity : MonoBehaviour
     [Range(0f, 1f)] public float volume = 1f;
 
     enum State { Entering, Searching, Locking, Banished }
+    /// <summary>What it's doing (for the session log).</summary>
+    public string StateName => state.ToString();
     State state = State.Entering;
 
     FirstPersonController player;

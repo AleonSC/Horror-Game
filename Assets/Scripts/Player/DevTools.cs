@@ -169,6 +169,7 @@ public class DevTools : MonoBehaviour
         GUILayout.Space(10f * unit);
 
         if (GUILayout.Button("Model editor (F10): design the enemies", button)) ModelEditor.Open();
+        GUILayout.Label("F11: the session recorder (everything that happens, to copy and paste).", small);
         GUILayout.Space(6f * unit);
         if (GUILayout.Button("Restart the run", button)) GameOverScreen.RestartRun();
 
