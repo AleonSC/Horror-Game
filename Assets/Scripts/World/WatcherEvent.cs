@@ -22,10 +22,6 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     [Header("Trigger")]
     [Tooltip("Number of lamps lit (this run) that wakes the Watcher.")]
     public int lampsToTrigger = 5;
-    [Tooltip("Once triggered, the eye waits (up to this many seconds) for a clear patch of sky over the player, so the trees don't hide it; then it opens regardless.")]
-    public float waitForClearSky = 40f;
-    [Tooltip("How far round from the giant's own direction the eye may open to find clear sky (degrees each way).")]
-    public float eyeSearchAngle = 50f;
 
     [Header("Eye")]
     public float eyeOpenTime = 4f;
@@ -229,7 +225,7 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
             case Phase.Waiting:
                 UpdateHanging(dt);
                 LookUpAtItOnce(dt);
-                if (Lamp.TimesLit >= lampsToTrigger && !GameOverScreen.IsActive) TryOpenEye(dt);
+                if (Lamp.TimesLit >= lampsToTrigger && !GameOverScreen.IsActive) OpenEye();
                 break;
 
             case Phase.EyeOpening:
@@ -337,109 +333,15 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
 
     // ---------------------------------------------------------------- Eye
 
-    float triggerWait, skyCheck;
-
-    /// <summary>
-    /// Triggered: the eye opens as soon as there's clear sky over the player for it (no treetop in the way),
-    /// as near the giant's direction as can be; after waitForClearSky it opens anyway, where it would have.
-    /// </summary>
-    void TryOpenEye(float dt)
+    void OpenEye()
     {
+        // It opens high in the sky straight above the hanging giant, its chain rising up toward it.
         EnsureGiant();
-        triggerWait += dt;
-        skyCheck -= dt;
-        if (triggerWait < waitForClearSky)
-        {
-            if (skyCheck > 0f) return;
-            skyCheck = 0.25f;
-            if (!FindClearSky(out Vector3 clear)) return;
-            OpenEye(clear);
-            return;
-        }
-        OpenEye(EyeDirectionAt(0f, eyeElevation));
-    }
-
-    /// <summary>The direction 'turn' degrees round from the giant's bearing, 'elevation' degrees up.</summary>
-    Vector3 EyeDirectionAt(float turn, float elevation)
-    {
-        Vector3 forward = Quaternion.Euler(0f, turn, 0f) * giantBearing;
+        Vector3 forward = giantBearing;
         forward.y = 0f;
         forward = forward.sqrMagnitude > 0.001f ? forward.normalized : Vector3.forward;
         Vector3 axis = Vector3.Cross(Vector3.up, forward);
-        return Quaternion.AngleAxis(-elevation, axis) * forward;
-    }
-
-    /// <summary>
-    /// A direction for the eye with nothing in the way from the player's eyes (no tree's crown, no roof):
-    /// the giant's own direction at the usual height if that's clear, else the nearest clear one round from
-    /// it and higher up.
-    /// </summary>
-    bool FindClearSky(out Vector3 direction)
-    {
-        direction = Vector3.zero;
-        if (player == null) return false;
-        Vector3 eyeAt = Camera.main != null ? Camera.main.transform.position : player.transform.position + Vector3.up * 1.7f;
-        float[] heights = { eyeElevation, eyeElevation + 6f, eyeElevation - 6f, eyeElevation + 12f, 82f };
-        int steps = Mathf.Max(1, Mathf.RoundToInt(eyeSearchAngle / 10f));
-        for (int k = 0; k <= steps; k++)
-            for (int sign = 1; sign >= -1; sign -= 2)
-            {
-                if (k == 0 && sign < 0) continue;
-                float turn = sign * k * 10f;
-                foreach (float h in heights)
-                {
-                    Vector3 dir = EyeDirectionAt(turn, Mathf.Clamp(h, 30f, 85f));
-                    // The eye is wide: the middle and a little to each side must all be clear.
-                    Vector3 side = Vector3.Cross(Vector3.up, dir).normalized * 0.1f;
-                    if (SkyClear(eyeAt, dir) && SkyClear(eyeAt, (dir + side).normalized) && SkyClear(eyeAt, (dir - side).normalized))
-                    {
-                        direction = dir;
-                        return true;
-                    }
-                }
-            }
-        return false;
-    }
-
-    readonly System.Collections.Generic.Dictionary<Transform, Bounds> crownBounds = new System.Collections.Generic.Dictionary<Transform, Bounds>();
-
-    /// <summary>True if a look from a point along a direction meets no tree (its whole shape, roughly) and nothing solid.</summary>
-    bool SkyClear(Vector3 from, Vector3 dir)
-    {
-        if (Physics.Raycast(from, dir, 80f, ~0, QueryTriggerInteraction.Ignore)) return false; // a roof, a trunk
-        var generator = FindAnyObjectByType<DarkForestGenerator>();
-        if (generator == null) return true;
-        var ray = new Ray(from, dir);
-        foreach (var pivot in generator.SwayPivots)
-        {
-            if (pivot == null || !pivot.gameObject.activeInHierarchy) continue;
-            Vector3 d = pivot.position - from;
-            d.y = 0f;
-            if (d.sqrMagnitude > 45f * 45f) continue; // (looking up this steeply, further trees are below the line)
-            if (!crownBounds.TryGetValue(pivot, out var b))
-            {
-                bool any = false;
-                foreach (var r in pivot.GetComponentsInChildren<Renderer>())
-                {
-                    if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
-                }
-                if (!any) continue;
-                b.extents = new Vector3(b.extents.x * 0.8f, b.extents.y, b.extents.z * 0.8f); // (crowns aren't boxes: trim the corners)
-                crownBounds[pivot] = b;
-            }
-            if (b.IntersectRay(ray, out float hit) && hit < 80f) return false;
-        }
-        return true;
-    }
-
-    void OpenEye(Vector3 direction)
-    {
-        // It opens high in the sky over the hanging giant, its chain rising up toward it (or the nearest
-        // clear sky round from there).
-        EnsureGiant();
-        triggerWait = 0f;
-        crownBounds.Clear();
-        eyeDirection = direction;
+        eyeDirection = Quaternion.AngleAxis(-eyeElevation, axis) * forward;
 
         if (eye == null) BuildEye();
         eye.gameObject.SetActive(true);
@@ -1475,7 +1377,6 @@ public class WatcherEvent : MonoBehaviour, SafeZones.ISource
     {
         GiantTheme.FadeOut();
         phase = Phase.Waiting;
-        triggerWait = 0f;
         timer = 0f;
         shake = 0f;
         dream = 0f;
