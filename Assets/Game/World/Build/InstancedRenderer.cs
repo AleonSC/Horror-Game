@@ -11,15 +11,32 @@ namespace Game.World.Build
     /// </summary>
     public sealed class InstancedRenderer
     {
+        /// <summary>One mesh (or one sub-mesh of it) with its material, placed relative to the copy.</summary>
+        public struct Part
+        {
+            public Mesh Mesh;
+            public int Submesh;
+            public Material Material;
+            public Matrix4x4 Local;
+            public bool HasLocal;   // false: Local is the identity (most parts)
+        }
+
         public sealed class Kind
         {
             public string Name;
-            public Mesh[] Lods;          // most detailed first
+            public Part[][] Lods;        // per level of detail (most detailed first), the parts to draw
             public float[] LodDistances; // switch to the next LOD past each of these (metres)
             public float MaxDistance;    // not drawn past this (the fog hides it anyway)
-            public Material Material;
             public bool Shadows;
             public int Layer;
+
+            /// <summary>A kind made of one mesh per LOD, all in one material (the built-in shapes).</summary>
+            public static Kind Simple(string name, Mesh[] lods, Material material, float[] lodDistances, float maxDistance, bool shadows, int layer)
+            {
+                var parts = new Part[lods.Length][];
+                for (int i = 0; i < lods.Length; i++) parts[i] = new[] { new Part { Mesh = lods[i], Material = material } };
+                return new Kind { Name = name, Lods = parts, LodDistances = lodDistances, MaxDistance = maxDistance, Shadows = shadows, Layer = layer };
+            }
         }
 
         sealed class Gather
@@ -134,13 +151,20 @@ namespace Game.World.Build
                 for (int lod = 0; lod < kind.Lods.Length; lod++)
                 {
                     var g = gathers[k][lod];
-                    for (int start = 0; start < g.Count; start += InstancedDraw.MaxPerCall)
+                    if (g.Count == 0) continue;
+                    DrawnInstances += g.Count;
+                    foreach (var part in kind.Lods[lod])
                     {
-                        int n = Mathf.Min(InstancedDraw.MaxPerCall, g.Count - start);
-                        System.Array.Copy(g.Matrices, start, batch, 0, n);
-                        InstancedDraw.Draw(kind.Lods[lod], kind.Material, batch, n, bounds, kind.Layer, kind.Shadows);
-                        DrawCalls++;
-                        DrawnInstances += n;
+                        for (int start = 0; start < g.Count; start += InstancedDraw.MaxPerCall)
+                        {
+                            int n = Mathf.Min(InstancedDraw.MaxPerCall, g.Count - start);
+                            if (part.HasLocal)
+                                for (int i = 0; i < n; i++) batch[i] = g.Matrices[start + i] * part.Local;
+                            else
+                                System.Array.Copy(g.Matrices, start, batch, 0, n);
+                            InstancedDraw.Draw(part.Mesh, part.Submesh, part.Material, batch, n, bounds, kind.Layer, kind.Shadows);
+                            DrawCalls++;
+                        }
                     }
                 }
             }

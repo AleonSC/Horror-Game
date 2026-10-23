@@ -9,6 +9,7 @@ namespace Game.World.Build
     /// <summary>
     /// Fills the world from the plan: every tree, bush, grass clump, rock, boulder and log drawn by the instanced
     /// renderer, and colliders for what you can bump into (trunks, big rocks, boulders, logs) on their chunks.
+    /// Each category uses your own prefabs from WorldArtConfig when it has some, and the built-in shapes if not.
     /// </summary>
     public sealed class ForestPopulator
     {
@@ -20,16 +21,25 @@ namespace Game.World.Build
         readonly List<Transform> chunks;
         readonly List<Object> made;
         readonly int across;
+        readonly WorldArtConfig art;
+        readonly MaterialFixer fixer;
+        readonly PrefabArt.Result[] livingArt, deadArt;
 
         public Material Bark, Needles, DeadWood;
         Material bushA, bushB, grassDry, grassGreen, tallGrass, rock, logWood;
 
-        public ForestPopulator(WorldPlan plan, InstancedRenderer renderer, List<Transform> chunks, List<Object> made)
+        /// <param name="livingArt">Your living trees, already extracted (their heights went into the plan), or null.</param>
+        public ForestPopulator(WorldPlan plan, InstancedRenderer renderer, List<Transform> chunks, List<Object> made,
+                               WorldArtConfig art, MaterialFixer fixer, PrefabArt.Result[] livingArt, PrefabArt.Result[] deadArt)
         {
             this.plan = plan;
             this.renderer = renderer;
             this.chunks = chunks;
             this.made = made;
+            this.art = art;
+            this.fixer = fixer;
+            this.livingArt = livingArt;
+            this.deadArt = deadArt;
             across = Mathf.CeilToInt(plan.Size / TerrainBuilder.ChunkSize);
             Bark = Mat("Bark", new Color(0.1f, 0.08f, 0.07f), 0.2f, false);
             Needles = Mat("Needles", new Color(0.05f, 0.07f, 0.05f), 0.1f, true);
@@ -66,9 +76,31 @@ namespace Game.World.Build
 
         void AddTrees()
         {
-            var pineTrunk = new int[TreeShapes.PineVariants];
-            var pineCrown = new int[TreeShapes.PineVariants];
-            for (int v = 0; v < TreeShapes.PineVariants; v++)
+            // Per kind and variant: the renderer kinds that draw it (a built-in pine is two: trunk and crown).
+            var pine = livingArt != null ? FromPrefabs("Tree", livingArt, TreeLods, TreeRange, true, Layers.Trees) : BuiltInPines();
+            var dead = deadArt != null ? FromPrefabs("Dead tree", deadArt, TreeLods, TreeRange, true, Layers.Trees) : BuiltInDead();
+            float custom = art != null ? Mathf.Max(0.01f, art.treeSize) : 1f;
+
+            foreach (var t in plan.Trees)
+            {
+                if (t.Removed) continue;
+                bool isPine = t.Kind == TreeKind.Pine;
+                float size = t.Scale * ((isPine ? livingArt : deadArt) != null ? custom : 1f);
+                var m = Matrix4x4.TRS(Ground(t.Position), Quaternion.Euler(0f, t.Yaw, 0f), Vector3.one * size);
+                var kinds = isPine ? pine : dead;
+                foreach (int k in kinds[t.Variant % kinds.Length]) renderer.Add(k, t.Position, m);
+
+                var col = Collider(t.Position, "Tree", Layers.Trees).AddComponent<CapsuleCollider>();
+                col.radius = 0.3f * t.Scale;
+                col.height = 6f * t.Scale;
+                col.center = Vector3.up * 3f * t.Scale;
+            }
+        }
+
+        int[][] BuiltInPines()
+        {
+            var kinds = new int[TreeShapes.PineVariants][];
+            for (int v = 0; v < kinds.Length; v++)
             {
                 var trunks = new Mesh[3];
                 var crowns = new Mesh[3];
@@ -78,90 +110,103 @@ namespace Game.World.Build
                     trunks[lod] = Keep(t.ToMesh($"Pine {v} trunk LOD{lod}"));
                     crowns[lod] = Keep(c.ToMesh($"Pine {v} crown LOD{lod}"));
                 }
-                pineTrunk[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Pine trunk {v}", Lods = trunks, LodDistances = TreeLods, MaxDistance = TreeRange, Material = Bark, Shadows = true, Layer = Layers.Trees });
-                pineCrown[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Pine crown {v}", Lods = crowns, LodDistances = TreeLods, MaxDistance = TreeRange, Material = Needles, Shadows = true, Layer = Layers.Trees });
+                kinds[v] = new[]
+                {
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Pine trunk {v}", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Pine crown {v}", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
+                };
             }
-            var dead = new int[TreeShapes.DeadVariants];
-            for (int v = 0; v < TreeShapes.DeadVariants; v++)
+            return kinds;
+        }
+
+        int[][] BuiltInDead()
+        {
+            var kinds = new int[TreeShapes.DeadVariants][];
+            for (int v = 0; v < kinds.Length; v++)
             {
                 var lods = new Mesh[3];
                 for (int lod = 0; lod < 3; lod++)
                     lods[lod] = Keep(ForestMeshes.DeadTree(new System.Random(plan.Seed * 37 + v), TreeShapes.Height(TreeKind.Dead, v), lod).ToMesh($"Dead tree {v} LOD{lod}"));
-                dead[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Dead tree {v}", Lods = lods, LodDistances = TreeLods, MaxDistance = TreeRange, Material = DeadWood, Shadows = true, Layer = Layers.Trees });
+                kinds[v] = new[] { renderer.AddKind(InstancedRenderer.Kind.Simple($"Dead tree {v}", lods, DeadWood, TreeLods, TreeRange, true, Layers.Trees)) };
             }
+            return kinds;
+        }
 
-            foreach (var t in plan.Trees)
+        // One renderer kind per prefab: its meshes and materials, in its own levels of detail.
+        int[][] FromPrefabs(string name, PrefabArt.Result[] results, float[] lodDistances, float maxDistance, bool shadows, int layer)
+        {
+            var kinds = new int[results.Length][];
+            for (int v = 0; v < results.Length; v++)
+                kinds[v] = new[] { renderer.AddKind(new InstancedRenderer.Kind { Name = $"{name} {v}", Lods = results[v].Lods, LodDistances = lodDistances, MaxDistance = maxDistance, Shadows = shadows, Layer = layer }) };
+            return kinds;
+        }
+
+        // Your prefabs for a category, extracted, or null if there are none (or none usable).
+        PrefabArt.Result[] Extract(GameObject[] prefabs)
+        {
+            if (prefabs == null || prefabs.Length == 0) return null;
+            var list = new List<PrefabArt.Result>();
+            foreach (var p in prefabs)
             {
-                if (t.Removed) continue;
-                var pos = Ground(t.Position);
-                var m = Matrix4x4.TRS(pos, Quaternion.Euler(0f, t.Yaw, 0f), Vector3.one * t.Scale);
-                if (t.Kind == TreeKind.Pine)
-                {
-                    renderer.Add(pineTrunk[t.Variant], t.Position, m);
-                    renderer.Add(pineCrown[t.Variant], t.Position, m);
-                }
-                else renderer.Add(dead[t.Variant], t.Position, m);
-
-                var col = Collider(t.Position, "Tree", Layers.Trees).AddComponent<CapsuleCollider>();
-                col.radius = 0.3f * t.Scale;
-                col.height = 6f * t.Scale;
-                col.center = Vector3.up * 3f * t.Scale;
+                var r = PrefabArt.Extract(p, fixer);
+                if (r != null) list.Add(r);
+                else if (p != null) Debug.LogWarning($"WorldArtConfig: '{p.name}' has no meshes to draw; skipped.");
             }
+            return list.Count > 0 ? list.ToArray() : null;
+        }
+
+        // One renderer kind per variant: your prefabs if there are any, otherwise the built-in meshes.
+        int[] Kinds(string name, GameObject[] prefabs, System.Func<int, Mesh> builtIn, int builtInCount, System.Func<int, Material> builtInMaterial, float maxDistance, bool shadows, int layer)
+        {
+            var custom = Extract(prefabs);
+            int count = custom != null ? custom.Length : builtInCount;
+            var kinds = new int[count];
+            for (int v = 0; v < count; v++)
+            {
+                kinds[v] = custom != null
+                    ? renderer.AddKind(new InstancedRenderer.Kind { Name = $"{name} {v}", Lods = custom[v].Lods, LodDistances = new float[0], MaxDistance = maxDistance, Shadows = shadows, Layer = layer })
+                    : renderer.AddKind(InstancedRenderer.Kind.Simple($"{name} {v}", new[] { Keep(builtIn(v)) }, builtInMaterial(v), new float[0], maxDistance, shadows, layer));
+            }
+            return kinds;
         }
 
         void AddBushes()
         {
-            var kinds = new int[6];
-            for (int k = 0; k < 6; k++)
-            {
-                var mesh = Keep(ForestMeshes.Bush(new System.Random(plan.Seed * 41 + k), k / 2).ToMesh($"Bush {k}"));
-                kinds[k] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Bush {k}", Lods = new[] { mesh }, LodDistances = new float[0], MaxDistance = BushRange, Material = k % 2 == 0 ? bushA : bushB, Shadows = true, Layer = Layers.Default });
-            }
+            var kinds = Kinds("Bush", art?.bushes, k => ForestMeshes.Bush(new System.Random(plan.Seed * 41 + k), k / 2).ToMesh($"Bush {k}"), 6,
+                              k => k % 2 == 0 ? bushA : bushB, BushRange, true, Layers.Default);
+            bool builtIn = kinds.Length == 6 && (art == null || art.bushes == null || art.bushes.Length == 0);
             foreach (var b in plan.Bushes)
-                renderer.Add(kinds[b.Kind * 2 + b.Variant % 2], b.Position, Matrix4x4.TRS(Ground(b.Position), Quaternion.Euler(0f, b.Yaw, 0f), Vector3.one * b.Size));
+            {
+                int k = builtIn ? b.Kind * 2 + b.Variant % 2 : (b.Kind * 4 + b.Variant) % kinds.Length;
+                renderer.Add(kinds[k], b.Position, Matrix4x4.TRS(Ground(b.Position), Quaternion.Euler(0f, b.Yaw, 0f), Vector3.one * b.Size));
+            }
         }
 
         void AddGrass()
         {
-            var grass = new int[4];
-            var tall = new int[4];
-            for (int v = 0; v < 4; v++)
-            {
-                var g = Keep(ForestMeshes.GrassClump(new System.Random(plan.Seed * 43 + v), 1f).ToMesh($"Grass {v}"));
-                grass[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Grass {v}", Lods = new[] { g }, LodDistances = new float[0], MaxDistance = GrassRange, Material = v < 2 ? grassDry : grassGreen, Shadows = false, Layer = Layers.Default });
-                var tg = Keep(ForestMeshes.GrassClump(new System.Random(plan.Seed * 47 + v), 1f).ToMesh($"Tall grass {v}"));
-                tall[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Tall grass {v}", Lods = new[] { tg }, LodDistances = new float[0], MaxDistance = TallGrassRange, Material = tallGrass, Shadows = false, Layer = Layers.Default });
-            }
+            var grass = Kinds("Grass", art?.grass, v => ForestMeshes.GrassClump(new System.Random(plan.Seed * 43 + v), 1f).ToMesh($"Grass {v}"), 4,
+                              v => v < 2 ? grassDry : grassGreen, GrassRange, false, Layers.Default);
+            var tall = Kinds("Tall grass", art?.tallGrass, v => ForestMeshes.GrassClump(new System.Random(plan.Seed * 47 + v), 1f).ToMesh($"Tall grass {v}"), 4,
+                             v => tallGrass, TallGrassRange, false, Layers.Default);
             foreach (var g in plan.Grass)
             {
                 float w = 0.8f + 0.4f * g.Size;
-                renderer.Add(grass[g.Variant % 4], g.Position, Matrix4x4.TRS(Ground(g.Position), Quaternion.Euler(0f, g.Yaw, 0f), new Vector3(w, g.Size, w)));
+                renderer.Add(grass[g.Variant % grass.Length], g.Position, Matrix4x4.TRS(Ground(g.Position), Quaternion.Euler(0f, g.Yaw, 0f), new Vector3(w, g.Size, w)));
             }
             foreach (var g in plan.TallGrass)
-                renderer.Add(tall[g.Variant % 4], g.Position, Matrix4x4.TRS(Ground(g.Position), Quaternion.Euler(0f, g.Yaw, 0f), new Vector3(1.3f, g.Size, 1.3f)));
+                renderer.Add(tall[g.Variant % tall.Length], g.Position, Matrix4x4.TRS(Ground(g.Position), Quaternion.Euler(0f, g.Yaw, 0f), new Vector3(1.3f, g.Size, 1.3f)));
         }
 
         void AddRocksAndLogs()
         {
-            var rocks = new int[6];
-            var boulders = new int[6];
-            for (int v = 0; v < 6; v++)
-            {
-                var mesh = Keep(ForestMeshes.Rock(new System.Random(plan.Seed * 53 + v)).ToMesh($"Rock {v}"));
-                rocks[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Rock {v}", Lods = new[] { mesh }, LodDistances = new float[0], MaxDistance = RockRange, Material = rock, Shadows = true, Layer = Layers.Props });
-                boulders[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Boulder {v}", Lods = new[] { mesh }, LodDistances = new float[0], MaxDistance = TreeRange, Material = rock, Shadows = true, Layer = Layers.Props });
-            }
-            var logs = new int[3];
-            for (int v = 0; v < 3; v++)
-            {
-                var mesh = Keep(ForestMeshes.Log(new System.Random(plan.Seed * 59 + v)).ToMesh($"Log {v}"));
-                logs[v] = renderer.AddKind(new InstancedRenderer.Kind { Name = $"Log {v}", Lods = new[] { mesh }, LodDistances = new float[0], MaxDistance = RockRange, Material = logWood, Shadows = true, Layer = Layers.Props });
-            }
+            var rocks = Kinds("Rock", art?.rocks, v => ForestMeshes.Rock(new System.Random(plan.Seed * 53 + v)).ToMesh($"Rock {v}"), 6, v => rock, RockRange, true, Layers.Props);
+            var boulders = Kinds("Boulder", art?.rocks, v => ForestMeshes.Rock(new System.Random(plan.Seed * 53 + v)).ToMesh($"Boulder {v}"), 6, v => rock, TreeRange, true, Layers.Props);
+            var logs = Kinds("Log", art?.logs, v => ForestMeshes.Log(new System.Random(plan.Seed * 59 + v)).ToMesh($"Log {v}"), 3, v => logWood, RockRange, true, Layers.Props);
 
             foreach (var r in plan.Rocks)
             {
                 var pos = Ground(r.Position) + Vector3.down * 0.15f * r.Size; // sunk into the ground
-                renderer.Add(rocks[r.Variant % 6], r.Position, Matrix4x4.TRS(pos, Quaternion.Euler(r.Variant * 7f, r.Yaw, 0f), Vector3.one * r.Size));
+                renderer.Add(rocks[r.Variant % rocks.Length], r.Position, Matrix4x4.TRS(pos, Quaternion.Euler(r.Variant * 7f, r.Yaw, 0f), Vector3.one * r.Size));
                 if (r.Size < 0.8f) continue;
                 var c = Collider(r.Position, "Rock", Layers.Props).AddComponent<SphereCollider>();
                 c.radius = 0.4f * r.Size;
@@ -169,7 +214,7 @@ namespace Game.World.Build
             foreach (var b in plan.Boulders)
             {
                 var pos = Ground(b.Position) + Vector3.down * 0.35f * b.Size; // half buried
-                renderer.Add(boulders[b.Variant % 6], b.Position, Matrix4x4.TRS(pos, Quaternion.Euler(0f, b.Yaw, 0f), Vector3.one * b.Size));
+                renderer.Add(boulders[b.Variant % boulders.Length], b.Position, Matrix4x4.TRS(pos, Quaternion.Euler(0f, b.Yaw, 0f), Vector3.one * b.Size));
                 var c = Collider(b.Position, "Boulder", Layers.Props).AddComponent<SphereCollider>();
                 c.radius = 0.42f * b.Size;
                 c.center = Vector3.down * 0.3f * b.Size;
@@ -177,7 +222,7 @@ namespace Game.World.Build
             foreach (var l in plan.Logs)
             {
                 var rot = Quaternion.Euler(0f, l.Yaw, 0f);
-                renderer.Add(logs[l.Variant % 3], l.Position, Matrix4x4.TRS(Ground(l.Position), rot, new Vector3(1f, 1f, l.Size)));
+                renderer.Add(logs[l.Variant % logs.Length], l.Position, Matrix4x4.TRS(Ground(l.Position), rot, new Vector3(1f, 1f, l.Size)));
                 var go = Collider(l.Position, "Log", Layers.Props);
                 go.transform.localRotation = rot;
                 var c = go.AddComponent<CapsuleCollider>();

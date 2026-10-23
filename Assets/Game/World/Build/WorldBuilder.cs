@@ -81,8 +81,18 @@ namespace Game.World.Build
         public void Build(int seed)
         {
             Clear();
-            var config = Services.TryGet<GameSetup>(out var setup) ? setup.Get<WorldGenConfig>() : null;
-            var settings = config != null ? config.settings : new WorldGenSettings();
+            var setup = Services.TryGet<GameSetup>(out var gs) ? gs : null;
+            var config = setup != null ? setup.Get<WorldGenConfig>() : null;
+            var art = setup != null ? setup.Get<WorldArtConfig>() : null;
+            var settings = (config != null ? config.settings : new WorldGenSettings()).Clone();
+            var fixer = new MaterialFixer(made);
+
+            // Your own trees: their real heights go into the plan, so the sightlines are right for them.
+            var living = ExtractAll(art != null ? art.livingTrees : null, fixer);
+            var dead = ExtractAll(art != null ? art.deadTrees : null, fixer);
+            float treeSize = art != null ? Mathf.Max(0.01f, art.treeSize) : 1f;
+            settings.livingTreeHeights = Heights(living, treeSize);
+            settings.deadTreeHeights = Heights(dead, treeSize);
 
             Timings.Clear();
             var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -92,14 +102,18 @@ namespace Game.World.Build
             root = new GameObject("World").transform;
             wrap = new WorldWrap(plan.Size);
 
-            var groundTex = GroundTexture.Build(seed);
-            made.Add(groundTex);
-            var ground = RuntimeMaterials.LitTextured("Ground", Color.white, 0.1f, groundTex, Vector2.one);
-            var trail = RuntimeMaterials.Lit("Trail", new Color(0.17f, 0.13f, 0.1f), 0.12f);
-            var water = RuntimeMaterials.Lit("Water", new Color(0.015f, 0.02f, 0.025f), 0.95f);
-            made.Add(ground);
-            made.Add(trail);
-            made.Add(water);
+            Material ground, trail, water;
+            if (art != null && art.ground != null) ground = fixer.Fix(art.ground);
+            else
+            {
+                var groundTex = GroundTexture.Build(seed);
+                made.Add(groundTex);
+                made.Add(ground = RuntimeMaterials.LitTextured("Ground", Color.white, 0.1f, groundTex, Vector2.one));
+            }
+            if (art != null && art.trail != null) trail = fixer.Fix(art.trail);
+            else made.Add(trail = RuntimeMaterials.Lit("Trail", new Color(0.17f, 0.13f, 0.1f), 0.12f));
+            if (art != null && art.water != null) water = fixer.Fix(art.water);
+            else made.Add(water = RuntimeMaterials.Lit("Water", new Color(0.015f, 0.02f, 0.025f), 0.95f));
 
             var chunks = TerrainBuilder.BuildChunks(plan, root, ground, trail, made);
             foreach (var c in chunks) wrap.Add(c, c.position);
@@ -119,10 +133,10 @@ namespace Game.World.Build
                 maxH = Mathf.Max(maxH, plan.Height[x, z]);
             }
             forest = new InstancedRenderer(plan.Size, TerrainBuilder.ChunkSize, minH, maxH + 25f);
-            var populator = new ForestPopulator(plan, forest, chunks, made);
+            var populator = new ForestPopulator(plan, forest, chunks, made, art, fixer, living, dead);
             populator.Populate();
 
-            var lamps = new LampFactory();
+            var lamps = new LampFactory(art != null ? art.lamp : null);
             made.AddRange(lamps.Materials);
             foreach (var site in plan.Lamps)
             {
@@ -131,7 +145,7 @@ namespace Game.World.Build
                 wrap.Add(lamp.transform, pos);
             }
 
-            var props = new Placeholders(made, populator.Bark, populator.Needles);
+            var props = new Placeholders(made, populator.Bark, populator.Needles, art);
             foreach (var st in plan.Structures)
             {
                 var go = props.Structure(st, plan.GroundAt(st.Position), root);
@@ -144,6 +158,27 @@ namespace Game.World.Build
             Debug.Log($"World {seed} made in {watch.ElapsedMilliseconds} ms: {string.Join(", ", Timings)}");
 
             PlacePlayer();
+        }
+
+        static PrefabArt.Result[] ExtractAll(GameObject[] prefabs, MaterialFixer fixer)
+        {
+            if (prefabs == null || prefabs.Length == 0) return null;
+            var list = new List<PrefabArt.Result>();
+            foreach (var p in prefabs)
+            {
+                var r = PrefabArt.Extract(p, fixer);
+                if (r != null) list.Add(r);
+                else if (p != null) Debug.LogWarning($"WorldArtConfig: '{p.name}' has no meshes to draw; skipped.");
+            }
+            return list.Count > 0 ? list.ToArray() : null;
+        }
+
+        static float[] Heights(PrefabArt.Result[] art, float size)
+        {
+            if (art == null) return null;
+            var h = new float[art.Length];
+            for (int i = 0; i < art.Length; i++) h[i] = art[i].Height * size;
+            return h;
         }
 
         // You wake in the start clearing, facing the way the plan chose (the giant's just off it).

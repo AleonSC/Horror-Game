@@ -14,10 +14,13 @@ namespace Game.World.Build
     {
         readonly Material wood, darkWood, canvas, metal, paint, stone, bark, needles;
         readonly List<Object> made;
+        readonly WorldArtConfig art;
 
-        public Placeholders(List<Object> made, Material bark, Material needles)
+        /// <param name="art">Your prefabs for the places (WorldArtConfig), used where set; null for all grey boxes.</param>
+        public Placeholders(List<Object> made, Material bark, Material needles, WorldArtConfig art = null)
         {
             this.made = made;
+            this.art = art;
             this.bark = bark;
             this.needles = needles;
             wood = Keep(RuntimeMaterials.Lit("Wood", new Color(0.15f, 0.11f, 0.08f), 0.2f));
@@ -34,8 +37,30 @@ namespace Game.World.Build
             return m;
         }
 
+        GameObject PrefabFor(StructureKind kind)
+        {
+            if (art == null) return null;
+            switch (kind)
+            {
+                case StructureKind.Cabin: return art.cabin;
+                case StructureKind.Shack: return art.shack;
+                case StructureKind.Campsite: return art.campsite;
+                case StructureKind.Watchtower: return art.watchtower;
+                case StructureKind.Car: return art.car;
+                case StructureKind.LandmarkTree: return art.landmarkTree;
+                default: return null;
+            }
+        }
+
         public GameObject Structure(StructureSite site, float ground, Transform parent)
         {
+            var prefab = PrefabFor(site.Kind);
+            if (prefab != null)
+            {
+                var placed = Object.Instantiate(prefab, new Vector3(site.Position.x, ground, site.Position.y), Quaternion.Euler(0f, site.Yaw, 0f), parent);
+                placed.name = site.Kind.ToString();
+                return placed;
+            }
             var root = new GameObject(site.Kind.ToString()) { layer = Layers.Props };
             root.transform.SetParent(parent, false);
             root.transform.SetPositionAndRotation(new Vector3(site.Position.x, ground, site.Position.y), Quaternion.Euler(0f, site.Yaw, 0f));
@@ -112,6 +137,12 @@ namespace Game.World.Build
 
         public GameObject Door(Vector2 position, float yaw, float ground, Transform parent)
         {
+            if (art != null && art.door != null)
+            {
+                var placed = Object.Instantiate(art.door, new Vector3(position.x, ground, position.y), Quaternion.Euler(0f, yaw, 0f), parent);
+                placed.name = "Lone Door";
+                return placed;
+            }
             var root = new GameObject("Lone Door") { layer = Layers.Props };
             root.transform.SetParent(parent, false);
             root.transform.SetPositionAndRotation(new Vector3(position.x, ground, position.y), Quaternion.Euler(0f, yaw, 0f));

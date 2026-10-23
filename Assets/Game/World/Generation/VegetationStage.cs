@@ -43,7 +43,7 @@ namespace Game.World.Generation
                 {
                     Position = p,
                     Kind = kind,
-                    Variant = (byte)rng.Range(0, kind == TreeKind.Pine ? TreeShapes.PineVariants : TreeShapes.DeadVariants),
+                    Variant = (byte)rng.Range(0, TreeShapes.Count(kind, s)),
                     Scale = s.treeScale * rng.Range(0.8f, 1.2f) * (giant ? rng.Range(s.oldGiantScale.x, s.oldGiantScale.y) : 1f),
                     Yaw = rng.Range(0f, 360f),
                     OldGiant = giant,

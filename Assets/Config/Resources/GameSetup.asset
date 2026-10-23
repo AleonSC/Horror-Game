@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: GameSetup
   m_EditorClassIdentifier: 
   configs:
+  - {fileID: 11400000, guid: 44a31e8cc0e74163a7955a045e39a5e6, type: 2}
   - {fileID: 11400000, guid: 6ae90251c0894d0d97d74dd447f316dc, type: 2}
   - {fileID: 11400000, guid: 8169aebd5380441d96ac68c6318be45c, type: 2}
   - {fileID: 11400000, guid: 135f144a2c86420f836febfa67b51509, type: 2}

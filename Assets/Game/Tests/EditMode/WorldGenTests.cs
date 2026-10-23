@@ -124,6 +124,18 @@ namespace Game.Tests
         }
 
         [Test]
+        public void YourTrees_HeightsAndVariantsGoIntoThePlan()
+        {
+            var s = S.Clone();
+            s.livingTreeHeights = new[] { 30f, 34f };
+            var plan = WorldGenerator.Generate(31, s, "Sightlines");
+            foreach (var t in plan.Trees)
+                if (t.Kind == TreeKind.Pine) Assert.Less(t.Variant, 2);
+            Assert.AreEqual(34f, TreeShapes.Height(TreeKind.Pine, 1, s));
+            Assert.IsTrue(SightlineStage.GiantVisible(plan, s), "taller trees: still cut out of the giant's view");
+        }
+
+        [Test]
         public void Wrap_ShortWayRound()
         {
             Assert.AreEqual(-20f, Wrap.Delta(310f, 290f, 320f), 1e-4f);

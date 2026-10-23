@@ -8,6 +8,9 @@ namespace Game.Player
     [CreateAssetMenu(menuName = "Game/Config/Flashlight", fileName = "FlashlightConfig")]
     public sealed class FlashlightConfig : GameConfig
     {
+        [Tooltip("Your own beam shape (a light cookie: white where it's bright). Empty: the built-in one, shaped by Edge Feather.")]
+        public Texture2D cookie;
+
         public FlashlightSettings settings = new FlashlightSettings();
     }
 

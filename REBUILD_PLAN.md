@@ -136,6 +136,10 @@ Assembly definitions keep compile times down and stop systems from reaching into
 6. **Deterministic, seeded generation** (section 3), so a bad layout can be reproduced exactly.
 7. **Engine features first:** AudioMixer snapshots for sound states, HDRP Volumes for looks, Cinemachine
    for cameras, the Animation system (or Playables) for creatures, LOD Groups for meshes.
+8. **Every piece of art is swappable** (the owner's request). Each system has a built-in version made in code
+   and a config slot for the owner's own asset (prefab, material, clip, texture); an empty slot means the
+   built-in one. World art is in `WorldArtConfig`, the scour's model in `ScourConfig`, sounds in
+   `AudioConfig`. New systems follow the same pattern. See `docs/custom-assets.md`.
 
 ### 2.6 Performance budget (set before content)
 

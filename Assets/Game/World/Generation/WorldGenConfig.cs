@@ -114,6 +114,9 @@ namespace Game.World.Generation
         public float batteriesApart = 12f;
         public float batteryFromTrees = 1.2f;
 
+        /// <summary>Your own trees' heights (set by the world builder from WorldArtConfig; empty: the built-in trees).</summary>
+        [NonSerialized] public float[] livingTreeHeights, deadTreeHeights;
+
         public WorldGenSettings Clone() => (WorldGenSettings)MemberwiseClone();
     }
 }

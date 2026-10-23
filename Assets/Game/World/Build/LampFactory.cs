@@ -12,9 +12,12 @@ namespace Game.World.Build
     public sealed class LampFactory
     {
         readonly Material metal, glass, marker, crank;
+        readonly GameObject prefab;
 
-        public LampFactory()
+        /// <param name="prefab">Your own lamp post (WorldArtConfig), or null for the built-in one.</param>
+        public LampFactory(GameObject prefab = null)
         {
+            this.prefab = prefab;
             metal = RuntimeMaterials.Lit("Lamp metal", new Color(0.06f, 0.06f, 0.06f), 0.5f);
             glass = RuntimeMaterials.LitGlow("Lamp glass", new Color(1f, 0.85f, 0.6f), new Color(1f, 0.7f, 0.4f) * 6f);
             marker = RuntimeMaterials.Glow("Lamp marker", new Color(1f, 0.05f, 0.02f));
@@ -25,6 +28,7 @@ namespace Game.World.Build
 
         public Lamp Create(int index, Vector3 position, float yaw, Transform parent)
         {
+            if (prefab != null) return FromPrefab(index, position, yaw, parent);
             var root = new GameObject($"Lamp {index}") { layer = Layers.Props };
             root.transform.SetParent(parent, false);
             root.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
@@ -52,6 +56,46 @@ namespace Game.World.Build
             lamp.glass = glassPart.GetComponent<Renderer>();
             lamp.crank = crankPart.transform;
             return lamp;
+        }
+
+        // Your lamp: its own Lamp component if it has one, otherwise one wired up from parts found by name.
+        Lamp FromPrefab(int index, Vector3 position, float yaw, Transform parent)
+        {
+            var go = Object.Instantiate(prefab, position, Quaternion.Euler(0f, yaw, 0f), parent);
+            go.name = $"Lamp {index}";
+            var lamp = go.GetComponent<Lamp>();
+            if (lamp == null)
+            {
+                lamp = go.AddComponent<Lamp>();
+                lamp.lampLight = go.GetComponentInChildren<Light>(true);
+                lamp.marker = Find<Renderer>(go, "marker");
+                lamp.glass = Find<Renderer>(go, "glass");
+                var crankPart = Find<Transform>(go, "crank");
+                lamp.crank = crankPart;
+            }
+            lamp.index = index;
+            if (lamp.lampLight != null)
+            {
+                if (lamp.lampLight.GetComponent<HDAdditionalLightData>() == null) lamp.lampLight.gameObject.AddComponent<HDAdditionalLightData>();
+                if (lamp.lampLight.GetComponent<FogGlowLight>() == null) lamp.lampLight.gameObject.AddComponent<FogGlowLight>();
+                lamp.lampLight.enabled = false;
+            }
+            else Debug.LogWarning("WorldArtConfig: the lamp prefab has no Light; lit lamps won't shine.");
+            if (go.GetComponentInChildren<Collider>() == null)
+            {
+                var c = go.AddComponent<CapsuleCollider>();
+                c.radius = 0.2f;
+                c.height = 3f;
+                c.center = Vector3.up * 1.5f; // (something for the crosshair to find)
+            }
+            return lamp;
+        }
+
+        static T Find<T>(GameObject root, string nameContains) where T : Component
+        {
+            foreach (var c in root.GetComponentsInChildren<T>(true))
+                if (c.name.ToLowerInvariant().Contains(nameContains)) return c;
+            return null;
         }
 
         static GameObject Part(PrimitiveType type, string name, Transform parent, Vector3 pos, Vector3 scale, Material mat, bool collider)

@@ -157,7 +157,12 @@ namespace Game.Player
             beam.enabled = IsOn;
             if (!IsOn) return;
 
-            if (!Mathf.Approximately(cookieFeather, s.edgeFeather))
+            if (config.cookie != null)
+            {
+                if (cookieFeather != -2f) beamData.SetCookie(config.cookie);
+                cookieFeather = -2f; // (yours: set once)
+            }
+            else if (!Mathf.Approximately(cookieFeather, s.edgeFeather))
             {
                 if (cookie != null) Destroy(cookie);
                 cookie = FlashlightCookie.Build(s.edgeFeather);

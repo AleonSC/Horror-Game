@@ -8,7 +8,7 @@ namespace Game.World.Build
     {
         public const int MaxPerCall = 1023;
 
-        public static void Draw(Mesh mesh, Material material, Matrix4x4[] matrices, int count, Bounds bounds, int layer, bool shadows)
+        public static void Draw(Mesh mesh, int submesh, Material material, Matrix4x4[] matrices, int count, Bounds bounds, int layer, bool shadows)
         {
             var rp = new RenderParams(material)
             {
@@ -17,7 +17,7 @@ namespace Game.World.Build
                 receiveShadows = true,
                 worldBounds = bounds,
             };
-            Graphics.RenderMeshInstanced(rp, mesh, 0, matrices, count);
+            Graphics.RenderMeshInstanced(rp, mesh, submesh, matrices, count);
         }
     }
 }

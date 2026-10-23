@@ -20,6 +20,7 @@ namespace Game.Audio
         readonly Dictionary<string, AudioMixerGroup> groups = new Dictionary<string, AudioMixerGroup>();
         readonly List<AudioSource> pool = new List<AudioSource>();
         AudioMixer mixer;
+        AudioConfig config;
         int next;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -31,7 +32,7 @@ namespace Game.Audio
 
         void Awake()
         {
-            var config = Services.Get<GameSetup>().Get<AudioConfig>();
+            config = Services.Get<GameSetup>().Get<AudioConfig>();
             mixer = config != null ? config.mixer : null;
             BuildClips();
             for (int i = 0; i < PoolSize; i++)
@@ -73,7 +74,17 @@ namespace Game.Audio
             clips[sound] = clip;
         }
 
-        public AudioClip Clip(Sound sound) => clips.TryGetValue(sound, out var c) ? c : null;
+        /// <summary>The clip for a sound: one of your recordings if AudioConfig has any for it, else the built-in one.</summary>
+        public AudioClip Clip(Sound sound)
+        {
+            var custom = config != null ? config.OverrideFor(sound) : null;
+            if (custom != null)
+            {
+                var pick = custom[Random.Range(0, custom.Length)];
+                if (pick != null) return pick;
+            }
+            return clips.TryGetValue(sound, out var c) ? c : null;
+        }
 
         /// <summary>The mixer group with this name (see <see cref="MixerNames"/>), or null if there's no mixer.</summary>
         public AudioMixerGroup Group(string name)

@@ -44,7 +44,7 @@ namespace Game.World.Generation
             Vector2 d = Wrap.Delta(plan.Start, t.Position, plan.Size);
             float dist = d.magnitude;
             if (dist < 0.5f) return true;
-            float height = TreeShapes.Height(t.Kind, t.Variant) * t.Scale;
+            float height = TreeShapes.Height(t.Kind, t.Variant, s) * t.Scale;
             float crown = TreeShapes.CrownRadius(t.Kind) * t.Scale;
             float eye = plan.GroundAt(plan.Start) + EyeHeight;
             float top = plan.GroundAt(t.Position) + height;
@@ -59,7 +59,7 @@ namespace Game.World.Generation
         /// <summary>Would this tree's crown reach into the cone of open sky above a lamp?</summary>
         public static bool BlocksLampSky(WorldPlan plan, WorldGenSettings s, TreeSpot t)
         {
-            float height = TreeShapes.Height(t.Kind, t.Variant) * t.Scale;
+            float height = TreeShapes.Height(t.Kind, t.Variant, s) * t.Scale;
             float crown = TreeShapes.CrownRadius(t.Kind) * t.Scale;
             float tan = Mathf.Tan(s.lampSkyCone * Mathf.Deg2Rad);
             foreach (var lamp in plan.Lamps)
