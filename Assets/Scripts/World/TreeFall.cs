@@ -184,13 +184,13 @@ public class TreeFall : MonoBehaviour
         bounds.Add(height * 3f); // everything above the last break, foliage and all
         for (int i = 1; i < count; i++) breakHeights.Add(bounds[i]);
 
-        // The meshes to cut up, in sway space.
-        var sources = new List<(Mesh mesh, Matrix4x4 toSway, Material mat)>();
+        // The meshes to cut up, read once (in sway space) for all the sections and measurements.
+        var sources = new List<Source>();
         foreach (var filter in sway.GetComponentsInChildren<MeshFilter>())
         {
             var renderer = filter.GetComponent<MeshRenderer>();
             if (renderer == null || filter.sharedMesh == null || !filter.sharedMesh.isReadable) continue;
-            sources.Add((filter.sharedMesh, sway.worldToLocalMatrix * filter.transform.localToWorldMatrix, renderer.sharedMaterial));
+            sources.Add(new Source(filter.sharedMesh, sway.worldToLocalMatrix * filter.transform.localToWorldMatrix, renderer.sharedMaterial));
             if (filter.name == "Trunk" || filter.name == "Bark") barkMaterial = renderer.sharedMaterial;
         }
 
@@ -216,10 +216,11 @@ public class TreeFall : MonoBehaviour
             float foliageReach = 0f;
             var loEdges = new List<(Vector3, Vector3)>();
             var hiEdges = new List<(Vector3, Vector3)>();
-            foreach (var (mesh, toSway, mat) in sources)
+            foreach (var source in sources)
             {
+                Material mat = source.mat;
                 bool wood = mat == barkMaterial;
-                Mesh part = Slice(mesh, toSway, lo, hi, wood ? loEdges : null, wood ? hiEdges : null);
+                Mesh part = Slice(source, lo, hi, wood ? loEdges : null, wood ? hiEdges : null);
                 if (part == null) continue;
                 if (mat == barkMaterial)
                 {
@@ -312,6 +313,42 @@ public class TreeFall : MonoBehaviour
         sway.gameObject.SetActive(false); // the sections replace it
     }
 
+    /// <summary>A mesh to cut up, read once: its vertices in sway space, and its triangles.</summary>
+    class Source
+    {
+        public readonly Mesh mesh;
+        public readonly Material mat;
+        public readonly Vtx[] vtx;
+        public readonly int[] tris;
+        public readonly bool hasT, hasUV;
+
+        public Source(Mesh mesh, Matrix4x4 toSway, Material mat)
+        {
+            this.mesh = mesh;
+            this.mat = mat;
+            Vector3[] verts = mesh.vertices;
+            Vector3[] normals = mesh.normals;
+            Vector4[] tangents = mesh.tangents;
+            Vector2[] uvs = mesh.uv;
+            tris = mesh.triangles;
+            bool hasN = normals.Length == verts.Length;
+            hasT = tangents.Length == verts.Length;
+            hasUV = uvs.Length == verts.Length;
+            vtx = new Vtx[verts.Length];
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 tan = hasT ? toSway.MultiplyVector(tangents[i]).normalized : Vector3.right;
+                vtx[i] = new Vtx
+                {
+                    pos = toSway.MultiplyPoint3x4(verts[i]),
+                    normal = hasN ? toSway.MultiplyVector(normals[i]).normalized : Vector3.up,
+                    tangent = new Vector4(tan.x, tan.y, tan.z, hasT ? tangents[i].w : 1f),
+                    uv = hasUV ? uvs[i] : Vector2.zero,
+                };
+            }
+        }
+    }
+
     struct Vtx
     {
         public Vector3 pos, normal;
@@ -332,27 +369,11 @@ public class TreeFall : MonoBehaviour
     /// to it exactly, so neighbouring sections meet along a straight line with no gaps or overlaps. The edges
     /// the cuts leave (where the surface crosses each height) are collected, for closing the ends with wood.
     /// </summary>
-    static Mesh Slice(Mesh source, Matrix4x4 toSway, float lo, float hi, List<(Vector3, Vector3)> loEdges, List<(Vector3, Vector3)> hiEdges)
+    static Mesh Slice(Source source, float lo, float hi, List<(Vector3, Vector3)> loEdges, List<(Vector3, Vector3)> hiEdges)
     {
-        Vector3[] verts = source.vertices;
-        Vector3[] normals = source.normals;
-        Vector4[] tangents = source.tangents;
-        Vector2[] uvs = source.uv;
-        int[] tris = source.triangles;
-        bool hasN = normals.Length == verts.Length, hasT = tangents.Length == verts.Length, hasUV = uvs.Length == verts.Length;
-
-        var cache = new Vtx[verts.Length];
-        for (int i = 0; i < verts.Length; i++)
-        {
-            Vector3 tan = hasT ? toSway.MultiplyVector(tangents[i]).normalized : Vector3.right;
-            cache[i] = new Vtx
-            {
-                pos = toSway.MultiplyPoint3x4(verts[i]),
-                normal = hasN ? toSway.MultiplyVector(normals[i]).normalized : Vector3.up,
-                tangent = new Vector4(tan.x, tan.y, tan.z, hasT ? tangents[i].w : 1f),
-                uv = hasUV ? uvs[i] : Vector2.zero,
-            };
-        }
+        Vtx[] cache = source.vtx;
+        int[] tris = source.tris;
+        bool hasT = source.hasT, hasUV = source.hasUV;
 
         var outV = new List<Vtx>();
         var outTris = new List<int>();
@@ -374,7 +395,7 @@ public class TreeFall : MonoBehaviour
         }
         if (outTris.Count == 0) return null;
 
-        var mesh = new Mesh { name = source.name + " Section" };
+        var mesh = new Mesh { name = source.mesh.name + " Section" };
         if (outV.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         var pos = new List<Vector3>(outV.Count);
         var nrm = new List<Vector3>(outV.Count);
@@ -455,6 +476,7 @@ public class TreeFall : MonoBehaviour
         go.transform.SetParent(section, false);
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         go.AddComponent<MeshRenderer>().sharedMaterial = BreakWoodMaterial;
+        OwnedMesh.Add(go, mesh);
     }
 
     static GameObject AddPart(Transform parent, string name, Mesh mesh, Material mat)
@@ -463,6 +485,7 @@ public class TreeFall : MonoBehaviour
         go.transform.SetParent(parent, false);
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        OwnedMesh.Add(go, mesh);
         return go;
     }
 
@@ -528,12 +551,15 @@ public class TreeFall : MonoBehaviour
     {
         if (phase != Phase.Falling || splintered) return;
         if (collision.relativeVelocity.magnitude < 1.5f) return;
+        // Only the ground breaks it, or anything once it's well over. Knocking into a neighbour, a rock or a
+        // wall on the way down doesn't: it carries on falling (and if it's caught there, Unstick frees it).
+        float tilt = pieces.Count > 0 && pieces[0] != null ? Vector3.Angle(pieces[0].transform.up, Vector3.up) : 90f;
+        if (tilt < 35f && !IsGround(collision.collider)) return;
         Splinter(collision.GetContact(0).point, collision.relativeVelocity.magnitude);
     }
 
-    /// <summary>The tree breaks apart where it hits: joints snap, shards fly, and each section finds its own rest.</summary>
-    Vector3 fallAxisWorld;
-    float lastTilt, stuckFor;
+    Vector3 fallAxisWorld; // the axis it tips over on (world)
+    float lastTilt, stuckFor; // how far over it's got, and how long it hasn't been tipping any further
 
     /// <summary>
     /// Caught on something (another tree's trunk, a branch) and stuck leaning: it stops touching whatever it's
@@ -552,6 +578,12 @@ public class TreeFall : MonoBehaviour
                 foreach (var other in Physics.OverlapBox(b.center, b.extents * 1.15f + Vector3.one * 0.2f, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
                 {
                     if (own.Contains(other) || IsGround(other)) continue;
+                    // Only what can't move (standing trees, rocks, buildings, logs already down): never the
+                    // player or anything alive, which would then walk through this log for good.
+                    if (other is CharacterController) continue;
+                    var otherBody = other.attachedRigidbody;
+                    if (otherBody != null && otherBody.GetComponent<FallenSection>() == null) continue;
+                    if (player != null && other.transform.IsChildOf(player.transform)) continue;
                     Physics.IgnoreCollision(mine, other);
                 }
             }
@@ -563,6 +595,7 @@ public class TreeFall : MonoBehaviour
     static bool IsGround(Collider c) =>
         c.GetType().Name == "TerrainCollider" || (c is MeshCollider m && m.sharedMesh != null && m.sharedMesh.name == "Forest Ground");
 
+    /// <summary>The tree breaks apart where it hits: joints snap, shards fly, and each section finds its own rest.</summary>
     void Splinter(Vector3 impactPoint, float impactSpeed)
     {
         if (splintered) return;
@@ -588,7 +621,7 @@ public class TreeFall : MonoBehaviour
 
             // A little shove apart so the breaks show.
             foreach (var body in pieces)
-                body.AddTorque(Random.insideUnitSphere * body.mass * 0.6f, ForceMode.Impulse);
+                if (body != null) body.AddTorque(Random.insideUnitSphere * body.mass * 0.6f, ForceMode.Impulse);
         }
 
         // Down: the pieces settle rather than tumbling end over end.
@@ -787,7 +820,7 @@ public class TreeFall : MonoBehaviour
     /// wood face inside following that ragged rim, and a few roots spreading out into the earth. The plain
     /// cylinder from AddStump stays only as its collider.
     /// </summary>
-    void BuildStumpBase(List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources)
+    void BuildStumpBase(List<Source> sources)
     {
         var standing = tree.GetComponent<CapsuleCollider>();
         float r = standing != null ? standing.radius : 0.25f;
@@ -861,6 +894,7 @@ public class TreeFall : MonoBehaviour
         var stumpBase = new GameObject("Stump Base");
         stumpBase.transform.SetParent(tree, false);
         stumpBase.AddComponent<MeshFilter>().sharedMesh = mesh;
+        OwnedMesh.Add(stumpBase, mesh);
         stumpBase.AddComponent<MeshRenderer>().sharedMaterials = new[] { bark, StumpTopMaterial };
 
         // Roots, spreading out and down into the earth.
@@ -887,27 +921,22 @@ public class TreeFall : MonoBehaviour
     }
 
     /// <summary>
-    /// A broken end of a fallen section, at a height up the trunk (its local space), facing up (the top of the
-    /// section) or down (its foot): a short sleeve of bark torn into a jagged crown of splinters round a pale
-    /// face of broken wood, sized to the trunk there.
-    /// </summary>
-    /// <summary>
     /// Where the trunk really is at a height (sway space), and how thick: from the bark mesh's own vertices
     /// round that height, ignoring branches (they reach further out than the trunk's surface).
     /// </summary>
-    Vector2 TrunkAt(List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources, float at, float guessRadius, out float trunkRadius)
+    Vector2 TrunkAt(List<Source> sources, float at, float guessRadius, out float trunkRadius)
     {
         // What the trunk should be here, from its taper: the measurement is only trusted near this, since the
         // branches (lots of vertices, reaching metres out) would otherwise swamp it.
         float expected = guessRadius * Mathf.Lerp(1f, 0.45f, Mathf.Clamp01(at / Mathf.Max(height, 0.01f)));
         trunkRadius = expected;
         var near = new List<Vector2>();
-        foreach (var (mesh, toSway, mat) in sources)
+        foreach (var source in sources)
         {
-            if (mat != barkMaterial) continue;
-            foreach (var v in mesh.vertices)
+            if (source.mat != barkMaterial) continue;
+            foreach (var v in source.vtx)
             {
-                Vector3 p = toSway.MultiplyPoint3x4(v);
+                Vector3 p = v.pos;
                 if (Mathf.Abs(p.y - at) < 0.3f && new Vector2(p.x, p.z).magnitude < expected * 3f + 0.1f) near.Add(new Vector2(p.x, p.z));
             }
         }
@@ -936,7 +965,7 @@ public class TreeFall : MonoBehaviour
     /// The splinters at a section's broken end: a few long slivers of wood standing up out of the cut face
     /// (AddCutFace) round its edge, leaning a little out.
     /// </summary>
-    void AddBreakEnd(Transform section, float at, List<(Mesh mesh, Matrix4x4 toSway, Material mat)> sources, float baseRadius, bool facingUp)
+    void AddBreakEnd(Transform section, float at, List<Source> sources, float baseRadius, bool facingUp)
     {
         Vector2 c = TrunkAt(sources, at, baseRadius, out float r);
         float dir = facingUp ? 1f : -1f;
@@ -978,6 +1007,7 @@ public class TreeFall : MonoBehaviour
         var go = new GameObject("Break End");
         go.transform.SetParent(section, false);
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        OwnedMesh.Add(go, mesh);
         Material bark = barkMaterial != null ? barkMaterial : SplinterMaterial;
         go.AddComponent<MeshRenderer>().sharedMaterials = new[] { bark, BreakWoodMaterial };
     }
@@ -1081,5 +1111,21 @@ public class FallenSection : MonoBehaviour
     void OnCollisionEnter(Collision collision)
     {
         if (owner != null) owner.OnSectionHit(collision);
+    }
+}
+
+/// <summary>A mesh made for one object (a fallen tree's sections, cut faces, stump): destroyed with it, so it doesn't leak.</summary>
+public class OwnedMesh : MonoBehaviour
+{
+    Mesh mesh;
+
+    public static void Add(GameObject go, Mesh mesh)
+    {
+        if (mesh != null) go.AddComponent<OwnedMesh>().mesh = mesh;
+    }
+
+    void OnDestroy()
+    {
+        if (mesh != null) Destroy(mesh);
     }
 }
