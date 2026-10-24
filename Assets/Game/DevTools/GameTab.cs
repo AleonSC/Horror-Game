@@ -113,6 +113,8 @@ namespace Game.DevTools
             if (door != null && !door.Unlocked && GUILayout.Button("Unlock it", DevStyle.Button) && Services.TryGet<EventBus>(out var events)) events.Publish(new DoorUnlocked());
             GUILayout.EndHorizontal();
             if (PlayerPlace.InDarkRoom) GUILayout.Label("You're in the dark room.", DevStyle.MutedLabel);
+            if (Services.TryGet<Game.World.ForestEvents>(out var forest) && GUILayout.Button("Fell a tree in view now", DevStyle.Button) && !forest.FellOne())
+                Debug.Log("No standing tree 12-25 m away in front of you to fell.");
         }
 
         static T First<T>() where T : Object

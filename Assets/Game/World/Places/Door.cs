@@ -39,6 +39,24 @@ namespace Game.World
             }
             opening = !opening;
             Play(opening ? Sound.DoorOpen : Sound.DoorShut, 0.7f, Random.Range(0.9f, 1.1f));
+            // Sometimes, shutting it is answered: three slow knocks, out in the trees.
+            if (!opening && GetComponent<LoneDoor>() == null)
+            {
+                var life = Services.TryGet<GameSetup>(out var setup) ? setup.Get<ForestLifeConfig>() : null;
+                if (life != null && Random.value < life.settings.knockChance) StartCoroutine(Knocks());
+            }
+        }
+
+        System.Collections.IEnumerator Knocks()
+        {
+            yield return new WaitForSeconds(Random.Range(2.5f, 5f));
+            Vector3 from = transform.position + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(14f, 24f) + Vector3.up * 1.2f;
+            for (int i = 0; i < 3; i++)
+            {
+                if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.DoorShut, from, MixerNames.Outside, 0.75f, 0.62f, 45f);
+                yield return new WaitForSeconds(1.1f);
+            }
+            if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(from, 0f, "three knocks"));
         }
 
         void Update()

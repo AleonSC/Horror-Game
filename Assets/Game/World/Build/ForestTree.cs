@@ -14,13 +14,17 @@ namespace Game.World.Build
         public int[] Kinds;
         public Vector2 Home;
         public Matrix4x4 Matrix;
+        /// <summary>An owl sits in it (falling trees leave it alone).</summary>
+        public bool HasOwl;
         bool down;
+
+        public bool Down => down;
 
         /// <summary>
         /// Knock it over, falling away from <paramref name="pushedFrom"/>: it topples, thuds down, lies a while, then
         /// sinks away. False if it's already down.
         /// </summary>
-        public bool KnockDown(InstancedRenderer forest, Vector3 pushedFrom)
+        public bool KnockDown(InstancedRenderer forest, Vector3 pushedFrom, float shudder = 0f)
         {
             if (down || forest == null) return false;
             down = true;
@@ -67,7 +71,7 @@ namespace Game.World.Build
             away.y = 0f;
             if (away.sqrMagnitude < 0.01f) away = Random.insideUnitSphere;
             away.y = 0f;
-            tree.AddComponent<TreeFall>().Begin(away.normalized);
+            tree.AddComponent<TreeFall>().Begin(away.normalized, shudder);
             return true;
         }
     }

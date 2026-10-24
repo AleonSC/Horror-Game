@@ -41,3 +41,23 @@ ambience too loud, too busy or too quiet?
 
 **Let me know:** is the rain visible enough without being in the way? Is the lightning too bright, or too
 often? And the frame time in a downpour (3,000 drops).
+
+## Part 3: things happening in the forest
+
+- **Falling trees:** the first comes 30 s into a run, then one every 45-90 s. A tree in plain view, 12-25 m
+  away, cracks, shudders, groans and topples across your view (never onto you). It lands with a thud (a noise
+  the blind one hears), lies there a while, and sinks away once you're not looking. To see one now:
+  F9 > Game > Places > **Fell a tree in view now**.
+- **Phantoms:** turn your head quickly and sometimes (a 1 in 4 chance, at most every 40 s) something that
+  doesn't belong is standing just past the edge of your view, on the side you're turning to: a chair, a stop
+  sign, a gurney, a TV, a mailbox, a child's tricycle. Look away and back, and it's gone. Your own models can
+  replace them: `ForestLifeConfig` > Phantoms.
+- **Door knocks:** sometimes (1 in 5), shutting a shack or cabin door is answered by three slow knocks, out in
+  the trees.
+- **Spider webs:** 70 of them, strung between close trees at head height. They're nearly invisible until your
+  light catches them, and if you walk into one it tears across your face.
+- **Vines** hang from a few trees (4%), swinging in the wind; walk through one and it's pushed aside.
+- Numbers: `Assets/Config/World/ForestLifeConfig`.
+
+**Let me know:** are the phantoms creepy, or too obvious? Do you notice the webs before walking into them?
+Too many tree falls, or too few?
