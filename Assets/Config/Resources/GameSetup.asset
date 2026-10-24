@@ -29,5 +29,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 1c11fd217e5e43cdae3783ec85b1de3c, type: 2}
   - {fileID: 11400000, guid: 4d9cb5baa213474eac7929dc6994db5e, type: 2}
   - {fileID: 11400000, guid: 8c6733534bc84307a06082318a4faef1, type: 2}
+  - {fileID: 11400000, guid: db5ac5d2ed7e46f8942c59da0588335f, type: 2}
   randomizeSeedEachRun: 1
   fixedSeed: 12345

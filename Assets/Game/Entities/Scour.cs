@@ -57,8 +57,19 @@ namespace Game.Entities
         public bool ThreatHunting => ThreatTaking || State == ScourState.FacedDown || (State == ScourState.Stalking && growth > 1.02f);
         public bool ThreatWatching => false;
 
-        void OnEnable() => Threats.Add(this);
-        void OnDisable() => Threats.Remove(this);
+        Heat.Source heat;
+
+        void OnEnable()
+        {
+            Threats.Add(this);
+            heat = Heat.Add(transform, 2.4f, 0.35f, () => Visible); // (the drone's thermal view)
+        }
+
+        void OnDisable()
+        {
+            Threats.Remove(this);
+            Heat.Remove(heat);
+        }
 
         public void Init(int scourId, ScourConfig config, float firstDelay, System.Random rng)
         {

@@ -92,6 +92,9 @@ namespace Game.Audio
             Add(Sound.Caw, SoundSynth.Caw(39));
             Add(Sound.Splash, SoundSynth.Splash(40));
             Add(Sound.Hooves, SoundSynth.Hooves(41));
+            Add(Sound.Rotors, SoundSynth.Rotors(42));
+            Add(Sound.Static, SoundSynth.Static(43));
+            Add(Sound.RadioSong, SoundSynth.RadioSong(44));
         }
 
         void Add(Sound sound, float[] samples)

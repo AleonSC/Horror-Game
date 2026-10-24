@@ -93,12 +93,42 @@ namespace Game.Player
                     Part(PrimitiveType.Cube, t, new Vector3(0.05f, 0.004f, 0.02f), new Vector3(0.05f, 0.001f, 0.004f), Mat("Map ink", new Color(0.08f, 0.06f, 0.05f), 0.1f));
                     break;
                 }
+                case ItemKind.Drone:
+                    DroneModel(t, black, metal);
+                    break;
+                case ItemKind.Radio:
+                {
+                    // A small transistor radio: a case, a speaker grille, a dial, an aerial.
+                    Part(PrimitiveType.Cube, t, new Vector3(0f, 0.06f, 0f), new Vector3(0.2f, 0.12f, 0.06f), Mat("Radio case", new Color(0.35f, 0.18f, 0.1f), 0.4f));
+                    Part(PrimitiveType.Cube, t, new Vector3(-0.04f, 0.06f, 0.031f), new Vector3(0.09f, 0.08f, 0.004f), Mat("Grille", new Color(0.62f, 0.58f, 0.5f), 0.5f));
+                    Cyl(t, new Vector3(0.06f, 0.07f, 0.032f), 0.022f, 0.006f, metal).transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                    var aerial = Cyl(t, new Vector3(0.08f, 0.2f, 0f), 0.003f, 0.2f, metal);
+                    aerial.transform.localRotation = Quaternion.Euler(0f, 0f, -15f);
+                    break;
+                }
                 case ItemKind.KeyFob:
                     Part(PrimitiveType.Cube, t, new Vector3(0f, 0f, 0f), new Vector3(0.03f, 0.012f, 0.06f), black);
                     Part(PrimitiveType.Cube, t, new Vector3(0f, 0.007f, 0.01f), new Vector3(0.014f, 0.004f, 0.014f), Mat("Fob button", new Color(0.5f, 0.05f, 0.04f), 0.5f));
                     break;
             }
             return root;
+        }
+
+        /// <summary>A small quadcopter: a body, four arms and rotors, a camera underneath. Its rotors are named
+        /// "Rotor" (they spin in flight).</summary>
+        public static void DroneModel(Transform t, Material black, Material metal)
+        {
+            Part(PrimitiveType.Cube, t, new Vector3(0f, 0.04f, 0f), new Vector3(0.14f, 0.05f, 0.2f), Mat("Drone shell", new Color(0.55f, 0.56f, 0.58f), 0.6f));
+            for (int i = 0; i < 4; i++)
+            {
+                float x = i % 2 == 0 ? -1f : 1f, z = i < 2 ? -1f : 1f;
+                var arm = Part(PrimitiveType.Cube, t, new Vector3(x * 0.09f, 0.045f, z * 0.09f), new Vector3(0.012f, 0.012f, 0.16f), black);
+                arm.transform.localRotation = Quaternion.Euler(0f, x * z * 45f, 0f);
+                Cyl(t, new Vector3(x * 0.15f, 0.06f, z * 0.15f), 0.012f, 0.02f, metal);
+                var rotor = Part(PrimitiveType.Cube, t, new Vector3(x * 0.15f, 0.075f, z * 0.15f), new Vector3(0.16f, 0.003f, 0.016f), black);
+                rotor.name = "Rotor";
+            }
+            Part(PrimitiveType.Sphere, t, new Vector3(0f, 0.005f, 0.07f), Vector3.one * 0.035f, black); // (its camera)
         }
 
         /// <summary>A glowstick (also the thrown one): a thin tube that glows.</summary>

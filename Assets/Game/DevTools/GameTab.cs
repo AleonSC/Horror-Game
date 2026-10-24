@@ -164,6 +164,10 @@ namespace Game.DevTools
             if (GUILayout.Button("Give one of every item", DevStyle.Button)) GiveEverything(player.Hotbar);
             if (GUILayout.Button("Give the map", DevStyle.Button)) player.Hotbar.Give(ItemKind.Map);
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Give the drone", DevStyle.Button)) player.Hotbar.Give(ItemKind.Drone);
+            if (GUILayout.Button("Give a radio", DevStyle.Button)) player.Hotbar.Give(ItemKind.Radio);
+            GUILayout.EndHorizontal();
         }
 
         static void DrawScours(ScourSpawner spawner)

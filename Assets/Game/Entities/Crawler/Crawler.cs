@@ -48,8 +48,19 @@ namespace Game.Entities
             nextMove = Random.Range(0.3f, 1f) * s.repositionEvery;
         }
 
-        void OnEnable() => Threats.Add(this);
-        void OnDisable() => Threats.Remove(this);
+        Heat.Source heat;
+
+        void OnEnable()
+        {
+            Threats.Add(this);
+            heat = Heat.Add(transform, 0.4f, 0.35f);
+        }
+
+        void OnDisable()
+        {
+            Threats.Remove(this);
+            Heat.Remove(heat);
+        }
 
         void OnDestroy()
         {

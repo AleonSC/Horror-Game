@@ -58,7 +58,7 @@ namespace Game.World
             var camGo = new GameObject("Portal camera");
             camGo.transform.SetParent(transform, false);
             view = camGo.AddComponent<Camera>();
-            view.cullingMask = ~(Layers.Mask(Layers.PortalFaces) | Layers.Mask(Layers.PlayerBody));
+            view.cullingMask = ~Layers.Mask(Layers.PortalFaces); // (it sees your body: you can watch yourself go through)
             view.enabled = false;
             // No post-processing in the window: the main camera grades the whole picture once.
             var hd = camGo.AddComponent<HDAdditionalCameraData>();

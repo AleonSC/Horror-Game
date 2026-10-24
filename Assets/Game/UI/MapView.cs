@@ -86,7 +86,7 @@ namespace Game.UI
             if (sheet == null) return;
             // Down as soon as it's not in your hand (or you're taken, or somewhere else).
             bool holding = Services.TryGet<PlayerController>(out var player) && player.Hotbar != null && player.Hotbar.Items.HeldKind == ItemKind.Map;
-            if (!holding || player.Held || PlayerPlace.InDarkRoom) raised = false;
+            if (!holding || player.Held || player.Piloting || PlayerPlace.InDarkRoom) raised = false;
 
             shown = Mathf.MoveTowards(shown, raised ? 1f : 0f, Time.deltaTime * 3.5f);
             if (shown <= 0f)

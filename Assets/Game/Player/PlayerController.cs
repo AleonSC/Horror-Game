@@ -46,6 +46,11 @@ namespace Game.Player
         public bool Moving { get; private set; }
         /// <summary>Held still: no moving or looking (something else is moving the camera).</summary>
         public bool Held { get; private set; }
+        /// <summary>Flying the drone: you stand still, seeing and hearing only through it.</summary>
+        public bool Piloting { get; set; }
+        /// <summary>How fast you're moving over the ground (metres a second).</summary>
+        public float Speed => new Vector2(velocity.x, velocity.z).magnitude;
+        public bool Grounded => body != null && body.isGrounded;
         /// <summary>Is this point under a pond's water? (The world sets it.)</summary>
         public static System.Func<Vector3, bool> WaterAt;
         /// <summary>Wading speed, as a share of normal (the world sets it).</summary>
@@ -76,6 +81,8 @@ namespace Game.Player
 
             body = GetComponent<CharacterController>();
             view = GetComponentInChildren<Camera>();
+            // (Your own body is for the drone's camera and the portals, never your eyes.)
+            if (view != null) view.cullingMask &= ~Layers.Mask(Layers.PlayerBody);
             head = view != null ? view.transform : transform;
             Flashlight = head.GetComponent<Flashlight>();
             if (Flashlight != null) Flashlight.HandleInput = false;
@@ -118,7 +125,7 @@ namespace Game.Player
             groggy = Mathf.Max(0f, groggy - dt);
             UpdateBlur(s);
 
-            if (Held || !GameFlow.IsPlaying)
+            if (Held || Piloting || !GameFlow.IsPlaying)
             {
                 Moving = Running = false;
                 return;

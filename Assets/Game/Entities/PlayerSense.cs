@@ -15,7 +15,7 @@ namespace Game.Entities
         /// <summary>Is the point within <paramref name="degrees"/> of the centre of the player's view, and not hidden behind something?</summary>
         public static bool IsLookedAt(PlayerController player, Vector3 point, float degrees)
         {
-            if (player == null) return false;
+            if (player == null || player.Piloting) return false; // (flying the drone, you're blind where you stand)
             var eye = player.Head;
             Vector3 to = point - eye.position;
             if (Vector3.Angle(eye.forward, to) > degrees) return false;

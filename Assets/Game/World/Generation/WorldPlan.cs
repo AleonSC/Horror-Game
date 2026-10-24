@@ -10,9 +10,9 @@ namespace Game.World.Generation
 
     /// <summary>A round open space with a ragged edge; trees thin back in over <see cref="Thinning"/> of its radius.</summary>
     /// <summary>What can be found in the places (section 3.7). Snacks are eaten where they're found.</summary>
-    public enum LootKind { Battery, Torch, Lighter, KeyFob, Snack, FlareGun, Glowsticks, Camera, Map }
+    public enum LootKind { Battery, Torch, Lighter, KeyFob, Snack, FlareGun, Glowsticks, Camera, Map, Radio }
     /// <summary>Where in a place it is.</summary>
-    public enum LootPlace { Table, Tent, Backpack, GloveBox, Trunk, Deck }
+    public enum LootPlace { Table, Tent, Backpack, GloveBox, Trunk, Deck, BackSeat }
 
     /// <summary>Something to find: which place (an index into the plan's structures), where in it, what and how many.</summary>
     public struct Loot

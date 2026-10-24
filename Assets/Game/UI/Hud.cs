@@ -154,7 +154,7 @@ namespace Game.UI
             if (!built) return;
             // (No HUD under the main menu or the intro.)
             var hudLayer = dot.parent;
-            var want = GameFlow.IsPlaying ? DisplayStyle.Flex : DisplayStyle.None;
+            var want = GameFlow.IsPlaying && !Drone.Piloting ? DisplayStyle.Flex : DisplayStyle.None; // (the drone has its own)
             if (hudLayer.style.display != want) hudLayer.style.display = want;
             bool hasPlayer = Services.TryGet<PlayerController>(out var player);
             Show(dot, hasPlayer && !player.Held);
@@ -289,6 +289,8 @@ namespace Game.UI
                 case ItemKind.Camera: return "CAMERA";
                 case ItemKind.KeyFob: return "FOB";
                 case ItemKind.Map: return "MAP";
+                case ItemKind.Drone: return "DRONE";
+                case ItemKind.Radio: return "RADIO";
                 default: return kind.ToString().ToUpperInvariant();
             }
         }
@@ -305,6 +307,8 @@ namespace Game.UI
                 case ItemKind.FlareGun: return "one flare: F to fire it into the sky";
                 case ItemKind.KeyFob: return "F: the car chirps";
                 case ItemKind.Map: return "F to hold it up";
+                case ItemKind.Drone: return held.Lit ? $"out there   F to fly it ({Mathf.CeilToInt((Drone.Current != null ? Drone.Current.Battery : held.Charge) * 100f)}%)" : $"battery {Mathf.CeilToInt(held.Charge * 100f)}%   F to set it down and fly";
+                case ItemKind.Radio: return "F to set it down, playing";
                 default: return "";
             }
         }

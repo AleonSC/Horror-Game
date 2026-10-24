@@ -78,12 +78,16 @@ namespace Game.Entities
                 subs.Add(events.Subscribe<FlashBurst>(OnFlash));
             }
             Threats.Add(this);
+            heat = Heat.Add(body.transform, s.height, s.height * 0.12f);
         }
+
+        Heat.Source heat;
 
         void OnDestroy()
         {
             foreach (var sub in subs) sub.Dispose();
             Threats.Remove(this);
+            Heat.Remove(heat);
             Services.Unregister(this);
             if (storm != null) Destroy(storm.gameObject);
         }
@@ -182,6 +186,14 @@ namespace Game.Entities
             stateTime += dt;
             storm.Strength = Mathf.MoveTowards(storm.Strength, ThreatVisible ? 1f : 0f, dt * (State == BlindState.Arriving ? 0.3f : 0.15f));
             if (storm.Strength > 0f) storm.Follow(transform.position, dt);
+
+            // A radio playing within reach: it smashes it.
+            if (State != BlindState.Absent && State != BlindState.Away && State != BlindState.Taking)
+                for (int i = PlacedRadio.Playing.Count - 1; i >= 0; i--)
+                {
+                    var radio = PlacedRadio.Playing[i];
+                    if (PlayerSense.FlatDistance(transform.position, radio.transform.position) <= radio.SmashDistance) radio.Smash();
+                }
 
             switch (State)
             {

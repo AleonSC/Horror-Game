@@ -654,6 +654,79 @@ namespace Game.Audio
             return Normalize(s, 0.5f);
         }
 
+        /// <summary>A small drone's four rotors: a buzzing whine with a beat between them (2 s, to loop).</summary>
+        public static float[] Rotors(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(2f);
+            float lp = 0f;
+            double[] freq = { 196.0, 201.5, 207.3, 192.4 };
+            double[] phase = new double[4];
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float v = 0f;
+                for (int r = 0; r < 4; r++)
+                {
+                    phase[r] += freq[r] / SampleRate;
+                    double p = phase[r] % 1.0;
+                    v += (float)(p * 2.0 - 1.0) * 0.25f; // (a saw: buzzy)
+                }
+                lp += (Noise(rng) - lp) * 0.3f;
+                s[i] = v * 0.7f + lp * 0.25f;
+            }
+            return Loop(s, 0.4f);
+        }
+
+        /// <summary>A radio between stations: hiss and crackle (3 s, to loop).</summary>
+        public static float[] Static(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(3f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                lp += (Noise(rng) - lp) * 0.5f;
+                float crackle = rng.NextDouble() < 0.0008 ? Noise(rng) * 3f : 0f;
+                s[i] = lp * 0.5f + crackle;
+            }
+            return Loop(s, 0.35f);
+        }
+
+        /// <summary>An old song through a small speaker: a slow waltz in a minor key, thin and crackling (16 s, to loop).</summary>
+        public static float[] RadioSong(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(16f);
+            // Bars of three beats; a melody over a bass note and a chord on beats 2 and 3.
+            double[] melody = { 440, 523.3, 493.9, 440, 392, 349.2, 329.6, 349.2, 392, 440, 392, 349.2, 329.6, 293.7, 329.6, 349.2,
+                                440, 523.3, 587.3, 523.3, 493.9, 440, 415.3, 440, 493.9, 440, 392, 349.2, 329.6, 349.2, 329.6, 293.7 };
+            double[] bass = { 110, 87.3, 98, 82.4, 110, 87.3, 82.4, 110 };
+            float beat = 0.5f;
+            float hp = 0f, lp = 0f, prev = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                int b = (int)(t / beat);
+                float inBeat = t - b * beat;
+                double note = melody[(b / 1) % melody.Length];
+                double root = bass[(b / 6) % bass.Length];
+                float mel = (float)Math.Sin(2 * Math.PI * note * t) * Decay(inBeat, 2.5f);
+                mel += (float)Math.Sin(2 * Math.PI * note * 2 * t) * 0.2f * Decay(inBeat, 4f);
+                float low = b % 3 == 0 ? (float)Math.Sin(2 * Math.PI * root * t) * Decay(inBeat, 3f) : 0f;
+                float chord = b % 3 != 0 ? ((float)Math.Sin(2 * Math.PI * root * 2.5 * t) + (float)Math.Sin(2 * Math.PI * root * 3 * t)) * 0.2f * Decay(inBeat, 6f) : 0f;
+                float v = mel * 0.6f + low * 0.5f + chord;
+                // A small speaker: no lows, no highs, a little distortion; and the crackle of the air.
+                hp += (v - prev) * 0.98f - hp * 0.02f;
+                prev = v;
+                lp += (hp - lp) * 0.35f;
+                float speaker = (float)Math.Tanh(lp * 1.8f);
+                float crackle = rng.NextDouble() < 0.001 ? Noise(rng) * 1.5f : 0f;
+                s[i] = speaker * 0.8f + Noise(rng) * 0.04f + crackle;
+            }
+            return Loop(s, 0.45f);
+        }
+
         // Crossfade the end into the start so it loops without a click.
         static float[] Loop(float[] s, float peak)
         {

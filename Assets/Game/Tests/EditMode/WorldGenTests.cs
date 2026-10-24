@@ -167,7 +167,7 @@ namespace Game.Tests
                     }
                     else if (kind == StructureKind.Car)
                     {
-                        Assert.IsTrue(Has(LootPlace.GloveBox, LootKind.Battery) && Has(LootPlace.Trunk, LootKind.Camera), $"seed {seed}: the car without its batteries and camera");
+                        Assert.IsTrue(Has(LootPlace.GloveBox, LootKind.Battery) && Has(LootPlace.Trunk, LootKind.Camera) && Has(LootPlace.BackSeat, LootKind.Radio), $"seed {seed}: the car without its batteries, camera and radio");
                     }
                     else if (kind == StructureKind.Watchtower)
                     {

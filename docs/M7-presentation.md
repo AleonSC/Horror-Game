@@ -63,3 +63,28 @@ other `"quoted"` words are italic, and `-WORD-` is one red word.
 - Does the map look like a sketch, and is it the right way round compared to the forest (north up)?
 - Do the polaroids show the actual shot, lit by the flash? Too dark, too bright, or washed out?
 - The first time the map is shown there may be a short hitch while it's drawn.
+
+## Part 4: the drone, your body, the radio
+
+- **The drone** is at the cabin's table, on the watchtower's deck or on the car's back seat: whichever you get
+  to first (the others stay empty). Hold it and press **F**: it's set down and lifts off, and you see through
+  its camera. **WASD** fly, **mouse** look, **Space / Ctrl** up and down, **Shift** faster, **click** its lamp,
+  **T** (or right click) thermal: grey-blue, no fog, and living things glow. **F** brings your eyes back and
+  it settles to the ground; click it to pick it up, or F with it in hand to fly it again. While you fly you
+  stand where you are, blind and deaf: the scours treat you as not looking. Its signal only reaches about
+  140 m (static, then it won't go further), its battery lasts about 2.5 minutes in the air and it drops when
+  flat, and its motors can be heard by the blind one from 220 m. Settings: `ItemsConfig` > Drone.
+- **Your body:** a hooded figure the drone's camera and the portals see (never your own eyes): it walks and runs
+  at your pace, crouches, pants when winded, sits in the car, and holds the remote while you fly. Your own
+  model and clips can go in `PlayerCharacterConfig`.
+- **The radio:** on the car's back seat, and sometimes on a shack's table or in a backpack. F sets it down
+  playing an old song. The blind one hears it from anywhere, comes for it, and smashes it: a lure. Click it to
+  pick it up again. Settings: `ItemsConfig` > Radio.
+
+Dev window, Game tab: **Give the drone**, **Give a radio**.
+
+**Let me know:**
+- Does flying feel right (speed, turning), and does F switch back and forth cleanly?
+- Does thermal look like thermal, and do the scours, crawlers, the blind one, deer and you glow in it?
+- Can you see your body from the drone, and does it move sensibly?
+- Does the blind one come for the radio and smash it?

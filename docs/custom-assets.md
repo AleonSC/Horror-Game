@@ -9,9 +9,10 @@ instead. Leave a slot empty and the built-in one is used. Fill it and yours is u
 | Ground, trail and water materials | `WorldArtConfig` |
 | Lamp post, cabin, shack, campsite, watchtower, car, landmark tree, the lone door | `WorldArtConfig` |
 | The scour | `Assets/Config/Entities/ScourConfig` (see [custom-scour.md](custom-scour.md)) |
+| Your own body (seen by the drone and through portals), with its animation clips | `Assets/Config/Player/PlayerCharacterConfig` |
 | Any sound | `Assets/Config/Audio/AudioConfig` > **Sound Overrides** |
 | The flashlight's beam shape | `Assets/Config/Player/FlashlightConfig` > **Cookie** |
-| Items, held and lying in the world (flashlight, battery, torch, lighter, flare gun, glowstick, camera, key fob, map, snack) | `Assets/Config/Player/ItemsConfig` > **Art** |
+| Items, held and lying in the world (flashlight, battery, torch, lighter, flare gun, glowstick, camera, key fob, map, drone, radio, snack) | `Assets/Config/Player/ItemsConfig` > **Art** |
 
 Later systems (the other creatures, items, the player's body, music, the HUD) will get slots the same way.
 

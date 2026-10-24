@@ -20,7 +20,7 @@ namespace Game.World
         PlayerController player;
 
         // ------------------------------------------------------------------ deer
-        sealed class Deer { public Transform Body, Head; public Transform[] Legs = new Transform[4]; public Vector3 Goal; public float Phase; }
+        sealed class Deer { public Transform Body, Head; public Transform[] Legs = new Transform[4]; public Vector3 Goal; public float Phase; public Heat.Source Heat; }
         readonly List<Deer> herd = new List<Deer>();
         Vector3 herdCentre, fleeDir;
         float herdFleeing, herdAway;
@@ -109,12 +109,12 @@ namespace Game.World
             var s = config.settings;
             if (herd.Count != s.deer)
             {
-                foreach (var d in herd) Destroy(d.Body.gameObject);
+                foreach (var d in herd) { Heat.Remove(d.Heat); Destroy(d.Body.gameObject); }
                 herd.Clear();
                 for (int i = 0; i < s.deer; i++)
                 {
                     var body = AnimalModels.Deer(transform, i == 0).transform;
-                    var deer = new Deer { Body = body, Head = body.Find("Head"), Phase = Random.value * 10f };
+                    var deer = new Deer { Body = body, Head = body.Find("Head"), Phase = Random.value * 10f, Heat = Heat.Add(body, 1.4f, 0.45f) };
                     for (int l = 0; l < 4; l++) deer.Legs[l] = body.Find($"Leg{l}");
                     herd.Add(deer);
                 }

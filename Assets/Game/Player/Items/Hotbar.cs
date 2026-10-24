@@ -153,12 +153,15 @@ namespace Game.Player
             }
         }
 
+        // (Lit means burning for these two; for the drone it means it's out there.)
+        static bool Burns(ItemKind kind) => kind == ItemKind.Torch || kind == ItemKind.Lighter;
+
         // A lit torch or open lighter uses itself up.
         void Burn(float dt)
         {
             int slot = Items.Selected;
             var held = Items[slot];
-            if (held.Empty || !held.Lit || dt <= 0f) return;
+            if (held.Empty || !held.Lit || dt <= 0f || !Burns(held.Kind)) return;
             var s = config.settings;
             float time = held.Kind == ItemKind.Torch ? s.torchBurnTime : s.lighterFuelTime;
             float left = held.Charge - dt / Mathf.Max(0.01f, time);
@@ -213,7 +216,7 @@ namespace Game.Player
             var kind = Items.HeldKind;
             // Whatever was lit before goes out when it's put away.
             for (int i = 0; i < Inventory.SlotCount; i++)
-                if (i != Items.Selected && Items[i].Lit) Items.SetLit(i, false);
+                if (i != Items.Selected && Items[i].Lit && Burns(Items[i].Kind)) Items.SetLit(i, false);
             if (player.Flashlight != null) player.Flashlight.Stowed = kind != ItemKind.Flashlight;
 
             if (model != null) Destroy(model);
@@ -319,6 +322,29 @@ namespace Game.Player
 
                 case ItemKind.Camera:
                     TakePhoto(slot, held);
+                    break;
+
+                case ItemKind.Drone:
+                    if (Drone.SwitchedFrame == Time.frameCount) break; // (that press just brought your eyes back)
+                    if (held.Lit)
+                    {
+                        // It's out there: take the remote again (or it's gone, and the slot's just a drone again).
+                        if (Drone.Current != null) Drone.Current.StartFlying();
+                        else Items.SetLit(slot, false);
+                        break;
+                    }
+                    if (held.Charge <= 0.001f) { Say("Its battery is flat."); break; }
+                    Drone.Deploy(player, config.settings, held.Charge, config.art.Lying(ItemKind.Drone));
+                    Items.SetLit(slot, true);
+                    Used(ItemKind.Drone, "set it down and flew it");
+                    break;
+
+                case ItemKind.Radio:
+                    PlacedRadio.SetDown(player, config.settings, config.art.Lying(ItemKind.Radio));
+                    Play(Sound.Click, 0.5f, 0.9f);
+                    Items.Take(slot);
+                    Used(ItemKind.Radio, "set it down, playing");
+                    if (Items[slot].Empty) BackToFlashlight();
                     break;
 
                 case ItemKind.Map:

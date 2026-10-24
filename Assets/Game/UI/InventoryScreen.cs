@@ -200,7 +200,7 @@ namespace Game.UI
             if (root == null) return;
             var keyboard = Keyboard.current;
             bool canOpen = GameFlow.IsPlaying && !(Services.TryGet<PauseState>(out var pause) && pause.Paused) && !PlayerPlace.InDarkRoom
-                           && Services.TryGet<PlayerController>(out var player) && !player.Held && player.Hotbar != null;
+                           && Services.TryGet<PlayerController>(out var player) && !player.Held && !player.Piloting && player.Hotbar != null;
             if (open && !canOpen) Close();
             if (keyboard == null) return;
             if (keyboard.tabKey.wasPressedThisFrame)

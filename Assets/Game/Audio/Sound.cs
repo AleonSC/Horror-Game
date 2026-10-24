@@ -11,5 +11,6 @@ namespace Game.Audio
         Step, Thunder, Boom, GiantStep, ChainJolt,
         Rustle, Twig, Creak, WindLoop, Drone, TensionBed,
         RainLoop, Hoot, Croak, Squeak, Caw, Splash, Hooves,
+        Rotors, Static, RadioSong,
     }
 }

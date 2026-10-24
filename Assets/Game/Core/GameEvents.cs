@@ -86,7 +86,7 @@ namespace Game.Core
         public readonly string Source;
         public NoiseEmitted(Vector3 position, float radius, string source) { Position = position; Radius = radius; Source = source; }
         /// <summary>Footsteps and panting: too frequent for the session log.</summary>
-        public bool Everyday => Source == "walking" || Source == "running" || Source == "creeping" || Source == "panting" || Source == "rustling";
+        public bool Everyday => Source == "walking" || Source == "running" || Source == "creeping" || Source == "panting" || Source == "rustling" || Source == "drone" || Source == "radio";
         public override string ToString() => $"Noise: {Source} ({Radius:0.#} m)";
     }
 

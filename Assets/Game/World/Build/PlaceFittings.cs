@@ -24,12 +24,21 @@ namespace Game.World.Build
         public static readonly Vector3 DeckSpot = new Vector3(1f, 12.13f, 1f); // (the watchtower's floor, by the button)
         static readonly Vector3 GloveBoxSpot = new Vector3(0.95f, 1.05f, 0.45f);
         static readonly Vector3 TrunkSpot = new Vector3(0f, 0.85f, -2.25f);
+        static readonly Vector3 BackSeatSpot = new Vector3(-0.95f, 1.05f, -0.75f); // (through the rear left door)
 
         public static void Fit(Transform root, StructureKind kind, IList<Loot> loot)
         {
             if (kind == StructureKind.Car && root.GetComponent<Car>() == null) root.gameObject.AddComponent<Car>();
             if (kind == StructureKind.Watchtower) FitWatchtower(root);
             FitYourDoorAndInside(root, kind);
+            Container backSeat = null;
+            if (loot != null)
+                foreach (var l in loot)
+                    if (l.Place == LootPlace.BackSeat) { backSeat = MakeContainer(root, LootPlace.BackSeat); break; }
+            // The drone: at whichever of these you reach first.
+            if (kind == StructureKind.Cabin) DroneSpot.Add(root, root.InverseTransformPoint(Spot(root, "Table", CabinTableSpot)) + new Vector3(0.3f, 0.78f, 0f));
+            if (kind == StructureKind.Watchtower) DroneSpot.Add(root, root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
+            if (kind == StructureKind.Car && backSeat != null) DroneSpot.Add(root, backSeat.transform.localPosition, backSeat);
             if (loot == null || loot.Count == 0) return;
 
             var onTable = new List<Loot>();
@@ -44,7 +53,7 @@ namespace Game.World.Build
                     case LootPlace.Tent: inTent.Add(l); break;
                     case LootPlace.Deck: onDeck.Add(l); break;
                     default:
-                        if (!containers.TryGetValue(l.Place, out var c)) containers[l.Place] = c = MakeContainer(root, l.Place);
+                        if (!containers.TryGetValue(l.Place, out var c)) containers[l.Place] = c = l.Place == LootPlace.BackSeat && backSeat != null ? backSeat : MakeContainer(root, l.Place);
                         if (TryItem(l.Kind, out var item)) c.Put(item, l.Count);
                         break;
                 }
@@ -71,9 +80,9 @@ namespace Game.World.Build
 
         static Container MakeContainer(Transform root, LootPlace place)
         {
-            string label = place == LootPlace.GloveBox ? "Open glove box" : place == LootPlace.Trunk ? "Open trunk" : "Search backpack";
-            Vector3 fallback = place == LootPlace.GloveBox ? GloveBoxSpot : place == LootPlace.Trunk ? TrunkSpot : BackpackSpot + Vector3.up * 0.3f;
-            Vector3 size = place == LootPlace.GloveBox ? new Vector3(0.12f, 0.4f, 0.6f) : place == LootPlace.Trunk ? new Vector3(1.2f, 0.4f, 0.12f) : new Vector3(0.42f, 0.56f, 0.3f);
+            string label = place == LootPlace.GloveBox ? "Open glove box" : place == LootPlace.Trunk ? "Open trunk" : place == LootPlace.BackSeat ? "Search back seat" : "Search backpack";
+            Vector3 fallback = place == LootPlace.GloveBox ? GloveBoxSpot : place == LootPlace.Trunk ? TrunkSpot : place == LootPlace.BackSeat ? BackSeatSpot : BackpackSpot + Vector3.up * 0.3f;
+            Vector3 size = place == LootPlace.GloveBox ? new Vector3(0.12f, 0.4f, 0.6f) : place == LootPlace.Trunk ? new Vector3(1.2f, 0.4f, 0.12f) : place == LootPlace.BackSeat ? new Vector3(0.12f, 0.45f, 0.8f) : new Vector3(0.42f, 0.56f, 0.3f);
             var named = Find(root, place.ToString());
             Vector3 local = named != null ? root.InverseTransformPoint(named.position) : fallback;
             return Container.Create(label, local, size, root);
@@ -156,6 +165,7 @@ namespace Game.World.Build
                 case LootKind.Glowsticks: item = ItemKind.Glowsticks; return true;
                 case LootKind.Camera: item = ItemKind.Camera; return true;
                 case LootKind.Map: item = ItemKind.Map; return true;
+                case LootKind.Radio: item = ItemKind.Radio; return true;
                 default: item = ItemKind.None; return false;
             }
         }

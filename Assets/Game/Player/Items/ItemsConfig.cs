@@ -32,6 +32,8 @@ namespace Game.Player
         public GameObject camera;
         public GameObject keyFob;
         public GameObject map;
+        public GameObject drone;
+        public GameObject radio;
 
         [Header("Lying in the world (empty: the held model)")]
         public GameObject batteryPickup;
@@ -42,6 +44,8 @@ namespace Game.Player
         public GameObject cameraPickup;
         public GameObject keyFobPickup;
         public GameObject mapPickup;
+        public GameObject dronePickup;
+        public GameObject radioPickup;
         public GameObject snack;
 
         public GameObject Held(ItemKind kind)
@@ -57,6 +61,8 @@ namespace Game.Player
                 case ItemKind.Camera: return camera;
                 case ItemKind.KeyFob: return keyFob;
                 case ItemKind.Map: return map;
+                case ItemKind.Drone: return drone;
+                case ItemKind.Radio: return radio;
                 default: return null;
             }
         }
@@ -74,6 +80,8 @@ namespace Game.Player
                 case ItemKind.Camera: own = cameraPickup; break;
                 case ItemKind.KeyFob: own = keyFobPickup; break;
                 case ItemKind.Map: own = mapPickup; break;
+                case ItemKind.Drone: own = dronePickup; break;
+                case ItemKind.Radio: own = radioPickup; break;
                 default: own = null; break;
             }
             return own != null ? own : Held(kind);
@@ -142,6 +150,29 @@ namespace Game.Player
         [Range(1f, 15f)] public float glowstickRange = 5f;
         [Range(1, 100), Tooltip("At most this many glowing at once (the oldest goes out).")]
         public int maxGlowsticks = 30;
+
+        [Header("Drone")]
+        [Range(10f, 600f), Tooltip("Seconds of flight in a full battery.")]
+        public float droneFlightTime = 150f;
+        [Range(20f, 400f), Tooltip("How far from you it can fly before the signal's gone (metres).")]
+        public float droneRange = 140f;
+        [Range(1f, 20f)] public float droneSpeed = 6f;
+        [Range(1f, 4f), Tooltip("Shift: this many times faster.")]
+        public float droneBoost = 2.2f;
+        [Range(0.5f, 10f)] public float droneClimbSpeed = 3f;
+        [Range(10f, 200f)] public float droneMaxHeight = 60f;
+        [Range(0f, 400f), Tooltip("How far its motors carry (the blind one hears them).")]
+        public float droneNoise = 220f;
+        public Color droneLampColor = new Color(0.85f, 0.9f, 1f);
+        [Range(0f, 200f)] public float droneLampIntensity = 25f;
+        [Range(1f, 60f)] public float droneLampRange = 30f;
+
+        [Header("Radio")]
+        [Range(5f, 200f), Tooltip("How far the song carries for you (metres).")]
+        public float radioRange = 45f;
+        [Range(0f, 1f)] public float radioVolume = 0.8f;
+        [Range(0.5f, 10f), Tooltip("Within this, the blind one smashes it (metres).")]
+        public float radioSmashDistance = 3f;
 
         [Header("Camera")]
         [Range(1, 20)] public int cameraShots = 3;
