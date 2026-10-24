@@ -166,7 +166,13 @@ namespace Game.Entities
             float v = Mathf.SmoothStep(0f, 1f, t);
             visual.localScale = new Vector3(Mathf.Lerp(2.5f, 1f, v), Mathf.Lerp(0.05f, 1f, v), Mathf.Lerp(2.5f, 1f, v));
             visual.localPosition = Vector3.up * (1f - v) * s.height * 0.5f + Random.insideUnitSphere * 0.15f * (1f - v);
+            // Its pale fangs and the throat stay hidden until it's nearly whole: smeared out flat, they'd catch
+            // the light as a flash of white.
+            if (Visible) ShowDetails(v > 0.92f);
         }
+
+        /// <summary>Show or hide the small light-coloured parts (fangs, throat) while it forms.</summary>
+        protected virtual void ShowDetails(bool show) { }
 
         /// <summary>Shudder by this many metres (and stretch: 0 none, 1 the crescendo's peak).</summary>
         public void Shudder(float amount, float stretch = 0f)

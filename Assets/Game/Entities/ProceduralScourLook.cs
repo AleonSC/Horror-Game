@@ -69,6 +69,12 @@ namespace Game.Entities
             go.AddComponent<MeshRenderer>().sharedMaterial = fangMat;
         }
 
+        protected override void ShowDetails(bool show)
+        {
+            foreach (var r in renderers)
+                if (r != null && (r.sharedMaterial == fangMat || r.sharedMaterial == throatMat)) r.enabled = show;
+        }
+
         protected override void OnDestroy()
         {
             base.OnDestroy();
