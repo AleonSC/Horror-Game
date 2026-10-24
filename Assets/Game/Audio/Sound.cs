@@ -9,5 +9,6 @@ namespace Game.Audio
         Creep, Appear, Pound, Crescendo, Portal, Shriek, Moan, Heartbeat, Breath, Click, LampOn,
         Pickup, Ignite, Lighter, FlareShot, FlareBurst, Crack, Shutter, Chirp, DoorOpen, DoorShut, Clunk, Eat,
         Step, Thunder, Boom, GiantStep, ChainJolt,
+        Rustle, Twig, Creak, WindLoop, Drone, TensionBed,
     }
 }

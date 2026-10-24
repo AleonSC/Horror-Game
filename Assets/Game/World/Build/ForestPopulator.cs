@@ -26,6 +26,8 @@ namespace Game.World.Build
         readonly PrefabArt.Result[] livingArt, deadArt;
 
         public Material Bark, Needles, DeadWood;
+        // How far the wind leans each (top movement per metre of height, at full wind).
+        const float GrassSway = 0.16f, TallGrassSway = 0.2f, BushSway = 0.05f, TreeSway = 0.009f, DeadTreeSway = 0.005f;
         Material bushA, bushB, grassDry, grassGreen, tallGrass, rock, logWood;
 
         /// <param name="livingArt">Your living trees, already extracted (their heights went into the plan), or null.</param>
@@ -80,6 +82,8 @@ namespace Game.World.Build
             var pine = livingArt != null ? FromPrefabs("Tree", livingArt, TreeLods, TreeRange, true, Layers.Trees) : BuiltInPines();
             var dead = deadArt != null ? FromPrefabs("Dead tree", deadArt, TreeLods, TreeRange, true, Layers.Trees) : BuiltInDead();
             float custom = art != null ? Mathf.Max(0.01f, art.treeSize) : 1f;
+            foreach (var set in pine) foreach (int k in set) renderer.SetSway(k, TreeSway);
+            foreach (var set in dead) foreach (int k in set) renderer.SetSway(k, DeadTreeSway);
 
             foreach (var t in plan.Trees)
             {
@@ -180,6 +184,7 @@ namespace Game.World.Build
             var kinds = Kinds("Bush", art?.bushes, k => ForestMeshes.Bush(new System.Random(plan.Seed * 41 + k), k / 2).ToMesh($"Bush {k}"), 6,
                               k => k % 2 == 0 ? bushA : bushB, BushRange, true, Layers.Default);
             bool builtIn = kinds.Length == 6 && (art == null || art.bushes == null || art.bushes.Length == 0);
+            foreach (int k in kinds) renderer.SetSway(k, BushSway, pushed: true);
             foreach (var b in plan.Bushes)
             {
                 int k = builtIn ? b.Kind * 2 + b.Variant % 2 : (b.Kind * 4 + b.Variant) % kinds.Length;
@@ -193,6 +198,8 @@ namespace Game.World.Build
                               v => v < 2 ? grassDry : grassGreen, GrassRange, false, Layers.Default);
             var tall = Kinds("Tall grass", art?.tallGrass, v => ForestMeshes.GrassClump(new System.Random(plan.Seed * 47 + v), 1f).ToMesh($"Tall grass {v}"), 4,
                              v => tallGrass, TallGrassRange, false, Layers.Default);
+            foreach (int k in grass) renderer.SetSway(k, GrassSway, pushed: true);
+            foreach (int k in tall) renderer.SetSway(k, TallGrassSway, pushed: true);
             foreach (var g in plan.Grass)
             {
                 float w = 0.8f + 0.4f * g.Size;

@@ -323,7 +323,12 @@ namespace Game.Entities
         {
             timer += dt;
             body.PoseWalking(0f, 0f, 0f);
-            if (shockRadius < 0f && timer >= s.shockwaveAfter) shockRadius = 0f;
+            if (shockRadius < 0f && timer >= s.shockwaveAfter)
+            {
+                shockRadius = 0f;
+                // It whips the trees and grass over as it rolls out.
+                if (Services.TryGet<Wind>(out var wind)) wind.AddShock(truePos, Time.time, s.shockwaveSpeed);
+            }
             if (timer >= s.shockwaveAfter + 2f)
             {
                 State = GiantState.Walking;

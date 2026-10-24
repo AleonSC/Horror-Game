@@ -22,6 +22,7 @@ namespace Game.Core
         public ScreenFade Fade { get; private set; }
         public Difficulty Difficulty { get; private set; }
         public PauseState Pause { get; private set; }
+        public Wind Wind { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void CreateOnPlay()
@@ -54,6 +55,7 @@ namespace Game.Core
             Fade = new ScreenFade();
             Difficulty = new Difficulty(Preferences);
             Pause = new PauseState(Events, Ui);
+            Wind = new Wind();
 
             Services.Register(this);
             Services.Register(Events);
@@ -64,6 +66,7 @@ namespace Game.Core
             Services.Register(Fade);
             Services.Register(Difficulty);
             Services.Register(Pause);
+            Services.Register(Wind);
 
             // A project left with Time Scale 0 (Project Settings > Time) would start frozen: nothing moves.
             if (Time.timeScale <= 0f)
@@ -90,6 +93,7 @@ namespace Game.Core
             if (Fade != null) Services.Unregister(Fade);
             if (Difficulty != null) Services.Unregister(Difficulty);
             if (Pause != null) Services.Unregister(Pause);
+            if (Wind != null) Services.Unregister(Wind);
             if (Run != null) Services.Unregister(Run);
         }
 

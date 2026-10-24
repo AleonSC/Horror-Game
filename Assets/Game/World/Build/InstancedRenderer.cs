@@ -1,3 +1,4 @@
+using Game.Core;
 using System.Collections.Generic;
 using Game.World.Generation;
 using UnityEngine;
@@ -29,6 +30,10 @@ namespace Game.World.Build
             public float MaxDistance;    // not drawn past this (the fog hides it anyway)
             public bool Shadows;
             public int Layer;
+            /// <summary>How far the wind bends it (the top leans this much per unit of wind: 0 for rocks).</summary>
+            public float Sway;
+            /// <summary>Leans away when you push through it (bushes, tall grass).</summary>
+            public bool Pushed;
 
             /// <summary>A kind made of one mesh per LOD, all in one material (the built-in shapes).</summary>
             public static Kind Simple(string name, Mesh[] lods, Material material, float[] lodDistances, float maxDistance, bool shadows, int layer)
@@ -109,6 +114,28 @@ namespace Game.World.Build
             return true;
         }
 
+        // Lean the copy's top over (a shear about its base): its height times the wind's push, plus a lean away from
+        // whoever's pushing through it.
+        static void Bend(ref Matrix4x4 m, Wind wind, Kind kind, Vector3 pusher)
+        {
+            Vector2 push = wind.At(m.m03, m.m23) * kind.Sway;
+            if (kind.Pushed)
+            {
+                float dx = m.m03 - pusher.x, dz = m.m23 - pusher.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 < 2.25f && d2 > 0.0001f)
+                {
+                    float d = Mathf.Sqrt(d2);
+                    float lean = (1.5f - d) / 1.5f * 0.6f;
+                    push.x += dx / d * lean;
+                    push.y += dz / d * lean;
+                }
+            }
+            float a = push.x, b = push.y;
+            m.m00 += a * m.m10; m.m01 += a * m.m11; m.m02 += a * m.m12;
+            m.m20 += b * m.m10; m.m21 += b * m.m11; m.m22 += b * m.m12;
+        }
+
         int ChunkIndex(Vector2 p)
         {
             int cx = Mathf.Clamp(Mathf.FloorToInt(Wrap.Into(p.x, mapSize) / chunkSize), 0, across - 1);
@@ -116,9 +143,22 @@ namespace Game.World.Build
             return cz * across + cx;
         }
 
+        /// <summary>Set how a kind moves in the wind (and whether you push it aside).</summary>
+        public void SetSway(int kind, float sway, bool pushed = false)
+        {
+            kinds[kind].Sway = sway;
+            kinds[kind].Pushed = pushed;
+        }
+
+        /// <summary>Sway applies within this of the camera (beyond, nobody can see it move).</summary>
+        public float SwayDistance = 70f;
+
         public void Render(Camera cam)
         {
             if (cam == null) return;
+            var wind = Services.TryGet<Wind>(out var w) ? w : null;
+            wind?.Prepare(Time.time);
+            Vector3 pusher = cam.transform.position;
             GeometryUtility.CalculateFrustumPlanes(cam, planes);
             Vector3 eye = cam.transform.position;
             var eye2 = new Vector2(eye.x, eye.z);
@@ -146,11 +186,13 @@ namespace Game.World.Build
                     int lod = 0;
                     while (lod < kind.LodDistances.Length && lod < kind.Lods.Length - 1 && dist > kind.LodDistances[lod]) lod++;
                     var gather = gathers[k][lod];
+                    bool sway = wind != null && kind.Sway > 0f && dist < SwayDistance;
                     for (int i = 0; i < list.Count; i++)
                     {
                         var m = list[i];
                         m.m03 += offset.x;
                         m.m23 += offset.y;
+                        if (sway) Bend(ref m, wind, kind, pusher);
                         gather.Add(m);
                     }
                 }

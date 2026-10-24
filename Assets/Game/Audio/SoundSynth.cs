@@ -452,6 +452,119 @@ namespace Game.Audio
             return Normalize(s, 0.8f);
         }
 
+        /// <summary>Pushing through a bush: a dry, leafy swish.</summary>
+        public static float[] Rustle(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.45f);
+            float lp = 0f, hp = 0f, last = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                hp = 0.95f * (hp + n - last);
+                last = n;
+                lp += (hp - lp) * 0.5f;
+                float crackle = rng.NextDouble() < 0.01 ? Noise(rng) * 2f : 0f;
+                s[i] = (lp + crackle * Decay(t, 4f)) * Env(t, 0.05f, 0.45f, 0.25f);
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>A twig snapping somewhere out in the dark.</summary>
+        public static float[] Twig(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.3f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float snap = Noise(rng) * Decay(t, 90f) + (t > 0.04f ? Noise(rng) * Decay(t - 0.04f, 120f) * 0.6f : 0f);
+                float body = (float)Math.Sin(2 * Math.PI * 900 * t) * Decay(t, 60f) * 0.3f;
+                s[i] = snap + body;
+            }
+            return Normalize(s, 0.6f);
+        }
+
+        /// <summary>A tree creaking in a strong gust: a slow, grinding groan of wood.</summary>
+        public static float[] Creak(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.6f);
+            float phase = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float f = 95f + 40f * (float)Math.Sin(t * 2.1f) + 15f * Noise(rng);
+                phase += f / SampleRate;
+                float pulse = (phase % 1f) < 0.08f ? 1f : 0f;
+                s[i] = pulse * Env(t, 0.3f, 1.6f, 0.6f);
+            }
+            return Normalize(s, 0.4f);
+        }
+
+        /// <summary>Wind in the trees, to loop: a breathing, hollow rush (8 s).</summary>
+        public static float[] WindLoop(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(8f);
+            float lp = 0f, lp2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float swell = 0.65f + 0.35f * (float)Math.Sin(2 * Math.PI * t / 8f) * (float)Math.Sin(2 * Math.PI * t / 2.7f + 1f);
+                lp += (Noise(rng) - lp) * (0.03f + 0.02f * swell);
+                lp2 += (lp - lp2) * 0.2f;
+                s[i] = (lp - lp2 * 0.6f) * swell;
+            }
+            return Loop(s, 0.5f);
+        }
+
+        /// <summary>The forest's low bed: a faint, wavering drone under everything (12 s, to loop).</summary>
+        public static float[] Drone(int seed)
+        {
+            var s = Make(12f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float w = 1f + 0.01f * (float)Math.Sin(2 * Math.PI * t / 6f);
+                s[i] = (float)(Math.Sin(2 * Math.PI * 41.2 * w * t) * 0.6 + Math.Sin(2 * Math.PI * 61.7 * t) * 0.25 + Math.Sin(2 * Math.PI * 82.4 * w * t) * 0.15)
+                       * (0.8f + 0.2f * (float)Math.Sin(2 * Math.PI * t / 12f));
+            }
+            return Loop(s, 0.35f);
+        }
+
+        /// <summary>The tension layer that swells when something's near: high, dissonant, trembling (10 s, to loop).</summary>
+        public static float[] TensionBed(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(10f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float trem = 0.7f + 0.3f * (float)Math.Sin(2 * Math.PI * 7.3 * t);
+                lp += (Noise(rng) - lp) * 0.15f;
+                s[i] = ((float)(Math.Sin(2 * Math.PI * 1244.5 * t) + Math.Sin(2 * Math.PI * 1318.5 * t) * 0.8 + Math.Sin(2 * Math.PI * 659.3 * t) * 0.5) * 0.25f * trem + lp * 0.3f)
+                       * (0.75f + 0.25f * (float)Math.Sin(2 * Math.PI * t / 10f));
+            }
+            return Loop(s, 0.4f);
+        }
+
+        // Crossfade the end into the start so it loops without a click.
+        static float[] Loop(float[] s, float peak)
+        {
+            int fade = Math.Min(s.Length / 4, SampleRate / 3);
+            var looped = new float[s.Length - fade];
+            Array.Copy(s, looped, looped.Length);
+            for (int i = 0; i < fade; i++)
+            {
+                float k = i / (float)fade;
+                looped[i] = s[i] * k + s[looped.Length + i] * (1f - k);
+            }
+            return Normalize(looped, peak);
+        }
+
         // ------------------------------------------------------------------ helpers
 
         static float[] Make(float seconds) => new float[Math.Max(1, (int)(seconds * SampleRate))];

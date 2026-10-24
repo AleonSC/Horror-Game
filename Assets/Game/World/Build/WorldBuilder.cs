@@ -21,6 +21,8 @@ namespace Game.World.Build
         readonly List<Object> made = new List<Object>();
         System.IDisposable runSub;
 
+        Undergrowth undergrowth;
+
         public WorldPlan Plan => plan;
         public InstancedRenderer Forest => forest;
         public WorldWrap Wrapping => wrap;
@@ -48,6 +50,7 @@ namespace Game.World.Build
             if (cam == null || plan == null) return;
             wrap.Update(cam.transform.position);
             forest.Render(cam);
+            if (Services.TryGet<Game.Player.PlayerController>(out var player)) undergrowth?.Update(player);
         }
 
         // In the Scene view (with this selected, in Play): the plan's layout.
@@ -136,6 +139,7 @@ namespace Game.World.Build
             forest = new InstancedRenderer(plan.Size, TerrainBuilder.ChunkSize, minH, maxH + 25f);
             var populator = new ForestPopulator(plan, forest, chunks, made, art, fixer, living, dead);
             populator.Populate();
+            undergrowth = new Undergrowth(plan);
 
             var lamps = new LampFactory(art != null ? art.lamp : null);
             made.AddRange(lamps.Materials);

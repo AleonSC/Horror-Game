@@ -79,6 +79,12 @@ namespace Game.Audio
             Add(Sound.Boom, SoundSynth.Boom(26));
             Add(Sound.GiantStep, SoundSynth.GiantStep(27));
             Add(Sound.ChainJolt, SoundSynth.ChainJolt(28));
+            Add(Sound.Rustle, SoundSynth.Rustle(29));
+            Add(Sound.Twig, SoundSynth.Twig(30));
+            Add(Sound.Creak, SoundSynth.Creak(31));
+            Add(Sound.WindLoop, SoundSynth.WindLoop(32));
+            Add(Sound.Drone, SoundSynth.Drone(33));
+            Add(Sound.TensionBed, SoundSynth.TensionBed(34));
         }
 
         void Add(Sound sound, float[] samples)
