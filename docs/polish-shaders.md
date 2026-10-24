@@ -345,3 +345,15 @@ Sheltered sound state only turned it down.
     `mothComeBackRange`). The swarm builds up again from those that came back.
   - **Giving up:** lost ones give up after 4 to 10 seconds and drift off, fading (`mothGiveUp`).
 
+## Loot round backpacks, outlines on everything to take, and smoke to the sky
+
+- **Backpacks:** what was in a campsite's backpack (the flare gun, glowsticks, batteries, sometimes the fob or
+  the radio) lies on the ground in a ring round it, each turned its own way, rather than being searched out.
+- **Outlines:** everything lying about to be picked up has its shape traced in a faint, gently pulsing white
+  light, as batteries are in green (without their glow). That covers a torch on a table, the loot round a
+  backpack, a snack in a tent, the map on the watchtower, and things you've dropped. `ItemsConfig` >
+  `itemOutline`, `itemOutlineColor` (0 turns it off).
+- **Campfire smoke:** it now rises in a thin column off each campfire, climbing faster as it goes, spreading
+  and leaning with the wind, up past the treetops to about 80 m before it thins away. It's drawn out to 450 m,
+  so you can see the camps' smoke on the skyline.
+

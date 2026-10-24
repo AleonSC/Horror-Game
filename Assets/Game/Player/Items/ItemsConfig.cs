@@ -103,6 +103,10 @@ namespace Game.Player
         public float batteryOutline = 0.8f;
         [Range(0.1f, 2f), Tooltip("How big a battery's grab target is (radius, metres): bigger is easier to take running past.")]
         public float batteryGrabRadius = 0.55f;
+        [Tooltip("The outline of light traced round anything else lying about to be picked up.")]
+        public Color itemOutlineColor = new Color(0.9f, 0.92f, 1f);
+        [Range(0f, 10f), Tooltip("How bright that outline is (0: none).")]
+        public float itemOutline = 0.35f;
 
         [Header("Torch")]
         [Range(10f, 600f), Tooltip("Seconds a torch burns.")]

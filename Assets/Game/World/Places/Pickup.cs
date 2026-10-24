@@ -59,6 +59,7 @@ namespace Game.World
             pickup.count = count;
             pickup.snack = snack;
             if (glowing && config != null) pickup.AddGlow(config.settings);
+            else if (config != null) pickup.AddOutline(config.settings);
             return pickup;
         }
 
@@ -83,11 +84,22 @@ namespace Game.World
             if (TryGetComponent<SphereCollider>(out var grab)) grab.radius = Mathf.Max(grab.radius, s.batteryGrabRadius);
         }
 
+        // Anything else to pick up (a torch on a table, what's round a backpack): its shape traced in a faint white
+        // light, gently pulsing, so it stands out as something to take (as batteries do in green, without the glow).
+        void AddOutline(ItemSettings s)
+        {
+            if (s.itemOutline <= 0f) return;
+            outline = Game.Rendering.Effects.Outline(transform, Color.black, 0.004f, 0.85f);
+            haloColor = s.itemOutlineColor;
+            outlineStrength = s.itemOutline;
+            phase = Random.value * 10f;
+        }
+
         void Update()
         {
-            if (glow == null) return;
+            if (glow == null && outline == null) return;
             float pulse = 0.35f + 0.65f * Mathf.Pow(0.5f + 0.5f * Mathf.Sin((Time.time + phase) * 2.2f), 2f);
-            glow.intensity = glowStrength * pulse;
+            if (glow != null) glow.intensity = glowStrength * pulse;
             if (outline != null) Game.Rendering.RuntimeMaterials.SetGlow(outline, haloColor * (outlineStrength * pulse));
         }
 

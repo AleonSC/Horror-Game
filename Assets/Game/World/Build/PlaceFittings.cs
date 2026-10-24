@@ -45,6 +45,7 @@ namespace Game.World.Build
             var onTable = new List<Loot>();
             var inTent = new List<Loot>();
             var onDeck = new List<Loot>();
+            var byBackpack = new List<Loot>();
             var containers = new Dictionary<LootPlace, Container>();
             foreach (var l in loot)
             {
@@ -53,6 +54,7 @@ namespace Game.World.Build
                     case LootPlace.Table: onTable.Add(l); break;
                     case LootPlace.Tent: inTent.Add(l); break;
                     case LootPlace.Deck: onDeck.Add(l); break;
+                    case LootPlace.Backpack: byBackpack.Add(l); break;
                     default:
                         if (!containers.TryGetValue(l.Place, out var c)) containers[l.Place] = c = l.Place == LootPlace.BackSeat && backSeat != null ? backSeat : MakeContainer(root, l.Place);
                         if (TryItem(l.Kind, out var item)) c.Put(item, l.Count);
@@ -65,6 +67,7 @@ namespace Game.World.Build
             Vector3 tentFloor = Spot(root, "Tent", TentSpot) + Vector3.up * 0.06f;
             Lay(root, inTent, tentFloor, root.right, 0.25f); // (the tent lies across the campsite)
             Lay(root, onDeck, Spot(root, "Deck", DeckSpot) + Vector3.up * 0.01f, root.right, 0.3f);
+            Scatter(root, byBackpack, Spot(root, "Backpack", BackpackSpot));
         }
 
         static void Lay(Transform root, List<Loot> items, Vector3 centre, Vector3 along, float gap)
@@ -76,6 +79,21 @@ namespace Game.World.Build
                 float yaw = root.eulerAngles.y + 20f * i;
                 if (l.Kind == LootKind.Snack) Pickup.Create(ItemKind.None, 1, at, yaw, root, snack: true);
                 else if (TryItem(l.Kind, out var item)) Pickup.Create(item, l.Count, at, yaw, root);
+            }
+        }
+
+        // Spilled out round the backpack on the ground, in a ring, each turned its own way.
+        static void Scatter(Transform root, List<Loot> items, Vector3 centre)
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                var l = items[i];
+                float a = (i + 0.3f) / Mathf.Max(1, items.Count) * Mathf.PI * 2f + root.eulerAngles.y * Mathf.Deg2Rad;
+                Vector3 at = centre + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (0.45f + 0.12f * (i % 2));
+                if (Physics.Raycast(at + Vector3.up * 1.5f, Vector3.down, out var hit, 3f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore)) at = hit.point;
+                at += Vector3.up * 0.01f;
+                float yaw = root.eulerAngles.y + 47f * i + 20f;
+                if (TryItem(l.Kind, out var item)) Pickup.Create(item, l.Count, at, yaw, root);
             }
         }
 
