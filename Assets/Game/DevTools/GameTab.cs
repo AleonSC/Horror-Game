@@ -40,6 +40,7 @@ namespace Game.DevTools
             if (Services.TryGet<WorldBuilder>(out var world) && world.Plan != null) DrawWorld(world, root);
             if (Services.TryGet<PlayerController>(out var player)) DrawPlayer(player);
             if (Services.TryGet<ScourSpawner>(out var spawner)) DrawScours(spawner);
+            if (Services.TryGet<Giant>(out var giant)) DrawGiant(giant);
 
             GUILayout.Label("Sound state", DevStyle.Section);
             if (!Services.TryGet<AudioStateController>(out var audio))
@@ -131,6 +132,16 @@ namespace Game.DevTools
             }
             DevStyle.Row("From the clock", $"{spawner.FromClock} of {spawner.Settings.extraCount}");
             if (GUILayout.Button("Make one appear now", DevStyle.Button)) spawner.AppearNow();
+        }
+
+        static void DrawGiant(Giant giant)
+        {
+            GUILayout.Label("Giant", DevStyle.Section);
+            DevStyle.Row("State", $"{giant.State}, {giant.Distance:0} m");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Open the eye now", DevStyle.Button)) giant.OpenEyeNow();
+            if (GUILayout.Button("Searchlights and crowd now", DevStyle.Button)) giant.SearchlightsNow();
+            GUILayout.EndHorizontal();
         }
 
         static void GiveEverything(Hotbar hotbar)

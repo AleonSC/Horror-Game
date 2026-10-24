@@ -386,6 +386,72 @@ namespace Game.Audio
             return Normalize(s, 0.5f);
         }
 
+        /// <summary>Thunder (and the giant's chain snapping): a crack, then a long rolling rumble.</summary>
+        public static float[] Thunder(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(5f);
+            float lp = 0f, lp2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                lp += (n - lp) * 0.02f;
+                lp2 += (lp - lp2) * 0.05f;
+                float crack = n * Decay(t, 30f) * 0.8f;
+                float roll = lp * 8f * Env(t, 0.05f, 5f, 3f) * (0.6f + 0.4f * (float)Math.Sin(t * 5.3f + Math.Sin(t * 1.7f) * 3));
+                s[i] = crack + roll + lp2 * 6f * Decay(t, 0.5f);
+            }
+            return Normalize(s, 0.9f);
+        }
+
+        /// <summary>The giant landing: an enormous low boom.</summary>
+        public static float[] Boom(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(6f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * 0.015f;
+                float f = 28f + 30f * Decay(t, 6f);
+                s[i] = (float)Math.Sin(2 * Math.PI * f * t) * Decay(t, 0.7f) + lp * 10f * Decay(t, 0.9f);
+            }
+            return Normalize(s, 1f);
+        }
+
+        /// <summary>One of the giant's steps: a deep thud that shakes the ground.</summary>
+        public static float[] GiantStep(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(2.5f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * 0.02f;
+                s[i] = (float)Math.Sin(2 * Math.PI * (34f + 20f * Decay(t, 10f)) * t) * Decay(t, 1.6f) + lp * 5f * Decay(t, 2.5f);
+            }
+            return Normalize(s, 0.95f);
+        }
+
+        /// <summary>The giant's chain jolting far off: a deep metallic groan and clank.</summary>
+        public static float[] ChainJolt(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(3f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float clank = (Noise(rng) * 0.5f + (float)Math.Sin(2 * Math.PI * 180 * t)) * Decay(t, 12f);
+                float groan = (float)Math.Sin(2 * Math.PI * (70f + 15f * (float)Math.Sin(t * 3f)) * t) * Env(t, 0.2f, 3f, 1.5f) * 0.5f;
+                float ring = (float)Math.Sin(2 * Math.PI * 413 * t) * Decay(t, 1.5f) * 0.2f;
+                s[i] = clank + groan + ring;
+            }
+            return Normalize(s, 0.8f);
+        }
+
         // ------------------------------------------------------------------ helpers
 
         static float[] Make(float seconds) => new float[Math.Max(1, (int)(seconds * SampleRate))];

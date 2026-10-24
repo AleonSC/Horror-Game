@@ -65,6 +65,11 @@ namespace Game.Player
         [Range(0f, 30f), Tooltip("How far your panting is heard while you're winded.")]
         public float pantNoise = 6f;
 
+        [Header("Dream hallway (the giant's eye)")]
+        [Range(40f, 140f)] public float dreamFieldOfView = 100f;
+        [Range(0f, 1f), Tooltip("How fast you move in the dream: running gets you nowhere.")]
+        public float dreamSpeed = 0.08f;
+
         [Header("Waking up")]
         [Range(0f, 15f), Tooltip("Seconds of grogginess after being taken.")]
         public float groggyTime = 5f;

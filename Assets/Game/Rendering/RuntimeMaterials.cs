@@ -67,6 +67,19 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>
+        /// A flat colour that the fog doesn't touch (transparent, fog off): something vast and far away that should
+        /// stay a clear silhouette through any fog (the giant, its chains, the eye). Set the colour already hazed.
+        /// </summary>
+        public static Material Haze(string name, Color color)
+        {
+            var m = Unlit(name, color, true);
+            HDMaterial.SetSurfaceType(m, true);
+            m.SetFloat("_EnableFogOnTransparent", 0f);
+            HDMaterial.ValidateMaterial(m);
+            return m;
+        }
+
         public static void SetGlow(Material m, Color glow)
         {
             if (m != null) m.SetColor("_EmissiveColor", glow);

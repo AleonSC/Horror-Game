@@ -1,0 +1,52 @@
+# M5: the hunters
+
+M5 comes in parts. Each part is pushed when it's done, so this guide grows as they arrive.
+
+Pull (GitHub Desktop: **Fetch origin**, then **Pull origin**), open `Assets/Scenes/Forest.unity` and press
+**Play**.
+
+## Part 1: footsteps and music
+
+- **Footsteps** make a soft sound, and a **noise** that things hunting by sound can hear (the blind one, in part
+  3): running carries 22 m, walking 5 m, crouching about 1 m. While you're winded, your panting carries 6 m.
+  Numbers: `Assets/Config/Player/PlayerConfig` > Footsteps.
+- **Music** follows what's happening. The moods:
+  | Mood | When |
+  | --- | --- |
+  | Calm | nothing about (no music) |
+  | Tension | something in sight within 30 m |
+  | Danger | one coming for you |
+  | Watcher | the eye is open or the giant walks |
+  | GameOver | while you're taken away |
+
+  The music fades in fast when things get worse and back out slowly. Each big entrance has its own theme.
+  All of it is made in code. To use your own tracks, add them in `Assets/Config/Audio/AudioConfig` > Music, or
+  drop them in `Assets/Resources/Music/<Mood>/`. F9 > Game > Sound state shows the mood and what's playing.
+
+## Part 2: the giant and the eye
+
+- **From the start** it hangs on a chain far off, in the direction you face when you wake. It turns slowly, and
+  four empty chains hang elsewhere round the horizon. The fog never hides it: it stays a hazy silhouette. The
+  first clear view of it gently draws your eyes up to it, once. Each lamp you light jolts its chain.
+- **The 5th lamp:**
+  1. A red eye opens high in the sky, and your view is drawn up to it.
+  2. The fog turns red.
+  3. After 3 s the **dream** takes hold: the view stretches wide and running gets you nowhere.
+  4. As the eye closes, the chain snaps like thunder, and the giant falls and lands with a boom. Its theme
+     starts.
+  5. A shockwave rolls out and shakes you as it passes.
+  6. Then it **walks toward you** (7.5 m/s), each step a thud and a shake that grows as it nears. Now and
+     then it stops to look round.
+  7. Within 135 m it takes you. You wake by your last lamp, and the giant is back on the horizon. It walks
+     again after 30 s.
+- **The 10th lamp:** red searchlights from its eyes follow you, a little faster than you can run, and a crowd
+  of 32 scours circles the edge of the light.
+- **To test quickly:** F9 > Game > Giant > **Open the eye now**, or **Searchlights and crowd now**.
+- All its numbers are in `Assets/Config/Entities/GiantConfig`. The plan's height (660 m) and angles (feet
+  10°, neck 38°) set how far away it hangs: about 940 m. Your own giant model can go in **Custom Model**.
+
+**Not yet:** the shockwave doesn't bend the trees and grass (that needs the wind shader, M6). The watchtower's
+floodlights that drive it back come in part 6.
+
+**Let me know:** does it read as a silhouette? Is the fall and walk scary, too slow or too fast? Does the
+searchlight look right? What's the frame time with the crowd out?

@@ -27,6 +27,8 @@ namespace Game.Player
         float shake;
         float groggy;
         float nextPant;
+        Vector3 gazeTarget;
+        float gazeLeft, gazeTime;
         Vector3 limitPoint;
         float limitSlowFrom, limitStopAt;
         int limitFrame = -10;
@@ -43,6 +45,8 @@ namespace Game.Player
         public bool Moving { get; private set; }
         /// <summary>Held still: no moving or looking (something else is moving the camera).</summary>
         public bool Held { get; private set; }
+        /// <summary>0-1: the dream hallway (the giant's eye): the view stretches wide and running gets you nowhere.</summary>
+        public float Dream { get; set; }
         public Vector3 SpawnPoint { get; private set; }
         public Quaternion SpawnFacing { get; private set; }
 
@@ -145,7 +149,8 @@ namespace Game.Player
                 wobble += new Vector3(Mathf.Sin(t * 0.9f) * 3f, Mathf.Sin(t * 0.7f + 1f) * 4f, Mathf.Sin(t * 0.5f) * 5f) * g;
             }
             head.localRotation = Quaternion.Euler(pitch, 0f, 0f) * Quaternion.Euler(wobble);
-            if (view != null) view.fieldOfView = Mathf.Lerp(view.fieldOfView, s.fieldOfView, 1f - Mathf.Exp(-6f * Time.deltaTime));
+            float fov = Mathf.Lerp(s.fieldOfView, s.dreamFieldOfView, Mathf.SmoothStep(0f, 1f, Dream));
+            if (view != null) view.fieldOfView = Mathf.Lerp(view.fieldOfView, fov, 1f - Mathf.Exp(-6f * Time.deltaTime));
         }
 
         // A footstep: heard by you (faintly), and by anything hunting by sound, further when running.
@@ -170,12 +175,30 @@ namespace Game.Player
                 events.Publish(new NoiseEmitted(transform.position, s.pantNoise, "panting"));
         }
 
+        /// <summary>Gently draw the view toward a point over a few seconds (the mouse still works).</summary>
+        public void DrawGazeTo(Vector3 point, float seconds)
+        {
+            gazeTarget = point;
+            gazeTime = gazeLeft = Mathf.Max(0.1f, seconds);
+        }
+
         void Look(PlayerSettings s)
         {
             float sensitivity = Services.TryGet<PlayerPreferences>(out var prefs) ? prefs.mouseSensitivity : 1f;
             Vector2 d = input.Look.ReadValue<Vector2>() * s.mouseSpeed * sensitivity;
             yaw += d.x;
             pitch = Mathf.Clamp(pitch - d.y, -85f, 85f);
+            if (gazeLeft > 0f)
+            {
+                // Strongest in the middle of the pull, easing in and out.
+                gazeLeft -= Time.deltaTime;
+                float pull = Mathf.Sin(Mathf.Clamp01(1f - gazeLeft / gazeTime) * Mathf.PI) * 2.5f * Time.deltaTime;
+                Vector3 to = gazeTarget - head.position;
+                float wantYaw = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
+                float wantPitch = -Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg;
+                yaw = Mathf.LerpAngle(yaw, wantYaw, pull);
+                pitch = Mathf.Clamp(Mathf.Lerp(pitch, wantPitch, pull), -85f, 85f);
+            }
             transform.rotation = Quaternion.Euler(0f, yaw, 0f);
         }
 
@@ -200,6 +223,7 @@ namespace Game.Player
 
             float speed = Crouching ? s.crouchSpeed : Running ? s.runSpeed : s.walkSpeed;
             if (groggy > 0f) speed *= Mathf.Lerp(1f, s.groggySpeed, groggy / Mathf.Max(0.01f, s.groggyTime));
+            if (Dream > 0f) speed *= Mathf.Lerp(1f, s.dreamSpeed, Dream);
             Vector3 wish = (transform.forward * move.y + transform.right * move.x) * speed;
             wish = ApplyApproachLimit(wish);
 

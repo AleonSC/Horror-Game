@@ -34,6 +34,10 @@ namespace Game.Rendering
 
         public LookConfig Config => config;
 
+        /// <summary>Something tinting the world (the giant's eye turns the fog red): the colour, and how much (0-1).</summary>
+        public Color FogTint = Color.black;
+        public float FogTintAmount;
+
         /// <summary>What HDRP multiplies light by at this exposure (EV100). Screen colours are divided by it.</summary>
         public static float ExposureMultiplier(float ev100) => 1f / (1.2f * Mathf.Pow(2f, ev100));
 
@@ -153,7 +157,8 @@ namespace Game.Rendering
             }
 
             fog.enabled.Override(true);
-            fog.color.Override(s.fogColor.linear / mul);
+            Color fogColor = Color.Lerp(s.fogColor, FogTint, Mathf.Clamp01(FogTintAmount));
+            fog.color.Override(fogColor.linear / mul);
             fog.meanFreePath.Override(MeanFreePath(s.fogDensity));
             fog.enableVolumetricFog.Override(s.volumetricFog);
             fog.albedo.Override(Color.white * s.fogGlow);
