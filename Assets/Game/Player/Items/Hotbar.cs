@@ -1,5 +1,6 @@
 using Game.Audio;
 using Game.Core;
+using Game.Rendering;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering.HighDefinition;
@@ -20,6 +21,7 @@ namespace Game.Player
         Transform flame;
         ItemKind shown = ItemKind.None;
         Light handLight;
+        HDAdditionalLightData handLightData;
         Light flash;
         float flashLeft;
         SafeZone handZone;
@@ -59,6 +61,7 @@ namespace Game.Player
             lightGo.transform.SetParent(hand, false);
             lightGo.AddHDLight(LightType.Point);
             handLight = lightGo.GetComponent<Light>();
+            handLightData = lightGo.GetComponent<HDAdditionalLightData>();
             handLight.shadows = LightShadows.Soft;
             handLight.enabled = false;
 
@@ -196,6 +199,9 @@ namespace Game.Player
             handLight.color = torch ? s.torchColor : s.lighterColor;
             handLight.intensity = (torch ? s.torchIntensity : s.lighterIntensity) * flicker;
             handLight.range = torch ? s.torchRange : s.lighterRange;
+            if (handLightData != null) handLightData.volumetricDimmer = torch ? s.torchFogGlow : s.lighterFogGlow;
+            if (flame != null && flame.TryGetComponent<Renderer>(out var flameLook) && flameLook.sharedMaterial != null && flameLook.sharedMaterial.name == "Flame")
+                RuntimeMaterials.SetGlow(flameLook.sharedMaterial, new Color(1f, 0.5f, 0.15f) * s.flameGlow * flicker);
             handLight.transform.position = flame != null ? flame.position : hand.position + hand.forward * 0.3f;
         }
 

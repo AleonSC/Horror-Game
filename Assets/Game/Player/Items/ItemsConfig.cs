@@ -96,8 +96,10 @@ namespace Game.Player
         [Range(0f, 30f), Tooltip("Radius of the safe circle round a lit torch (metres).")]
         public float torchSafeRadius = 7f;
         public Color torchColor = new Color(1f, 0.55f, 0.22f);
-        [Range(0f, 200f)] public float torchIntensity = 18f;
+        [Range(0f, 200f)] public float torchIntensity = 6f;
         [Range(1f, 40f)] public float torchRange = 11f;
+        [Range(0f, 1f), Tooltip("How much the torch lights up the fog round you (1: fully, which washes out the screen).")]
+        public float torchFogGlow = 0.12f;
 
         [Header("Lighter")]
         [Range(5f, 600f), Tooltip("Seconds of flame in a full lighter.")]
@@ -105,8 +107,12 @@ namespace Game.Player
         [Range(0f, 20f), Tooltip("Radius of the safe circle round an open lighter (metres).")]
         public float lighterSafeRadius = 3.5f;
         public Color lighterColor = new Color(1f, 0.65f, 0.3f);
-        [Range(0f, 50f)] public float lighterIntensity = 3f;
+        [Range(0f, 50f)] public float lighterIntensity = 1.2f;
         [Range(1f, 20f)] public float lighterRange = 4.5f;
+        [Range(0f, 1f), Tooltip("How much the lighter lights up the fog round you.")]
+        public float lighterFogGlow = 0.08f;
+        [Range(0f, 20f), Tooltip("How bright the flame itself glows (torch and lighter; the built-in flame only).")]
+        public float flameGlow = 2f;
 
         [Header("Flare gun")]
         [Range(5f, 80f), Tooltip("How fast the flare leaves the gun (metres a second).")]

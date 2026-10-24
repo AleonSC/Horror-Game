@@ -101,7 +101,7 @@ namespace Game.Player
 
         static void Flame(Transform parent, Vector3 at, float size)
         {
-            var flame = Part(PrimitiveType.Sphere, parent, at, new Vector3(size * 0.6f, size, size * 0.6f), GlowMat("Flame", new Color(1f, 0.5f, 0.15f) * 8f));
+            var flame = Part(PrimitiveType.Sphere, parent, at, new Vector3(size * 0.6f, size, size * 0.6f), GlowMat("Flame", new Color(1f, 0.5f, 0.15f) * 2f));
             flame.name = "Flame";
             flame.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
