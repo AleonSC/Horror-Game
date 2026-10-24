@@ -15,12 +15,17 @@ namespace Game.World
         public float onTime = 60f;
         public float rechargeTime = 120f;
         public float safeRadius = 45f;
+        [Tooltip("How bright each floodlight is (candela).")]
+        public float brightness = 300f;
+        [Tooltip("How much they light the fog (0-1): high and the whole area turns to white haze.")]
+        public float fogGlow = 0.25f;
         [Tooltip("Where the floodlights hang (this object's space); they shine out and down.")]
         public Vector3[] lightSpots = { new Vector3(-2f, 13.8f, -2f), new Vector3(2f, 13.8f, -2f), new Vector3(-2f, 13.8f, 2f), new Vector3(2f, 13.8f, 2f) };
         [Tooltip("The button, in this object's space.")]
         public Vector3 buttonSpot = new Vector3(1.5f, 13f, 1.5f);
 
         Light[] lights;
+        HDAdditionalLightData[] lightData;
         SafeZone zone;
         float onLeft, rechargeLeft;
         Collider button;
@@ -47,6 +52,7 @@ namespace Game.World
             look.GetComponent<Renderer>().sharedMaterial = Game.Rendering.RuntimeMaterials.Lit("Button", new Color(0.4f, 0.05f, 0.03f), 0.5f);
 
             lights = new Light[lightSpots.Length];
+            lightData = new HDAdditionalLightData[lightSpots.Length];
             for (int i = 0; i < lightSpots.Length; i++)
             {
                 var go = new GameObject("Floodlight");
@@ -54,13 +60,15 @@ namespace Game.World
                 go.transform.localPosition = lightSpots[i];
                 Vector3 outward = new Vector3(lightSpots[i].x, 0f, lightSpots[i].z).normalized;
                 go.transform.localRotation = Quaternion.LookRotation(outward * 1f + Vector3.down * 0.55f);
-                go.AddHDLight(LightType.Spot);
+                var data = go.AddHDLight(LightType.Spot);
+                data.volumetricDimmer = fogGlow;
+                lightData[i] = data;
                 var l = go.GetComponent<Light>();
                 l.color = new Color(0.9f, 0.95f, 1f);
                 l.spotAngle = 95f;
                 l.innerSpotAngle = 60f;
                 l.range = 70f;
-                l.intensity = 9000f;
+                l.intensity = brightness;
                 l.shadows = LightShadows.None;
                 l.enabled = false;
                 lights[i] = l;
@@ -107,10 +115,11 @@ namespace Game.World
             // The last few seconds, they flicker as they die.
             float level = onLeft <= 0f ? 0f : onLeft < 4f ? (Random.value < 0.25f ? 0.2f : 1f) : 1f;
             zone.Active = onLeft > 0f;
-            foreach (var l in lights)
+            for (int i = 0; i < lights.Length; i++)
             {
-                l.enabled = level > 0f;
-                l.intensity = 9000f * level;
+                lights[i].enabled = level > 0f;
+                lights[i].intensity = brightness * level;
+                lightData[i].volumetricDimmer = fogGlow;
             }
         }
     }
