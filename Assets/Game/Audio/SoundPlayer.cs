@@ -74,6 +74,7 @@ namespace Game.Audio
             Add(Sound.DoorShut, SoundSynth.DoorShut(21));
             Add(Sound.Clunk, SoundSynth.Clunk(22));
             Add(Sound.Eat, SoundSynth.Eat(23));
+            Add(Sound.Step, SoundSynth.Step(24));
         }
 
         void Add(Sound sound, float[] samples)

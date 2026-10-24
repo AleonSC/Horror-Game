@@ -369,6 +369,23 @@ namespace Game.Audio
             return Normalize(s, 0.6f);
         }
 
+        /// <summary>A footstep on the forest floor: a soft thud and a crunch of needles.</summary>
+        public static float[] Step(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.22f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * 0.5f;
+                float thud = (float)Math.Sin(2 * Math.PI * 85 * t) * Decay(t, 35f);
+                float crunch = lp * Decay(t, 22f) * (rng.NextDouble() < 0.3 ? 1f : 0.4f);
+                s[i] = thud * 0.6f + crunch * 0.8f;
+            }
+            return Normalize(s, 0.5f);
+        }
+
         // ------------------------------------------------------------------ helpers
 
         static float[] Make(float seconds) => new float[Math.Max(1, (int)(seconds * SampleRate))];

@@ -26,6 +26,7 @@ namespace Game.Player
         float bobPhase;
         float shake;
         float groggy;
+        float nextPant;
         Vector3 limitPoint;
         float limitSlowFrom, limitStopAt;
         int limitFrame = -10;
@@ -113,6 +114,7 @@ namespace Game.Player
             if (!keysTaken && input.Door.WasPressedThisFrame()) Interactor.TryUseDoor();
 
             Move(s, dt, keysTaken);
+            Pant(s);
             Interactor.Update(head, s.reach, s.aimAssist);
         }
 
@@ -126,7 +128,10 @@ namespace Game.Player
             if (Moving && body.isGrounded)
             {
                 float speed = new Vector2(velocity.x, velocity.z).magnitude;
+                float before = bobPhase;
                 bobPhase += Time.deltaTime * s.bobFrequency * Mathf.PI * 2f * Mathf.Clamp(speed / Mathf.Max(s.walkSpeed, 0.1f), 0.4f, 1.8f);
+                // A step at the bottom of each bob.
+                if (Mathf.Floor(before / Mathf.PI) != Mathf.Floor(bobPhase / Mathf.PI)) Footstep(s);
                 bob = new Vector3(Mathf.Cos(bobPhase * 0.5f) * s.bobAmount * 0.5f, Mathf.Sin(bobPhase) * s.bobAmount, 0f);
             }
             head.localPosition = Vector3.Lerp(head.localPosition, new Vector3(0f, eye, 0f) + bob, 1f - Mathf.Exp(-12f * Time.deltaTime));
@@ -141,6 +146,28 @@ namespace Game.Player
             }
             head.localRotation = Quaternion.Euler(pitch, 0f, 0f) * Quaternion.Euler(wobble);
             if (view != null) view.fieldOfView = Mathf.Lerp(view.fieldOfView, s.fieldOfView, 1f - Mathf.Exp(-6f * Time.deltaTime));
+        }
+
+        // A footstep: heard by you (faintly), and by anything hunting by sound, further when running.
+        void Footstep(PlayerSettings s)
+        {
+            float noise = Crouching ? s.crouchNoise : Running ? s.runNoise : s.walkNoise;
+            float volume = s.stepVolume * (Crouching ? 0.3f : Running ? 1.4f : 1f);
+            if (Services.TryGet<Game.Audio.SoundPlayer>(out var sounds))
+                sounds.Play(Game.Audio.Sound.Step, transform.position, Game.Audio.MixerNames.Player, volume, Random.Range(0.85f, 1.15f) * (Running ? 1.1f : 1f), 12f);
+            if (noise > 0f && Services.TryGet<EventBus>(out var events))
+                events.Publish(new NoiseEmitted(transform.position, noise, Crouching ? "creeping" : Running ? "running" : "walking"));
+        }
+
+        // Winded: you pant, and something close by can hear it.
+        void Pant(PlayerSettings s)
+        {
+            if (!Stamina.Winded || Time.time < nextPant) return;
+            nextPant = Time.time + 1.4f;
+            if (Services.TryGet<Game.Audio.SoundPlayer>(out var sounds))
+                sounds.Play2D(Game.Audio.Sound.Breath, Game.Audio.MixerNames.Player, 0.5f, 1.6f);
+            if (s.pantNoise > 0f && Services.TryGet<EventBus>(out var events))
+                events.Publish(new NoiseEmitted(transform.position, s.pantNoise, "panting"));
         }
 
         void Look(PlayerSettings s)

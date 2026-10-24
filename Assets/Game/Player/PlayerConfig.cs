@@ -53,6 +53,18 @@ namespace Game.Player
         [Range(0.01f, 0.5f), Tooltip("Mouse speed (times the player's sensitivity setting).")]
         public float mouseSpeed = 0.1f;
 
+        [Header("Footsteps")]
+        [Range(0f, 1f), Tooltip("How loud your footsteps are to you.")]
+        public float stepVolume = 0.35f;
+        [Range(0f, 60f), Tooltip("How far a running step is heard by things that hunt by sound (metres, x difficulty).")]
+        public float runNoise = 22f;
+        [Range(0f, 30f), Tooltip("How far a walking step is heard.")]
+        public float walkNoise = 5f;
+        [Range(0f, 10f), Tooltip("How far a crouching step is heard (barely).")]
+        public float crouchNoise = 1f;
+        [Range(0f, 30f), Tooltip("How far your panting is heard while you're winded.")]
+        public float pantNoise = 6f;
+
         [Header("Waking up")]
         [Range(0f, 15f), Tooltip("Seconds of grogginess after being taken.")]
         public float groggyTime = 5f;

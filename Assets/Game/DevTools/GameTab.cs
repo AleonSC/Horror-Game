@@ -49,6 +49,7 @@ namespace Game.DevTools
             }
 
             DevStyle.Row("Now", audio.Current.ToString());
+            if (Services.TryGet<MusicManager>(out var music)) DevStyle.Row("Music", $"{music.Mood} ({music.Playing})");
             GUILayout.Label("Try each state (sends the same events the game will):", DevStyle.MutedLabel);
 
             var events = root.Events;

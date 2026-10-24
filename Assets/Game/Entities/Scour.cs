@@ -14,7 +14,7 @@ namespace Game.Entities
     /// down: it's drawn back through a hole in the air. Flash the light at it and it charges. Reach you and it
     /// takes you. It never enters a safe light. (The take sequence is in Scour.Take.cs.)
     /// </summary>
-    public sealed partial class Scour : MonoBehaviour
+    public sealed partial class Scour : MonoBehaviour, IThreat
     {
         ScourSettings s;
         PlayerController player;
@@ -51,6 +51,15 @@ namespace Game.Entities
         public bool Visible => State != ScourState.Hidden && body.Visible;
         public Vector3 Position => transform.position;
         public float DistanceToPlayer => player != null ? PlayerSense.FlatDistance(transform.position, player.transform.position) : float.MaxValue;
+
+        public bool ThreatVisible => Visible;
+        public bool ThreatTaking => State == ScourState.Taking || State == ScourState.Charging;
+        /// <summary>Growing and coming for you in the dark, charging, or faced down.</summary>
+        public bool ThreatHunting => ThreatTaking || State == ScourState.FacedDown || (State == ScourState.Stalking && growth > 1.02f);
+        public bool ThreatWatching => false;
+
+        void OnEnable() => Threats.Add(this);
+        void OnDisable() => Threats.Remove(this);
 
         public void Init(int scourId, ScourConfig config, float firstDelay, System.Random rng)
         {

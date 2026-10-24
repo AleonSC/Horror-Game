@@ -85,6 +85,8 @@ namespace Game.Core
         public readonly float Radius;
         public readonly string Source;
         public NoiseEmitted(Vector3 position, float radius, string source) { Position = position; Radius = radius; Source = source; }
+        /// <summary>Footsteps and panting: too frequent for the session log.</summary>
+        public bool Everyday => Source == "walking" || Source == "running" || Source == "creeping" || Source == "panting";
         public override string ToString() => $"Noise: {Source} ({Radius:0.#} m)";
     }
 
@@ -185,5 +187,31 @@ namespace Game.Core
         public readonly string What;
         public ItemUsed(string item, string what) { Item = item; What = what; }
         public override string ToString() => $"{Item}: {What}";
+    }
+
+    /// <summary>The music's mood (section 5.3), worked out from what's near and what it's doing.</summary>
+    public enum MusicMood { Calm, Intro, Tension, Danger, Watcher, GameOver }
+
+    public readonly struct MusicMoodChanged : IGameEvent
+    {
+        public readonly MusicMood Mood;
+        public MusicMoodChanged(MusicMood mood) { Mood = mood; }
+        public override string ToString() => $"Music: {Mood}";
+    }
+
+    /// <summary>A big entrance (the blind one, the giant, the flier): its theme plays, scored to the entrance.</summary>
+    public readonly struct BossThemeStarted : IGameEvent
+    {
+        public readonly EntityKind Kind;
+        public BossThemeStarted(EntityKind kind) { Kind = kind; }
+        public override string ToString() => $"{Kind}'s theme";
+    }
+
+    /// <summary>It's gone (driven off, left after taking you, or a restart): its theme fades out.</summary>
+    public readonly struct BossThemeEnded : IGameEvent
+    {
+        public readonly EntityKind Kind;
+        public BossThemeEnded(EntityKind kind) { Kind = kind; }
+        public override string ToString() => $"{Kind}'s theme ends";
     }
 }

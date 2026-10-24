@@ -42,6 +42,8 @@ namespace Game.DevTools
 
         void OnEvent(IGameEvent e)
         {
+            // (Footsteps and panting come every moment: they'd drown everything else.)
+            if (e is NoiseEmitted n && n.Everyday) return;
             // A new run's events are timed from its own start.
             float time = e is RunStarted ? 0f : root.Run?.Elapsed ?? 0f;
             Log.Add(time, e.ToString());
