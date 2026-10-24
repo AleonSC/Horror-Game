@@ -125,7 +125,7 @@ namespace Game.Rendering
 
         void SwitchOffSceneDirectionalLights()
         {
-            foreach (var light in FindObjectsByType<Light>(FindObjectsSortMode.None))
+            foreach (var light in FindObjectsByType<Light>())
             {
                 if (light == moon || light.type != LightType.Directional || !light.enabled) continue;
                 light.enabled = false;

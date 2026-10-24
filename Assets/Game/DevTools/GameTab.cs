@@ -148,7 +148,7 @@ namespace Game.DevTools
             if (!Services.TryGet<PlayerController>(out var player)) return;
             Game.World.Lamp best = null;
             float bestDist = float.MaxValue;
-            foreach (var lamp in Object.FindObjectsByType<Game.World.Lamp>(FindObjectsSortMode.None))
+            foreach (var lamp in Object.FindObjectsByType<Game.World.Lamp>())
             {
                 if (lamp.Lit) continue;
                 float d = (lamp.transform.position - player.transform.position).sqrMagnitude;
