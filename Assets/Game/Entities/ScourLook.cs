@@ -125,6 +125,8 @@ namespace Game.Entities
             eyeLightData = go.AddHDLight(LightType.Point);
             eyeLight = go.GetComponent<Light>();
             eyeLight.shadows = LightShadows.None;
+            eyeLight.color = Red;
+            eyeLight.intensity = 0f; // (dark until the eyes are set: a new light starts bright white)
             go.AddComponent<FogGlowLight>().strength = 1.5f;
         }
 
@@ -149,7 +151,14 @@ namespace Game.Entities
         {
             Visible = visible;
             foreach (var r in renderers) if (r != null) r.enabled = visible;
-            if (eyeLight != null) eyeLight.enabled = visible;
+            if (eyeLight != null)
+            {
+                // Coming back, it starts dark: until its eyes are set it would shine whatever it last was
+                // (bright blue from being faced down), a flash in the fog.
+                if (visible) eyeLight.intensity = 0f;
+                eyeLight.enabled = visible;
+            }
+            if (glare != null && visible) glare.intensity = 0f;
             if (glare != null) glare.enabled = visible && mouth > 0.01f;
             OnVisibilityChanged(visible);
         }

@@ -161,6 +161,7 @@ namespace Game.Entities
             blue = 0f;      // (red again, whatever happened last time)
             eyesSeen = PlayerSense.Occluded(player.Head.position, spot + Vector3.up * s.height) ? 0f : 1f;
             eyeshine = 0f;
+            UpdateEyes(0f, false); // (set its eyes now, not next frame: no flash of whatever they were)
             Play(Sound.Appear, 0.8f, 1f, 45f);
             SetState(ScourState.Appearing, ducker ? "appearing (behind a tree)" : "appearing");
             if (!everAppeared && Services.TryGet<EventBus>(out var events)) events.Publish(new EntitySpawned(EntityKind.Scour, id, spot));
