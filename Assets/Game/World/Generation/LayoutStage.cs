@@ -41,7 +41,7 @@ namespace Game.World.Generation
         public static void Level(WorldPlan plan, Vector2 centre, float yaw, Vector2 half, float margin, float blend)
         {
             var h = plan.Height;
-            float a = -yaw * Mathf.Deg2Rad, cos = Mathf.Cos(a), sin = Mathf.Sin(a);
+            float a = yaw * Mathf.Deg2Rad, cos = Mathf.Cos(a), sin = Mathf.Sin(a);
             float reach = half.magnitude + margin + blend;
             int r = Mathf.CeilToInt(reach) + 1;
             int cx = Mathf.RoundToInt(centre.x), cz = Mathf.RoundToInt(centre.y);
@@ -72,7 +72,7 @@ namespace Game.World.Generation
             }
         }
 
-        static bool GoodGround(WorldPlan plan, Vector2 p, float pondMargin, float maxSlope = 0.3f)
+        public static bool GoodGround(WorldPlan plan, Vector2 p, float pondMargin, float maxSlope = 0.3f)
         {
             if (plan.Height.Slope(p.x, p.y) > maxSlope) return false;
             foreach (var pond in plan.Ponds)
@@ -102,7 +102,7 @@ namespace Game.World.Generation
             }
         }
 
-        static Vector2 HalfSize(StructureKind kind)
+        public static Vector2 HalfSize(StructureKind kind)
         {
             switch (kind)
             {
@@ -117,7 +117,7 @@ namespace Game.World.Generation
 
         static void PlaceStructures(WorldPlan plan, WorldGenSettings s, Rng rng)
         {
-            for (int i = 0; i < s.shacks; i++) Place(plan, s, rng, i == 0 ? StructureKind.Cabin : StructureKind.Shack, s.shacksApart, StructureKind.Shack, StructureKind.Cabin);
+            // (The cabin and shacks come later, beside the trails: see PathStage.)
             for (int i = 0; i < s.campsites; i++) Place(plan, s, rng, StructureKind.Campsite, s.campsitesApart, StructureKind.Campsite, StructureKind.Campsite);
             Place(plan, s, rng, StructureKind.Watchtower, 0f, StructureKind.Watchtower, StructureKind.Watchtower);
             Place(plan, s, rng, StructureKind.Car, 0f, StructureKind.Car, StructureKind.Car);

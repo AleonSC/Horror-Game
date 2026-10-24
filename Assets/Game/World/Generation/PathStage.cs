@@ -5,8 +5,8 @@ namespace Game.World.Generation
 {
     /// <summary>
     /// Stage 4 (section 3.7): old trails linking all the lamps (a minimum spanning tree plus a couple of extra
-    /// loops), wandering a little and petering out in stretches; a trodden ring round each lamp; and short
-    /// paths up to the structures.
+    /// loops), wandering a little and petering out in stretches; a trodden ring round each lamp; the cabin and
+    /// shacks set beside the trails, their front doors facing them; and short paths up to every structure.
     /// </summary>
     public sealed class PathStage : IWorldStage
     {
@@ -22,13 +22,76 @@ namespace Game.World.Generation
                     plan.Trails.Add(MakeTrail(plan, lamps[a].Position, lamps[b].Position, s, rng));
             }
 
+            // The cabin and the shacks, along the lamp trails (before the rings, so they're never on one).
+            var lampTrails = new List<Trail>(plan.Trails);
+            for (int i = 0; i < s.shacks; i++)
+                PlaceBesideTrail(plan, s, rng, lampTrails, i == 0 ? StructureKind.Cabin : StructureKind.Shack);
+
             foreach (var lamp in lamps) plan.Trails.Add(Ring(lamp.Position, 3.5f, s));
 
             foreach (var st in plan.Structures)
             {
+                if (st.Kind == StructureKind.Shack || st.Kind == StructureKind.Cabin) continue; // (they have theirs)
                 if (!NearestTrailPoint(plan, st.Position, out var to) || plan.Distance(st.Position, to) > 60f) continue;
                 Vector2 from = st.Position + Wrap.Delta(st.Position, to, plan.Size).normalized * (st.HalfSize.magnitude + 0.5f);
                 plan.Trails.Add(MakeTrail(plan, from, to, s, rng));
+            }
+        }
+
+        // A building beside a trail, its front (local +z, where the door is) facing it, a couple of metres off.
+        static void PlaceBesideTrail(WorldPlan plan, WorldGenSettings s, Rng rng, List<Trail> trails, StructureKind kind)
+        {
+            if (trails.Count == 0) return;
+            var half = LayoutStage.HalfSize(kind);
+            float reach = half.magnitude;
+            for (int attempt = 0; attempt < 4000; attempt++)
+            {
+                var trail = trails[rng.Range(0, trails.Count)];
+                int n = trail.Points.Count;
+                if (n < 12) continue;
+                int i = rng.Range(n / 6, n - n / 6); // (not right by the lamps at its ends)
+                Vector2 at = trail.Points[i];
+                Vector2 along = Wrap.Delta(trail.Points[i - 1], trail.Points[i + 1], plan.Size);
+                if (along.sqrMagnitude < 0.0001f) continue;
+                along = along.normalized;
+                Vector2 side = new Vector2(-along.y, along.x) * (rng.Chance(0.5f) ? 1f : -1f);
+                Vector2 centre = Wrap.Into(at + side * (half.y + s.trailWidth * 0.5f + 2.5f), plan.Size);
+                Vector2 face = -side; // (toward the trail)
+                float yaw = Mathf.Atan2(face.x, face.y) * Mathf.Rad2Deg;
+
+                if (plan.Distance(centre, plan.Start) < s.startClearing + reach + 6f) continue;
+                if (!LayoutStage.GoodGround(plan, centre, reach + 3f, 0.22f)) continue;
+                bool clash = false;
+                foreach (var l in plan.Lamps)
+                    if (plan.Distance(centre, l.Position) < 12f + reach) { clash = true; break; }
+                foreach (var o in plan.Structures)
+                {
+                    bool same = o.Kind == StructureKind.Shack || o.Kind == StructureKind.Cabin;
+                    float need = same ? Mathf.Max(s.shacksApart, 15f) : 15f + reach + o.HalfSize.magnitude;
+                    if (plan.Distance(centre, o.Position) < need) { clash = true; break; }
+                }
+                if (clash || plan.Distance(centre, plan.Door) < 20f) continue;
+                var site = new StructureSite { Kind = kind, Position = centre, Yaw = yaw, HalfSize = half };
+                // No trail running through it.
+                foreach (var t in plan.Trails)
+                {
+                    foreach (var q in t.Points) if (site.Contains(q, plan.Size, 0.8f)) { clash = true; break; }
+                    if (clash) break;
+                }
+                if (clash) continue;
+
+                plan.Structures.Add(site);
+                plan.Clearings.Add(new Clearing
+                {
+                    Kind = ClearingKind.Structure, Centre = centre, Radius = reach + 2f,
+                    Ragged = 0.2f, Thinning = 0.3f, Seed = rng.Range(0, 100000),
+                });
+                float big = Mathf.Max(half.x, half.y);
+                LayoutStage.Level(plan, centre, yaw, new Vector2(big, big), 1.5f, 5f);
+                // A short path from the door to the trail.
+                Vector2 door = centre + face * (half.y + 0.3f);
+                plan.Trails.Add(MakeTrail(plan, door, at, s, rng));
+                return;
             }
         }
 

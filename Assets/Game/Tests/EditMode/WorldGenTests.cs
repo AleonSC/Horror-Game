@@ -204,6 +204,37 @@ namespace Game.Tests
                 Assert.AreEqual(plan.GroundAt(plan.Door), plan.GroundAt(Wrap.Into(plan.Door + new Vector2(1.4f, 1.4f), plan.Size)), 0.05f);
             }
         }
+    
+        [Test]
+        public void CabinAndShacks_StandBesideATrail_DoorFacingIt()
+        {
+            foreach (int seed in new[] { 4, 5, 6, 7, 8 })
+            {
+                var plan = Plan(seed);
+                int found = 0;
+                foreach (var st in plan.Structures)
+                {
+                    if (st.Kind != StructureKind.Shack && st.Kind != StructureKind.Cabin) continue;
+                    found++;
+                    float a = st.Yaw * Mathf.Deg2Rad;
+                    var forward = new Vector2(Mathf.Sin(a), Mathf.Cos(a));
+                    var door = st.Position + forward * st.HalfSize.y;
+                    // The nearest trail point to its door is just in front of it.
+                    float best = float.MaxValue;
+                    Vector2 nearest = default;
+                    foreach (var t in plan.Trails)
+                        foreach (var q in t.Points)
+                        {
+                            float d = Wrap.Distance(door, q, plan.Size);
+                            if (d < best) { best = d; nearest = q; }
+                        }
+                    Assert.Less(best, 6f, $"seed {seed}: a {st.Kind} {best:0.0} m from any trail");
+                    Assert.Greater(Vector2.Dot(Wrap.Delta(st.Position, nearest, plan.Size).normalized, forward), 0.5f, $"seed {seed}: a {st.Kind} facing away from its trail");
+                }
+                Assert.Greater(found, 0, $"seed {seed}: no cabin or shacks");
+            }
+        }
     }
+
 
 }

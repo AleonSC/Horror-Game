@@ -93,7 +93,7 @@ namespace Game.World.Generation
         public bool Contains(Vector2 p, float mapSize, float margin = 0f)
         {
             Vector2 d = Wrap.Delta(Position, p, mapSize);
-            float a = -Yaw * Mathf.Deg2Rad;
+            float a = Yaw * Mathf.Deg2Rad; // (local x and z the way Unity turns it: yaw degrees about up)
             float lx = d.x * Mathf.Cos(a) - d.y * Mathf.Sin(a);
             float lz = d.x * Mathf.Sin(a) + d.y * Mathf.Cos(a);
             return Mathf.Abs(lx) <= HalfSize.x + margin && Mathf.Abs(lz) <= HalfSize.y + margin;
