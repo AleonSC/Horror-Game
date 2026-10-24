@@ -155,7 +155,8 @@ namespace Game.World
         void Blood()
         {
             var mat = Game.Rendering.RuntimeMaterials.Lit("Blood", new Color(0.12f, 0.005f, 0.005f), 0.75f);
-            var rng = new System.Random(GetInstanceID());
+            var p = transform.position;
+            var rng = new System.Random(Mathf.RoundToInt(p.x * 73f + p.z * 151f)); // (the same blood for the same world)
             for (int i = 0; i < 7; i++)
             {
                 var go = GameObject.CreatePrimitive(PrimitiveType.Cube);

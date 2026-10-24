@@ -104,15 +104,21 @@ namespace Game.DevTools
         {
             GUILayout.Label("Places", DevStyle.Section);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Go to the car", DevStyle.Button)) GoTo(Object.FindFirstObjectByType<Game.World.Car>(), new Vector3(-2.5f, 0f, 0f));
-            if (GUILayout.Button("Go to the watchtower", DevStyle.Button)) GoTo(Object.FindFirstObjectByType<Game.World.Watchtower>(), new Vector3(-3.5f, 0f, 0f));
+            if (GUILayout.Button("Go to the car", DevStyle.Button)) GoTo(First<Game.World.Car>(), new Vector3(-2.5f, 0f, 0f));
+            if (GUILayout.Button("Go to the watchtower", DevStyle.Button)) GoTo(First<Game.World.Watchtower>(), new Vector3(-3.5f, 0f, 0f));
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            var door = Object.FindFirstObjectByType<Game.World.LoneDoor>();
+            var door = First<Game.World.LoneDoor>();
             if (GUILayout.Button("Go to the lone door", DevStyle.Button) && door != null) GoTo(door.frame != null ? door.frame : door.transform, new Vector3(0f, 0f, 3f));
             if (door != null && !door.Unlocked && GUILayout.Button("Unlock it", DevStyle.Button) && Services.TryGet<EventBus>(out var events)) events.Publish(new DoorUnlocked());
             GUILayout.EndHorizontal();
             if (PlayerPlace.InDarkRoom) GUILayout.Label("You're in the dark room.", DevStyle.MutedLabel);
+        }
+
+        static T First<T>() where T : Object
+        {
+            var all = Object.FindObjectsByType<T>();
+            return all.Length > 0 ? all[0] : null;
         }
 
         static void GoTo(Component place, Vector3 offset)
