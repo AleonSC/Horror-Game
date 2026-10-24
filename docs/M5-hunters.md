@@ -90,7 +90,8 @@ searchlight look right? What's the frame time with the crowd out?
   - **mash Space 8 times** to throw it off, or it lets go after 6 s
 
   **Crouch past one and it doesn't notice.** Standing still next to it is safe too.
-- **They keep out of the light:** your beam on one close by, or a lamp's circle, sends it scuttling away.
+- **Your beam doesn't bother them** (it only makes their eyes shine). They do keep out of safe lights: a lamp's
+  circle, a refuge, or your lit torch or lighter sends one scuttling away.
 - **To test quickly:** F9 > Game > Crawlers > **Bring them now**.
 - Numbers: `Assets/Config/Entities/CrawlerConfig`. Your own model can go in **Custom Model** (a child named
   "Eyes" will glow).

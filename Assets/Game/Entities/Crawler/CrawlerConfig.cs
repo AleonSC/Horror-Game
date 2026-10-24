@@ -33,8 +33,6 @@ namespace Game.Entities
         public float crawlSpeed = 1.2f;
         [Range(1f, 60f), Tooltip("Now and then one creeps to a new spot: every this many seconds.")]
         public float repositionEvery = 20f;
-        [Range(1f, 20f), Tooltip("Lit by your beam within this, it scuttles away.")]
-        public float fleeBeamDistance = 8f;
 
         [Header("Leaping")]
         [Range(0.5f, 5f), Tooltip("Come within this walking and it leaps...")]

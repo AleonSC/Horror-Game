@@ -12,7 +12,7 @@ namespace Game.Entities
     /// A crawler (section 6.9): a head on four long thin arms, lying low in the mist. Its eyes shine in your beam.
     /// Come close walking (or closer running) and it leaps onto your face: you can't see or move, it shrieks (the
     /// blind one hears), and you mash Space to throw it off (or it lets go after a while). Being latched onto
-    /// brings another scour. Crouch past it and it doesn't notice. It keeps out of lights.
+    /// brings another scour. Crouch past it and it doesn't notice. It keeps out of safe lights (your beam doesn't bother it).
     /// </summary>
     public sealed class Crawler : MonoBehaviour, IThreat
     {
@@ -199,13 +199,11 @@ namespace Game.Entities
             if (State == CrawlerState.Crawling && (TryLeap(DistanceToPlayer) || AvoidLight())) return;
         }
 
-        // Its beam on it close by, or a light where it lies: it scuttles away into the dark.
+        // A safe light where it lies (a lamp, a refuge, a torch): it scuttles away into the dark. (Your beam
+        // doesn't bother it: it only makes its eyes shine.)
         bool AvoidLight()
         {
-            bool lit = player.Flashlight != null && player.Flashlight.IsOn && DistanceToPlayer < s.fleeBeamDistance
-                       && PlayerSense.InBeam(player, transform.position + Vector3.up * 0.3f, 2f);
-            bool inZone = Services.TryGet<SafeZones>(out var zones) && zones.Contains(transform.position, 1f);
-            if (!lit && !inZone) return false;
+            if (!Services.TryGet<SafeZones>(out var zones) || !zones.Contains(transform.position, 1f)) return false;
             Vector3 away = transform.position - player.transform.position;
             away.y = 0f;
             target = transform.position + away.normalized * 12f;
