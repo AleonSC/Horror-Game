@@ -144,3 +144,18 @@ all burst up one after another with a flutter and caws. They climb away from you
 new flock lands somewhere else later. The old crows that burst up out of the trees now use the same model.
 `ForestLifeConfig` > Crows.
 
+
+## Campsites
+
+The tent was upside down: its two sides leaned outward instead of meeting at the ridge. The campsite is rebuilt as
+a camp someone left in a hurry:
+- **The tent:** an A-frame of faded olive canvas that sags a little between its poles and bellies in down the
+  sides. The back is closed and the front door flaps are tied back toward the fire. It has end poles, guy ropes
+  out to stakes, a ground sheet, and a sleeping bag along one side (loot still lies down the middle).
+- **The fire:** a dead fire in a ring of uneven stones, with ash, charred logs fallen in, and a few embers still
+  glowing faintly.
+- **Around it:** two logs to sit on and a stump, a pot on the stones and a knocked-over mug, an old camping
+  lantern by the tent door, firewood stacked by the tent, and the backpack slumped where it was dropped (lid,
+  pocket, straps, a bedroll on top).
+- **Variation:** each campsite varies a little with its position.
+- **Your own campsite prefab:** if you set one in `WorldArtConfig`, it's used instead, as before.
