@@ -191,7 +191,7 @@ namespace Game.World.Build
             return tex;
         }
 
-        static float Tileable(float u, float v, int period, float seed)
+        internal static float Tileable(float u, float v, int period, float seed)
         {
             // Blend four offset samples so the noise wraps at the texture edge.
             float s = period;

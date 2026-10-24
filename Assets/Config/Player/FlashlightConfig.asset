@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   settings:
     color: {r: 1, g: 0.93, b: 0.82, a: 1}
-    intensity: 15.518231
+    intensity: 73.07219
     boost: 2
     range: 24
     rangeReach: 2.5
@@ -30,6 +30,9 @@ MonoBehaviour:
     bounceRange: 7
     nearDimDistance: 4
     nearDim: 0.35
+    batteryLife: 150
+    lowBattery: 0.2
+    lowDim: 0.45
     handOffset: {x: 0.25, y: -0.2, z: 0.2}
     swaySpeed: 5.5
     maxLag: 14

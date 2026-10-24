@@ -25,8 +25,8 @@ namespace Game.Player
                 Set = s =>
                 {
                     s.color = new Color(1f, 0.78f, 0.5f);
-                    s.intensity = 13f; s.range = 17f; s.rangeReach = 2f; s.beamAngle = 38f; s.edgeFeather = 0.55f;
-                    s.fogGlow = 0.09f; s.spillStrength = 0.12f; s.spillAngle = 95f; s.bounceStrength = 0.3f;
+                    s.intensity = 47f; s.range = 17f; s.rangeReach = 2f; s.beamAngle = 38f; s.edgeFeather = 0.55f;
+                    s.fogGlow = 0.06f; s.spillStrength = 0.12f; s.spillAngle = 95f; s.bounceStrength = 0.3f;
                 },
             },
             new Preset
@@ -35,8 +35,8 @@ namespace Game.Player
                 Set = s =>
                 {
                     s.color = new Color(0.86f, 0.93f, 1f);
-                    s.intensity = 34f; s.range = 36f; s.rangeReach = 2.5f; s.beamAngle = 22f; s.edgeFeather = 0f;
-                    s.fogGlow = 0.16f; s.spillStrength = 0.05f; s.spillAngle = 70f; s.bounceStrength = 0.2f;
+                    s.intensity = 122f; s.range = 36f; s.rangeReach = 2.5f; s.beamAngle = 22f; s.edgeFeather = 0f;
+                    s.fogGlow = 0.11f; s.spillStrength = 0.05f; s.spillAngle = 70f; s.bounceStrength = 0.2f;
                 },
             },
             new Preset
@@ -45,8 +45,8 @@ namespace Game.Player
                 Set = s =>
                 {
                     s.color = new Color(1f, 0.95f, 0.88f);
-                    s.intensity = 22f; s.range = 19f; s.rangeReach = 2.2f; s.beamAngle = 62f; s.edgeFeather = 0.7f;
-                    s.fogGlow = 0.1f; s.spillStrength = 0.15f; s.spillAngle = 120f; s.bounceStrength = 0.3f;
+                    s.intensity = 79f; s.range = 19f; s.rangeReach = 2.2f; s.beamAngle = 62f; s.edgeFeather = 0.7f;
+                    s.fogGlow = 0.07f; s.spillStrength = 0.15f; s.spillAngle = 120f; s.bounceStrength = 0.3f;
                 },
             },
             new Preset
@@ -55,8 +55,8 @@ namespace Game.Player
                 Set = s =>
                 {
                     s.color = new Color(1f, 0.96f, 0.9f);
-                    s.intensity = 48f; s.range = 50f; s.rangeReach = 2f; s.beamAngle = 13f; s.edgeFeather = 0.15f;
-                    s.fogGlow = 0.2f; s.spillStrength = 0.04f; s.spillAngle = 60f; s.bounceStrength = 0.15f;
+                    s.intensity = 172f; s.range = 50f; s.rangeReach = 2f; s.beamAngle = 13f; s.edgeFeather = 0.15f;
+                    s.fogGlow = 0.13f; s.spillStrength = 0.04f; s.spillAngle = 60f; s.bounceStrength = 0.15f;
                 },
             },
             new Preset
@@ -65,8 +65,8 @@ namespace Game.Player
                 Set = s =>
                 {
                     s.color = new Color(1f, 0.7f, 0.42f);
-                    s.intensity = 7f; s.range = 13f; s.rangeReach = 1.8f; s.beamAngle = 34f; s.edgeFeather = 0.5f;
-                    s.fogGlow = 0.07f; s.spillStrength = 0.06f; s.spillAngle = 80f; s.bounceStrength = 0.2f;
+                    s.intensity = 25f; s.range = 13f; s.rangeReach = 1.8f; s.beamAngle = 34f; s.edgeFeather = 0.5f;
+                    s.fogGlow = 0.05f; s.spillStrength = 0.06f; s.spillAngle = 80f; s.bounceStrength = 0.2f;
                 },
             },
             new Preset
@@ -75,8 +75,8 @@ namespace Game.Player
                 Set = s =>
                 {
                     s.color = new Color(0.8f, 0.86f, 1f);
-                    s.intensity = 18f; s.range = 26f; s.rangeReach = 2.5f; s.beamAngle = 30f; s.edgeFeather = 0.35f;
-                    s.fogGlow = 0.14f; s.spillStrength = 0.1f; s.spillAngle = 90f; s.bounceStrength = 0.25f;
+                    s.intensity = 64f; s.range = 26f; s.rangeReach = 2.5f; s.beamAngle = 30f; s.edgeFeather = 0.35f;
+                    s.fogGlow = 0.09f; s.spillStrength = 0.1f; s.spillAngle = 90f; s.bounceStrength = 0.25f;
                 },
             },
         };

@@ -49,21 +49,27 @@ namespace Game.World.Build
             this.deadArt = deadArt;
             across = Mathf.CeilToInt(plan.Size / TerrainBuilder.ChunkSize);
             // (Pale enough to catch a little of your light and the lamps': darker and the trees were flat black shapes.)
-            Bark = Mat("Bark", new Color(0.2f, 0.16f, 0.13f), 0.22f, false);
+            // Bark: plates and deep fissures (a texture with bumps for the lighting), round the built-in trunks.
+            var barkBumps = Keep(BarkTexture.Normals(plan.Seed));
+            Bark = Mat("Bark", new Color(0.8f, 0.8f, 0.8f), 0.22f, false, Keep(BarkTexture.Build(plan.Seed, false)), BarkTexture.Tiling);
+            RuntimeMaterials.SetNormalMap(Bark, barkBumps, 1f);
             Needles = Mat("Needles", new Color(0.09f, 0.13f, 0.08f), 0.18f, true);
-            DeadWood = Mat("Dead wood", new Color(0.25f, 0.22f, 0.18f), 0.18f, false);
+            var deadBark = Keep(BarkTexture.Build(plan.Seed, true));
+            DeadWood = Mat("Dead wood", new Color(0.75f, 0.73f, 0.7f), 0.18f, false, deadBark, BarkTexture.Tiling);
+            RuntimeMaterials.SetNormalMap(DeadWood, barkBumps, 0.6f); // (weathered smoother)
             bushA = Mat("Bush leaves", new Color(0.07f, 0.11f, 0.045f), 0.3f, true); // (leaves: double-sided, a little waxy)
             bushB = Mat("Bush leaves (dry)", new Color(0.13f, 0.11f, 0.045f), 0.25f, true);
             grassDry = Mat("Dry grass", new Color(0.24f, 0.2f, 0.12f), 0.1f, true);
             grassGreen = Mat("Grass", new Color(0.09f, 0.11f, 0.06f), 0.1f, true);
             tallGrass = Mat("Tall grass", new Color(0.17f, 0.16f, 0.09f), 0.1f, true);
             rock = Mat("Rock", new Color(0.18f, 0.18f, 0.17f), 0.25f, false);
-            logWood = Mat("Log", new Color(0.12f, 0.09f, 0.07f), 0.2f, false);
+            logWood = Mat("Log", new Color(0.45f, 0.4f, 0.36f), 0.2f, false, deadBark, new Vector2(2f, 1f));
+            RuntimeMaterials.SetNormalMap(logWood, barkBumps, 0.8f);
         }
 
-        Material Mat(string name, Color c, float smooth, bool doubleSided)
+        Material Mat(string name, Color c, float smooth, bool doubleSided, Texture2D texture = null, Vector2 tiling = default)
         {
-            var m = RuntimeMaterials.LitTextured(name, c, smooth, null, Vector2.one, doubleSided);
+            var m = RuntimeMaterials.LitTextured(name, c, smooth, texture, texture != null ? tiling : Vector2.one, doubleSided);
             made.Add(m);
             return m;
         }
@@ -72,6 +78,12 @@ namespace Game.World.Build
         {
             made.Add(m);
             return m;
+        }
+
+        Texture2D Keep(Texture2D t)
+        {
+            made.Add(t);
+            return t;
         }
 
         public void Populate()

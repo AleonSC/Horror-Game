@@ -16,31 +16,40 @@ MonoBehaviour:
   settings:
     exposure: -1.9
     neutralTonemapping: 0
-    postExposure: 2.84325
-    contrast: 46.3908
-    saturation: 13.01806
+    postExposure: 1.335732
+    contrast: 32.60194
+    saturation: 43.16547
     colorFilter: {r: 1, g: 1, b: 1, a: 1}
     vignette: 0.3
-    grain: 0
+    grain: 0.2
     fogColor: {r: 0.16, g: 0.17, b: 0.2, a: 1}
-    fogDensity: 0.011345021
+    fogDensity: 0.004430479
     volumetricFog: 1
-    fogGlow: 0.55
+    fogGlow: 0.85
     fogAnisotropy: 0.2
     fogReach: 160
     lampFogGlow: 0.3
     ambient: {r: 0.06, g: 0.07, b: 0.09, a: 1}
     ambientStrength: 1
     moonColor: {r: 0.55, g: 0.6, b: 0.72, a: 1}
-    moonBrightness: 0.2499997
+    moonBrightness: 0
     moonHeight: 35
     moonDirection: 210
     moonShadows: 1
     moonShadowSoftness: 3
+    nightSky: 1
+    moonGlowColor: {r: 0.5, g: 0.53, b: 0.6, a: 1}
+    moonGlow: 0.6
+    moonGlowSize: 25
+    stars: 0.7
+    starDensity: 0.5
+    cloudCover: 0.5
+    cloudBrightness: 1
+    cloudDrift: 0.01
     mist: 1
     mistColor: {r: 0.8, g: 0.82, b: 0.86, a: 1}
-    mistThickness: 4.8569784
-    mistHeight: 2.5033371
+    mistThickness: 3
+    mistHeight: 2.254317
     mistReach: 45
     mistPatchSize: 14
     mistPatchiness: 0.65

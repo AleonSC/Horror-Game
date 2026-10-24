@@ -26,7 +26,7 @@ namespace Game.Tests
             Assert.AreEqual(0.16f, s.fogColor.r, 1e-4f);
             Assert.AreEqual(0.17f, s.fogColor.g, 1e-4f);
             Assert.AreEqual(0.20f, s.fogColor.b, 1e-4f);
-            Assert.AreEqual(0.06f, s.fogDensity, 1e-4f);
+            Assert.AreEqual(0.00443f, s.fogDensity, 1e-4f);
             Assert.AreEqual(-1.9f, s.exposure, 1e-4f);
         }
 
@@ -35,7 +35,7 @@ namespace Game.Tests
         {
             var a = LookThemes.Get("Reference");
             a.fogDensity = 0.2f;
-            Assert.AreEqual(0.06f, LookThemes.Get("Reference").fogDensity, 1e-4f);
+            Assert.AreEqual(0.00443f, LookThemes.Get("Reference").fogDensity, 1e-4f);
         }
 
         [Test]

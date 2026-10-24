@@ -381,3 +381,18 @@ and costs your flashlight nothing.
   spill, bounce), not the battery or the hand. Fine-tune in the Look tab; Save keeps it.
 - **The giant** never comes nearer than 90% of the distance it landed at (`GiantConfig` > `keepAway`, on top of
   `closestDistance`): it barely gains, striding forever on the horizon.
+
+## Bark, felled trees that break up, and the owner's lighting as the default
+
+- **Bark texture:** made in code (`BarkTexture`): thick plates, taller than wide, split by deep dark
+  fissures, cracked across, with fibres running up them and patches of grey-green lichen, plus a matching
+  normal map so the fissures catch your light. Dead trees and logs get the same grain weathered grey.
+- **Falling trees:** a felled tree now snaps off above a **stump** that stays (with a torn, splintered top of
+  pale fresh wood). The trunk above is cut into 3-6 **logs** (its own mesh, sliced, the cut ends capped)
+  that topple together. As it hits the ground the **crown bursts** into a flurry of needles that flutter
+  down, settle and fade. A few seconds later the **logs come apart** and roll (real physics bodies). After
+  25 s they sink away when you aren't looking. Tree-pack art whose meshes can't be read still falls whole.
+- **Default lighting:** the owner's settings are now the defaults, both in the code (the Reference theme)
+  and in `LookConfig.asset` / `FlashlightConfig.asset`: brighter flashlight (73), thinner fog (0.0044), no
+  moonlight, and more contrast and saturation. The flashlight presets are scaled to match. Other themes
+  start from these values too.

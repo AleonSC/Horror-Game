@@ -20,7 +20,7 @@ namespace Game.Player
         [Header("Beam")]
         public Color color = new Color(1f, 0.93f, 0.82f);
         [Range(0f, 200f), Tooltip("Brightness (candela).")]
-        public float intensity = 20.4f;
+        public float intensity = 73.07219f;
         [Range(0f, 5f), Tooltip("Multiplies the brightness.")]
         public float boost = 2f;
         [Range(2f, 80f), Tooltip("How far the beam reaches at full strength (metres).")]
@@ -33,7 +33,7 @@ namespace Game.Player
         public float edgeFeather = 0f;
         public bool shadows = true;
         [Range(0f, 2f), Tooltip("How much the beam shows in the fog and mist.")]
-        public float fogGlow = 0.12f;
+        public float fogGlow = 0.08f;
 
         [Header("Spill")]
         [Range(0f, 0.5f), Tooltip("A wide, faint light round the beam, so the edges of the view aren't black. 0: none.")]
@@ -41,7 +41,7 @@ namespace Game.Player
         [Range(30f, 170f), Tooltip("How wide the spill is (degrees).")]
         public float spillAngle = 85f;
         [Range(0f, 1f), Tooltip("How much the spill lights the fog, as a share of the beam's. Low, or the near fog goes milky.")]
-        public float spillFogGlow = 0.3f;
+        public float spillFogGlow = 0.2f;
 
         [Header("Bounce")]
         [Range(0f, 1f), Tooltip("Light bouncing back off what the beam hits close by, tinted by it. 0: none.")]

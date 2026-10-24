@@ -19,9 +19,9 @@ namespace Game.Rendering
 
         [Header("Picture")]
         [Range(-3f, 5f), Tooltip("Brightens or darkens the whole picture after lighting.")]
-        public float postExposure = 1.0f;
-        [Range(-100f, 100f)] public float contrast = 35f;
-        [Range(-100f, 100f)] public float saturation = 0f;
+        public float postExposure = 1.335732f;
+        [Range(-100f, 100f)] public float contrast = 32.60194f;
+        [Range(-100f, 100f)] public float saturation = 43.16547f;
         [Tooltip("Tints the whole picture (white: no tint).")]
         public Color colorFilter = Color.white;
         [Range(0f, 1f), Tooltip("Darkened corners.")]
@@ -31,9 +31,9 @@ namespace Game.Rendering
 
         [Header("Fog")]
         [Tooltip("The fog's colour: pale and brighter than the shadows, so trees stand dark against it.")]
-        public Color fogColor = new Color(0.16f, 0.17f, 0.20f);
+        public Color fogColor = new Color(0.16f, 0.17f, 0.2f);
         [Range(0.001f, 0.3f), Tooltip("How thick the fog is. 0.06 hides things about 15 m away.")]
-        public float fogDensity = 0.06f;
+        public float fogDensity = 0.004430479f;
         [Tooltip("Lights shine through the fog (beams, glows). Off is the classic look.")]
         public bool volumetricFog = true;
         [Range(0f, 1f), Tooltip("How strongly lights show up in the fog.")]
@@ -53,7 +53,7 @@ namespace Game.Rendering
         [Header("Moon")]
         public Color moonColor = new Color(0.55f, 0.6f, 0.72f);
         [Range(0f, 5f), Tooltip("Moonlight brightness (lux).")]
-        public float moonBrightness = 0.35f;
+        public float moonBrightness = 0f;
         [Range(5f, 90f), Tooltip("How high the moon is (degrees).")]
         public float moonHeight = 35f;
         [Range(0f, 360f), Tooltip("Which way the moonlight comes from (degrees round).")]
@@ -80,11 +80,11 @@ namespace Game.Rendering
         [Header("Ground mist")]
         public bool mist = true;
         [Tooltip("The mist's colour.")]
-        public Color mistColor = new Color(0.80f, 0.82f, 0.86f);
+        public Color mistColor = new Color(0.8f, 0.82f, 0.86f);
         [Range(0.5f, 60f), Tooltip("How thick the mist is: the distance you can see through it (metres). Lower is thicker.")]
         public float mistThickness = 3f;
         [Range(0.3f, 6f), Tooltip("How high the mist reaches (metres).")]
-        public float mistHeight = 1.4f;
+        public float mistHeight = 2.254317f;
         [Range(10f, 120f), Tooltip("How far round you the mist reaches (metres).")]
         public float mistReach = 45f;
         [Range(2f, 60f), Tooltip("Size of the mist's patches (metres).")]
