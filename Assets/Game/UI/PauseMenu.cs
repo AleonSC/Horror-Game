@@ -272,8 +272,20 @@ namespace Game.UI
 
         void Show(VisualElement page)
         {
+            var was = Current;
             foreach (var p in new[] { main, options, confirm }) p.style.display = p == page ? DisplayStyle.Flex : DisplayStyle.None;
             if (page == options) RefreshLevel();
+            // Each page comes together out of motes, the way a scour does.
+            if (page != was && Services.TryGet<UiMotes>(out var motes)) motes.Materialize(page);
+        }
+
+        VisualElement Current
+        {
+            get
+            {
+                foreach (var p in new[] { main, options, confirm }) if (p.style.display == DisplayStyle.Flex) return p;
+                return null;
+            }
         }
 
         void OpenMenu()
@@ -282,6 +294,7 @@ namespace Game.UI
             if (Services.TryGet<CatchFlow>(out var catchFlow) && catchFlow.Active) return;
             if (!Services.TryGet<PauseState>(out var pause)) return;
             pause.Pause();
+            foreach (var p in new[] { main, options, confirm }) p.style.display = DisplayStyle.None; // (so main comes in fresh)
             Show(main);
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
@@ -289,6 +302,8 @@ namespace Game.UI
 
         void Close()
         {
+            // ...and comes apart again as the game carries on.
+            if (Services.TryGet<UiMotes>(out var motes)) motes.Dissolve(Current);
             SavePrefs();
             if (Services.TryGet<PauseState>(out var pause)) pause.Resume();
             PlayerController.SetCursorCaptured(true);
