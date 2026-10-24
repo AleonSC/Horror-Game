@@ -23,6 +23,7 @@ namespace Game.Core
         public Difficulty Difficulty { get; private set; }
         public PauseState Pause { get; private set; }
         public Wind Wind { get; private set; }
+        public GameFlow Flow { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void CreateOnPlay()
@@ -56,6 +57,7 @@ namespace Game.Core
             Difficulty = new Difficulty(Preferences);
             Pause = new PauseState(Events, Ui);
             Wind = new Wind();
+            Flow = new GameFlow(Events);
 
             Services.Register(this);
             Services.Register(Events);
@@ -67,6 +69,7 @@ namespace Game.Core
             Services.Register(Difficulty);
             Services.Register(Pause);
             Services.Register(Wind);
+            Services.Register(Flow);
 
             // A project left with Time Scale 0 (Project Settings > Time) would start frozen: nothing moves.
             if (Time.timeScale <= 0f)
@@ -78,7 +81,11 @@ namespace Game.Core
             StartNewRun();
         }
 
-        void Update() => Run?.Tick(Time.deltaTime);
+        // (The run's clock only runs while playing: not under the main menu or the intro.)
+        void Update()
+        {
+            if (Flow == null || Flow.Playing) Run?.Tick(Time.deltaTime);
+        }
 
         void OnApplicationQuit() => Preferences?.Save(PlayerPreferences.DefaultPath);
 
@@ -94,6 +101,7 @@ namespace Game.Core
             if (Difficulty != null) Services.Unregister(Difficulty);
             if (Pause != null) Services.Unregister(Pause);
             if (Wind != null) Services.Unregister(Wind);
+            if (Flow != null) Services.Unregister(Flow);
             if (Run != null) Services.Unregister(Run);
         }
 

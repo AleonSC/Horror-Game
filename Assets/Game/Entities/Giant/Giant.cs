@@ -199,7 +199,7 @@ namespace Game.Entities
 
             switch (State)
             {
-                case GiantState.Hanging: Hang(p); FirstSight(); break;
+                case GiantState.Hanging: Hang(p); if (GameFlow.IsPlaying) FirstSight(); break;
                 case GiantState.Staring: Hang(p); Stare(dt); break;
                 case GiantState.Falling: Fall(dt); break;
                 case GiantState.Landed: Landed(dt, p); break;

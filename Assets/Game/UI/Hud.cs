@@ -152,6 +152,10 @@ namespace Game.UI
         void LateUpdate()
         {
             if (!built) return;
+            // (No HUD under the main menu or the intro.)
+            var hudLayer = dot.parent;
+            var want = GameFlow.IsPlaying ? DisplayStyle.Flex : DisplayStyle.None;
+            if (hudLayer.style.display != want) hudLayer.style.display = want;
             bool hasPlayer = Services.TryGet<PlayerController>(out var player);
             Show(dot, hasPlayer && !player.Held);
             if (hasPlayer && !player.Held) Crosshair(player);

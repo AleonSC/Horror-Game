@@ -116,7 +116,7 @@ namespace Game.Player
             shake = Mathf.MoveTowards(shake, 0f, dt * Mathf.Max(2f, shake * 3f));
             groggy = Mathf.Max(0f, groggy - dt);
 
-            if (Held)
+            if (Held || !GameFlow.IsPlaying)
             {
                 Moving = Running = false;
                 return;

@@ -22,11 +22,19 @@ namespace Game.World
         readonly List<Owl> owls = new List<Owl>();
         ForestLifeSettings s;
 
+        /// <summary>The owls in the current world (the menu's film looks for one).</summary>
+        public static Owls Current { get; private set; }
+        public int Count => owls.Count;
+        public Transform OwlAt(int i) => owls[i].Body;
+
+        void OnDestroy() { if (Current == this) Current = null; }
+
         public static Owls Build(WorldPlan plan, List<ForestTree> trees, ForestLifeSettings s, WorldWrap wrap, Transform parent)
         {
             var o = new GameObject("Owls").AddComponent<Owls>();
             o.transform.SetParent(parent, false);
             o.s = s;
+            Current = o;
             var rng = new Rng(plan.Seed, 95);
             for (int attempt = 0; attempt < s.owls * 20 && o.owls.Count < s.owls && trees.Count > 0; attempt++)
             {

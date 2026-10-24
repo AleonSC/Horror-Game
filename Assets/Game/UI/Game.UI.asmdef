@@ -5,6 +5,9 @@
         "Game.Core",
         "Game.Audio",
         "Game.Player",
+        "Game.World",
+        "Game.Rendering",
+        "Unity.RenderPipelines.HighDefinition.Runtime",
         "Unity.InputSystem",
         "UnityEngine.UI"
     ],

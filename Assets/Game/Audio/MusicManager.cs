@@ -33,6 +33,8 @@ namespace Game.Audio
         int playlistIndex;
 
         public MusicMood Mood => mood;
+        /// <summary>The built-in music has been made (it's made on a background thread at startup).</summary>
+        public bool Ready => synth == null;
         /// <summary>What's playing, for the dev window.</summary>
         public string Playing => string.IsNullOrEmpty(playingKey) ? "nothing" : playingKey;
 

@@ -73,6 +73,7 @@ namespace Game.Entities
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
+            if (!GameFlow.IsPlaying) return; // (nothing hunts under the main menu)
             body.EyeLightOnSurfaces = s.eyeLightOnSurfaces;
             // Through the lone door nothing can follow: it keeps away until you come back.
             if (PlayerPlace.InDarkRoom)

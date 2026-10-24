@@ -58,7 +58,7 @@ namespace Game.World
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
-            if (PlayerPlace.InDarkRoom) return;
+            if (PlayerPlace.InDarkRoom || !GameFlow.IsPlaying) return;
             float elapsed = Services.TryGet<GameRun>(out var run) ? run.Elapsed : Time.time;
             if (elapsed >= nextFall)
             {

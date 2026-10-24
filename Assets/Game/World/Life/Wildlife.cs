@@ -41,6 +41,9 @@ namespace Game.World
         readonly Matrix4x4[] motes = new Matrix4x4[InstancedDraw.MaxPerCall];
 
         public ForestLifeSettings Settings => config.settings;
+        /// <summary>Where the deer are grazing (and whether they're there to see).</summary>
+        public Vector3 HerdCentre => herdCentre;
+        public bool HerdOut => herdPlaced && herdAway <= 0f && herdFleeing <= 0f && herd.Count > 0;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
