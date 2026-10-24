@@ -294,3 +294,39 @@ Sheltered sound state only turned it down.
 - **What isn't:** your own sounds, the music and the menus. The tension under it all is only partly muffled.
 - **For your own loops:** put the `Muffled` component on an outside sound's own looping AudioSource.
 
+## The car, the shacks and the cabin, in detail
+
+- **The car** (`World/Build/CarModel.cs`, driven by `World/Places/Car.cs`): an old four-door sedan.
+  - **Outside:** dull dark-red paint, rust round the edges, chrome bumpers that wrap round the corners, a barred
+    grille, round headlights in chrome rims with amber indicators under them, framed tail lights, number plates,
+    drip rails, side mirrors, door handles and chrome trim. The back-left tyre is flat.
+  - **Glass:** tinted windscreen, rear window and door windows.
+  - **Inside:** a dashboard with three dials, the steering wheel on its column, a gear stick, the mirror, two
+    front seats with headrests, the back bench, the parcel shelf and carpet.
+  - **Seats:** Y by any door gets you into that seat, and Y again moves you round all four ("the driver's
+    seat", "the passenger seat"...). E gets you out by your seat's door.
+  - **Doors and lids:** each of the four doors opens (E). The trunk lid and the glove box's little door click
+    open (LMB), and what's in them can only be searched while they're open. The back seat is reached through the
+    open rear left door.
+  - **Headlights:** click either headlight, or the switch on the dashboard. The prompt shows the battery left.
+  - **Key fob:** LMB chirps the car (two chirps, the indicators flashing). RMB sets off its alarm: the horn
+    blaring on and off, the lights flashing, heard 150 m off and drawing things to it. RMB again stops it. The
+    alarm runs off the headlights' battery, three times as fast (`alarmDrain`).
+- **The shacks** (`World/Build/HutModel.cs`): weathered planks with gaps between them, a rusty tin roof, and:
+  - **Outside:** corner posts, stone footings, a low tin roof in ribs with barge boards and a ridge cap,
+    planked gable ends, a window each side (one boarded up), a plank door with its Z-brace, strap hinges, latch
+    and pull, and a step.
+  - **Inside:** a plank floor, an iron cot with a stained mattress, pillow and blanket, a planked table and a
+    chair, two shelves of jars and cans, a bucket, a hooped barrel and an old calendar.
+- **The cabin:** log walls, a shingle roof, a porch, and:
+  - **Walls:** logs crossing and sticking out at the corners, with paler cut ends.
+  - **Roof:** a steep shingled roof in uneven overlapping rows.
+  - **Windows:** four, each with a frame, glazing bars, dirty glass and a sill.
+  - **Porch:** across the front, with its deck, steps, posts with brackets, railings with balusters, its own
+    shingled roof and a rocking chair.
+  - **Inside:** a rug, a bed with a headboard, a table with two chairs (one knocked over), a cast-iron stove
+    with its pipe up through the roof, a bookshelf of books, shelves of jars, a ceiling beam with a lantern
+    hanging from it, and an old coat by the door.
+- **Collision:** what you bump into is still the plain room underneath, now hidden.
+- **Your own models:** prefabs set in `WorldArtConfig` are used instead, as before.
+

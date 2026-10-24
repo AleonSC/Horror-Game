@@ -84,13 +84,17 @@ namespace Game.World.Build
             switch (site.Kind)
             {
                 case StructureKind.Cabin:
-                    Room(t, new Vector3(8f, 3.2f, 7f), 1.6f, 2.3f, wood, darkWood);
-                    Table(t, PlaceFittings.CabinTableSpot);
+                {
+                    var door = Room(t, new Vector3(8f, 3.2f, 7f), 1.6f, 2.3f, wood, darkWood, false);
+                    new HutModel(made, stone).Build(t, door, new Vector3(8f, 3.2f, 7f), 1.6f, 2.3f, true, PlaceFittings.CabinTableSpot, Rng(site));
                     break;
+                }
                 case StructureKind.Shack:
-                    Room(t, new Vector3(4f, 2.6f, 5f), 1.5f, 2.2f, wood, darkWood);
-                    Table(t, PlaceFittings.TableSpot);
+                {
+                    var door = Room(t, new Vector3(4f, 2.6f, 5f), 1.5f, 2.2f, wood, darkWood, false);
+                    new HutModel(made, stone).Build(t, door, new Vector3(4f, 2.6f, 5f), 1.5f, 2.2f, false, PlaceFittings.TableSpot, Rng(site));
                     break;
+                }
                 case StructureKind.Campsite:
                     Campsite(t, new System.Random(Mathf.RoundToInt(site.Position.x * 31f + site.Position.y * 17f)));
                     break;
@@ -124,9 +128,14 @@ namespace Game.World.Build
             return root;
         }
 
+        static System.Random Rng(StructureSite site) => new System.Random(Mathf.RoundToInt(site.Position.x * 23f + site.Position.y * 31f));
+
         // A hollow hut: walls with a doorway in the front (+Z) wall, a floor, a roof and a door that swings out.
-        void Room(Transform t, Vector3 size, float doorWidth, float doorHeight, Material walls, Material roof)
+        // Not shown (shown: false), it's just what you bump into, the door's hinge and the shelter, and the
+        // detailed model goes over it. Returns the door's hinge.
+        Transform Room(Transform t, Vector3 size, float doorWidth, float doorHeight, Material walls, Material roof, bool shown = true)
         {
+            int before = t.childCount;
             const float wall = 0.12f;
             float w = size.x, h = size.y, d = size.z;
             Box(t, new Vector3(0f, 0.025f, 0f), new Vector3(w, 0.05f, d), roof);                          // floor
@@ -148,6 +157,10 @@ namespace Game.World.Build
             hinge.gameObject.AddComponent<Door>();
 
             PlaceFittings.AddShelter(t, t.name, new Bounds(new Vector3(0f, h * 0.5f, 0f), new Vector3(w - wall * 2f, h, d - wall * 2f)));
+            if (!shown)
+                for (int i = before; i < t.childCount; i++)
+                    foreach (var r in t.GetChild(i).GetComponentsInChildren<Renderer>()) r.enabled = false;
+            return hinge;
         }
 
         void Table(Transform t, Vector3 at)
