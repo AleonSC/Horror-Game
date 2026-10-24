@@ -33,23 +33,38 @@ namespace Game.Audio
             return Loopable(s, 0.5f);
         }
 
-        /// <summary>Something's on you: driving low strings and a quick pulse (8 s).</summary>
+        /// <summary>
+        /// A scour's hunting you: no drums (the blind one has those). A bowed cello ostinato pushing on in F# minor,
+        /// with a tritone in it (F#, G, F#, C), under a glassy, dissonant cluster that slowly swells and breathes;
+        /// a soft swell of air rising into each bar, and a low sub throb on the downbeat (8 s).
+        /// </summary>
         public static float[] Danger(int seed)
         {
             var rng = new Random(seed);
             var s = Make(8f);
-            string[] line = { "D2", "D2", "Eb2", "D2", "D2", "D2", "A1", "Eb2" };
+            string[] line = { "F#2", "G2", "F#2", "C3", "F#2", "G2", "A2", "G2" };
+            float lp = 0f, cello = 0f;
             for (int i = 0; i < s.Length; i++)
             {
                 float t = T(i);
-                float eighth = 0.25f;                                       // 120 bpm eighths
-                int step = (int)(t / eighth) % line.Length;
-                float local = t % eighth;
-                float bass = Saw(Note(line[step]), t, 6) * Decay(local, 5f) * 0.5f;
-                float trem = Saw(Note("D3"), t, 5) * 0.12f * (0.5f + 0.5f * (float)Math.Sin(2 * Math.PI * 8 * t)) + Saw(Note("Eb3"), t, 5) * 0.08f;
-                float kick = (t % 0.5f) < 0.2f ? Sine(55f + 60f * Decay(t % 0.5f, 30f), t) * Decay(t % 0.5f, 14f) : 0f;
-                float hat = Noise(rng) * Decay(t % 0.25f, 60f) * 0.08f;
-                s[i] = bass + trem + kick * 0.8f + hat;
+                // The ostinato: each note bowed (a quick swell, held, then let go), filtered dark.
+                const float step = 0.5f;
+                int n = (int)(t / step) % line.Length;
+                float local = t % step;
+                float bow = Math.Min(1f, local / 0.04f) * (local < step * 0.8f ? 1f : Math.Max(0f, 1f - (local - step * 0.8f) / (step * 0.2f)));
+                float raw = Saw(Note(line[n]), t, 8) * bow;
+                cello += (raw - cello) * 0.12f;
+                float octave = Saw(Note(line[n]) * 2f, t, 4) * bow * 0.15f;
+                // The cluster: three close notes high up, slow vibrato, swelling over each half and easing off.
+                float half = t % 4f;
+                float swell = (float)Math.Pow(Math.Min(1f, half / 3.4f), 2f) * (half < 3.6f ? 1f : Math.Max(0f, 1f - (half - 3.6f) / 0.4f));
+                float vib = 1f + 0.004f * (float)Math.Sin(2 * Math.PI * 5.2 * t);
+                float glass = (Sine(Note("C#4") * vib, t) + Sine(Note("D4") * vib * 1.002f, t) * 0.8f + Sine(Note("G#4") * vib, t) * 0.5f) * 0.12f;
+                // Air rising into each bar.
+                lp += (Noise(rng) - lp) * (0.02f + 0.1f * (t % 2f) / 2f);
+                float air = lp * (float)Math.Pow((t % 2f) / 2f, 3f) * 0.6f;
+                float throb = Sine(Note("F#1"), t) * Decay(t % 2f, 3f) * 0.35f;
+                s[i] = cello * 0.55f + octave + glass * (0.35f + 0.65f * swell) + air + throb;
             }
             return Loopable(s, 0.6f);
         }

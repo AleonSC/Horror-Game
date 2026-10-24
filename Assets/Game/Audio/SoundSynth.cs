@@ -577,19 +577,23 @@ namespace Game.Audio
             return Loop(s, 0.35f);
         }
 
-        /// <summary>The tension layer that swells when something's near: high, dissonant, trembling (10 s, to loop).</summary>
+        /// <summary>
+        /// The tension under it all when something's near, to loop: no high tones (they chirped), just a low,
+        /// slowly beating drone (D and E flat a step apart, rubbing) and a dark breath of air that rises and falls (10 s).
+        /// </summary>
         public static float[] TensionBed(int seed)
         {
             var rng = new Random(seed);
             var s = Make(10f);
-            float lp = 0f;
+            float lp = 0f, lp2 = 0f;
             for (int i = 0; i < s.Length; i++)
             {
                 float t = Time(i);
-                float trem = 0.7f + 0.3f * (float)Math.Sin(2 * Math.PI * 7.3 * t);
-                lp += (Noise(rng) - lp) * 0.15f;
-                s[i] = ((float)(Math.Sin(2 * Math.PI * 1244.5 * t) + Math.Sin(2 * Math.PI * 1318.5 * t) * 0.8 + Math.Sin(2 * Math.PI * 659.3 * t) * 0.5) * 0.25f * trem + lp * 0.3f)
-                       * (0.75f + 0.25f * (float)Math.Sin(2 * Math.PI * t / 10f));
+                float drone = (float)(Math.Sin(2 * Math.PI * 73.4 * t) * 0.5 + Math.Sin(2 * Math.PI * 77.8 * t) * 0.35 + Math.Sin(2 * Math.PI * 146.8 * t) * 0.12);
+                lp += (Noise(rng) - lp) * 0.03f;
+                lp2 += (lp - lp2) * 0.05f;
+                float breath = 0.5f + 0.5f * (float)Math.Sin(2 * Math.PI * t / 5f);
+                s[i] = (drone * 0.5f + lp2 * 3f * breath) * (0.8f + 0.2f * (float)Math.Sin(2 * Math.PI * t / 10f));
             }
             return Loop(s, 0.4f);
         }
