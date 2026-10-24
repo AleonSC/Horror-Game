@@ -26,3 +26,18 @@ and press **Play**.
 
 **Let me know:** does the sway look natural, or too much or too little? What's the frame time like? Is the
 ambience too loud, too busy or too quiet?
+
+## Part 2: weather
+
+- **Rain:** light from the start, heavier at the 5th lamp and a downpour at the 7th, easing in over about 20 s.
+  The streaks slant in the wind. **It stops at roofs**: no rain inside the shacks, the cabin or the car, or
+  under the watchtower's deck. You hear it outside; the shelters muffle it.
+- **Lightning** every 15-45 s: the whole forest flickers bright for a moment, and the thunder comes after it,
+  later and quieter the further away it struck (up to about 7 s).
+- **Tornadoes**, from the 8th lamp: two vast funnels on the horizon, about 900 m away, twisting and drifting
+  slowly round, with a low roar. Like the giant, they stay visible through the fog.
+- Numbers: `Assets/Config/World/WeatherConfig` > Rain, Lightning and Tornadoes. To see the late weather quickly,
+  F9 > Game > **Light the nearest lamp** a few times.
+
+**Let me know:** is the rain visible enough without being in the way? Is the lightning too bright, or too
+often? And the frame time in a downpour (3,000 drops).

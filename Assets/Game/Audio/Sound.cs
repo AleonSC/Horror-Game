@@ -10,5 +10,6 @@ namespace Game.Audio
         Pickup, Ignite, Lighter, FlareShot, FlareBurst, Crack, Shutter, Chirp, DoorOpen, DoorShut, Clunk, Eat,
         Step, Thunder, Boom, GiantStep, ChainJolt,
         Rustle, Twig, Creak, WindLoop, Drone, TensionBed,
+        RainLoop,
     }
 }

@@ -551,6 +551,24 @@ namespace Game.Audio
             return Loop(s, 0.4f);
         }
 
+        /// <summary>Rain in the forest, to loop: a soft hiss with drops pattering on leaves (6 s).</summary>
+        public static float[] RainLoop(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(6f);
+            float lp = 0f, hp = 0f, last = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float n = Noise(rng);
+                hp = 0.9f * (hp + n - last);
+                last = n;
+                lp += (hp - lp) * 0.35f;
+                float patter = rng.NextDouble() < 0.004 ? Noise(rng) * 3f : 0f;
+                s[i] = lp * 0.6f + patter;
+            }
+            return Loop(s, 0.4f);
+        }
+
         // Crossfade the end into the start so it loops without a click.
         static float[] Loop(float[] s, float peak)
         {

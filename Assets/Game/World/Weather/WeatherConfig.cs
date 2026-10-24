@@ -28,6 +28,37 @@ namespace Game.World
         [Range(0f, 1f), Tooltip("Each lamp lit makes the gusts this much stronger (0.05 = 5%).")]
         public float gustsPerLamp = 0.04f;
 
+        [Header("Rain (grows at the 5th and 7th lamps)")]
+        [Range(0f, 1f), Tooltip("How hard it rains from the start (0: dry until the 5th lamp).")]
+        public float rainAtStart = 0.2f;
+        [Range(0f, 1f)] public float rainAtFifthLamp = 0.55f;
+        [Range(0f, 1f)] public float rainAtSeventhLamp = 1f;
+        [Range(100, 8000), Tooltip("Drops round you at full rain.")]
+        public int maxDrops = 3000;
+        [Range(2f, 30f), Tooltip("How fast drops fall (metres a second).")]
+        public float dropSpeed = 11f;
+        [Range(0f, 1f), Tooltip("How visible the drops are.")]
+        public float dropBrightness = 0.25f;
+
+        [Header("Lightning")]
+        [Range(2f, 120f), Tooltip("A flash every this many seconds (shortest)...")]
+        public float minLightning = 15f;
+        [Range(2f, 200f), Tooltip("...and longest.")]
+        public float maxLightning = 45f;
+        [Range(0f, 50f), Tooltip("How bright a flash is (lux).")]
+        public float lightningBrightness = 3f;
+        [Range(100f, 5000f), Tooltip("Strikes are between this close...")]
+        public float minLightningDistance = 400f;
+        [Range(100f, 5000f), Tooltip("...and this far (the thunder comes later the further it is).")]
+        public float maxLightningDistance = 2500f;
+
+        [Header("Tornadoes (from the 8th lamp)")]
+        [Range(1, 10)] public int tornadoesAtLamp = 8;
+        [Range(0, 6)] public int tornadoes = 2;
+        [Range(200f, 3000f), Tooltip("How far away they stay (metres).")]
+        public float tornadoDistance = 900f;
+        [Range(50f, 1500f)] public float tornadoHeight = 420f;
+
         public WeatherSettings Clone() => (WeatherSettings)MemberwiseClone();
     }
 }
