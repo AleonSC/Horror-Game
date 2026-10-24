@@ -57,6 +57,18 @@ Lightning bugs drift low and slow through the trees round you, each flashing the
 second as it swoops up in a "J", every five or six seconds; a few sit in the grass and answer a nearby flash
 two seconds later, dimmer. `ForestLifeConfig` > Lightning bugs.
 
+## Owls and vines
+
+The owls are small and round now (built the deer's smooth way): a plump body with a speckled cream front and
+folded wings, a big round head with a pale heart-shaped face, ear tufts, a little beak, toes gripping, and the
+white eyes as before. Each sits out on its own branch: a bough curving up out of the trunk to a slender tip,
+two twigs with leaves at their ends, a crust of pale lichen; it faces out along it.
+
+Vines hang from about a tenth of the trees, up to three strands from one, down to between knee and head
+height: tapering stems with pairs of leaves. They swing in the wind and gusts, bend rather than fold, are
+shoved aside all the way up your body as you walk through, swing on after you, and rustle. `ForestLifeConfig`
+> Vines (how many, how low, how windy; on Restart for how many).
+
 ## Deer
 
 The deer are back as they were in the prototype (branch `hdrp`): six of them in small herds roaming within

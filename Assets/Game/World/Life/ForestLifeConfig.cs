@@ -49,7 +49,15 @@ namespace Game.World
 
         [Header("Vines")]
         [Range(0f, 0.3f), Tooltip("Share of trees with a vine hanging from them.")]
-        public float vineShare = 0.04f;
+        public float vineShare = 0.1f;
+        [Range(1, 4), Tooltip("Up to this many strands from one tree.")]
+        public int vinesPerTree = 3;
+        [Range(0.5f, 4f), Tooltip("Lowest they hang down to, above the ground (metres)...")]
+        public float vineLowest = 0.4f;
+        [Range(0.5f, 4f), Tooltip("...and highest.")]
+        public float vineHighest = 1.9f;
+        [Range(0f, 3f), Tooltip("How hard the wind swings them.")]
+        public float vineWind = 1f;
         [Range(10f, 150f), Tooltip("Only vines this close move (the rest hang still).")]
         public float vineSimulateWithin = 45f;
 
