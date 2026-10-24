@@ -45,10 +45,6 @@ namespace Game.Entities
         public float moonAt = 0.72f;
         [Range(0f, 30f), Tooltip("Degrees each lamp lit makes it swing on its chain.")]
         public float joltSwing = 6f;
-        [Tooltip("The first clear view of it gently draws your eyes up to it (once).")]
-        public bool drawViewOnFirstSight = true;
-        [Range(0f, 120f), Tooltip("Not before this many seconds into a run.")]
-        public float firstSightAfter = 8f;
 
         [Tooltip("Solid black (ignores haze and beam-through).")]
         public bool solidBlack = true;

@@ -25,9 +25,9 @@ Pull (GitHub Desktop: **Fetch origin**, then **Pull origin**), open `Assets/Scen
 
 ## Part 2: the giant and the eye
 
-- **From the start** it hangs on a chain far off, in the direction you face when you wake. It turns slowly, and
-  four empty chains hang elsewhere round the horizon. The fog never hides it: it stays a hazy silhouette. The
-  first clear view of it gently draws your eyes up to it, once. Each lamp you light jolts its chain.
+- **From the start** it hangs on a chain far off. You wake facing a random way, and it's big enough that you'll
+  find it on your own; nothing turns your view to it. It turns slowly, and four empty chains hang elsewhere round
+  the horizon. The fog never hides it: it stays a hazy silhouette. Each lamp you light jolts its chain.
 - **The 5th lamp:**
   1. A red eye opens high in the sky, and your view is drawn up to it.
   2. The fog turns red.

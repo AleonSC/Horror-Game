@@ -50,7 +50,7 @@ namespace Game.Entities
         float swing, swingSpeed;
         float stride, nextScan, scanLeft, scan;
         float shockRadius = -1f;
-        bool sawIt, eyeDone, searching, hiddenForRoom;
+        bool eyeDone, searching, hiddenForRoom;
         int lastStep;
         float walkIn;
 
@@ -136,7 +136,7 @@ namespace Game.Entities
             if (State != GiantState.Hanging && Services.TryGet<EventBus>(out var events)) events.Publish(new BossThemeEnded(EntityKind.Giant));
             State = GiantState.Hanging;
             bearing = Services.TryGet<WorldBuilder>(out var world) && world.Plan != null ? world.Plan.GiantBearing : 0f;
-            sawIt = eyeDone = searching = false;
+            eyeDone = searching = false;
             eyesOpen = 0f; // (shut again, hanging)
             timer = 0f;
             swing = swingSpeed = 0f;
@@ -211,7 +211,7 @@ namespace Game.Entities
 
             switch (State)
             {
-                case GiantState.Hanging: Hang(p); if (GameFlow.IsPlaying) FirstSight(); break;
+                case GiantState.Hanging: Hang(p); break;
                 case GiantState.Staring: Hang(p); Stare(dt); break;
                 case GiantState.Falling: Fall(dt); break;
                 case GiantState.Landed: Landed(dt, p); break;
@@ -245,21 +245,6 @@ namespace Game.Entities
                 NightSky.MoonOverride = Bearing(bearing) * Mathf.Cos(el) + Vector3.up * Mathf.Sin(el);
             }
             else NightSky.MoonOverride = null;
-        }
-
-        // The first clear view of it (after a calm moment) draws your eyes up to it, once.
-        void FirstSight()
-        {
-            if (sawIt || !s.drawViewOnFirstSight) return;
-            if (!Services.TryGet<GameRun>(out var run) || run.Elapsed < s.firstSightAfter) return;
-            var head = player.Head;
-            Vector3 chest = bodyRoot.TransformPoint(new Vector3(0f, 0.7f, 0f));
-            Vector3 to = chest - head.position;
-            Vector3 flatLook = Flat(head.forward), flatTo = Flat(to);
-            if (Vector3.Angle(flatLook, flatTo) > 50f) return;
-            if (Physics.Raycast(head.position, to.normalized, 180f, Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Ground) | Layers.Mask(Layers.Props), QueryTriggerInteraction.Ignore)) return;
-            sawIt = true;
-            player.DrawGazeTo(chest, 3.5f);
         }
 
         // ------------------------------------------------------------------ the eye

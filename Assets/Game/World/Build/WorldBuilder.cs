@@ -220,12 +220,12 @@ namespace Game.World.Build
             return h;
         }
 
-        // You wake in the start clearing, facing the way the plan chose (the giant's just off it).
+        // You wake in the start clearing facing any way at all: the giant's far too big to miss, wherever it hangs.
         void PlacePlayer()
         {
             if (!Services.TryGet<Game.Player.PlayerController>(out var player)) return;
             var pos = new Vector3(plan.Start.x, plan.GroundAt(plan.Start) + 0.05f, plan.Start.y);
-            var facing = Quaternion.Euler(0f, plan.StartYaw, 0f);
+            var facing = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
             player.SetSpawn(pos, facing);
             player.Teleport(pos, facing);
         }
