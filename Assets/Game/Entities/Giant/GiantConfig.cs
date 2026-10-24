@@ -35,7 +35,7 @@ namespace Game.Entities
         public float haze = 0.55f;
         [Range(0f, 1f), Tooltip("How much the fog in front shows over it: 0 a crisp silhouette that blocks the flashlight's glow, 1 the glow shows through but the lit fog softens it.")]
         public float beamThrough = 0.4f;
-        [Tooltip("The moon hangs in the sky right behind it, rays streaming out round it.")]
+        [Tooltip("The moonlight (a faint glow in the sky) comes from right behind it.")]
         public bool moonBehind = true;
         [Range(0f, 1.3f), Tooltip("Where behind it: 0 its feet, 1 its neck.")]
         public float moonAt = 0.72f;

@@ -5,7 +5,7 @@ namespace Game.Rendering
 {
     /// <summary>
     /// The night sky (section 4.4): a dome kept round the camera, drawn with the NightSky shader through the fog:
-    /// stars, drifting clouds and the moon with its rays. The moon is wherever <see cref="MoonOverride"/> says
+    /// stars, drifting clouds and a faint glow where the moon is (no moon is drawn). The moon is wherever <see cref="MoonOverride"/> says
     /// (the giant puts it behind itself), else where the look's moon settings put it; the moonlight comes from it.
     /// </summary>
     public sealed class NightSky : MonoBehaviour
@@ -19,8 +19,8 @@ namespace Game.Rendering
         Material material;
         MeshRenderer dome;
         static readonly int MoonDirId = Shader.PropertyToID("_MoonDir"), MoonColorId = Shader.PropertyToID("_MoonColor"),
-            MoonSizeId = Shader.PropertyToID("_MoonSize"), MoonGlowId = Shader.PropertyToID("_MoonGlow"), RaysId = Shader.PropertyToID("_Rays"),
-            RayLengthId = Shader.PropertyToID("_RayLength"), StarsId = Shader.PropertyToID("_Stars"), StarDensityId = Shader.PropertyToID("_StarDensity"),
+            MoonSizeId = Shader.PropertyToID("_MoonSize"), MoonGlowId = Shader.PropertyToID("_MoonGlow"),
+            StarsId = Shader.PropertyToID("_Stars"), StarDensityId = Shader.PropertyToID("_StarDensity"),
             CoverId = Shader.PropertyToID("_CloudCover"), CloudBrightId = Shader.PropertyToID("_CloudBrightness"), DriftId = Shader.PropertyToID("_CloudDrift");
 
         /// <summary>Which way the moon is (toward it), from these settings or the giant.</summary>
@@ -66,11 +66,9 @@ namespace Game.Rendering
             dome.transform.position = cam.transform.position;
             dome.transform.localScale = Vector3.one * radius * 2f;
             material.SetVector(MoonDirId, MoonDirection(s));
-            material.SetColor(MoonColorId, s.moonDiscColor.linear);
-            material.SetFloat(MoonSizeId, s.moonSize);
+            material.SetColor(MoonColorId, s.moonGlowColor.linear);
+            material.SetFloat(MoonSizeId, s.moonGlowSize);
             material.SetFloat(MoonGlowId, s.moonGlow);
-            material.SetFloat(RaysId, s.moonRays);
-            material.SetFloat(RayLengthId, s.moonRayLength);
             material.SetFloat(StarsId, s.stars);
             material.SetFloat(StarDensityId, s.starDensity);
             material.SetFloat(CoverId, s.cloudCover);

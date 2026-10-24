@@ -105,14 +105,15 @@ namespace Game.World
                 off.y = 0f;
                 if (off.sqrMagnitude > s.lightningBugRange * s.lightningBugRange * 1.3f) { Place(b, p, false); continue; }
 
-                // Flashing: half a second, quick on, a hold, a softer fade.
+                // Flashing: a quick rise to full, then a long fade to nothing.
                 float light = 0f;
                 if (b.flashT >= 0f)
                 {
                     b.flashT += dt;
-                    float f = b.flashT / 0.55f;
-                    light = f < 0.25f ? f / 0.25f : f < 0.5f ? 1f : Mathf.Max(0f, 1f - (f - 0.5f) / 0.5f);
-                    if (f >= 1f) b.flashT = -1f;
+                    float rise = Mathf.Max(0.01f, s.lightningBugRise), fade = Mathf.Max(0.01f, s.lightningBugFade);
+                    if (b.flashT < rise) { float u = b.flashT / rise; light = 1f - (1f - u) * (1f - u); }
+                    else { float u = Mathf.Clamp01((b.flashT - rise) / fade); light = (1f - u) * (1f - u); }
+                    if (b.flashT >= rise + fade) b.flashT = -1f;
                 }
                 else if (!b.sitting && t >= b.nextFlash)
                 {

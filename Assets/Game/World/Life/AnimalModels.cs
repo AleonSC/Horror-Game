@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.World
 {
     /// <summary>
-    /// The built-in animals, from simple shapes: an owl, a rat, a beetle, a bat and a crow. Each faces +Z
+    /// The built-in animals, from simple shapes: an owl, a rat, a beetle, a bat and two crows (a plain flier and a fuller one). Each faces +Z
     /// with its feet (or middle, for fliers) at the pivot. Parts that move are named: "Head", "Leg0".."Leg3",
     /// "WingL"/"WingR".
     /// </summary>
@@ -134,6 +134,35 @@ namespace Game.World
             {
                 var wing = Joint(root, side < 0 ? "WingL" : "WingR", new Vector3(side * 0.03f, 0f, 0f));
                 Part(PrimitiveType.Cube, wing, new Vector3(side * span * 0.25f, 0f, 0f), new Vector3(span * 0.5f, 0.005f, crow ? 0.12f : 0.1f), black);
+            }
+            return root.gameObject;
+        }
+
+        /// <summary>
+        /// A crow, all black: a body, a head with a thick beak, a fanned tail, little legs, and wings in two parts
+        /// that flap (the inner "WingL"/"WingR", the outer "TipL"/"TipR" under them). Middle at the pivot, about
+        /// 0.45 m long and 0.9 m across the wings; its head is "Head".
+        /// </summary>
+        public static GameObject Crow(Transform parent)
+        {
+            Mats();
+            var root = Root("Crow", parent);
+            var body = Part(PrimitiveType.Capsule, root, Vector3.zero, new Vector3(0.1f, 0.15f, 0.1f), black);
+            body.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var head = Joint(root, "Head", new Vector3(0f, 0.035f, 0.15f));
+            Part(PrimitiveType.Sphere, head, Vector3.zero, new Vector3(0.075f, 0.072f, 0.085f), black);
+            var beak = Part(PrimitiveType.Capsule, head, new Vector3(0f, -0.008f, 0.07f), new Vector3(0.024f, 0.035f, 0.022f), black);
+            beak.transform.localRotation = Quaternion.Euler(95f, 0f, 0f);
+            var tail = Part(PrimitiveType.Cube, root, new Vector3(0f, 0.01f, -0.2f), new Vector3(0.09f, 0.012f, 0.14f), black);
+            tail.transform.localRotation = Quaternion.Euler(-8f, 0f, 0f);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Part(PrimitiveType.Cylinder, root, new Vector3(side * 0.02f, -0.07f, 0.01f), new Vector3(0.008f, 0.035f, 0.008f), black).name = "Leg";
+                var wing = Joint(root, side < 0 ? "WingL" : "WingR", new Vector3(side * 0.04f, 0.02f, 0.02f));
+                Part(PrimitiveType.Cube, wing, new Vector3(side * 0.1f, 0f, 0f), new Vector3(0.2f, 0.012f, 0.15f), black);
+                var tip = Joint(wing, side < 0 ? "TipL" : "TipR", new Vector3(side * 0.2f, 0f, 0f));
+                var outer = Part(PrimitiveType.Cube, tip, new Vector3(side * 0.12f, 0f, -0.02f), new Vector3(0.24f, 0.008f, 0.12f), black);
+                outer.transform.localRotation = Quaternion.Euler(0f, side * 8f, 0f); // (swept back a little)
             }
             return root.gameObject;
         }

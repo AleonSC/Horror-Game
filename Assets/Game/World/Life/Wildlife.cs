@@ -197,7 +197,7 @@ namespace Game.World
             Vector3 heading = crows ? (Flat(from - P).normalized + Vector3.up * 0.6f) * 7f : side * 10f;
             for (int i = 0; i < n; i++)
             {
-                var body = AnimalModels.Flier(transform, crows).transform;
+                var body = (crows ? AnimalModels.Crow(transform) : AnimalModels.Flier(transform, false)).transform;
                 body.position = from + Random.insideUnitSphere * (crows ? 3f : 5f);
                 flock.Add(new Bird { Body = body, WingL = body.Find("WingL"), WingR = body.Find("WingR"), Velocity = heading * Random.Range(0.85f, 1.15f), Phase = Random.value * 10f });
             }

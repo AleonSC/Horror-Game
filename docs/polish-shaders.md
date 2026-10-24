@@ -9,7 +9,7 @@ batch is three effects, used all over:
 | `Game/Beam` | a soft shaft of light with dust drifting in it | under the watchtower's floodlights, the giant's searchlights (from its eyes down to you), the flier's beam |
 | `Game/Flame` | a licking, flickering flame: blue at the root, yellow, orange, a red tip | the torch, the lighter, a flare |
 
-| `Game/NightSky` | the sky, drawn through the fog: twinkling stars, drifting clouds lit at the edges near the moon, the moon with faint markings, a halo and rays streaming out | overhead and behind the giant |
+| `Game/NightSky` | the sky, drawn through the fog: twinkling stars, drifting clouds faintly lit at the edges toward the moon, and no moon: just a faint wide glow where the moonlight comes from | overhead |
 
 | `Game/Rim` | an outline of light: a copy of a model glowing at its edges | batteries lying in the forest (their green) |
 
@@ -29,10 +29,10 @@ in the Console naming it; the shader's own error will be in the Console too. Sen
 
 ## The sky, the moon and the giant
 
-The moon hangs behind the giant's chest (`GiantConfig` > `moonBehind`, `moonAt`), so it stands black against
-it with the rays streaming out round it, and the moonlight now comes from there (the moon's shadows have
-moved). Without the giant (the look test) it's where the look's moon settings put it. Sky settings: the Look
-tab, **Night sky**: the moon's colour, size, glow and rays, stars and how many, cloud cover, brightness and
+No moon or rays are drawn now; there's only a faint wide glow in the sky where the moonlight comes from. That
+spot is still behind the giant's chest (`GiantConfig` > `moonBehind`, `moonAt`), so the moonlight comes from
+there. Without the giant (the look test) it's where the look's moon settings put it. Sky settings: the Look
+tab, **Night sky**: the glow's colour, brightness and size, stars and how many, cloud cover, brightness and
 drift.
 
 The giant is blocky but gaunt and solid black (`solidBlack`): narrow square slabs, thin square limbs, hands
@@ -53,8 +53,9 @@ a much weaker light (`ItemsConfig` > `batteryOutline`, `batteryGlowStrength`). T
 (`batteryGrabRadius`), and aiming at any round target counts all of it, not just its middle, so you can take
 one running past.
 
-Lightning bugs drift low and slow through the trees round you, each flashing the batteries' green for half a
-second as it swoops up in a "J", every five or six seconds; a few sit in the grass and answer a nearby flash
+Lightning bugs drift low and slow through the trees round you, each flashing the batteries' green as it swoops up in a "J":
+a quick rise to full (about a tenth of a second), then a long fade to nothing (about a second and a half),
+then a wait of 10 to 18 seconds before the next (`lightningBugEvery`, `lightningBugRise`, `lightningBugFade`); a few sit in the grass and answer a nearby flash
 two seconds later, dimmer. `ForestLifeConfig` > Lightning bugs.
 
 ## Owls and vines
@@ -79,3 +80,18 @@ walk and gallop, dark coats, pale eyes, antlers on the stags. Settings: `ForestL
 
 **Let me know:** do the glows and shafts look soft rather than like flat discs and cones? Too bright, too
 faint? Do the flames look like fire? And are the deer as you remember them?
+
+## Trees and crows
+
+Trees (and boulders) are now drawn out to 200 m, up from 115 m, with their simpler versions starting at 40 m
+and 95 m (`ForestPopulator` > `TreeRange`, `TreeLods`). This costs more to draw; turn it back down there if the
+frame rate drops.
+
+Crows are black birds now, with a head, a thick beak, a tail, legs and wings in two parts. Every 20 to 55
+seconds a crow flies over high up, either alone or in a straggling flock of 4 to 12, flapping and gliding and
+cawing. Three flocks are always on the ground somewhere 40 to 80 m from you, put down out of view in the open.
+They peck, hop and look round. Walk within 14 m, run within 24 m, or make any noise that reaches them, and they
+all burst up one after another with a flutter and caws. They climb away from you, level out and fly off, and a
+new flock lands somewhere else later. The old crows that burst up out of the trees now use the same model.
+`ForestLifeConfig` > Crows.
+

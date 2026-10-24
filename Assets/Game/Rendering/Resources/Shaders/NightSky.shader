@@ -1,6 +1,6 @@
 // The night sky (section 4.4): a dome round the camera, drawn after the fog so it shows through it (and behind
-// the far silhouettes, the giant first among them). Stars, twinkling; drifting clouds, their edges lit near the
-// moon; the moon itself, faint markings on it, a halo, and rays streaming out from round whatever's in front of it.
+// the far silhouettes, the giant first among them). Stars, twinkling; drifting clouds, their edges faintly lit
+// toward the moon; and no moon to be seen, only a faint wide glow in the sky where the moonlight comes from.
 // Colours here are as they show on screen (the fog's own colour comes from the look).
 Shader "Game/NightSky"
 {
@@ -8,10 +8,8 @@ Shader "Game/NightSky"
     {
         _MoonDir ("Toward the moon", Vector) = (0, 0.5, 1, 0)
         [HDR] _MoonColor ("Moon colour", Color) = (0.85, 0.88, 0.95, 1)
-        _MoonSize ("Moon radius (degrees)", Range(0.5, 20)) = 5
-        _MoonGlow ("Moon halo", Range(0, 3)) = 0.6
-        _Rays ("Rays", Range(0, 3)) = 0.6
-        _RayLength ("Ray length (degrees)", Range(2, 90)) = 28
+        _MoonSize ("Glow size (degrees)", Range(2, 90)) = 25
+        _MoonGlow ("Glow", Range(0, 3)) = 0.6
         _Stars ("Stars", Range(0, 3)) = 0.7
         _StarDensity ("Star density", Range(0, 1)) = 0.5
         _CloudCover ("Cloud cover", Range(0, 1)) = 0.5
@@ -45,8 +43,6 @@ Shader "Game/NightSky"
                 float4 _MoonColor;
                 float _MoonSize;
                 float _MoonGlow;
-                float _Rays;
-                float _RayLength;
                 float _Stars;
                 float _StarDensity;
                 float _CloudCover;
@@ -113,39 +109,26 @@ Shader "Game/NightSky"
                 float3 moonDir = normalize(_MoonDir.xyz);
                 float3 fog = _HorrorFogColor.rgb;
 
-                // The moon: a disc with faint grey seas on it, a soft halo, and rays streaming out.
+                // Where the moon is: no disc, just a faint wide glow in the sky.
                 float cosA = dot(dir, moonDir);
                 float angle = degrees(acos(clamp(cosA, -1.0, 1.0)));
-                float disc = saturate((_MoonSize - angle) / max(_MoonSize * 0.04, 0.05));
-                float3 local = (dir - moonDir * cosA) / max(radians(_MoonSize), 1e-4);
-                float seas = HorrorNoise(local * 2.2 + 3.0) * 0.6 + HorrorNoise(local * 5.0 + 9.0) * 0.4;
-                float3 moon = _MoonColor.rgb * disc * (0.72 + 0.28 * smoothstep(0.35, 0.65, seas)) * 0.55;
-                float halo = _MoonGlow * (exp(-max(angle - _MoonSize, 0.0) / (_MoonSize * 0.45)) * 0.22 + exp(-angle / (_MoonSize * 3.0)) * 0.05);
-                // Rays: bright and dark spokes round the moon, slowly turning, fading out along their length.
-                float3 side = normalize(cross(moonDir, abs(moonDir.y) < 0.95 ? float3(0, 1, 0) : float3(1, 0, 0)));
-                float3 upAxis = cross(side, moonDir);
-                float2 around = float2(dot(dir, side), dot(dir, upAxis));
-                float2 spoke = around / max(length(around), 1e-4);
-                float t = _TimeParameters.x * 0.02;
-                float rays = pow(HorrorNoise(float3(spoke * 9.0, t)), 2.2) * 0.7 + pow(HorrorNoise(float3(spoke * 23.0, t * 1.7 + 4.0)), 3.0) * 0.5;
-                float along = max(angle - _MoonSize, 0.0);
-                rays *= exp(-along / max(_RayLength, 0.1)) * smoothstep(0.0, _MoonSize * 0.3, along) * (cosA > 0.0 ? 1.0 : 0.0);
-                float3 light = moon + _MoonColor.rgb * (halo + rays * _Rays * 0.12);
+                float size = max(_MoonSize, 0.5);
+                float3 light = _MoonColor.rgb * _MoonGlow * (exp(-angle / size) * 0.08 + exp(-angle / (size * 3.0)) * 0.03);
 
                 // Stars: fewer and dimmer toward the horizon (more air to see through).
                 float density = _StarDensity;
                 float stars = Stars(dir, 140.0, 0.06 * density, 0.0) * 1.4 + Stars(dir, 300.0, 0.12 * density, 31.0) * 0.6;
-                stars *= _Stars * smoothstep(0.05, 0.5, up) * (1.0 - disc);
+                stars *= _Stars * smoothstep(0.05, 0.5, up);
                 float3 starLight = float3(0.85, 0.9, 1.0) * stars;
 
-                // Clouds, drifting: dark against the sky, silver at the edges near the moon.
+                // Clouds, drifting: dark against the sky, their thin edges faintly lit toward the moon.
                 float2 plane = dir.xz / max(dir.y + 0.08, 0.08) * 0.35 + _CloudDrift.xy * _TimeParameters.x;
                 float n = Fbm(float3(plane, _TimeParameters.x * 0.004));
                 float cover = 1.0 - _CloudCover;
                 float cloud = smoothstep(cover - 0.08, cover + 0.22, n) * horizon;
                 float edge = cloud * (1.0 - smoothstep(cover + 0.05, cover + 0.3, n)); // (the thin edges)
                 float nearMoon = pow(saturate(cosA), 6.0);
-                float3 cloudColour = fog * (0.55 + 0.25 * up) * _CloudBrightness + _MoonColor.rgb * (nearMoon * (0.15 + 1.2 * edge)) * _CloudBrightness;
+                float3 cloudColour = fog * (0.55 + 0.25 * up) * _CloudBrightness + _MoonColor.rgb * (nearMoon * _MoonGlow * (0.08 + 0.5 * edge)) * _CloudBrightness;
                 float a = cloud * 0.92;
 
                 // Over the fog's colour behind: the clouds replace it where they are; light shows through thin cloud.

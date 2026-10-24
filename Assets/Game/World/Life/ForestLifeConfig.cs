@@ -99,8 +99,12 @@ namespace Game.World
         public float lightningBugRange = 24f;
         [Range(0f, 20f), Tooltip("How bright a flash is (the batteries' green).")]
         public float lightningBugGlow = 2.5f;
-        [Range(1f, 20f), Tooltip("A flier flashes every this many seconds, give or take.")]
-        public float lightningBugEvery = 5.5f;
+        [Range(1f, 40f), Tooltip("A flier flashes every this many seconds, give or take a quarter.")]
+        public float lightningBugEvery = 14f;
+        [Range(0.02f, 1f), Tooltip("A flash rises to full in this many seconds...")]
+        public float lightningBugRise = 0.12f;
+        [Range(0.1f, 4f), Tooltip("...then fades to nothing over this many.")]
+        public float lightningBugFade = 1.4f;
         [Range(0f, 1f), Tooltip("Share of them sitting in the grass, answering nearby flashes (dimmer, two seconds later).")]
         public float lightningBugsSitting = 0.15f;
 
@@ -121,6 +125,28 @@ namespace Game.World
         [Range(2f, 300f), Tooltip("Crows burst up from the trees every this many seconds (shortest)...")]
         public float minCrows = 20f;
         [Range(2f, 300f)] public float maxCrows = 60f;
+
+        [Header("Crows")]
+        [Range(5f, 300f), Tooltip("Dark crows fly over high up every this many seconds (shortest)...")]
+        public float minCrowsOver = 20f;
+        [Range(5f, 300f), Tooltip("...and longest.")]
+        public float maxCrowsOver = 55f;
+        [Range(0f, 1f), Tooltip("Share of those that are a single crow (the rest are flocks).")]
+        public float crowSoloShare = 0.4f;
+        [Range(2, 30), Tooltip("A flock is this many crows (fewest)...")]
+        public int minCrowFlock = 4;
+        [Range(2, 30), Tooltip("...and most.")]
+        public int maxCrowFlock = 12;
+        [Tooltip("How high over you they fly (metres: lowest, highest).")]
+        public Vector2 crowHeight = new Vector2(16f, 32f);
+        [Range(2f, 20f), Tooltip("How fast they fly (metres a second).")]
+        public float crowSpeed = 8f;
+        [Range(0, 10), Tooltip("Flocks on the ground about you, pecking about; they fly off when you come near.")]
+        public int crowFlocksOnGround = 3;
+        [Range(3f, 40f), Tooltip("Walking this close puts a flock up...")]
+        public float crowScare = 14f;
+        [Range(3f, 60f), Tooltip("...and running (or any noise you make) this close.")]
+        public float crowScareRunning = 24f;
 
         [Header("Ponds")]
         [Range(0f, 1f), Tooltip("How slow wading is (share of walking speed).")]

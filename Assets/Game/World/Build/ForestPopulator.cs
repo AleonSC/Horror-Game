@@ -13,8 +13,8 @@ namespace Game.World.Build
     /// </summary>
     public sealed class ForestPopulator
     {
-        const float GrassRange = 45f, TallGrassRange = 60f, BushRange = 65f, RockRange = 75f, TreeRange = 115f;
-        static readonly float[] TreeLods = { 32f, 62f };
+        const float GrassRange = 45f, TallGrassRange = 60f, BushRange = 65f, RockRange = 75f, TreeRange = 200f;
+        static readonly float[] TreeLods = { 40f, 95f };
 
         readonly WorldPlan plan;
         readonly InstancedRenderer renderer;

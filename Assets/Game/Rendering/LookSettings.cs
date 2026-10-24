@@ -64,15 +64,12 @@ namespace Game.Rendering
 
         [Header("Night sky (drawn through the fog)")]
         public bool nightSky = true;
-        [Tooltip("The moon's disc in the sky (it hangs behind the giant, and its light comes from there).")]
-        public Color moonDiscColor = new Color(0.5f, 0.53f, 0.6f);
-        [Range(0.5f, 20f), Tooltip("The moon's size in the sky (radius, degrees).")]
-        public float moonSize = 6f;
-        [Range(0f, 3f)] public float moonGlow = 0.35f;
-        [Range(0f, 3f), Tooltip("The rays streaming out round the moon (and round the giant in front of it).")]
-        public float moonRays = 0.45f;
-        [Range(2f, 90f), Tooltip("How far the rays reach across the sky (degrees).")]
-        public float moonRayLength = 22f;
+        [Tooltip("The faint glow in the sky where the moonlight comes from (no moon is drawn).")]
+        public Color moonGlowColor = new Color(0.5f, 0.53f, 0.6f);
+        [Range(0f, 3f), Tooltip("How bright that glow is.")]
+        public float moonGlow = 0.6f;
+        [Range(2f, 90f), Tooltip("How wide it spreads (degrees).")]
+        public float moonGlowSize = 25f;
         [Range(0f, 3f)] public float stars = 0.7f;
         [Range(0f, 1f)] public float starDensity = 0.5f;
         [Range(0f, 1f)] public float cloudCover = 0.5f;
