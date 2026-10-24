@@ -181,6 +181,8 @@ namespace Game.World.Build
             var lifeSettings = life != null ? life.settings : new ForestLifeSettings();
             Webs.Build(plan, lifeSettings, wrap, root);
             Vines.Build(plan, lifeSettings, wrap, root);
+            Owls.Build(plan, populator.Trees, lifeSettings, wrap, root);
+            Ponds.Build(plan, lifeSettings, wrap, root);
 
             Timings.Add($"Build: {watch.ElapsedMilliseconds - planned} ms ({forest.InstanceCount} instances)");
             Debug.Log($"World {seed} made in {watch.ElapsedMilliseconds} ms: {string.Join(", ", Timings)}");

@@ -61,3 +61,34 @@ often? And the frame time in a downpour (3,000 drops).
 
 **Let me know:** are the phantoms creepy, or too obvious? Do you notice the webs before walking into them?
 Too many tree falls, or too few?
+
+## Part 4: wildlife, ponds and leaves
+
+- **Owls:** 45 on branches through the forest, with white eyes. Within 45 m their heads turn to follow you,
+  smoothly, with the odd sudden snap. Each calls every 25-70 s. Trees with owls in them never fall.
+- **Deer:** a herd of six (one with antlers) grazing 35-60 m off.
+  - Within 24 m they lift their heads and watch you.
+  - Within 14 m (or nearer 22 m if you're running) one bolts and the whole herd goes with it, hooves drumming
+    (a noise the blind one hears).
+  - They turn up somewhere else later.
+- **Small things:** 40 beetles crawling about near you, and 6 rats that scurry, and flee with a squeak if you
+  come within 5 m.
+- **Flocks:** every 15-45 s a flock of bats crosses overhead, squeaking. Every 20-60 s crows burst up out of
+  the trees and away, cawing.
+- **At lit lamps:** moths circle the light, and fireflies drift and blink round the clearing.
+- **Ponds:**
+  - Wading slows you to about half speed, and your steps splash (louder, so they carry further).
+  - Glowing mushrooms grow round the edges.
+  - Frogs croak from the nearest pond, and **fall silent whenever something's near**. The silence is the
+    warning.
+- **Leaves:** dead leaves lie all round you. Strong gusts and your running feet kick them up, and a few are
+  always drifting down from the trees.
+- Numbers: `Assets/Config/World/ForestLifeConfig` (Owls, Deer, Small things, Flocks, Ponds, Leaves).
+
+**Not yet:**
+- The plan's door garden for the fireflies (the dark room's door has no garden yet).
+- Leaves bursting off falling trees.
+- Splinters when a tree hits the ground.
+
+**Let me know:** the frame time with all of this on (it adds a lot of small moving things), whether any of it
+is too much or too busy, and whether you notice the frogs going quiet.

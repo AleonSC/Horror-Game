@@ -33,6 +33,15 @@ namespace Game.World
         Color glassGlow;
         System.IDisposable resetSub;
 
+        /// <summary>Every lamp in the world (moths and fireflies gather at the lit ones).</summary>
+        public static readonly System.Collections.Generic.List<Lamp> All = new System.Collections.Generic.List<Lamp>();
+
+        void OnEnable() => All.Add(this);
+        void OnDisable() => All.Remove(this);
+
+        /// <summary>Where its light is (moths circle it).</summary>
+        public Vector3 LightPoint => lampLight != null ? lampLight.transform.position : transform.position + Vector3.up * 3f;
+
         public bool Lit { get; private set; }
         public float Progress => Lit ? 1f : meter;
         public string Prompt => "Crank";

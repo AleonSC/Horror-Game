@@ -53,6 +53,52 @@ namespace Game.World
         [Range(10f, 150f), Tooltip("Only vines this close move (the rest hang still).")]
         public float vineSimulateWithin = 45f;
 
+        [Header("Owls")]
+        [Range(0, 200)] public int owls = 45;
+        [Range(5f, 120f), Tooltip("Their heads turn to follow you within this.")]
+        public float owlWatch = 45f;
+        [Range(5f, 300f), Tooltip("Each calls every this many seconds (shortest)...")]
+        public float minOwlCall = 25f;
+        [Range(5f, 300f), Tooltip("...and longest.")]
+        public float maxOwlCall = 70f;
+
+        [Header("Deer")]
+        [Range(0, 20)] public int deer = 6;
+        [Range(5f, 60f), Tooltip("They look up when you're this close...")]
+        public float deerNotice = 24f;
+        [Range(3f, 40f), Tooltip("...and bolt (the whole herd with them) at this.")]
+        public float deerBolt = 14f;
+
+        [Header("Small things")]
+        [Range(0, 200)] public int beetles = 40;
+        [Range(0, 40)] public int rats = 6;
+        [Range(1f, 15f), Tooltip("Rats flee when you're this close.")]
+        public float ratFlee = 5f;
+        [Range(0, 100), Tooltip("Moths round each lit lamp near you.")]
+        public int mothsPerLamp = 14;
+        [Range(0, 100), Tooltip("Fireflies round each lit lamp near you.")]
+        public int firefliesPerLamp = 18;
+
+        [Header("Flocks")]
+        [Range(2f, 300f), Tooltip("Bats cross overhead every this many seconds (shortest)...")]
+        public float minBats = 15f;
+        [Range(2f, 300f)] public float maxBats = 45f;
+        [Range(2f, 300f), Tooltip("Crows burst up from the trees every this many seconds (shortest)...")]
+        public float minCrows = 20f;
+        [Range(2f, 300f)] public float maxCrows = 60f;
+
+        [Header("Ponds")]
+        [Range(0f, 1f), Tooltip("How slow wading is (share of walking speed).")]
+        public float wadeSpeed = 0.55f;
+        [Range(0, 40), Tooltip("Glowing mushrooms round each pond.")]
+        public int mushroomsPerPond = 14;
+
+        [Header("Leaves")]
+        [Range(0, 2000), Tooltip("Dead leaves lying round you.")]
+        public int leaves = 400;
+        [Range(0, 200), Tooltip("Leaves drifting down from the canopy.")]
+        public int fallingLeaves = 30;
+
         public ForestLifeSettings Clone() => (ForestLifeSettings)MemberwiseClone();
     }
 }

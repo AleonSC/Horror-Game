@@ -26,6 +26,8 @@ namespace Game.World.Build
         readonly PrefabArt.Result[] livingArt, deadArt;
 
         public Material Bark, Needles, DeadWood;
+        /// <summary>Every standing tree, once populated (owls pick theirs from here).</summary>
+        public readonly List<ForestTree> Trees = new List<ForestTree>();
         // How far the wind leans each (top movement per metre of height, at full wind).
         const float GrassSway = 0.16f, TallGrassSway = 0.2f, BushSway = 0.05f, TreeSway = 0.009f, DeadTreeSway = 0.005f;
         Material bushA, bushB, grassDry, grassGreen, tallGrass, rock, logWood;
@@ -96,6 +98,7 @@ namespace Game.World.Build
 
                 var treeGo = Collider(t.Position, "Tree", Layers.Trees);
                 var marker = treeGo.AddComponent<ForestTree>();
+                Trees.Add(marker);
                 marker.Kinds = kinds[t.Variant % kinds.Length];
                 marker.Home = t.Position;
                 marker.Matrix = m;

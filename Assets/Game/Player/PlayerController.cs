@@ -45,6 +45,13 @@ namespace Game.Player
         public bool Moving { get; private set; }
         /// <summary>Held still: no moving or looking (something else is moving the camera).</summary>
         public bool Held { get; private set; }
+        /// <summary>Is this point under a pond's water? (The world sets it.)</summary>
+        public static System.Func<Vector3, bool> WaterAt;
+        /// <summary>Wading speed, as a share of normal (the world sets it).</summary>
+        public static float WadeSpeed = 0.55f;
+        /// <summary>Standing in a pond.</summary>
+        public bool Wading { get; private set; }
+
         /// <summary>The seat you're in (the car), or null.</summary>
         public ISeat Seat { get; private set; }
         /// <summary>On a ladder right now.</summary>
@@ -166,8 +173,10 @@ namespace Game.Player
         {
             float noise = Crouching ? s.crouchNoise : Running ? s.runNoise : s.walkNoise;
             float volume = s.stepVolume * (Crouching ? 0.3f : Running ? 1.4f : 1f);
+            // Wading: splashes, and louder.
+            if (Wading) { noise *= 1.6f; volume *= 1.5f; }
             if (Services.TryGet<Game.Audio.SoundPlayer>(out var sounds))
-                sounds.Play(Game.Audio.Sound.Step, transform.position, Game.Audio.MixerNames.Player, volume, Random.Range(0.85f, 1.15f) * (Running ? 1.1f : 1f), 12f);
+                sounds.Play(Wading ? Game.Audio.Sound.Splash : Game.Audio.Sound.Step, transform.position, Game.Audio.MixerNames.Player, volume, Random.Range(0.85f, 1.15f) * (Running ? 1.1f : 1f), 12f);
             if (noise > 0f && Services.TryGet<EventBus>(out var events))
                 events.Publish(new NoiseEmitted(transform.position, noise, Crouching ? "creeping" : Running ? "running" : "walking"));
         }
@@ -261,6 +270,8 @@ namespace Game.Player
             float speed = Crouching ? s.crouchSpeed : Running ? s.runSpeed : s.walkSpeed;
             if (groggy > 0f) speed *= Mathf.Lerp(1f, s.groggySpeed, groggy / Mathf.Max(0.01f, s.groggyTime));
             if (Dream > 0f) speed *= Mathf.Lerp(1f, s.dreamSpeed, Dream);
+            Wading = WaterAt != null && WaterAt(transform.position);
+            if (Wading) speed *= WadeSpeed;
             Vector3 wish = (transform.forward * move.y + transform.right * move.x) * speed;
             wish = ApplyApproachLimit(wish);
 

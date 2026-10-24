@@ -569,6 +569,91 @@ namespace Game.Audio
             return Loop(s, 0.4f);
         }
 
+        /// <summary>An owl: two soft, hollow hoots.</summary>
+        public static float[] Hoot(int seed)
+        {
+            var s = Make(1.4f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float a = Env(t, 0.05f, 0.35f, 0.2f), b = Env(t - 0.6f, 0.08f, 0.7f, 0.4f);
+                float f = 380f - 30f * Math.Min(1f, t);
+                s[i] = (float)(Math.Sin(2 * Math.PI * f * t) + 0.15 * Math.Sin(2 * Math.PI * f * 2 * t)) * (a + b);
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>A frog: a low, rattling croak.</summary>
+        public static float[] Croak(int seed)
+        {
+            var s = Make(0.45f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float pulse = (t * 38f) % 1f < 0.35f ? 1f : 0.2f;
+                s[i] = (float)Math.Sin(2 * Math.PI * (170f - 40f * t) * t) * pulse * Env(t, 0.02f, 0.45f, 0.15f);
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>A bat's thin squeak.</summary>
+        public static float[] Squeak(int seed)
+        {
+            var s = Make(0.12f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                s[i] = (float)Math.Sin(2 * Math.PI * (5200f - 18000f * t) * t) * Env(t, 0.005f, 0.12f, 0.05f);
+            }
+            return Normalize(s, 0.4f);
+        }
+
+        /// <summary>A crow: a harsh caw.</summary>
+        public static float[] Caw(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.5f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float f = 520f + 120f * (float)Math.Sin(t * 9f);
+                float buzz = (float)Math.Sin(2 * Math.PI * f * t) + 0.5f * (float)Math.Sin(2 * Math.PI * f * 2.02f * t) + Noise(rng) * 0.4f;
+                s[i] = buzz * Env(t, 0.03f, 0.5f, 0.25f);
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>A step in water: a splash and slosh.</summary>
+        public static float[] Splash(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.5f);
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * 0.3f;
+                float bubbles = (float)Math.Sin(2 * Math.PI * (600f + 400f * (float)Math.Sin(t * 40f)) * t) * Decay(t, 9f) * 0.2f;
+                s[i] = lp * Decay(t, 7f) + bubbles;
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>Hooves drumming away (the deer bolting).</summary>
+        public static float[] Hooves(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.6f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float beat = (t % 0.18f);
+                float hit = (float)Math.Sin(2 * Math.PI * 120 * beat) * Decay(beat, 40f) + Noise(rng) * Decay(beat, 60f) * 0.4f;
+                s[i] = hit * Env(t, 0.05f, 1.6f, 0.8f);
+            }
+            return Normalize(s, 0.5f);
+        }
+
         // Crossfade the end into the start so it loops without a click.
         static float[] Loop(float[] s, float peak)
         {

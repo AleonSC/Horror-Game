@@ -26,7 +26,7 @@ namespace Game.World.Build
         /// </summary>
         public bool KnockDown(InstancedRenderer forest, Vector3 pushedFrom, float shudder = 0f)
         {
-            if (down || forest == null) return false;
+            if (down || forest == null || HasOwl) return false;
             down = true;
             // Where the drawn copy is now (the world wraps: the collider's chunk may be at another copy of the map).
             Vector3 homeWorld = new Vector3(Matrix.m03, Matrix.m13, Matrix.m23);

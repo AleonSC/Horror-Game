@@ -86,6 +86,12 @@ namespace Game.Audio
             Add(Sound.Drone, SoundSynth.Drone(33));
             Add(Sound.TensionBed, SoundSynth.TensionBed(34));
             Add(Sound.RainLoop, SoundSynth.RainLoop(35));
+            Add(Sound.Hoot, SoundSynth.Hoot(36));
+            Add(Sound.Croak, SoundSynth.Croak(37));
+            Add(Sound.Squeak, SoundSynth.Squeak(38));
+            Add(Sound.Caw, SoundSynth.Caw(39));
+            Add(Sound.Splash, SoundSynth.Splash(40));
+            Add(Sound.Hooves, SoundSynth.Hooves(41));
         }
 
         void Add(Sound sound, float[] samples)
