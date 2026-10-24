@@ -45,6 +45,8 @@ namespace Game.Player
         public bool Moving { get; private set; }
         /// <summary>Held still: no moving or looking (something else is moving the camera).</summary>
         public bool Held { get; private set; }
+        /// <summary>Space pressed this frame, even while held (struggling free of a crawler).</summary>
+        public bool StrugglePressed => input.Jump.WasPressedThisFrame();
         /// <summary>0-1: the dream hallway (the giant's eye): the view stretches wide and running gets you nowhere.</summary>
         public float Dream { get; set; }
         public Vector3 SpawnPoint { get; private set; }

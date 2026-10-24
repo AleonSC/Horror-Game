@@ -42,6 +42,7 @@ namespace Game.DevTools
             if (Services.TryGet<ScourSpawner>(out var spawner)) DrawScours(spawner);
             if (Services.TryGet<Giant>(out var giant)) DrawGiant(giant);
             if (Services.TryGet<BlindOne>(out var blind)) DrawBlind(blind);
+            if (Services.TryGet<CrawlerSpawner>(out var crawlers)) DrawCrawlers(crawlers);
 
             GUILayout.Label("Sound state", DevStyle.Section);
             if (!Services.TryGet<AudioStateController>(out var audio))
@@ -150,6 +151,19 @@ namespace Game.DevTools
             GUILayout.Label("Blind one", DevStyle.Section);
             DevStyle.Row("State", blind.State == BlindState.Absent ? $"not yet (comes at lamp {blind.Settings.arriveAtLamp})" : $"{blind.State}, {blind.DistanceToPlayer:0} m");
             if (blind.State == BlindState.Absent && GUILayout.Button("Bring it now", DevStyle.Button)) blind.Arrive();
+        }
+
+        static void DrawCrawlers(CrawlerSpawner crawlers)
+        {
+            GUILayout.Label("Crawlers", DevStyle.Section);
+            if (!crawlers.Active)
+            {
+                DevStyle.Row("State", $"not yet (they come at lamp {Difficulty.Now.crawlersFromLamp})");
+                if (GUILayout.Button("Bring them now", DevStyle.Button)) crawlers.Begin();
+                return;
+            }
+            foreach (var c in crawlers.Crawlers)
+                if (c != null) DevStyle.Row($"#{c.Id}", $"{c.State}, {c.DistanceToPlayer:0.0} m");
         }
 
         static void GiveEverything(Hotbar hotbar)

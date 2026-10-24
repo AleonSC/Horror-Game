@@ -77,3 +77,22 @@ searchlight look right? What's the frame time with the crowd out?
 - Numbers: `Assets/Config/Entities/BlindConfig`. Your own model can go in **Custom Model**.
 
 **Let me know:** is it fair? Can you creep past it? Does the storm look right? Do the falling trees look OK?
+
+## Part 4: crawlers
+
+- **From the 2nd lamp** (Easy: 3rd, Hard: 1st), four of them (fewer on Easy, more on Hard) lie in wait 14-45 m
+  round you, low in the mist. Each is a head on four long thin arms. Now and then one creeps to a new spot.
+- **Their eyes shine back in your beam** from about 10 m away, and up close you hear them click.
+- **Come within 1.8 m walking (2.5 m running) and it leaps onto your face:**
+  - you can barely see and can't move
+  - it shrieks, which the blind one can hear
+  - another scour is on its way
+  - **mash Space 8 times** to throw it off, or it lets go after 6 s
+
+  **Crouch past one and it doesn't notice.** Standing still next to it is safe too.
+- **They keep out of the light:** your beam on one close by, or a lamp's circle, sends it scuttling away.
+- **To test quickly:** F9 > Game > Crawlers > **Bring them now**.
+- Numbers: `Assets/Config/Entities/CrawlerConfig`. Your own model can go in **Custom Model** (a child named
+  "Eyes" will glow).
+
+**Let me know:** are they easy enough to spot (eyeshine), and is the face-grab scary without being annoying?
