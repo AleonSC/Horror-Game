@@ -98,7 +98,7 @@ namespace Game.World
         [Range(5f, 60f), Tooltip("They're about within this distance of you.")]
         public float lightningBugRange = 24f;
         [Range(0f, 20f), Tooltip("How bright a flash is (the batteries' green).")]
-        public float lightningBugGlow = 2.5f;
+        public float lightningBugGlow = 4f;
         [Range(1f, 40f), Tooltip("A flier flashes every this many seconds, give or take a quarter.")]
         public float lightningBugEvery = 14f;
         [Range(0.02f, 1f), Tooltip("A flash rises to full in this many seconds...")]

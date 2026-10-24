@@ -36,7 +36,7 @@ tab, **Night sky**: the glow's colour, brightness and size, stars and how many, 
 drift.
 
 The giant is blocky but gaunt and solid black (`solidBlack`): narrow square slabs, thin square limbs, hands
-ending in long crooked fingers, big flat feet, a cube of a head under a heavy brow. Once it's fallen, its eyes
+ending in long crooked fingers, big feet (a heel, an arch, a wide ball and five long toes splayed and curling down), a cube of a head under a heavy brow. Once it's fallen, its eyes
 open (red) and a search ray from them sweeps the forest in the distance, back and forth as it walks and round
 with its head when it stops to scan (`GiantConfig` > Awake). The 10th lamp's searchlights take over from it.
 
@@ -93,7 +93,7 @@ a much weaker light (`ItemsConfig` > `batteryOutline`, `batteryGlowStrength`). T
 (`batteryGrabRadius`), and aiming at any round target counts all of it, not just its middle, so you can take
 one running past.
 
-Lightning bugs drift low and slow through the trees round you, each flashing the batteries' green as it swoops up in a "J":
+Lightning bugs drift low and slow through the trees round you, each flashing the batteries' green (a little brighter now: `lightningBugGlow` 4) as it swoops up in a "J":
 a quick rise to full (about a tenth of a second), then a long fade to nothing (about a second and a half),
 then a wait of 10 to 18 seconds before the next (`lightningBugEvery`, `lightningBugRise`, `lightningBugFade`); a few sit in the grass and answer a nearby flash
 two seconds later, dimmer. `ForestLifeConfig` > Lightning bugs.

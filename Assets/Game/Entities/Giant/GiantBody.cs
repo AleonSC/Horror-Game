@@ -61,7 +61,7 @@ namespace Game.Entities
         }
 
         // Blocky but gaunt: narrow square slabs for a body, thin square limbs, hands that end in long, crooked
-        // fingers, big flat feet, a cube of a head under a heavy brow. One unit tall, feet at the pivot.
+        // fingers, big long-toed feet, a cube of a head under a heavy brow. One unit tall, feet at the pivot.
         void BuildBuiltIn()
         {
             var t = transform;
@@ -117,7 +117,7 @@ namespace Game.Entities
             foreach (var sh in new[] { shinL, shinR })
             {
                 Block(sh, new Vector3(0f, -0.125f, 0f), new Vector3(0.042f, 0.25f, 0.045f));
-                Block(sh, new Vector3(0f, -0.255f, 0.04f), new Vector3(0.075f, 0.035f, 0.2f));  // big flat feet
+                Foot(sh, sh == shinL ? 1f : -1f);
             }
 
             // The eyes: shut until it wakes (see SetEyes).
@@ -138,6 +138,31 @@ namespace Game.Entities
             }
             NeckLocal = new Vector3(0f, 0.86f, -0.03f);
             EyesLocal = new Vector3(0f, 0.95f, 0.055f);
+        }
+
+        // A big foot under the shin (its sole on the ground, 0.2725 below the knee joint), still in blocks: an ankle,
+        // a heel, an arch sloping down to a wide ball, and five long toes splayed out from it, the big toe on the
+        // inside (inward is +x for the left foot, -x for the right), each curling down at its tip.
+        void Foot(Transform shin, float inward)
+        {
+            const float sole = -0.2725f;
+            Block(shin, new Vector3(0f, -0.235f, -0.005f), new Vector3(0.046f, 0.035f, 0.05f));            // ankle
+            Block(shin, new Vector3(0f, sole + 0.021f, -0.035f), new Vector3(0.05f, 0.042f, 0.05f));        // heel
+            var arch = Block(shin, new Vector3(inward * 0.004f, sole + 0.02f, 0.03f), new Vector3(0.06f, 0.034f, 0.085f));
+            arch.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);                                   // (higher at the back)
+            Block(shin, new Vector3(inward * 0.002f, sole + 0.014f, 0.08f), new Vector3(0.074f, 0.028f, 0.04f)); // the ball
+            float[] across = { 0.026f, 0.011f, -0.002f, -0.015f, -0.027f };
+            float[] length = { 0.046f, 0.043f, 0.039f, 0.034f, 0.028f };
+            float[] width = { 0.017f, 0.012f, 0.011f, 0.011f, 0.01f };
+            for (int k = 0; k < 5; k++)
+            {
+                var toe = Joint(shin, new Vector3(inward * across[k], sole + 0.01f, 0.098f - k * 0.004f));
+                toe.localRotation = Quaternion.Euler(0f, -inward * (k - 1f) * 4f, 0f);                     // splayed
+                Block(toe, new Vector3(0f, 0f, length[k] * 0.5f), new Vector3(width[k], 0.019f, length[k]));
+                var tip = Joint(toe, new Vector3(0f, 0f, length[k]));
+                tip.localRotation = Quaternion.Euler(30f, 0f, 0f);                                          // curled down
+                Block(tip, new Vector3(0f, 0f, 0.007f), new Vector3(width[k] * 0.85f, 0.015f, 0.014f));
+            }
         }
 
         Transform[] eyes = new Transform[0];
