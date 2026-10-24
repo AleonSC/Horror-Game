@@ -55,6 +55,8 @@ namespace Game.Entities
         public GiantState State { get; private set; } = GiantState.Hanging;
         public float Distance { get; private set; }
         public GiantSettings Settings => s;
+        /// <summary>Its middle, where it's drawn (for the dev window's "look at it").</summary>
+        public Vector3 ShownAt => bodyRoot != null && body != null ? bodyRoot.TransformPoint(body.NeckLocal * 0.6f) : transform.position;
 
         // IThreat: the sky watching (eye open, it walking). It never counts as close in the usual sense.
         public bool ThreatVisible => false;

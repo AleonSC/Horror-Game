@@ -77,6 +77,15 @@ namespace Game.DevTools
                     result = f;
                     break;
                 }
+                case int n:
+                {
+                    var range = field.GetCustomAttribute<RangeAttribute>();
+                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(150));
+                    if (range != null) n = Mathf.RoundToInt(GUILayout.HorizontalSlider(n, range.min, range.max, GUILayout.ExpandWidth(true)));
+                    GUILayout.Label(n.ToString(), DevStyle.MutedLabel, GUILayout.Width(52));
+                    result = n;
+                    break;
+                }
                 case bool b:
                     GUILayout.EndHorizontal();
                     result = DevStyle.Switch(label, b);

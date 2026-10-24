@@ -47,6 +47,7 @@ namespace Game.DevTools
             AddTab(new SessionTab());
             AddTab(new LightingTab());
             AddTab(new LookTab());
+            AddTab(new HuntersTab());
 
             if (Services.TryGet<PlayerPreferences>(out var prefs)) current = Mathf.Max(0, IndexOf(prefs.devTab));
         }
