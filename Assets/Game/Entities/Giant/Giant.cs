@@ -17,7 +17,7 @@ namespace Game.Entities
     /// turning slowly, with empty chains elsewhere round the horizon; each lamp lit jolts it. At the 5th lamp a red
     /// eye opens in the sky, your view is drawn up to it, the dream hallway takes hold and the world turns red. As
     /// it closes the chain snaps: the giant falls, lands (its theme), a shockwave rolls out, and it walks toward
-    /// you, stopping now and then to scan. Close enough, it takes you; afterwards it's back on the horizon. At the
+    /// you, stopping now and then to scan; but it never reaches you, only ever seeming to come on. At the
     /// 10th lamp searchlights from its eyes track you, and a crowd of scours circles the edge of the light.
     /// <para>It's far too big for the camera's range, so it's drawn nearer and scaled down to look the same.</para>
     /// </summary>
@@ -52,6 +52,7 @@ namespace Game.Entities
         float shockRadius = -1f;
         bool sawIt, eyeDone, searching, hiddenForRoom;
         int lastStep;
+        float walkIn;
 
         public GiantState State { get; private set; } = GiantState.Hanging;
         public float Distance { get; private set; }
@@ -215,6 +216,7 @@ namespace Game.Entities
                 case GiantState.Walking: Walk(dt, p); break;
                 case GiantState.Resting:
                     timer -= dt;
+                    walkIn = 0f; // (it'll ease back into its stride)
                     body.PoseWalking(stride, Mathf.Sin(Time.time * 0.3f), 0f);
                     if (timer <= 0f) State = GiantState.Walking;
                     break;
@@ -339,7 +341,12 @@ namespace Game.Entities
         void Landed(float dt, Vector3 p)
         {
             timer += dt;
-            body.PoseWalking(0f, 0f, 0f);
+            // It hits the ground in a crouch, sinks a little further as it takes the weight, holds there a moment,
+            // then slowly rises to its full height.
+            float rise = s.shockwaveAfter + 2f;
+            float sink = Mathf.Sin(Mathf.Clamp01(timer / 0.7f) * Mathf.PI) * 0.18f;
+            float up = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((timer - 1.2f) / Mathf.Max(0.5f, rise - 1.2f)));
+            body.PoseLanding((1f + sink) * (1f - up));
             if (shockRadius < 0f && timer >= s.shockwaveAfter)
             {
                 shockRadius = 0f;
@@ -349,26 +356,41 @@ namespace Game.Entities
             if (timer >= s.shockwaveAfter + 2f)
             {
                 State = GiantState.Walking;
+                walkIn = 0f;
                 nextScan = Random.Range(s.minScanEvery, s.maxScanEvery);
             }
         }
 
+        // It never reaches you: it only ever seems to be coming. Nearing its closest it slows, still striding as if
+        // it were coming on, and if you run at it, it stays just as far off.
         void Walk(float dt, Vector3 p)
         {
             Vector3 to = Flat(p - truePos);
             Distance = to.magnitude;
+            Vector3 toward = Distance > 0.01f ? to / Distance : Vector3.forward;
+            float closest = Mathf.Max(20f, s.closestDistance);
+            if (Distance < closest)
+            {
+                truePos = Vector3.MoveTowards(truePos, p - toward * closest, s.walkSpeed * 3f * dt);
+                Distance = Flat(p - truePos).magnitude;
+            }
+            // Easing into its stride (from standing, or from stopping to scan) rather than snapping.
+            walkIn = Mathf.MoveTowards(walkIn, scanLeft > 0f ? 0f : 1f, dt / (scanLeft > 0f ? 1.5f : 3f));
+            float moving = Mathf.SmoothStep(0f, 1f, walkIn);
             if (scanLeft > 0f)
             {
                 scanLeft -= dt;
-                scan = Mathf.Sin(Time.time * 0.8f);
-                body.PoseWalking(stride, scan, 0f);
+                scan = Mathf.Lerp(scan, Mathf.Sin(Time.time * 0.8f), 1f - Mathf.Exp(-2f * dt));
+                stride += dt / Mathf.Max(0.5f, s.strideTime) * 0.3f * moving; // (its last step settling)
+                body.PoseWalking(stride, scan, moving);
             }
             else
             {
                 scan = Mathf.MoveTowards(scan, 0f, dt);
-                stride += dt / Mathf.Max(0.5f, s.strideTime);
-                truePos += to.normalized * Mathf.Min(Distance, s.walkSpeed * dt);
-                body.PoseWalking(stride, scan, 1f);
+                stride += dt / Mathf.Max(0.5f, s.strideTime) * Mathf.Lerp(0.3f, 1f, moving);
+                float approach = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Distance - closest) / (closest * 0.8f)));
+                truePos += toward * Mathf.Min(Mathf.Max(0f, Distance - closest), s.walkSpeed * approach * moving * dt);
+                body.PoseWalking(stride, scan, moving);
                 nextScan -= dt;
                 if (nextScan <= 0f)
                 {
@@ -380,14 +402,16 @@ namespace Game.Entities
                 if (step != lastStep)
                 {
                     lastStep = step;
-                    float near = 1f - Mathf.Clamp01(Distance / s.HangDistance);
-                    if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.GiantStep, MixerNames.Outside, Mathf.Lerp(0.25f, 1f, near), Random.Range(0.85f, 1f));
-                    player.AddShake(s.stepShake * near * near);
+                    float near = 1f - Mathf.Clamp01((Distance - closest) / Mathf.Max(1f, s.HangDistance - closest));
+                    if (Services.TryGet<SoundPlayer>(out var sounds))
+                    {
+                        sounds.Play2D(Sound.GiantStep, MixerNames.Outside, Mathf.Lerp(0.45f, 1f, near) * moving, Random.Range(0.82f, 0.95f));
+                        // (and a deep boom under it, swelling as it nears)
+                        sounds.Play2D(Sound.Boom, MixerNames.Outside, Mathf.Lerp(0.12f, 0.5f, near) * moving, Random.Range(0.5f, 0.6f));
+                    }
+                    player.AddShake(s.stepShake * Mathf.Lerp(0.3f, 1f, near) * moving);
                 }
             }
-
-            var catchFlow = player.GetComponent<CatchFlow>();
-            if (Distance <= s.takeDistance && catchFlow != null && catchFlow.CanTake) catchFlow.Begin(EntityKind.Giant, 0);
         }
 
         // The shockwave from its landing, rolling out until it passes you: a gust of shake as it does.

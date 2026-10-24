@@ -101,11 +101,11 @@ namespace Game.Entities
         [Range(0.5f, 20f), Tooltip("...for 3-6 seconds.")]
         public float minScanTime = 3f;
         [Range(0.5f, 20f)] public float maxScanTime = 6f;
-        [Range(0f, 20f), Tooltip("Camera shake from a step when it's near (degrees).")]
-        public float stepShake = 3f;
-        [Range(20f, 500f), Tooltip("Within this it takes you (metres).")]
-        public float takeDistance = 135f;
-        [Range(0f, 300f), Tooltip("After it takes you (or is driven back), seconds before it walks again.")]
+        [Range(0f, 20f), Tooltip("Camera shake from a step when it's at its nearest (degrees; a third of that far off).")]
+        public float stepShake = 4.5f;
+        [Range(20f, 1000f), Tooltip("It never comes nearer than this (metres): it slows as it nears, still striding, and keeps this far off however you run at it.")]
+        public float closestDistance = 220f;
+        [Range(0f, 300f), Tooltip("After it's driven back (or you're taken), seconds before it walks again.")]
         public float restTime = 30f;
 
         [Header("Searchlights (at the 10th lamp)")]

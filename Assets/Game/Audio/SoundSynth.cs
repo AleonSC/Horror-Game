@@ -474,7 +474,10 @@ namespace Game.Audio
             {
                 float t = Time(i);
                 lp += (Noise(rng) - lp) * 0.02f;
-                s[i] = (float)Math.Sin(2 * Math.PI * (34f + 20f * Decay(t, 10f)) * t) * Decay(t, 1.6f) + lp * 5f * Decay(t, 2.5f);
+                // The thud, a sub-bass weight under it that rolls on, and the ground's rumble.
+                float thud = (float)Math.Sin(2 * Math.PI * (34f + 22f * Decay(t, 10f)) * t) * Decay(t, 1.4f);
+                float sub = (float)Math.Sin(2 * Math.PI * 22f * t) * Decay(t, 0.9f) * Math.Min(1f, t / 0.03f) * 0.8f;
+                s[i] = thud + sub + lp * 6f * Decay(t, 2f);
             }
             return Normalize(s, 0.95f);
         }

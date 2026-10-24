@@ -6,12 +6,14 @@ namespace Game.Entities
     /// <summary>
     /// The giant's body: the built-in one (a vast, blocky, gaunt black figure with long fingers, on a jointed frame) or your own
     /// model. Built one unit tall with its feet at the pivot, facing +Z; the giant scales it. Poses: hanging (head
-    /// lolled, limbs dangling), falling, walking (a stride phase), and scanning (the head turning).
+    /// lolled, limbs dangling), falling (into a crouch), landing (rising out of it), walking (a stride phase), and
+    /// scanning (the head turning).
     /// </summary>
     public sealed class GiantBody : MonoBehaviour
     {
         Transform hips, chest, neck, head;
-        Transform thighL, thighR, shinL, shinR, armL, armR, foreL, foreR;
+        Transform thighL, thighR, shinL, shinR, armL, armR, foreL, foreR, ankleL, ankleR;
+        static readonly Vector3 HipsAt = new Vector3(0f, 0.52f, 0f);
         Animator animator;
         Material haze;
         bool custom;
@@ -65,7 +67,7 @@ namespace Game.Entities
         void BuildBuiltIn()
         {
             var t = transform;
-            hips = Joint(t, new Vector3(0f, 0.52f, 0f));
+            hips = Joint(t, HipsAt);
             Block(hips, new Vector3(0f, 0.01f, 0f), new Vector3(0.12f, 0.1f, 0.07f));           // pelvis
             Block(hips, new Vector3(0f, 0.12f, 0.005f), new Vector3(0.09f, 0.13f, 0.06f));      // a narrow waist
             chest = Joint(hips, new Vector3(0f, 0.2f, 0f));
@@ -92,13 +94,17 @@ namespace Game.Entities
             foreach (var f in new[] { foreL, foreR })
             {
                 Block(f, new Vector3(0f, -0.1f, 0f), new Vector3(0.032f, 0.2f, 0.036f));       // forearm
-                Block(f, new Vector3(0f, -0.215f, 0.005f), new Vector3(0.045f, 0.04f, 0.022f)); // palm
-                // Long fingers, splayed a little and crooked at the end.
+                // The hand, turned at the wrist so its palm faces the thigh and the fingers hang in a row along
+                // the body (front to back), the thumb forward.
                 float side = f == foreL ? -1f : 1f;
+                var wrist = Joint(f, new Vector3(0f, -0.2f, 0f));
+                wrist.localRotation = Quaternion.Euler(0f, -90f * side, 0f);
+                Block(wrist, new Vector3(0f, -0.015f, 0.005f), new Vector3(0.045f, 0.04f, 0.022f)); // palm
+                // Long fingers, splayed a little and crooked at the end, curling in toward the leg.
                 for (int k = 0; k < 4; k++)
                 {
                     float x = (k - 1.5f) * 0.011f;
-                    var finger = Joint(f, new Vector3(x, -0.235f, 0.006f));
+                    var finger = Joint(wrist, new Vector3(x, -0.035f, 0.006f));
                     finger.localRotation = Quaternion.Euler(-6f, 0f, (k - 1.5f) * 5f * side);
                     float length = k == 0 || k == 3 ? 0.1f : 0.13f;
                     Block(finger, new Vector3(0f, -length * 0.35f, 0f), new Vector3(0.007f, length * 0.7f, 0.008f));
@@ -106,7 +112,7 @@ namespace Game.Entities
                     tip.localRotation = Quaternion.Euler(-28f, 0f, 0f);
                     Block(tip, new Vector3(0f, -length * 0.15f, 0f), new Vector3(0.006f, length * 0.32f, 0.007f));
                 }
-                Block(f, new Vector3(0.016f * side, -0.225f, 0.016f), new Vector3(0.007f, 0.05f, 0.008f)); // thumb
+                Block(wrist, new Vector3(0.016f * side, -0.025f, 0.016f), new Vector3(0.007f, 0.05f, 0.008f)); // thumb
             }
 
             thighL = Joint(hips, new Vector3(-0.035f, 0f, 0f));
@@ -117,7 +123,8 @@ namespace Game.Entities
             foreach (var sh in new[] { shinL, shinR })
             {
                 Block(sh, new Vector3(0f, -0.125f, 0f), new Vector3(0.042f, 0.25f, 0.045f));
-                Foot(sh, sh == shinL ? 1f : -1f);
+                var ankle = Foot(sh, sh == shinL ? 1f : -1f);
+                if (sh == shinL) ankleL = ankle; else ankleR = ankle;
             }
 
             // The eyes: shut until it wakes (see SetEyes).
@@ -140,29 +147,36 @@ namespace Game.Entities
             EyesLocal = new Vector3(0f, 0.95f, 0.055f);
         }
 
-        // A big foot under the shin (its sole on the ground, 0.2725 below the knee joint), still in blocks: an ankle,
-        // a heel, an arch sloping down to a wide ball, and five long toes splayed out from it, the big toe on the
-        // inside (inward is +x for the left foot, -x for the right), each curling down at its tip.
-        void Foot(Transform shin, float inward)
+        // A big foot on an ankle joint at the bottom of the shin (so it can stay flat as the leg moves), its sole on
+        // the ground: a flat sole, rounded over the top (a domed heel, a high instep sloping down to a wide ball),
+        // and five long rounded toes splayed out from it, the big toe on the inside (inward is +x for the left foot,
+        // -x for the right), each curling down at its tip. Returns the ankle.
+        Transform Foot(Transform shin, float inward)
         {
-            const float sole = -0.2725f;
-            Block(shin, new Vector3(0f, -0.235f, -0.005f), new Vector3(0.046f, 0.035f, 0.05f));            // ankle
-            Block(shin, new Vector3(0f, sole + 0.021f, -0.035f), new Vector3(0.05f, 0.042f, 0.05f));        // heel
-            var arch = Block(shin, new Vector3(inward * 0.004f, sole + 0.02f, 0.03f), new Vector3(0.06f, 0.034f, 0.085f));
-            arch.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);                                   // (higher at the back)
-            Block(shin, new Vector3(inward * 0.002f, sole + 0.014f, 0.08f), new Vector3(0.074f, 0.028f, 0.04f)); // the ball
+            var ankle = Joint(shin, new Vector3(0f, -0.25f, 0f));
+            const float sole = -0.0225f; // (the ground, below the ankle)
+            Shape(PrimitiveType.Sphere, ankle, new Vector3(0f, 0.012f, -0.005f), new Vector3(0.05f, 0.045f, 0.055f));          // ankle
+            // The sole: flat underneath (the domes' lower halves sit inside it).
+            Block(ankle, new Vector3(inward * 0.002f, sole + 0.008f, 0.02f), new Vector3(0.07f, 0.016f, 0.17f));
+            Shape(PrimitiveType.Sphere, ankle, new Vector3(0f, sole + 0.022f, -0.035f), new Vector3(0.054f, 0.044f, 0.06f));    // heel
+            var instep = Shape(PrimitiveType.Sphere, ankle, new Vector3(inward * 0.004f, sole + 0.024f, 0.03f), new Vector3(0.064f, 0.05f, 0.12f));
+            instep.transform.localRotation = Quaternion.Euler(-10f, 0f, 0f);                                                   // (higher at the back)
+            Shape(PrimitiveType.Sphere, ankle, new Vector3(inward * 0.002f, sole + 0.016f, 0.082f), new Vector3(0.076f, 0.032f, 0.05f)); // the ball
             float[] across = { 0.026f, 0.011f, -0.002f, -0.015f, -0.027f };
             float[] length = { 0.046f, 0.043f, 0.039f, 0.034f, 0.028f };
             float[] width = { 0.017f, 0.012f, 0.011f, 0.011f, 0.01f };
             for (int k = 0; k < 5; k++)
             {
-                var toe = Joint(shin, new Vector3(inward * across[k], sole + 0.01f, 0.098f - k * 0.004f));
-                toe.localRotation = Quaternion.Euler(0f, -inward * (k - 1f) * 4f, 0f);                     // splayed
-                Block(toe, new Vector3(0f, 0f, length[k] * 0.5f), new Vector3(width[k], 0.019f, length[k]));
-                var tip = Joint(toe, new Vector3(0f, 0f, length[k]));
-                tip.localRotation = Quaternion.Euler(30f, 0f, 0f);                                          // curled down
-                Block(tip, new Vector3(0f, 0f, 0.007f), new Vector3(width[k] * 0.85f, 0.015f, 0.014f));
+                var toe = Joint(ankle, new Vector3(inward * across[k], sole + 0.009f, 0.098f - k * 0.004f));
+                toe.localRotation = Quaternion.Euler(0f, -inward * (k - 1f) * 4f, 0f);                                          // splayed
+                var bone = Shape(PrimitiveType.Capsule, toe, new Vector3(0f, 0f, length[k] * 0.5f), new Vector3(width[k], length[k] * 0.5f, 0.018f));
+                bone.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);                                                   // (lying along the toe)
+                var tip = Joint(toe, new Vector3(0f, 0f, length[k] * 0.85f));
+                tip.localRotation = Quaternion.Euler(30f, 0f, 0f);                                                              // curled down
+                var nail = Shape(PrimitiveType.Capsule, tip, new Vector3(0f, 0f, 0.008f), new Vector3(width[k] * 0.85f, 0.011f, 0.014f));
+                nail.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             }
+            return ankle;
         }
 
         Transform[] eyes = new Transform[0];
@@ -183,10 +197,18 @@ namespace Game.Entities
         /// <summary>The fog's colour (as the look shows it) taken by this much: it stays a silhouette, just hazed.</summary>
         public void SetShade(float shade, Color fog, float through) => RuntimeMaterials.SetSilhouette(haze, shade, fog, through);
 
+        // Keep a foot flat on the ground whatever the leg above it is doing (by this much: 1 flat, 0 with the leg).
+        // (pitch: the hips', thigh's and shin's forward pitches added up.)
+        static void Flat(Transform ankle, float pitch, float amount)
+        {
+            if (ankle != null) ankle.localRotation = Quaternion.Euler(-pitch * amount, 0f, 0f);
+        }
+
         /// <summary>Hanging from the chain: <paramref name="sway"/> -1..1 swings the limbs a little.</summary>
         public void PoseHanging(float sway)
         {
             if (custom) { Animate(0f, true); return; }
+            hips.localPosition = HipsAt;
             hips.localRotation = Quaternion.Euler(4f, 0f, sway * 2f);
             chest.localRotation = Quaternion.Euler(6f, 0f, 0f);
             neck.localRotation = Quaternion.Euler(-25f, 0f, 0f);                // (held back by the chain)
@@ -197,22 +219,86 @@ namespace Game.Entities
             thighL.localRotation = Quaternion.Euler(sway * 4f, 0f, -2f);
             thighR.localRotation = Quaternion.Euler(-sway * 4f + 3f, 0f, 2f);
             shinL.localRotation = shinR.localRotation = Quaternion.Euler(2f, 0f, 0f);
+            if (ankleL != null) ankleL.localRotation = ankleR.localRotation = Quaternion.Euler(28f, 0f, 0f); // (toes hanging down)
         }
 
-        /// <summary>Falling: flailing slowly, <paramref name="t"/> 0..1 through the fall.</summary>
+        /// <summary>
+        /// Falling: <paramref name="t"/> 0..1 through the fall. It drops out of its hang, arms flung slowly up and
+        /// out against the rush of air, the head coming up off its chest; then, nearing the ground, it gathers
+        /// itself: knees drawn up and bent, body pitching forward, arms coming down and forward to meet the ground,
+        /// ending in the crouch it lands in (<see cref="PoseLanding"/> at 1).
+        /// </summary>
         public void PoseFalling(float t)
         {
             if (custom) { Animate(0f, false); return; }
-            float flail = Mathf.Sin(t * 9f);
-            hips.localRotation = Quaternion.Euler(-8f * t, 0f, 0f);
-            head.localRotation = Quaternion.Euler(Mathf.Lerp(55f, -15f, t), 0f, Mathf.Lerp(22f, 0f, t));
-            neck.localRotation = Quaternion.identity;
-            armL.localRotation = Quaternion.Euler(flail * 20f, 0f, -40f * t);
-            armR.localRotation = Quaternion.Euler(-flail * 20f, 0f, 40f * t);
-            thighL.localRotation = Quaternion.Euler(-20f * t, 0f, -5f);
-            thighR.localRotation = Quaternion.Euler(10f * t, 0f, 5f);
-            shinL.localRotation = Quaternion.Euler(30f * t, 0f, 0f);
-            shinR.localRotation = Quaternion.Euler(15f * t, 0f, 0f);
+            float up = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.45f));        // arms rising, head coming up
+            float flail = Mathf.Sin(t * 5f) * (1f - t) * up;                       // a slow windmill, dying away
+            float gather = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - 0.55f) / 0.45f));
+
+            // In the air...
+            var hipsAir = Quaternion.Euler(-6f * up, 0f, 0f);
+            var chestAir = Quaternion.Euler(-4f * up, 0f, 0f);
+            var neckAir = Quaternion.Euler(Mathf.Lerp(-25f, 0f, up), 0f, 0f);
+            var headAir = Quaternion.Euler(Mathf.Lerp(55f, -12f, up), 0f, Mathf.Lerp(22f, 0f, up));
+            var armLAir = Quaternion.Euler(-35f * up + flail * 18f, 0f, -55f * up);
+            var armRAir = Quaternion.Euler(-35f * up - flail * 18f, 0f, 55f * up);
+            var foreAir = Quaternion.Euler(-25f * up, 0f, 0f);
+            var thighLAir = Quaternion.Euler(-12f * up + flail * 8f, 0f, -6f * up);
+            var thighRAir = Quaternion.Euler(8f * up - flail * 8f, 0f, 6f * up);
+            var shinLAir = Quaternion.Euler(18f * up, 0f, 0f);
+            var shinRAir = Quaternion.Euler(28f * up, 0f, 0f);
+
+            // ...blended into the crouch it lands in.
+            PoseLanding(1f);
+            hips.localPosition = Vector3.Lerp(HipsAt, hips.localPosition, gather);
+            hips.localRotation = Quaternion.Slerp(hipsAir, hips.localRotation, gather);
+            chest.localRotation = Quaternion.Slerp(chestAir, chest.localRotation, gather);
+            neck.localRotation = Quaternion.Slerp(neckAir, neck.localRotation, gather);
+            head.localRotation = Quaternion.Slerp(headAir, head.localRotation, gather);
+            armL.localRotation = Quaternion.Slerp(armLAir, armL.localRotation, gather);
+            armR.localRotation = Quaternion.Slerp(armRAir, armR.localRotation, gather);
+            foreL.localRotation = Quaternion.Slerp(foreAir, foreL.localRotation, gather);
+            foreR.localRotation = Quaternion.Slerp(foreAir, foreR.localRotation, gather);
+            thighL.localRotation = Quaternion.Slerp(thighLAir, thighL.localRotation, gather);
+            thighR.localRotation = Quaternion.Slerp(thighRAir, thighR.localRotation, gather);
+            shinL.localRotation = Quaternion.Slerp(shinLAir, shinL.localRotation, gather);
+            shinR.localRotation = Quaternion.Slerp(shinRAir, shinR.localRotation, gather);
+            // Toes pointing down as it drops, flattening for the ground.
+            if (ankleL != null)
+            {
+                var hang = Quaternion.Euler(28f * (1f - up * 0.5f), 0f, 0f);
+                ankleL.localRotation = Quaternion.Slerp(hang, ankleL.localRotation, gather);
+                ankleR.localRotation = Quaternion.Slerp(hang, ankleR.localRotation, gather);
+            }
+        }
+
+        /// <summary>
+        /// Landed: <paramref name="crouch"/> 1 deep in the crouch it hit the ground in (knees bent, hips low, body
+        /// pitched over, long arms down with the fingers on the ground), 0 risen to stand as it walks. Feet flat.
+        /// </summary>
+        public void PoseLanding(float crouch)
+        {
+            if (custom) { Animate(0f, false); return; }
+            float c = Mathf.Clamp(crouch, 0f, 1.3f);
+            float hipsPitch = 10f + 22f * c;
+            // The legs fold like a Z: the thigh swings forward by bend, the shin back twice as far, so the foot stays
+            // under the hips; the hips drop by what the folding takes up. (At 0 it's the walk's standing pose.)
+            float bend = 50f * c;
+            float thigh = bend + hipsPitch - 10f, knee = 4f + 2f * bend;
+            float Height(float b) => 0.25f * Mathf.Cos((b - 10f) * Mathf.Deg2Rad) + 0.25f * Mathf.Cos((b + 14f) * Mathf.Deg2Rad);
+            hips.localPosition = HipsAt + Vector3.down * (Height(0f) - Height(bend));
+            hips.localRotation = Quaternion.Euler(hipsPitch, 0f, 0f);
+            chest.localRotation = Quaternion.Euler(14f + 20f * c, 0f, 0f);
+            neck.localRotation = Quaternion.Euler(18f - 30f * c, 0f, 0f);       // head up, looking out from its crouch
+            head.localRotation = Quaternion.Euler(-10f - 15f * c, 0f, 0f);
+            thighL.localRotation = Quaternion.Euler(-thigh, 0f, -2f - 5f * c);
+            thighR.localRotation = Quaternion.Euler(-thigh, 0f, 2f + 5f * c);
+            shinL.localRotation = shinR.localRotation = Quaternion.Euler(knee, 0f, 0f);
+            armL.localRotation = Quaternion.Euler(-6f - 38f * c, 0f, -5f - 6f * c);
+            armR.localRotation = Quaternion.Euler(-6f - 34f * c, 0f, 5f + 6f * c);
+            foreL.localRotation = foreR.localRotation = Quaternion.Euler(-12f - 10f * c, 0f, 0f);
+            Flat(ankleL, hipsPitch - thigh + knee, 1f);
+            Flat(ankleR, hipsPitch - thigh + knee, 1f);
         }
 
         /// <summary>
@@ -224,17 +310,24 @@ namespace Game.Entities
             if (custom) { Animate(moving, false); return; }
             float a = phase * Mathf.PI * 2f;
             float swing = Mathf.Sin(a) * 26f * moving;
+            // A slow, heavy dip as each foot comes down.
+            hips.localPosition = HipsAt + Vector3.down * (0.012f * moving * (1f - Mathf.Abs(Mathf.Cos(a))));
             hips.localRotation = Quaternion.Euler(10f, Mathf.Sin(a) * 4f * moving, 0f);
             chest.localRotation = Quaternion.Euler(14f, -Mathf.Sin(a) * 6f * moving, 0f);      // hunched
             neck.localRotation = Quaternion.Euler(18f, 0f, 0f);                                // jutting forward
             head.localRotation = Quaternion.Euler(-10f, scan * 55f, scan * 8f);
             thighL.localRotation = Quaternion.Euler(-swing, 0f, -2f);
             thighR.localRotation = Quaternion.Euler(swing, 0f, 2f);
-            shinL.localRotation = Quaternion.Euler(Mathf.Max(0f, Mathf.Sin(a + 1.2f)) * 45f * moving + 4f, 0f, 0f);
-            shinR.localRotation = Quaternion.Euler(Mathf.Max(0f, Mathf.Sin(a + 1.2f + Mathf.PI)) * 45f * moving + 4f, 0f, 0f);
+            float kneeL = Mathf.Max(0f, Mathf.Sin(a + 1.2f)) * 45f * moving + 4f;
+            float kneeR = Mathf.Max(0f, Mathf.Sin(a + 1.2f + Mathf.PI)) * 45f * moving + 4f;
+            shinL.localRotation = Quaternion.Euler(kneeL, 0f, 0f);
+            shinR.localRotation = Quaternion.Euler(kneeR, 0f, 0f);
             armL.localRotation = Quaternion.Euler(swing * 0.6f - 6f, 0f, -5f);
             armR.localRotation = Quaternion.Euler(-swing * 0.6f - 6f, 0f, 5f);
             foreL.localRotation = foreR.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+            // Feet: flat on the ground under it, the lifted one hanging a little toe-down.
+            Flat(ankleL, 10f - swing + kneeL, 0.85f);
+            Flat(ankleR, 10f + swing + kneeR, 0.85f);
         }
 
         void Animate(float walk, bool hanging)

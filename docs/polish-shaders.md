@@ -164,3 +164,22 @@ a camp someone left in a hurry:
   pocket, straps, a bedroll on top).
 - **Variation:** each campsite varies a little with its position.
 - **Your own campsite prefab:** if you set one in `WorldArtConfig`, it's used instead, as before.
+
+## The giant, walking
+
+- **It never reaches you:** it only ever seems to come on. As it nears its closest (`GiantConfig` >
+  `closestDistance`, 220 m) it slows to a stop while still striding as if coming, and if you run at it, it
+  stays just as far off. It no longer takes you.
+- **The fall:** it drops out of its hang with its arms flung slowly up and out and its head coming up. Nearing
+  the ground, it gathers itself: knees drawn up, body pitching forward, arms coming down to meet the ground.
+- **The landing:** it lands in a deep crouch (fingers to the ground), sinks a little further as it takes the
+  weight, holds, then slowly rises. It eases into its stride over a few seconds, and in and out of it when it
+  stops to scan, instead of snapping between poses.
+- **Hands:** they're turned at the wrist so the palms face the thighs and the long fingers hang in a row
+  along the body, curling in toward the leg.
+- **Feet:** they're on ankle joints and stay flat on the ground as it walks and crouches; they hang toe-down
+  while it's on the chain. The tops are rounded now: a domed heel, a high instep sloping to the ball, and
+  rounded toes on a flat sole.
+- **Steps:** each step is louder, with a deep sub-bass weight and a low boom under it that swell as it nears.
+  The shake is stronger (`stepShake` 4.5, and a third of that even when it's far off).
+
