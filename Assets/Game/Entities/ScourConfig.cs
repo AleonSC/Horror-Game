@@ -157,7 +157,9 @@ namespace Game.Entities
         public bool litBody;
         [Range(1f, 4f)] public float height = 2.4f;
         [Range(0f, 1f), Tooltip("Chance of an extra pair of arms.")]
-        public float extraArmsChance = 0.25f;
+        public float extraArmsChance = 0f;
+        [Tooltip("Off: it just stands there, upright, facing you. On: it strikes a new pose (reaching, arms up, crouched, turned away, head lolled) each time it creeps.")]
+        public bool creepPoses;
         [Range(0f, 0.2f)] public float vibration = 0.04f;
         [Range(0f, 1f)] public float crescendoVibration = 0.25f;
         [Range(0f, 10f), Tooltip("Degrees of camera shake at the peak.")]

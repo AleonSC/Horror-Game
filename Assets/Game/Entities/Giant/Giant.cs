@@ -506,7 +506,7 @@ namespace Game.Entities
                 go.transform.SetParent(transform, false);
                 var look = ScourLook.AddTo(go, scourConfig);
                 look.Build(scourConfig, rng);
-                look.SetPose(PoseShape.RandomCreepPose(() => (float)rng.NextDouble()), rng.Next(2) == 0 ? -1 : 1, true);
+                look.SetPose(ScourPose.Neutral, 1, true); // (standing, watching)
                 crowd.Add(look);
                 crowdAngle.Add(i / (float)s.crowd * Mathf.PI * 2f);
             }

@@ -155,7 +155,7 @@ namespace Game.Entities
             body.SetVisible(true);
             body.SetMaterialize(0f);
             if (ducker) body.SetPose(ScourPose.Peek, 1, true);
-            else body.SetPose(PoseShape.RandomCreepPose(() => Random.value), RandomSide(), true);
+            else body.SetPose(CreepPose(), RandomSide(), true);
             huntProgress = 0f;
             eyeFlare = 1f;
             blue = 0f;      // (red again, whatever happened last time)
@@ -342,7 +342,7 @@ namespace Game.Entities
             peekTree = null; // stepped out into the open
             body.Face(target);
             // A new pose for when you look back (it moved unseen, so it can snap).
-            body.SetPose(PoseShape.RandomCreepPose(() => Random.value), RandomSide(), true);
+            body.SetPose(CreepPose(), RandomSide(), true);
             Play(Sound.Creep, 0.7f, Random.Range(0.85f, 1.15f), 25f);
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept to {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
         }
@@ -532,6 +532,9 @@ namespace Game.Entities
             p.y = PlayerSense.GroundHeight(p);
             transform.position = p;
         }
+
+        // Standing still and upright, facing you; or, if ScourConfig says so, a new unsettling pose each creep.
+        ScourPose CreepPose() => s.creepPoses ? PoseShape.RandomCreepPose(() => Random.value) : ScourPose.Neutral;
 
         void Play(Sound sound, float volume, float pitch, float range)
         {
