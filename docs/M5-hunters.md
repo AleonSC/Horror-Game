@@ -96,3 +96,23 @@ searchlight look right? What's the frame time with the crowd out?
   "Eyes" will glow).
 
 **Let me know:** are they easy enough to spot (eyeshine), and is the face-grab scary without being annoying?
+
+## Part 5: the flier
+
+- **The 7th lamp:** a cry, then a vast ragged black bird (40 m across) dives in from ahead, straight over you,
+  low enough to shake the ground. It climbs away, and as its theme's bell rings its one eye lights: a
+  searchlight.
+- **It circles stretches of the forest** 48 m up, sweeping its beam over them, moving on every half minute or
+  so. For the first 15 s its beam keeps off you.
+- **If the beam passes within 9 m of you, it snaps onto you** and circles over you, holding the light on you.
+  - **To lose it:** get out of its sight for 4 s (under trees, under a roof, or in a safe light).
+  - **Standing still in its light is safe.**
+  - **Move in it for 5 s in all**, and it screeches, the light turns red, and **every scour comes at once**.
+
+  It never takes you itself.
+- **To test quickly:** F9 > Game > Flier > **Bring it now**.
+- Numbers: `Assets/Config/Entities/FlierConfig`. Your own model can go in **Custom Model** (a child named "Eye"
+  is where the light comes from).
+
+**Let me know:** can you see it against the sky? Is the beam easy enough to dodge, and is losing it under the
+trees fair?

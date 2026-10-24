@@ -43,6 +43,7 @@ namespace Game.DevTools
             if (Services.TryGet<Giant>(out var giant)) DrawGiant(giant);
             if (Services.TryGet<BlindOne>(out var blind)) DrawBlind(blind);
             if (Services.TryGet<CrawlerSpawner>(out var crawlers)) DrawCrawlers(crawlers);
+            if (Services.TryGet<Flier>(out var flier)) DrawFlier(flier);
 
             GUILayout.Label("Sound state", DevStyle.Section);
             if (!Services.TryGet<AudioStateController>(out var audio))
@@ -164,6 +165,13 @@ namespace Game.DevTools
             }
             foreach (var c in crawlers.Crawlers)
                 if (c != null) DevStyle.Row($"#{c.Id}", $"{c.State}, {c.DistanceToPlayer:0.0} m");
+        }
+
+        static void DrawFlier(Flier flier)
+        {
+            GUILayout.Label("Flier", DevStyle.Section);
+            DevStyle.Row("State", flier.State == FlierState.Absent ? $"not yet (comes at lamp {flier.Settings.arriveAtLamp})" : $"{flier.State}, {flier.DistanceToPlayer:0} m");
+            if (flier.State == FlierState.Absent && GUILayout.Button("Bring it now", DevStyle.Button)) flier.Arrive();
         }
 
         static void GiveEverything(Hotbar hotbar)

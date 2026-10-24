@@ -109,6 +109,13 @@ namespace Game.Entities
             return scour;
         }
 
+        /// <summary>Every scour comes at once (the flier screeching): all that are away appear now.</summary>
+        public void AllComeNow()
+        {
+            foreach (var s in scours)
+                if (s != null && s.State == ScourState.Hidden) s.Hide(Random.Range(0f, 1.5f));
+        }
+
         /// <summary>Dev: make one appear now (an existing hidden one, or a new one).</summary>
         public void AppearNow()
         {
