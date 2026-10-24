@@ -23,6 +23,53 @@ namespace Game.World.Generation
             PlaceStructures(plan, s, rng);
             PlaceDoor(plan, s, rng);
             PlaceGlades(plan, s, rng);
+
+            // Level a pad under every building and the lone door, so their floors and doorways sit on the ground.
+            foreach (var st in plan.Structures)
+                if (st.Kind != StructureKind.LandmarkTree)
+                {
+                    float big = Mathf.Max(st.HalfSize.x, st.HalfSize.y); // (square: right whichever way it's turned)
+                    Level(plan, st.Position, st.Yaw, new Vector2(big, big), 1.5f, 5f);
+                }
+            Level(plan, plan.Door, plan.DoorYaw, new Vector2(1.5f, 1.5f), 1f, 4f);
+        }
+
+        /// <summary>
+        /// Flatten the ground over a box (turned by yaw) plus a margin, to the box's average height, blending back
+        /// into the slope over <paramref name="blend"/> metres beyond that.
+        /// </summary>
+        public static void Level(WorldPlan plan, Vector2 centre, float yaw, Vector2 half, float margin, float blend)
+        {
+            var h = plan.Height;
+            float a = -yaw * Mathf.Deg2Rad, cos = Mathf.Cos(a), sin = Mathf.Sin(a);
+            float reach = half.magnitude + margin + blend;
+            int r = Mathf.CeilToInt(reach) + 1;
+            int cx = Mathf.RoundToInt(centre.x), cz = Mathf.RoundToInt(centre.y);
+
+            // The level: the average height over the box.
+            float sum = 0f;
+            int n = 0;
+            for (float x = -half.x; x <= half.x; x += 1f)
+            for (float z = -half.y; z <= half.y; z += 1f)
+            {
+                sum += h.Sample(centre.x + x * cos + z * sin, centre.y - x * sin + z * cos);
+                n++;
+            }
+            float level = n > 0 ? sum / n : h.Sample(centre);
+
+            for (int dz = -r; dz <= r; dz++)
+            for (int dx = -r; dx <= r; dx++)
+            {
+                int gx = cx + dx, gz = cz + dz;
+                Vector2 d = Wrap.Delta(centre, new Vector2(h.WorldX(gx), h.WorldX(gz)), plan.Size);
+                // How far outside the box (with its margin) this sample is, in the box's own frame.
+                float lx = Mathf.Abs(d.x * cos - d.y * sin) - half.x - margin;
+                float lz = Mathf.Abs(d.x * sin + d.y * cos) - half.y - margin;
+                float outside = new Vector2(Mathf.Max(lx, 0f), Mathf.Max(lz, 0f)).magnitude;
+                float w = 1f - Mathf.SmoothStep(0f, 1f, outside / Mathf.Max(0.01f, blend));
+                if (w <= 0f) continue;
+                h[gx, gz] = Mathf.Lerp(h[gx, gz], level, w);
+            }
         }
 
         static bool GoodGround(WorldPlan plan, Vector2 p, float pondMargin, float maxSlope = 0.3f)

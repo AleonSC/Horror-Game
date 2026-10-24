@@ -27,6 +27,9 @@ namespace Game.Entities
         Vector3[] eyeScales = new Vector3[0];
         Material eyeMat;
         Light eyeLight, glare;
+        HDAdditionalLightData eyeLightData;
+        /// <summary>Does the eyes' glow light up what's near (a trunk it's peeking round), or only the fog?</summary>
+        public bool EyeLightOnSurfaces;
 
         /// <summary>The point between the eyes, in the world.</summary>
         public virtual Vector3 EyePoint
@@ -119,7 +122,7 @@ namespace Game.Entities
             var go = new GameObject("Eye Glow");
             go.transform.SetParent(bone, false);
             go.transform.localPosition = localPoint;
-            go.AddHDLight(LightType.Point);
+            eyeLightData = go.AddHDLight(LightType.Point);
             eyeLight = go.GetComponent<Light>();
             eyeLight.shadows = LightShadows.None;
             go.AddComponent<FogGlowLight>().strength = 1.5f;
@@ -189,6 +192,11 @@ namespace Game.Entities
             eyeLight.color = Color.Lerp(new Color(1f, 0.12f, 0.05f), Blue, blue);
             eyeLight.intensity = glow * lightStrength;
             eyeLight.range = lightRange;
+            if (eyeLightData != null)
+            {
+                eyeLightData.affectDiffuse = EyeLightOnSurfaces;
+                eyeLightData.affectSpecular = EyeLightOnSurfaces;
+            }
         }
 
         /// <summary>Turn to face a point (yaw only).</summary>

@@ -182,5 +182,28 @@ namespace Game.Tests
             Assert.AreEqual(a.Loot.Count, b.Loot.Count);
             for (int i = 0; i < a.Loot.Count; i++) Assert.AreEqual(a.Loot[i].Kind, b.Loot[i].Kind);
         }
+    
+        [Test]
+        public void Buildings_StandOnLevelGround()
+        {
+            foreach (int seed in new[] { 4, 5, 6, 7 })
+            {
+                var plan = Plan(seed);
+                foreach (var st in plan.Structures)
+                {
+                    if (st.Kind == StructureKind.LandmarkTree) continue;
+                    float centre = plan.GroundAt(st.Position);
+                    float r = Mathf.Max(st.HalfSize.x, st.HalfSize.y);
+                    for (int k = 0; k < 8; k++)
+                    {
+                        float a = k * Mathf.PI / 4f;
+                        var p = Wrap.Into(st.Position + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r, plan.Size);
+                        Assert.AreEqual(centre, plan.GroundAt(p), 0.05f, $"seed {seed}: the {st.Kind}'s ground isn't level");
+                    }
+                }
+                Assert.AreEqual(plan.GroundAt(plan.Door), plan.GroundAt(Wrap.Into(plan.Door + new Vector2(1.4f, 1.4f), plan.Size)), 0.05f);
+            }
+        }
     }
+
 }

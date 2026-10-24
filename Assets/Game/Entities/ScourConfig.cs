@@ -127,6 +127,8 @@ namespace Game.Entities
         [Range(0f, 5f), Tooltip("Strength of the red light the eyes throw (candela per unit of glow).")]
         public float eyeLight = 0.15f;
         [Range(0.5f, 10f)] public float eyeLightRange = 3f;
+        [Tooltip("Off: the eyes' red light only glows in the fog round them. On: it also lights up what's near (a trunk it peeks round).")]
+        public bool eyeLightOnSurfaces;
 
         [Header("Mouth")]
         [Range(1f, 15f), Tooltip("Its mouth starts to drop open within this distance...")]
