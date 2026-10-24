@@ -87,18 +87,33 @@ namespace Game.UI
             Border(b, Clear, 0f);
             b.style.borderBottomWidth = 2f;
             b.style.borderBottomColor = Clear;
+            b.style.borderLeftWidth = 3f;
+            b.style.borderLeftColor = new Color(1f, 1f, 1f, 0.08f);
             Rounded(b, 2f);
+            // A small diamond at its right end, lit on hover.
+            var mark = Box(b, new Color(1f, 1f, 1f, 0.12f));
+            mark.style.position = Position.Absolute;
+            mark.style.right = 18;
+            mark.style.top = height * 0.5f - 3.5f;
+            mark.style.width = mark.style.height = 7;
+            mark.style.rotate = new Rotate(new Angle(45f, AngleUnit.Degree));
             b.RegisterCallback<MouseEnterEvent>(_ =>
             {
                 b.style.backgroundColor = new Color(0.07f, 0.07f, 0.08f, 0.95f);
                 b.style.borderBottomColor = Red;
+                b.style.borderLeftColor = Red;
                 b.style.color = Color.white;
+                b.style.paddingLeft = 26;
+                mark.style.backgroundColor = Red;
             });
             b.RegisterCallback<MouseLeaveEvent>(_ =>
             {
                 b.style.backgroundColor = new Color(0.05f, 0.05f, 0.06f, 0.7f);
                 b.style.borderBottomColor = Clear;
+                b.style.borderLeftColor = new Color(1f, 1f, 1f, 0.08f);
                 b.style.color = Ink;
+                b.style.paddingLeft = 20;
+                mark.style.backgroundColor = new Color(1f, 1f, 1f, 0.12f);
             });
             parent?.Add(b);
             return b;

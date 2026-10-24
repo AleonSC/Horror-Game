@@ -148,6 +148,20 @@ namespace Game.World
         [Range(3f, 60f), Tooltip("...and running (or any noise you make) this close.")]
         public float crowScareRunning = 24f;
 
+        [Header("White moth")]
+        [Range(10f, 900f), Tooltip("Now and then a white moth turns up in the dark near you, every this many seconds (shortest)...")]
+        public float minWhiteMoth = 120f;
+        [Range(10f, 900f), Tooltip("...and longest.")]
+        public float maxWhiteMoth = 300f;
+        [Range(2f, 12f), Tooltip("Caught in your flashlight, it follows the beam, this far out along it.")]
+        public float whiteMothFollow = 4f;
+        [Range(0.5f, 8f), Tooltip("How fast it flies after the beam (swing the light faster than this and you lose it).")]
+        public float whiteMothSpeed = 3f;
+        [Range(0.1f, 4f), Tooltip("Out of your light this long and it gives up, wandering off slowly.")]
+        public float whiteMothLost = 0.8f;
+        [Range(0f, 1f), Tooltip("Lead it to a lit lamp: this much more sprint time for the rest of the run (0.15 = 15%), and your breath back.")]
+        public float whiteMothBonus = 0.15f;
+
         [Header("Ponds")]
         [Range(0f, 1f), Tooltip("How slow wading is (share of walking speed).")]
         public float wadeSpeed = 0.55f;

@@ -42,9 +42,49 @@ with its head when it stops to scan (`GiantConfig` > Awake). The 10th lamp's sea
 
 ## Lamps
 
-Victorian street lamps now: a stepped base, a fluted iron post ringed with brass collars, a crossbar, and a
-lantern of glass in an iron frame under a sloping roof and a brass finial (the red marker sits on its tip).
-The crank has a housing, an arm and a knob.
+Detailed Victorian street lamps, built from turned (lathed) shapes and shared by every lamp:
+- an eight-sided stepped stone plinth;
+- a cast-iron bell base, ring on ring of mouldings;
+- a slim column with eight raised flutes and three brass bands;
+- a flared capital with a ladder bar and brass ball ends;
+- four curling iron scroll brackets under the lantern;
+- a six-sided lantern, wider at the top, with an iron frame and glazing bars, under a flared cap and a curved
+  (ogee) roof, with a crown of brass spikes and a turned brass finial (the red marker sits on its tip);
+- the crank on a brass-rimmed housing.
+
+The iron is an old green-black paint. The lantern's frame and glass cast no shadows, so they don't shade their
+own light.
+
+## Paths
+
+The trails and the dirt patches round the lamps are now see-through packed earth, with faint ruts and grit.
+They're solid down the middle and fade out raggedly at the sides into the forest floor, instead of ending in a
+hard edge. They're drawn a bit wider so the fade sits outside the old edge (`TerrainBuilder` > `FadeWider`,
+`PatchWider`). This only applies to the built-in trail look: your own trail material (WorldArtConfig) is used as
+it is.
+
+## HUD
+
+- **Hotbar:** a dark band ruled in warm light with a diamond in the middle. Each slot shows a line drawing of
+  its item (`UI/ItemIcons.cs`, drawn in code), its key and its count. The slot in hand rises, warms and gets warm
+  corner brackets; a lit torch or lighter glows. Its name sits above between diamonds, with what's left in it
+  underneath.
+- **Lamps:** ten diamonds on a fine rule at the top. Lit ones glow, and the one just lit swells and flares. A
+  "3 / 10" count sits beside them.
+- **Battery:** a battery shape with ten cells and a flashlight icon, red and blinking when low. Stamina is a thin
+  rounded bar above it.
+- **Crosshair:** four ticks close in round anything you can use. The prompt band is ruled in warm lines.
+- The inventory screen uses the same item drawings, and menu buttons get a red edge and a diamond on hover.
+
+## The white moth
+
+Every 2 to 5 minutes, a white moth may appear fluttering in the dark ahead of you, trailing fine white dust. Get
+it in your flashlight beam and it follows the beam, about 4 m out. Lead it into a lit lamp's light (it heads for
+one by itself when one is within 7 m) and it circles the glass and vanishes into it. You get 15% more sprint
+time for the rest of the run, and your breath back. If you swing the light away faster than it can follow, or
+switch the light off, for about a second, it gives up and wanders slowly off in a random direction. Catch it
+again before it's gone and it follows again, but if it drifts into a lamp on its own it doesn't count.
+`ForestLifeConfig` > White moth.
 
 ## Batteries and lightning bugs
 

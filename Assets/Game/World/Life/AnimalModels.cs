@@ -10,6 +10,7 @@ namespace Game.World
     /// </summary>
     public static class AnimalModels
     {
+        static Material mothWhite;
         static Material brown, grey, black, dark, eyes, owlBrown, owlCream, owlWing, owlDisc, owlDark, owlFeet, owlBeak;
 
         static void Mats()
@@ -163,6 +164,29 @@ namespace Game.World
                 var tip = Joint(wing, side < 0 ? "TipL" : "TipR", new Vector3(side * 0.2f, 0f, 0f));
                 var outer = Part(PrimitiveType.Cube, tip, new Vector3(side * 0.12f, 0f, -0.02f), new Vector3(0.24f, 0.008f, 0.12f), black);
                 outer.transform.localRotation = Quaternion.Euler(0f, side * 8f, 0f); // (swept back a little)
+            }
+            return root.gameObject;
+        }
+
+        /// <summary>
+        /// The white moth: a pale furry body and two pairs of broad white wings ("WingL"/"WingR", the hind pair under
+        /// them) that flutter, faintly glowing. Middle at the pivot, about 0.15 m across.
+        /// </summary>
+        public static GameObject WhiteMoth(Transform parent)
+        {
+            Mats();
+            if (mothWhite == null) mothWhite = RuntimeMaterials.LitGlow("White moth", new Color(0.92f, 0.9f, 0.85f), new Color(0.9f, 0.92f, 1f) * 0.35f);
+            var root = Root("White moth", parent);
+            var body = Part(PrimitiveType.Capsule, root, Vector3.zero, new Vector3(0.018f, 0.03f, 0.018f), mothWhite);
+            body.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            Part(PrimitiveType.Sphere, root, new Vector3(0f, 0.004f, 0.03f), Vector3.one * 0.016f, mothWhite);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var wing = Joint(root, side < 0 ? "WingL" : "WingR", new Vector3(side * 0.006f, 0.004f, 0f));
+                var fore = Part(PrimitiveType.Cube, wing, new Vector3(side * 0.035f, 0f, 0.008f), new Vector3(0.07f, 0.002f, 0.045f), mothWhite);
+                fore.transform.localRotation = Quaternion.Euler(0f, side * -18f, 0f);
+                var hind = Part(PrimitiveType.Cube, wing, new Vector3(side * 0.026f, -0.001f, -0.018f), new Vector3(0.048f, 0.002f, 0.034f), mothWhite);
+                hind.transform.localRotation = Quaternion.Euler(0f, side * 22f, 0f);
             }
             return root.gameObject;
         }

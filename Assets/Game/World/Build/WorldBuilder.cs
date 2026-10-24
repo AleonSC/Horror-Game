@@ -115,7 +115,13 @@ namespace Game.World.Build
                 made.Add(ground = RuntimeMaterials.LitTextured("Ground", Color.white, 0.1f, groundTex, Vector2.one));
             }
             if (art != null && art.trail != null) trail = fixer.Fix(art.trail);
-            else made.Add(trail = RuntimeMaterials.Lit("Trail", new Color(0.17f, 0.13f, 0.1f), 0.12f));
+            else
+            {
+                // Packed earth that fades out at the sides into the litter, rather than stopping at a hard edge.
+                var trailTex = GroundTexture.Trail(seed);
+                made.Add(trailTex);
+                made.Add(trail = RuntimeMaterials.LitBlended("Trail", Color.white, 0.12f, trailTex));
+            }
             if (art != null && art.water != null) water = fixer.Fix(art.water);
             else made.Add(water = RuntimeMaterials.Lit("Water", new Color(0.015f, 0.02f, 0.025f), 0.95f));
 

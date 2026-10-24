@@ -58,6 +58,19 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>
+        /// A lit material blended over what's under it by its texture's alpha (the trails' soft edges over the
+        /// forest floor). <paramref name="drawOrder"/> sorts it among other see-through things at the same spot.
+        /// </summary>
+        public static Material LitBlended(string name, Color color, float smoothness, Texture2D texture, int drawOrder = 0)
+        {
+            var m = LitTextured(name, color, smoothness, texture, Vector2.one);
+            HDMaterial.SetSurfaceType(m, true);
+            m.SetFloat("_TransparentSortPriority", drawOrder);
+            HDMaterial.ValidateMaterial(m);
+            return m;
+        }
+
         /// <summary>A lit material that also glows (a lamp's glass).</summary>
         public static Material LitGlow(string name, Color color, Color glow)
         {

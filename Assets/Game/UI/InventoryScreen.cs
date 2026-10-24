@@ -133,18 +133,23 @@ namespace Game.UI
             number.style.position = Position.Absolute;
             number.style.left = 7;
             number.style.top = 5;
-            var name = UiStyle.Text(slot, "", 15, UiStyle.Ink, TextAnchor.MiddleCenter);
+            var icon = UiStyle.Box(slot, UiStyle.Clear, "icon");
+            icon.style.position = Position.Absolute;
+            icon.style.left = (SlotSize - 44f) / 2f;
+            icon.style.top = 12;
+            icon.style.width = icon.style.height = 44;
+            var name = UiStyle.Text(slot, "", 12, UiStyle.Ink, TextAnchor.MiddleCenter, 0.5f);
             name.name = "name";
             name.style.whiteSpace = WhiteSpace.Normal;
             name.style.position = Position.Absolute;
-            name.style.left = name.style.right = 6;
-            name.style.top = 26;
-            name.style.bottom = 30;
+            name.style.left = name.style.right = 4;
+            name.style.top = 58;
+            name.style.bottom = 24;
             var detail = UiStyle.Text(slot, "", 12, UiStyle.Warm, TextAnchor.MiddleCenter);
             detail.name = "detail";
             detail.style.position = Position.Absolute;
             detail.style.left = detail.style.right = 4;
-            detail.style.bottom = 8;
+            detail.style.bottom = 7;
             slot.RegisterCallback<PointerDownEvent>(e =>
             {
                 if (e.button != 0 || hotbar == null) return;
@@ -253,6 +258,10 @@ namespace Game.UI
                 var stack = items[i];
                 var slot = slots[i];
                 slot.Q<Label>("name").text = stack.Empty ? "" : Inventory.NameOf(stack.Kind);
+                var icon = slot.Q<VisualElement>("icon");
+                var tex = stack.Empty ? null : ItemIcons.For(stack.Kind);
+                icon.style.backgroundImage = tex != null ? new StyleBackground(tex) : new StyleBackground(StyleKeyword.None);
+                icon.style.unityBackgroundImageTintColor = stack.Lit ? UiStyle.Warm : UiStyle.Ink;
                 slot.Q<Label>("detail").text = stack.Empty ? "" : Detail(stack, s);
                 Color edge = i == pageSlot && pagePhoto < 0 ? UiStyle.Warm : i == items.Selected ? UiStyle.Red : new Color(1f, 1f, 1f, 0.08f);
                 UiStyle.Border(slot, edge, i == pageSlot || i == items.Selected ? 2f : 1f);

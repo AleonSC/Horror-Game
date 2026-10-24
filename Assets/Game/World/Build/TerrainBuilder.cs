@@ -84,18 +84,26 @@ namespace Game.World.Build
             return mesh;
         }
 
-        // Each worn stretch of trail as a ribbon of packed earth just above the ground, cut up by chunk.
+        // How much wider than the trail (and its lamps' patches) the earth is drawn: it fades out over the extra.
+        const float FadeWider = 1.6f, PatchWider = 1.35f;
+        // Along a trail, the earth's texture repeats every this many metres.
+        const float TrailRepeat = 3f;
+
+        // Each worn stretch of trail as a ribbon of packed earth just above the ground, cut up by chunk; U runs
+        // across it (its sides fade out), V along it.
         static MeshBuilder[] SplitTrails(WorldPlan plan, int across)
         {
             var parts = new MeshBuilder[across * across];
             foreach (var trail in plan.Trails)
             {
-                float half = trail.Width * 0.5f;
+                float half = trail.Width * 0.5f * FadeWider;
+                float along = 0f;
                 for (int i = 0; i < trail.Points.Count - 1; i++)
                 {
-                    if (!trail.Worn[i] || !trail.Worn[i + 1]) continue;
                     Vector2 a = trail.Points[i];
                     Vector2 b = a + Wrap.Delta(a, trail.Points[i + 1], plan.Size);
+                    float v0 = along / TrailRepeat, v1 = (along += (b - a).magnitude) / TrailRepeat;
+                    if (!trail.Worn[i] || !trail.Worn[i + 1]) continue;
                     Vector2 mid = Wrap.Into((a + b) * 0.5f, plan.Size);
                     int cx = Mathf.Clamp(Mathf.FloorToInt(mid.x / ChunkSize), 0, across - 1);
                     int cz = Mathf.Clamp(Mathf.FloorToInt(mid.y / ChunkSize), 0, across - 1);
@@ -105,58 +113,73 @@ namespace Game.World.Build
                     Vector2 dir = (lb - la).sqrMagnitude > 1e-4f ? (lb - la).normalized : Vector2.right;
                     Vector2 side = new Vector2(-dir.y, dir.x) * half;
                     var p = parts[cz * across + cx] ??= new MeshBuilder();
-                    int v0 = p.AddVertex(Lift(plan, origin, la - side), new Vector2(0f, i));
-                    int v1 = p.AddVertex(Lift(plan, origin, la + side), new Vector2(1f, i));
-                    int v2 = p.AddVertex(Lift(plan, origin, lb - side), new Vector2(0f, i + 1));
-                    int v3 = p.AddVertex(Lift(plan, origin, lb + side), new Vector2(1f, i + 1));
+                    // In two halves across (a vertex down the middle too, so it follows the ground's camber).
+                    int q0 = p.AddVertex(Lift(plan, origin, la - side), new Vector2(0f, v0));
+                    int q1 = p.AddVertex(Lift(plan, origin, la), new Vector2(0.5f, v0));
+                    int q2 = p.AddVertex(Lift(plan, origin, la + side), new Vector2(1f, v0));
+                    int q3 = p.AddVertex(Lift(plan, origin, lb - side), new Vector2(0f, v1));
+                    int q4 = p.AddVertex(Lift(plan, origin, lb), new Vector2(0.5f, v1));
+                    int q5 = p.AddVertex(Lift(plan, origin, lb + side), new Vector2(1f, v1));
                     // Face up whichever way the stretch runs.
-                    if (Vector3.Cross(Lift(plan, origin, lb - side) - Lift(plan, origin, la - side), Lift(plan, origin, la + side) - Lift(plan, origin, la - side)).y > 0f)
-                    {
-                        p.AddTriangle(v0, v2, v1);
-                        p.AddTriangle(v1, v2, v3);
-                    }
-                    else
-                    {
-                        p.AddTriangle(v0, v1, v2);
-                        p.AddTriangle(v1, v3, v2);
-                    }
+                    bool up = Vector3.Cross(Lift(plan, origin, lb - side) - Lift(plan, origin, la - side), Lift(plan, origin, la + side) - Lift(plan, origin, la - side)).y > 0f;
+                    Quad(p, q0, q1, q3, q4, up);
+                    Quad(p, q1, q2, q4, q5, up);
                 }
             }
-            // The lamps' patches: a ragged disc each, in rings so it follows the ground.
+            // The lamps' patches: a ragged disc each, in rings so it follows the ground, fading out at its rim (U
+            // runs from the middle, 0.5, out to the rim, 0, so it shares the trails' texture; V round it).
             foreach (var patch in plan.Patches)
             {
-                const int segments = 28, rings = 3;
+                const int segments = 32, rings = 6;
                 int cx = Mathf.Clamp(Mathf.FloorToInt(patch.Centre.x / ChunkSize), 0, across - 1);
                 int cz = Mathf.Clamp(Mathf.FloorToInt(patch.Centre.y / ChunkSize), 0, across - 1);
                 var origin = new Vector2(cx * ChunkSize, cz * ChunkSize);
                 Vector2 c = Wrap.Delta(origin, patch.Centre, plan.Size);
                 var p = parts[cz * across + cx] ??= new MeshBuilder();
-                int centre = p.AddVertex(Lift(plan, origin, c, 0.035f), c * 0.5f);
+                int centre = p.AddVertex(Lift(plan, origin, c, 0.035f), new Vector2(0.5f, 0f));
                 int first = -1;
+                const int ring = segments + 1; // (the first point again at the end, so V can run on round)
+                float round = patch.Radius * PatchWider * Mathf.PI * 2f / TrailRepeat;
                 for (int r = 1; r <= rings; r++)
                 {
-                    for (int i = 0; i < segments; i++)
+                    for (int i = 0; i <= segments; i++)
                     {
                         float a = i / (float)segments * Mathf.PI * 2f;
-                        Vector2 at = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * patch.RadiusAt(a) * (r / (float)rings);
-                        int v = p.AddVertex(Lift(plan, origin, at, 0.035f), at * 0.5f);
+                        float f = r / (float)rings;
+                        Vector2 at = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * patch.RadiusAt(a) * PatchWider * f;
+                        int v = p.AddVertex(Lift(plan, origin, at, 0.035f), new Vector2(0.5f - 0.5f * f, i / (float)segments * round));
                         if (r == 1 && i == 0) first = v;
                     }
                 }
                 // (Clockwise seen from above: Unity's front faces.)
-                for (int i = 0; i < segments; i++) p.AddTriangle(centre, first + (i + 1) % segments, first + i);
+                for (int i = 0; i < segments; i++) p.AddTriangle(centre, first + i + 1, first + i);
                 for (int r = 1; r < rings; r++)
                 {
-                    int inner = first + (r - 1) * segments, outer = first + r * segments;
+                    int inner = first + (r - 1) * ring, outer = first + r * ring;
                     for (int i = 0; i < segments; i++)
                     {
-                        int j = (i + 1) % segments;
+                        int j = i + 1;
                         p.AddTriangle(inner + i, inner + j, outer + i);
                         p.AddTriangle(inner + j, outer + j, outer + i);
                     }
                 }
             }
             return parts;
+        }
+
+        // Two triangles, a b along one side and c d along the other, facing up.
+        static void Quad(MeshBuilder p, int a, int b, int c, int d, bool up)
+        {
+            if (up)
+            {
+                p.AddTriangle(a, c, b);
+                p.AddTriangle(b, c, d);
+            }
+            else
+            {
+                p.AddTriangle(a, b, c);
+                p.AddTriangle(b, d, c);
+            }
         }
 
         static Vector3 Lift(WorldPlan plan, Vector2 origin, Vector2 local, float above)
