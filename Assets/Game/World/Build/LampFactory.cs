@@ -61,10 +61,14 @@ namespace Game.World.Build
             // The crank: a brass-rimmed housing on the post, the axle out of it, an arm and a knob.
             Part(PrimitiveType.Cube, "Crank plate", t, new Vector3(0.082f, 1.2f, 0f), new Vector3(0.02f, 0.24f, 0.17f), brass, false);
             Part(PrimitiveType.Cube, "Crank housing", t, new Vector3(0.11f, 1.2f, 0f), new Vector3(0.05f, 0.2f, 0.14f), metal, false);
-            var crankPart = Part(PrimitiveType.Cylinder, "Crank", t, new Vector3(0.17f, 1.2f, 0f), new Vector3(0.05f, 0.04f, 0.05f), crank, true);
+            // (The crank turns about its axle, local X, as the meter fills: the axle, arm and knob all go round.)
+            var crankPivot = new GameObject("Crank") { layer = Layers.Props }.transform;
+            crankPivot.SetParent(t, false);
+            crankPivot.localPosition = new Vector3(0.17f, 1.2f, 0f);
+            var crankPart = Part(PrimitiveType.Cylinder, "Crank axle", crankPivot, Vector3.zero, new Vector3(0.05f, 0.04f, 0.05f), crank, true);
             crankPart.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            Part(PrimitiveType.Cube, "Crank arm", t, new Vector3(0.215f, 1.27f, 0f), new Vector3(0.022f, 0.16f, 0.03f), crank, false);
-            Part(PrimitiveType.Cylinder, "Crank knob", t, new Vector3(0.25f, 1.34f, 0f), new Vector3(0.035f, 0.04f, 0.035f), brass, false).transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            Part(PrimitiveType.Cube, "Crank arm", crankPivot, new Vector3(0.045f, 0.07f, 0f), new Vector3(0.022f, 0.16f, 0.03f), crank, false);
+            Part(PrimitiveType.Cylinder, "Crank knob", crankPivot, new Vector3(0.08f, 0.14f, 0f), new Vector3(0.035f, 0.04f, 0.035f), brass, false).transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
 
             var lightGo = new GameObject("Lamp Light");
             lightGo.transform.SetParent(root.transform, false);
@@ -80,7 +84,7 @@ namespace Game.World.Build
             lamp.lampLight = light;
             lamp.marker = markerPart.GetComponent<Renderer>();
             lamp.glass = glassPart.GetComponent<Renderer>();
-            lamp.crank = crankPart.transform;
+            lamp.crank = crankPivot;
             return lamp;
         }
 

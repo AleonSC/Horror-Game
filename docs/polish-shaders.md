@@ -247,3 +247,35 @@ chain starts fading 30% of the way up its length and is gone by 90% (`GiantConfi
 - **The scour hunt sound:** it's no longer music: no notes and no beat. It's a deep rumble that swells and
   sinks, something breathing close by in uneven breaths, dull thumps at odd moments, and the odd long scrape.
 
+## Cranks, bushes, the flare, glowsticks, dropping things, and key hints
+
+- **The crank turns:** each lamp's crank turns with the meter: a quick turn with each click, four whole turns
+  from empty to full (`LampConfig` > `crankTurns`), winding back as it drains. A lamp prefab's crank turns about
+  its own X axis.
+- **Bushes:** they're leafy now: thin stems out of the ground, each ending in a clump of pointed leaves folded
+  along their midribs and drooping a little, all facing outward. There are more of them: 3,200, up from 1,400
+  (`WorldGenConfig` > `bushes`; new worlds).
+- **The flare:** it's far gentler.
+  - The burst is 6,000 candela, down from 60,000, and reaches 160 m.
+  - It barely lights the fog now (`flareFogGlow` 0.15), so the forest no longer turns solid red.
+  - The haze round it in the sky is a fifth of what it was (`flareHaze`).
+  - Its colour is a warmer red.
+- **New models:**
+  - **Flare gun:** a break-open one in blaze orange, with a fat barrel and dark muzzle, a ribbed top, a white
+    warning band, the hinge and the brass rim of the cartridge, a black hammer, a trigger in its guard, ribbed
+    black grip panels and a lanyard ring.
+  - **Glowstick:** a slim yellow tube with ridged black caps and a little loop. It glows yellow without blowing
+    out to white: the tube glows gently, the haze round a thrown one is softer, its light is 0.8 (was 1.5) and
+    lights the mist less.
+- **Dropping things:** in the inventory, right-click a slot or drag it out of the slots to put it on the
+  ground in front of you. G does the same for what's in your hand (or, with the inventory open, the item whose
+  page is showing).
+  - It lies there with what's left in it (fuel, shots) until you take it again.
+  - You can't drop the flashlight, or anything burning or out in the world.
+- **Key hints:** they're drawn as keycaps (dark keys with a light rim and a deeper bottom edge, a red diamond
+  between hints):
+  - the crosshair's prompt;
+  - the inventory's hints;
+  - the drone's hints;
+  - a full key list under Options > Controls.
+

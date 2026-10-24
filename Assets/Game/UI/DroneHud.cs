@@ -109,11 +109,12 @@ namespace Game.UI
             cross.style.right = 0;
             cross.style.top = UiRoot.Height * 0.5f - 14f;
 
-            var hint = UiStyle.Text(root, "WASD fly   ·   Space / Ctrl up and down   ·   Shift fast   ·   Click lamp   ·   T thermal   ·   F back to you", 13, UiStyle.Muted, TextAnchor.MiddleCenter);
+            var hint = UiStyle.KeyHints(root, 12, ("W A S D", "Fly"), ("Space", "Up"), ("Ctrl", "Down"), ("Shift", "Fast"), ("LMB", "Lamp"), ("T", "Thermal"), ("F", "Back to you"));
             hint.style.position = Position.Absolute;
             hint.style.left = 0;
             hint.style.right = 0;
-            hint.style.bottom = 40;
+            hint.style.bottom = 36;
+            hint.style.justifyContent = Justify.Center;
         }
 
         void OnDestroy()

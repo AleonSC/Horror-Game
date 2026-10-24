@@ -22,6 +22,9 @@ namespace Game.World
         [Range(0f, 5f), Tooltip("Seconds after the last click before it starts draining.")]
         public float drainDelay = 1.5f;
 
+        [Range(0.5f, 20f), Tooltip("Whole turns of the crank from empty to full (it turns with the meter, and back as it drains).")]
+        public float crankTurns = 4f;
+
         [Header("Lit")]
         [Range(1f, 40f), Tooltip("Radius of the safe light round a lit lamp (metres).")]
         public float safeRadius = 13f;

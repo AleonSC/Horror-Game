@@ -109,7 +109,7 @@ namespace Game.World.Generation
         public float treeScale = 0.85f;
         [Range(0f, 0.5f), Tooltip("Share of planned tree spots left empty (natural gaps).")]
         public float emptyShare = 0.12f;
-        public int bushes = 1400;
+        public int bushes = 3200;
         public Vector2 bushSize = new Vector2(0.45f, 1.4f);
         public int grass = 10000;
         [Tooltip("Cells of meadow patchiness across the map (noise scale 0.03 over 320 m: about 10).")]

@@ -15,7 +15,7 @@ namespace Game.UI
     public sealed class Hud : MonoBehaviour
     {
         VisualElement dot, reticle, promptBand, meter, meterFill, hotbar, fade;
-        Label prompt, heldName, heldDetail, hint, message, batteryText, lampCount;
+        Label prompt, promptKey, heldName, heldDetail, hint, message, batteryText, lampCount;
         VisualElement batteryFrame, batteryIcon, staminaBack, staminaFill;
         readonly VisualElement[] batteryCells = new VisualElement[10];
         readonly VisualElement[] lampFill = new VisualElement[GameRun.LampCount], lampBox = new VisualElement[GameRun.LampCount], lampHalo = new VisualElement[GameRun.LampCount];
@@ -49,7 +49,7 @@ namespace Game.UI
             var hud = ui.Hud;
 
             // The crosshair (a dot, with four ticks closing round it on something you can use), and the prompt band
-            // under it, ruled in warm lines: ◆ C R A N K ◆ [ LMB ]
+            // under it, ruled in warm lines: ◆ C R A N K ◆ and the key to press, as a keycap
             dot = Centred(UiStyle.Box(hud, Color.white), 0f, 0f, 3f, 3f);
             UiStyle.Rounded(dot, 2f);
             reticle = Centred(UiStyle.Box(hud, UiStyle.Clear), 0f, 0f, 30f, 30f);
@@ -66,8 +66,12 @@ namespace Game.UI
             promptBand = Centred(UiStyle.Box(hud, UiStyle.Band), 0f, 52f, 360f, 32f);
             promptBand.style.borderTopWidth = promptBand.style.borderBottomWidth = 1f;
             promptBand.style.borderTopColor = promptBand.style.borderBottomColor = Warmish(0.3f);
+            promptBand.style.flexDirection = FlexDirection.Row;
+            promptBand.style.justifyContent = Justify.Center;
+            promptBand.style.alignItems = Align.Center;
             prompt = UiStyle.Text(promptBand, "", 14, UiStyle.Ink);
-            prompt.style.flexGrow = 1f;
+            promptKey = UiStyle.Keycap(promptBand, "LMB", 11);
+            promptKey.style.marginLeft = 16;
             meter = Centred(UiStyle.Box(hud, new Color(0f, 0f, 0f, 0.6f)), 0f, 76f, 240f, 5f);
             UiStyle.Rounded(meter, 2f);
             UiStyle.Border(meter, Faint);
@@ -337,7 +341,8 @@ namespace Game.UI
             if (key != lastPrompt)
             {
                 lastPrompt = key;
-                prompt.text = $"◆   {Spaced(target.Prompt)}   ◆      {(door ? "[ E ]" : "[ LMB ]")}";
+                prompt.text = $"◆   {Spaced(target.Prompt)}   ◆";
+                promptKey.text = door ? "E" : "LMB";
             }
             bool progress = target is IProgressInteractable p && p.Progress > 0f;
             Show(meter, progress);

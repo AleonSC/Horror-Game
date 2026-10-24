@@ -122,23 +122,64 @@ namespace Game.World.Build
             return b;
         }
 
-        /// <summary>A bush about a metre across: clumps of leaves, low and wide, upright, or leaning.</summary>
+        /// <summary>
+        /// A leafy bush about a metre across (kind 0 low and wide, 1 upright, 2 leaning over): thin stems out of the
+        /// ground, each ending in a clump of real leaves, pointed ovals folded along their midribs and drooping a
+        /// little, all facing outward. (Draw it double-sided.)
+        /// </summary>
         public static MeshBuilder Bush(System.Random rng, int kind)
         {
             var b = new MeshBuilder();
-            int clumps = rng.Next(6, 11);
+            int clumps = rng.Next(7, 12);
             for (int i = 0; i < clumps; i++)
             {
                 float a = Range(rng, 0f, Mathf.PI * 2f);
-                float r = Range(rng, 0f, kind == 1 ? 0.18f : 0.4f);
-                float y = kind == 1 ? Range(rng, 0.2f, 1.1f) : Range(rng, 0.15f, 0.55f);
+                float r = Range(rng, 0.05f, kind == 1 ? 0.22f : 0.45f);
+                float y = kind == 1 ? Range(rng, 0.3f, 1.15f) : Range(rng, 0.2f, 0.6f);
                 Vector3 c = new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r);
                 if (kind == 2) c += new Vector3(0f, 0f, y * 0.6f); // leaning over
-                float size = Range(rng, 0.22f, 0.38f);
-                var blob = Rock(rng);
-                b.Append(blob, Matrix4x4.TRS(c, Quaternion.Euler(Range(rng, 0f, 360f), Range(rng, 0f, 360f), 0f), new Vector3(size, size * 0.8f, size) * 1.4f));
+                float size = Range(rng, 0.2f, 0.32f);
+                // Its stem, from near the middle of the bush's foot.
+                var foot = new Vector3(Range(rng, -0.08f, 0.08f), 0f, Range(rng, -0.08f, 0.08f));
+                b.AddTube(foot, c, 0.012f, 0.005f, 3);
+                // Its leaves, all round it, facing out.
+                int leaves = rng.Next(18, 28);
+                for (int k = 0; k < leaves; k++)
+                {
+                    Vector3 dir = new Vector3(Range(rng, -1f, 1f), Range(rng, -0.35f, 1f), Range(rng, -1f, 1f));
+                    if (dir.sqrMagnitude < 0.01f) dir = Vector3.up;
+                    dir.Normalize();
+                    Vector3 at = c + dir * size * Range(rng, 0.35f, 0.85f);
+                    Vector3 point = (dir + Vector3.down * Range(0.1f, 0.45f, rng)).normalized; // (drooping a little)
+                    Leaf(b, at, point, dir, Range(rng, 0.09f, 0.15f), rng);
+                }
             }
             return b;
+        }
+
+        static float Range(float min, float max, System.Random rng) => Range(rng, min, max);
+
+        // One leaf from its base, pointing along point, its upper face turned toward up: a pointed oval, folded a
+        // touch along the midrib, its tip curling down.
+        static void Leaf(MeshBuilder b, Vector3 at, Vector3 point, Vector3 up, float length, System.Random rng)
+        {
+            Vector3 side = Vector3.Cross(point, up);
+            if (side.sqrMagnitude < 1e-4f) side = Vector3.Cross(point, Vector3.forward);
+            side.Normalize();
+            Vector3 face = Vector3.Cross(side, point).normalized;
+            float w = length * Range(rng, 0.32f, 0.45f);
+            Vector3 mid = at + point * (length * 0.45f);
+            Vector3 tip = at + point * length - face * (length * 0.12f);
+            Vector3 ridge = mid + face * (length * 0.05f);
+            int v0 = b.AddVertex(at, new Vector2(0.5f, 0f));
+            int vl = b.AddVertex(mid - side * w * 0.5f - face * (length * 0.02f), new Vector2(0f, 0.45f));
+            int vr = b.AddVertex(mid + side * w * 0.5f - face * (length * 0.02f), new Vector2(1f, 0.45f));
+            int vm = b.AddVertex(ridge, new Vector2(0.5f, 0.45f));
+            int vt = b.AddVertex(tip, new Vector2(0.5f, 1f));
+            b.AddTriangle(v0, vm, vl);
+            b.AddTriangle(vl, vm, vt);
+            b.AddTriangle(v0, vr, vm);
+            b.AddTriangle(vm, vr, vt);
         }
 
         /// <summary>A fallen log a metre long (along z) and half a metre thick; scale it to length.</summary>

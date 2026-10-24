@@ -33,21 +33,22 @@ namespace Game.Player
             sparkGo.transform.SetParent(go.transform, false);
             sparkGo.transform.localScale = Vector3.one * 0.12f;
             var r = sparkGo.GetComponent<Renderer>();
-            r.sharedMaterial = Game.Rendering.RuntimeMaterials.Glow("Flare spark", s.flareColor * 30f);
+            r.sharedMaterial = Game.Rendering.RuntimeMaterials.Glow("Flare spark", s.flareColor * 8f);
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             flare.spark = r;
             // A burning flare: a flame streaming off it and a red glow round it in the air.
             flare.fire = Game.Rendering.Effects.Flame(go.transform, Vector3.zero, 0.18f, 0.45f, Color.white * 4f, "Flare fire");
-            flare.halo = Game.Rendering.Effects.Glow(go.transform, Vector3.zero, 3f, s.flareColor * 3f, 0.5f, 2f, "Flare glow");
-            if (flare.fire != null) Game.Rendering.Effects.SetGlow(flare.fire, s.flareColor * 6f);
+            flare.halo = Game.Rendering.Effects.Glow(go.transform, Vector3.zero, 2f, s.flareColor * 1.5f, 0.5f, 2.5f, "Flare glow");
+            if (flare.fire != null) Game.Rendering.Effects.SetGlow(flare.fire, s.flareColor * 3f);
 
             var lightGo = new GameObject("Flare light");
             lightGo.transform.SetParent(go.transform, false);
-            lightGo.AddHDLight(LightType.Point);
+            var data = lightGo.AddHDLight(LightType.Point);
+            if (data != null) data.volumetricDimmer = s.flareFogGlow; // (so the fog doesn't drown everything in red)
             flare.glow = lightGo.GetComponent<Light>();
             flare.glow.shadows = LightShadows.None;
             flare.glow.color = s.flareColor;
-            flare.glow.intensity = 30f;
+            flare.glow.intensity = 15f;
             flare.glow.range = 8f;
             flare.burnLeft = s.flareBurnTime;
         }
@@ -80,13 +81,13 @@ namespace Game.Player
                 transform.position += Vector3.down * 1.2f * dt;
                 glow.intensity = s.flareIntensity * Mathf.SmoothStep(0f, 1f, life) * flicker;
             }
-            else glow.intensity = 25f * life * flicker;
+            else glow.intensity = 12f * life * flicker;
             if (halo != null)
             {
-                halo.transform.localScale = Vector3.one * (burst ? 16f : 3f);
-                Game.Rendering.Effects.SetGlow(halo, s.flareColor * ((burst ? 2.5f : 3f) * life * flicker));
+                halo.transform.localScale = Vector3.one * (burst ? 7f : 2f);
+                Game.Rendering.Effects.SetGlow(halo, s.flareColor * ((burst ? s.flareHaze : 1.5f) * life * flicker));
             }
-            if (fire != null) Game.Rendering.Effects.SetGlow(fire, s.flareColor * (6f * life));
+            if (fire != null) Game.Rendering.Effects.SetGlow(fire, s.flareColor * (3f * life));
             if (burnLeft <= 0f) Destroy(gameObject);
         }
 

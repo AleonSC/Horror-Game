@@ -137,10 +137,14 @@ namespace Game.Player
         public float flareSkyAngle = 30f;
         [Range(1f, 60f), Tooltip("Seconds the burst floods the forest with red light.")]
         public float flareBurnTime = 14f;
-        public Color flareColor = new Color(1f, 0.12f, 0.06f);
+        public Color flareColor = new Color(1f, 0.22f, 0.1f);
         [Range(0f, 100000f), Tooltip("Brightness of the burst (candela: it's far up).")]
-        public float flareIntensity = 60000f;
-        [Range(10f, 500f)] public float flareRange = 260f;
+        public float flareIntensity = 6000f;
+        [Range(10f, 500f)] public float flareRange = 160f;
+        [Range(0f, 1f), Tooltip("How much the burst lights up the fog (1: fully; lower keeps it from turning everything red).")]
+        public float flareFogGlow = 0.15f;
+        [Range(0f, 5f), Tooltip("The red haze round the burning flare in the sky.")]
+        public float flareHaze = 0.5f;
 
         [Header("Glowsticks")]
         [Range(1, 30), Tooltip("Glowsticks in a bundle.")]
@@ -149,8 +153,8 @@ namespace Game.Player
         public float glowstickToss = 3f;
         [Range(10f, 900f), Tooltip("Seconds one glows.")]
         public float glowstickTime = 240f;
-        public Color glowstickColor = new Color(0.35f, 1f, 0.45f);
-        [Range(0f, 20f)] public float glowstickIntensity = 1.5f;
+        public Color glowstickColor = new Color(1f, 0.85f, 0.15f);
+        [Range(0f, 20f)] public float glowstickIntensity = 0.8f;
         [Range(1f, 15f)] public float glowstickRange = 5f;
         [Range(1, 100), Tooltip("At most this many glowing at once (the oldest goes out).")]
         public int maxGlowsticks = 30;

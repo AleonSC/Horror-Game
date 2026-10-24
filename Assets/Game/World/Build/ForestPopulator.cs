@@ -52,8 +52,8 @@ namespace Game.World.Build
             Bark = Mat("Bark", new Color(0.2f, 0.16f, 0.13f), 0.22f, false);
             Needles = Mat("Needles", new Color(0.09f, 0.13f, 0.08f), 0.18f, true);
             DeadWood = Mat("Dead wood", new Color(0.25f, 0.22f, 0.18f), 0.18f, false);
-            bushA = Mat("Bush leaves", new Color(0.06f, 0.08f, 0.05f), 0.15f, false);
-            bushB = Mat("Bush leaves (dry)", new Color(0.1f, 0.09f, 0.05f), 0.15f, false);
+            bushA = Mat("Bush leaves", new Color(0.07f, 0.11f, 0.045f), 0.3f, true); // (leaves: double-sided, a little waxy)
+            bushB = Mat("Bush leaves (dry)", new Color(0.13f, 0.11f, 0.045f), 0.25f, true);
             grassDry = Mat("Dry grass", new Color(0.24f, 0.2f, 0.12f), 0.1f, true);
             grassGreen = Mat("Grass", new Color(0.09f, 0.11f, 0.06f), 0.1f, true);
             tallGrass = Mat("Tall grass", new Color(0.17f, 0.16f, 0.09f), 0.1f, true);

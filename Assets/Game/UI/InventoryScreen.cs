@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Game.Core;
 using Game.Player;
+using Game.World;
+using Game.World.Build;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -102,10 +104,10 @@ namespace Game.UI
             pageImage.style.marginTop = 22;
             page.Add(pageImage);
 
-            var hint = UiStyle.Text(root, "Drag to rearrange   ·   click for its page   ·   Tab to close", 14, UiStyle.Muted, TextAnchor.MiddleLeft);
+            var hint = UiStyle.KeyHints(root, 13, ("LMB", "Its page, or drag to move"), ("RMB", "Drop"), ("Tab/Esc", "Close"));
             hint.style.position = Position.Absolute;
             hint.style.left = UiStyle.MenuLeft;
-            hint.style.bottom = 60;
+            hint.style.bottom = 56;
 
             ghost = UiStyle.Box(root, new Color(0.1f, 0.1f, 0.11f, 0.9f));
             ghost.style.position = Position.Absolute;
@@ -152,6 +154,7 @@ namespace Game.UI
             detail.style.bottom = 7;
             slot.RegisterCallback<PointerDownEvent>(e =>
             {
+                if (e.button == 1 && hotbar != null) { Drop(index); return; } // (right-click: put it down)
                 if (e.button != 0 || hotbar == null) return;
                 dragFrom = index;
                 dragStart = e.position;
@@ -189,6 +192,13 @@ namespace Game.UI
                 return;
             }
             dragging = false;
+            // Dragged right out of the slots: put it down.
+            if (grid != null && !grid.worldBound.Contains(e.position))
+            {
+                Drop(from);
+                Refresh();
+                return;
+            }
             for (int i = 0; i < slots.Count; i++)
             {
                 if (i == from || !slots[i].worldBound.Contains(e.position)) continue;
@@ -218,7 +228,40 @@ namespace Game.UI
                 Close();
                 EscUsedFrame = Time.frameCount; // (so the same press doesn't open the pause menu)
             }
+            // G puts down what's in your hand (or, with this open, the item whose page is showing).
+            if (keyboard.gKey.wasPressedThisFrame && canOpen && !(Services.TryGet<UiState>(out var uiState) && uiState.KeysTaken))
+            {
+                if (hotbar == null && Services.TryGet<PlayerController>(out var holder)) hotbar = holder.Hotbar;
+                Drop(open && pageSlot >= 0 ? pageSlot : hotbar.Items.Selected);
+            }
             if (open) Refresh();
+        }
+
+        // Put what's in a slot down on the ground in front of you, to pick up again later (with what's left in it).
+        // Not the flashlight, and not anything burning or out in the world (the drone flying, the radio set down).
+        void Drop(int slot)
+        {
+            if (hotbar == null || slot < 0 || slot >= Inventory.SlotCount) return;
+            var stack = hotbar.Items[slot];
+            if (stack.Empty) return;
+            if (stack.Kind == ItemKind.Flashlight) { hotbar.Say("You'll want to keep that."); return; }
+            if (stack.Lit) { hotbar.Say(stack.Kind == ItemKind.Drone ? "Bring the drone back first." : stack.Kind == ItemKind.Radio ? "It's set down already." : "Put it out first."); return; }
+            if (!Services.TryGet<PlayerController>(out var player)) return;
+            Vector3 ahead = Vector3.ProjectOnPlane(player.transform.forward, Vector3.up);
+            if (ahead.sqrMagnitude < 0.01f) ahead = Vector3.forward;
+            Vector3 at = player.transform.position + ahead.normalized * 0.7f + Vector3.up * 0.8f;
+            int mask = ~(Layers.Mask(Layers.PlayerBody) | Layers.Mask(Layers.Pickups) | Layers.Mask(Layers.Effects) | Layers.Mask(Layers.Entities));
+            at = Physics.Raycast(at, Vector3.down, out var hit, 4f, mask, QueryTriggerInteraction.Ignore) ? hit.point + Vector3.up * 0.02f : player.transform.position + ahead.normalized * 0.7f;
+            var pickup = Pickup.Create(stack.Kind, stack.Count, at, player.transform.eulerAngles.y + Random.Range(60f, 120f), null);
+            pickup.charge = stack.Charge;
+            // (Kept on the map, so it's still there when you come round again.)
+            if (Services.TryGet<WorldBuilder>(out var world) && world.Wrapping != null)
+            {
+                float size = world.Wrapping.Size;
+                world.Wrapping.Add(pickup.transform, new Vector3(Game.World.Generation.Wrap.Into(at.x, size), at.y, Game.World.Generation.Wrap.Into(at.z, size)));
+            }
+            hotbar.Items.Clear(slot);
+            if (Services.TryGet<Game.Audio.SoundPlayer>(out var sounds)) sounds.Play(Game.Audio.Sound.Pickup, at, Game.Audio.MixerNames.World, 0.5f, 0.7f, 10f);
         }
 
         void Open()

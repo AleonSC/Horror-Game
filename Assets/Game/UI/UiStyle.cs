@@ -68,6 +68,77 @@ namespace Game.UI
             e.style.borderTopLeftRadius = e.style.borderTopRightRadius = e.style.borderBottomLeftRadius = e.style.borderBottomRightRadius = r;
         }
 
+        /// <summary>
+        /// A key, drawn as a keycap: its name in small bold capitals on a dark key with a light rim, rounded, and
+        /// a deeper edge along the bottom so it looks pressable.
+        /// </summary>
+        public static Label Keycap(VisualElement parent, string key, int size = 12)
+        {
+            var k = new Label(key.ToUpperInvariant()) { pickingMode = PickingMode.Ignore };
+            k.style.fontSize = size;
+            k.style.unityFontStyleAndWeight = FontStyle.Bold;
+            k.style.color = Ink;
+            k.style.unityTextAlign = TextAnchor.MiddleCenter;
+            k.style.letterSpacing = 1f;
+            k.style.minWidth = size * 1.9f;
+            k.style.height = size * 1.9f;
+            k.style.paddingLeft = k.style.paddingRight = size * 0.5f;
+            k.style.paddingTop = k.style.paddingBottom = 0;
+            k.style.marginLeft = k.style.marginRight = 2;
+            k.style.marginTop = k.style.marginBottom = 0;
+            k.style.backgroundColor = new Color(0.09f, 0.09f, 0.1f, 0.92f);
+            Border(k, new Color(1f, 1f, 1f, 0.32f), 1f);
+            k.style.borderBottomWidth = 3f;
+            k.style.borderBottomColor = new Color(1f, 1f, 1f, 0.16f);
+            Rounded(k, 4f);
+            parent?.Add(k);
+            return k;
+        }
+
+        /// <summary>
+        /// A row of key hints: for each, its keys as keycaps ("W A S D", or "Ctrl/C" for either) and what they do
+        /// in small spaced letters, with a little diamond between them.
+        /// </summary>
+        public static VisualElement KeyHints(VisualElement parent, int size, params (string keys, string action)[] hints)
+        {
+            var row = new VisualElement { pickingMode = PickingMode.Ignore };
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.flexWrap = Wrap.Wrap;
+            row.style.alignItems = Align.Center;
+            for (int i = 0; i < hints.Length; i++)
+            {
+                var item = new VisualElement { pickingMode = PickingMode.Ignore };
+                item.style.flexDirection = FlexDirection.Row;
+                item.style.alignItems = Align.Center;
+                item.style.marginRight = 6;
+                item.style.marginTop = item.style.marginBottom = 3;
+                var groups = hints[i].keys.Split('/');
+                for (int g = 0; g < groups.Length; g++)
+                {
+                    if (g > 0)
+                    {
+                        var or = Text(item, "or", size - 2, Muted);
+                        or.style.marginLeft = or.style.marginRight = 4;
+                    }
+                    foreach (var key in groups[g].Split(' '))
+                        if (key.Length > 0) Keycap(item, key, size);
+                }
+                var label = Text(item, Hud.Spaced(hints[i].action), size - 1, Muted, TextAnchor.MiddleLeft, 0.5f);
+                label.style.marginLeft = 6;
+                row.Add(item);
+                if (i < hints.Length - 1)
+                {
+                    var dot = Box(row, new Color(Red.r, Red.g, Red.b, 0.6f));
+                    dot.style.width = dot.style.height = 4;
+                    dot.style.rotate = new Rotate(new Angle(45f, AngleUnit.Degree));
+                    dot.style.marginLeft = 8;
+                    dot.style.marginRight = 12;
+                }
+            }
+            parent?.Add(row);
+            return row;
+        }
+
         /// <summary>A menu button: spaced capitals on a dark band, red underline and brighter on hover.</summary>
         /// <summary>How far the menus sit in from the left edge (in the 1600x900 layout).</summary>
         public const float MenuLeft = 150f;

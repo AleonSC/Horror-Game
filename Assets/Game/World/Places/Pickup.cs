@@ -15,6 +15,8 @@ namespace Game.World
         public int count = 1;
         [Tooltip("A snack: eaten on the spot instead of carried.")]
         public bool snack;
+        [Tooltip("Its charge (fuel, burn time, shots), if it was dropped part-used; below 0: full.")]
+        public float charge = -1f;
 
         Light glow;
         Material outline;
@@ -98,7 +100,7 @@ namespace Game.World
                 Destroy(gameObject);
                 return;
             }
-            if (player.Hotbar.Give(kind, count)) Destroy(gameObject);
+            if (player.Hotbar.Give(kind, count, charge)) Destroy(gameObject);
         }
     }
 }

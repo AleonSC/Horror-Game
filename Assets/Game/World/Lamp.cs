@@ -19,7 +19,7 @@ namespace Game.World
         public Light lampLight;
         [Tooltip("The red marker's renderer (blinks while dark).")]
         public Renderer marker;
-        [Tooltip("Where the crank is: what the crosshair aims for.")]
+        [Tooltip("The crank: what the crosshair aims for, and it turns about its own X axis as the meter fills.")]
         public Transform crank;
         [Tooltip("The glass that glows when lit.")]
         public Renderer glass;
@@ -31,6 +31,8 @@ namespace Game.World
         float litLevel;
         Material markerMat, glassMat;
         Renderer glassHalo, markerHalo;
+        Quaternion crankRest = Quaternion.identity;
+        float crankAngle;
         Color glassGlow;
         System.IDisposable resetSub;
 
@@ -60,6 +62,7 @@ namespace Game.World
         void Start()
         {
             zone.Name = $"Lamp {index}";
+            if (crank != null) crankRest = crank.localRotation;
             if (marker != null) markerMat = marker.material;
             if (glass != null)
             {
@@ -138,6 +141,12 @@ namespace Game.World
             if (!Lit && meter > 0f && Time.time - lastClick > s.drainDelay)
                 meter = Mathf.Max(0f, meter - s.drainRate * Time.deltaTime);
             litLevel = Mathf.MoveTowards(litLevel, Lit ? 1f : meter * 0.15f, Time.deltaTime * (Lit ? 0.8f : 2f));
+            // The crank follows the meter round (a quick turn with each click, winding back as it drains).
+            if (crank != null)
+            {
+                crankAngle = Mathf.MoveTowards(crankAngle, Progress * s.crankTurns * 360f, Time.deltaTime * 900f);
+                crank.localRotation = crankRest * Quaternion.AngleAxis(crankAngle, Vector3.right);
+            }
             Apply(Time.time);
         }
 

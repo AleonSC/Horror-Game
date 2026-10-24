@@ -47,14 +47,15 @@ namespace Game.Player
             var stick = go.AddComponent<ThrownGlowstick>();
             var lightGo = new GameObject("Glow");
             lightGo.transform.SetParent(go.transform, false);
-            lightGo.AddHDLight(LightType.Point);
+            var data = lightGo.AddHDLight(LightType.Point);
+            if (data != null) data.volumetricDimmer = 0.3f; // (a gleam in the mist, not a ball of yellow fog)
             stick.glow = lightGo.GetComponent<Light>();
             stick.glow.shadows = LightShadows.None;
             stick.glow.color = s.glowstickColor;
             stick.glow.range = s.glowstickRange;
             stick.intensity = s.glowstickIntensity;
             stick.life = stick.lifeLeft = s.glowstickTime;
-            stick.halo = Game.Rendering.Effects.Glow(go.transform, Vector3.zero, 0.6f, Color.black, 0.7f, 2.5f, "Glowstick glow");
+            stick.halo = Game.Rendering.Effects.Glow(go.transform, Vector3.zero, 0.45f, Color.black, 0.7f, 3f, "Glowstick glow");
             stick.haloColor = s.glowstickColor;
             glowing.Add(stick);
         }
@@ -65,7 +66,7 @@ namespace Game.Player
             // It fades over its last fifth.
             float level = Mathf.Clamp01(lifeLeft / Mathf.Max(0.01f, life * 0.2f));
             glow.intensity = intensity * level;
-            if (halo != null) Game.Rendering.Effects.SetGlow(halo, haloColor * (1.2f * level));
+            if (halo != null) Game.Rendering.Effects.SetGlow(halo, haloColor * (0.45f * level)); // (a soft glow: the stick itself stays yellow, not blown out white)
             if (lifeLeft <= 0f) Destroy(gameObject);
         }
 

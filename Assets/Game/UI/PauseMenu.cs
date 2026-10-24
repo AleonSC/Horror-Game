@@ -121,6 +121,12 @@ namespace Game.UI
 
             Header(scroll, "Controls");
             Slider(scroll, "Mouse sensitivity", prefs.mouseSensitivity, 0.1f, 5f, "0.00", v => prefs.mouseSensitivity = v);
+            var keys = UiStyle.KeyHints(scroll, 12,
+                ("W A S D", "Move"), ("Shift", "Run"), ("Ctrl/C", "Crouch"), ("Space", "Jump"),
+                ("LMB", "Use, crank, take"), ("E", "Doors"), ("F", "Use what you hold"), ("1-8", "Pick an item"),
+                ("G", "Drop it"), ("Tab", "Inventory"), ("Y", "Sit"), ("Esc", "Pause"));
+            keys.style.marginTop = 8;
+            keys.style.marginBottom = 6;
 
             Header(scroll, "Sound");
             Slider(scroll, "Master volume", prefs.masterVolume, 0f, 1f, "P0", v => { prefs.masterVolume = v; Volumes(prefs); });
