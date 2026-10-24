@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.Entities
 {
     /// <summary>
-    /// The giant's body: the built-in one (a vast, too-thin figure of hazed shapes on a jointed frame) or your own
+    /// The giant's body: the built-in one (a vast, blocky, bulky figure of hazed shapes on a jointed frame) or your own
     /// model. Built one unit tall with its feet at the pivot, facing +Z; the giant scales it. Poses: hanging (head
     /// lolled, limbs dangling), falling, walking (a stride phase), and scanning (the head turning).
     /// </summary>
@@ -57,37 +57,56 @@ namespace Game.Entities
             animator = model.GetComponentInChildren<Animator>();
         }
 
+        // Blocky and bulky: a slab of a chest and heavy shoulders, thick square limbs, big hands and feet, a cube of
+        // a head under a heavy brow. One unit tall, feet at the pivot.
         void BuildBuiltIn()
         {
             var t = transform;
             hips = Joint(t, new Vector3(0f, 0.52f, 0f));
-            Limb(hips, Vector3.up * 0.1f, 0.2f, 0.06f, 0.035f);                // belly, narrow
+            Block(hips, new Vector3(0f, 0.01f, 0f), new Vector3(0.23f, 0.12f, 0.14f));          // pelvis
+            Block(hips, new Vector3(0f, 0.12f, 0.005f), new Vector3(0.21f, 0.12f, 0.13f));      // gut
             chest = Joint(hips, new Vector3(0f, 0.2f, 0f));
-            Limb(chest, Vector3.up * 0.06f, 0.14f, 0.085f, 0.05f);             // ribcage
+            Block(chest, new Vector3(0f, 0.06f, 0f), new Vector3(0.33f, 0.17f, 0.18f));         // ribcage
+            Block(chest, new Vector3(0f, 0.125f, -0.01f), new Vector3(0.4f, 0.07f, 0.16f));     // shoulders
+            Block(chest, new Vector3(0f, 0.16f, -0.025f), new Vector3(0.16f, 0.05f, 0.11f));    // the hump of the back of the neck
             neck = Joint(chest, new Vector3(0f, 0.14f, 0.01f));
-            Limb(neck, Vector3.up * 0.035f, 0.07f, 0.014f, 0.014f);            // a long thin neck
+            Block(neck, new Vector3(0f, 0.03f, 0f), new Vector3(0.08f, 0.075f, 0.075f));
             head = Joint(neck, new Vector3(0f, 0.07f, 0f));
-            var skull = Shape(PrimitiveType.Sphere, head, new Vector3(0f, 0.04f, 0.01f), new Vector3(0.06f, 0.09f, 0.07f));
+            var skull = Block(head, new Vector3(0f, 0.045f, 0.01f), new Vector3(0.115f, 0.115f, 0.115f));
             skull.name = "Head";
+            Block(head, new Vector3(0f, 0.07f, 0.065f), new Vector3(0.125f, 0.026f, 0.03f));    // brow
+            Block(head, new Vector3(0f, 0.0f, 0.035f), new Vector3(0.095f, 0.035f, 0.085f));    // jaw
 
-            armL = Joint(chest, new Vector3(-0.09f, 0.11f, 0f));
-            armR = Joint(chest, new Vector3(0.09f, 0.11f, 0f));
+            armL = Joint(chest, new Vector3(-0.2f, 0.11f, 0f));
+            armR = Joint(chest, new Vector3(0.2f, 0.11f, 0f));
             foreL = Joint(armL, new Vector3(0f, -0.2f, 0f));
             foreR = Joint(armR, new Vector3(0f, -0.2f, 0f));
-            foreach (var a in new[] { armL, armR }) Limb(a, Vector3.down * 0.1f, 0.2f, 0.016f, 0.016f);
+            foreach (var a in new[] { armL, armR })
+            {
+                Block(a, new Vector3(0f, -0.005f, 0f), new Vector3(0.1f, 0.08f, 0.11f));       // shoulder
+                Block(a, new Vector3(0f, -0.1f, 0f), new Vector3(0.08f, 0.2f, 0.085f));        // upper arm
+            }
             foreach (var f in new[] { foreL, foreR })
             {
-                Limb(f, Vector3.down * 0.11f, 0.22f, 0.013f, 0.013f);
-                Limb(f, Vector3.down * 0.25f, 0.07f, 0.007f, 0.02f);           // long fingers
+                Block(f, new Vector3(0f, -0.1f, 0f), new Vector3(0.075f, 0.2f, 0.08f));        // forearm
+                Block(f, new Vector3(0f, -0.235f, 0.01f), new Vector3(0.08f, 0.085f, 0.055f)); // hand
             }
 
-            thighL = Joint(hips, new Vector3(-0.04f, 0f, 0f));
-            thighR = Joint(hips, new Vector3(0.04f, 0f, 0f));
+            thighL = Joint(hips, new Vector3(-0.065f, 0f, 0f));
+            thighR = Joint(hips, new Vector3(0.065f, 0f, 0f));
             shinL = Joint(thighL, new Vector3(0f, -0.25f, 0f));
             shinR = Joint(thighR, new Vector3(0f, -0.25f, 0f));
-            foreach (var th in new[] { thighL, thighR }) Limb(th, Vector3.down * 0.125f, 0.25f, 0.022f, 0.022f);
-            foreach (var sh in new[] { shinL, shinR }) Limb(sh, Vector3.down * 0.135f, 0.27f, 0.015f, 0.015f);
+            foreach (var th in new[] { thighL, thighR }) Block(th, new Vector3(0f, -0.125f, 0f), new Vector3(0.105f, 0.25f, 0.115f));
+            foreach (var sh in new[] { shinL, shinR })
+            {
+                Block(sh, new Vector3(0f, -0.13f, 0f), new Vector3(0.09f, 0.26f, 0.095f));
+                Block(sh, new Vector3(0f, -0.255f, 0.03f), new Vector3(0.095f, 0.035f, 0.16f)); // foot
+            }
+            NeckLocal = new Vector3(0f, 0.86f, -0.04f);
+            EyesLocal = new Vector3(0f, 0.95f, 0.07f);
         }
+
+        GameObject Block(Transform parent, Vector3 at, Vector3 size) => Shape(PrimitiveType.Cube, parent, at, size);
 
         /// <summary>The fog's colour (as the look shows it) taken by this much: it stays a silhouette, just hazed.</summary>
         public void SetShade(float shade, Color fog, float through) => RuntimeMaterials.SetSilhouette(haze, shade, fog, through);
@@ -161,19 +180,6 @@ namespace Game.Entities
             j.SetParent(parent, false);
             j.localPosition = at;
             return j;
-        }
-
-        // A tapering limb as two capsules (thick end at the joint), centred on `centre`.
-        void Limb(Transform joint, Vector3 centre, float length, float radiusTop, float radiusBottom)
-        {
-            float r = (radiusTop + radiusBottom) * 0.5f;
-            Shape(PrimitiveType.Capsule, joint, centre, new Vector3(r * 2f, length * 0.5f, r * 2f * 0.85f));
-            if (Mathf.Abs(radiusTop - radiusBottom) > 0.004f)
-            {
-                float big = Mathf.Max(radiusTop, radiusBottom);
-                Vector3 end = centre + (radiusTop > radiusBottom ? Vector3.up : Vector3.down) * length * 0.25f;
-                Shape(PrimitiveType.Capsule, joint, end, new Vector3(big * 2f, length * 0.25f, big * 1.6f));
-            }
         }
 
         GameObject Shape(PrimitiveType type, Transform parent, Vector3 at, Vector3 scale)

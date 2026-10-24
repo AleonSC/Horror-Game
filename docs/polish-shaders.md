@@ -9,6 +9,8 @@ batch is three effects, used all over:
 | `Game/Beam` | a soft shaft of light with dust drifting in it | under the watchtower's floodlights, the giant's searchlights (from its eyes down to you), the flier's beam |
 | `Game/Flame` | a licking, flickering flame: blue at the root, yellow, orange, a red tip | the torch, the lighter, a flare |
 
+| `Game/NightSky` | the sky, drawn through the fog: twinkling stars, drifting clouds lit at the edges near the moon, the moon with faint markings, a halo and rays streaming out | overhead and behind the giant |
+
 They live in `Assets/Game/Rendering/Resources/Shaders` with a shared include, `Horror.hlsl`.
 
 **If one has an error in your Unity:** it's left out and the old look stays (no pink squares), with a warning
@@ -22,6 +24,23 @@ in the Console naming it; the shader's own error will be in the Console too. Sen
 - Floodlights: the Watchtower's `beamGlow`. Searchlights: `GiantConfig` > `searchlightShaft`. Flier:
   `FlierConfig` > `beamShaft`.
 - Torch and lighter flames: `ItemsConfig` > `flameGlow`.
+
+## The sky, the moon and the giant
+
+The moon hangs behind the giant's chest (`GiantConfig` > `moonBehind`, `moonAt`), so it stands black against
+it with the rays streaming out round it, and the moonlight now comes from there (the moon's shadows have
+moved). Without the giant (the look test) it's where the look's moon settings put it. Sky settings: the Look
+tab, **Night sky**: the moon's colour, size, glow and rays, stars and how many, cloud cover, brightness and
+drift.
+
+The giant is rebuilt blocky and bulky: a slab of a chest and heavy shoulders, thick square limbs, big hands
+and feet, a cube of a head under a heavy brow.
+
+## Lamps
+
+Victorian street lamps now: a stepped base, a fluted iron post ringed with brass collars, a crossbar, and a
+lantern of glass in an iron frame under a sloping roof and a brass finial (the red marker sits on its tip).
+The crank has a housing, an arm and a knob.
 
 ## Deer
 

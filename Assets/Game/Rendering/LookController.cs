@@ -31,6 +31,7 @@ namespace Game.Rendering
         Light moon;
         HDAdditionalLightData moonData;
         GroundMist mist;
+        NightSky nightSky;
         Color lastAmbient = new Color(-1f, 0f, 0f);
 
         readonly System.Collections.Generic.List<System.IDisposable> subs = new System.Collections.Generic.List<System.IDisposable>();
@@ -75,6 +76,8 @@ namespace Game.Rendering
             BuildMoon();
             mist = new GameObject("Ground Mist").AddComponent<GroundMist>();
             mist.transform.SetParent(transform, false);
+            nightSky = new GameObject("Night Sky").AddComponent<NightSky>();
+            nightSky.transform.SetParent(transform, false);
 
             Services.Register(this);
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -220,9 +223,11 @@ namespace Game.Rendering
             moon.enabled = s.moonBrightness > 0f;
             moon.shadows = s.moonShadows ? LightShadows.Soft : LightShadows.None;
             moonData.angularDiameter = s.moonShadowSoftness;
-            moon.transform.rotation = Quaternion.Euler(s.moonHeight, s.moonDirection, 0f);
+            // The moonlight comes from the moon in the sky (behind the giant, once it's put it there).
+            moon.transform.rotation = Quaternion.LookRotation(-NightSky.MoonDirection(s));
 
             mist.Apply(s, cam, Mathf.Clamp01(Void));
+            if (nightSky != null) nightSky.Apply(s, cam);
         }
     }
 }

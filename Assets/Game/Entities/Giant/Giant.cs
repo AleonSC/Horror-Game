@@ -231,6 +231,13 @@ namespace Game.Entities
             truePos = p + Bearing(bearing) * s.HangDistance;
             footHeight = s.HangDistance * Mathf.Tan(s.feetElevation * Mathf.Deg2Rad);
             body.PoseHanging(Mathf.Sin(Time.time * 0.37f) * 0.6f + swing * 0.05f);
+            // The moon hangs behind it, at its chest, its rays streaming out round it (and the moonlight comes from there).
+            if (s.moonBehind)
+            {
+                float el = Mathf.Lerp(s.feetElevation, s.neckElevation, s.moonAt) * Mathf.Deg2Rad;
+                NightSky.MoonOverride = Bearing(bearing) * Mathf.Cos(el) + Vector3.up * Mathf.Sin(el);
+            }
+            else NightSky.MoonOverride = null;
         }
 
         // The first clear view of it (after a calm moment) draws your eyes up to it, once.
