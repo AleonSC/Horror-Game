@@ -52,8 +52,13 @@ Detailed Victorian street lamps, built from turned (lathed) shapes and shared by
   (ogee) roof, with a crown of brass spikes and a turned brass finial (the red marker sits on its tip);
 - the crank on a brass-rimmed housing.
 
-The iron is an old green-black paint. The lantern's frame and glass cast no shadows, so they don't shade their
-own light.
+The iron is an old green-black paint. Everything round and under the light casts no shadow, so it doesn't
+shade the lamp's own light into a big dark blob on the ground: the lantern, the glass, the capital, the scrolls,
+the ladder bar and the brass.
+
+A lit lamp is gentler now. The glass glows at 1.5 (it was 6), and the haze round it is 0.35 across 1.4 m (it was
+1.5 across 2.4 m), so it no longer blooms into a white disc. The light is 14 candela (it was 25). `LampConfig` >
+Lit has `lightIntensity`, `glassHalo` and `glassHaloSize`.
 
 ## Paths
 

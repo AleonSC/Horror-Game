@@ -27,12 +27,12 @@ namespace Game.World
         public float safeRadius = 13f;
         public Color lightColor = new Color(1f, 0.75f, 0.45f);
         [Range(0f, 200f), Tooltip("Brightness (candela).")]
-        public float lightIntensity = 25f;
+        public float lightIntensity = 14f;
         [Range(1f, 60f)] public float lightRange = 13f;
         [Range(0f, 20f), Tooltip("The soft glow round a lit lamp's glass.")]
-        public float glassHalo = 1.5f;
+        public float glassHalo = 0.35f;
         [Range(0.2f, 8f), Tooltip("How wide that glow is (metres).")]
-        public float glassHaloSize = 2.4f;
+        public float glassHaloSize = 1.4f;
 
         [Header("Unlit")]
         [Tooltip("The blinking marker on top of a dark lamp.")]

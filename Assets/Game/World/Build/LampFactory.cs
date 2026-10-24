@@ -22,7 +22,7 @@ namespace Game.World.Build
         {
             this.prefab = prefab;
             metal = RuntimeMaterials.Lit("Lamp metal", new Color(0.035f, 0.045f, 0.04f), 0.55f); // (old green-black paint)
-            glass = RuntimeMaterials.LitGlow("Lamp glass", new Color(1f, 0.85f, 0.6f), new Color(1f, 0.7f, 0.4f) * 6f);
+            glass = RuntimeMaterials.LitGlow("Lamp glass", new Color(1f, 0.85f, 0.6f), new Color(1f, 0.7f, 0.4f) * 1.5f);
             marker = RuntimeMaterials.Glow("Lamp marker", new Color(1f, 0.05f, 0.02f));
             crank = RuntimeMaterials.Lit("Crank", new Color(0.12f, 0.1f, 0.08f), 0.4f);
             brass = RuntimeMaterials.Lit("Lamp brass", new Color(0.4f, 0.29f, 0.12f), 0.6f);
@@ -45,7 +45,7 @@ namespace Game.World.Build
             Shapes();
             Shape(t, "Plinth", shapeStone, stone);
             Shape(t, "Iron", shapeIron, metal);
-            Shape(t, "Brass", shapeBrass, brass);
+            Shape(t, "Brass", shapeBrass, brass).GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             var glassPart = Shape(t, "Glass", shapeGlass, glass);
             glassPart.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             Shape(t, "Lantern", shapeLantern, metal).GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -134,7 +134,7 @@ namespace Game.World.Build
             var iron = new MeshBuilder();
             var brass = new MeshBuilder();
             var glass = new MeshBuilder();
-            var lantern = new MeshBuilder(); // (the lantern's frame: kept out of the shadows so it doesn't shade its own light)
+            var lantern = new MeshBuilder(); // (everything round and under the light: kept out of the shadows so it doesn't shade its own light)
             Vector3 o = Vector3.zero;
             V2[] P(params float[] rh) { var a = new V2[rh.Length / 2]; for (int i = 0; i < a.Length; i++) a[i] = new V2(rh[i * 2], rh[i * 2 + 1]); return a; }
 
@@ -156,10 +156,10 @@ namespace Game.World.Build
             foreach (float y in new[] { 1.04f, 1.62f, 2.5f })
                 brass.AddLathe(o, P(0.07f, y - 0.022f, 0.086f, y - 0.012f, 0.088f, y + 0.012f, 0.07f, y + 0.022f), 20, false);
             // The capital: a flare, a neck and a wide collar for the lantern to sit on.
-            iron.AddLathe(o, P(0.064f, 2.55f, 0.085f, 2.58f, 0.085f, 2.61f, 0.07f, 2.64f, 0.075f, 2.67f, 0.12f, 2.72f, 0.13f, 2.75f,
+            lantern.AddLathe(o, P(0.064f, 2.55f, 0.085f, 2.58f, 0.085f, 2.61f, 0.07f, 2.64f, 0.075f, 2.67f, 0.12f, 2.72f, 0.13f, 2.75f,
                 0.1f, 2.78f, 0.088f, 2.88f, 0.11f, 2.92f, 0.13f, 2.94f, 0f, 2.94f), 20, false);
             // The ladder bar, with brass balls on its ends.
-            iron.AddTube(new Vector3(-0.34f, 2.75f, 0f), new Vector3(0.34f, 2.75f, 0f), 0.016f, 0.016f, 8);
+            lantern.AddTube(new Vector3(-0.34f, 2.75f, 0f), new Vector3(0.34f, 2.75f, 0f), 0.016f, 0.016f, 8);
             for (int side = -1; side <= 1; side += 2)
                 brass.AddLathe(new Vector3(side * 0.35f, 2.75f, 0f), P(0f, -0.03f, 0.022f, -0.022f, 0.03f, 0f, 0.022f, 0.022f, 0f, 0.03f), 10, false);
             // Scrollwork: four curling iron brackets from the capital out under the lantern's floor.
@@ -174,14 +174,14 @@ namespace Game.World.Build
                     (S(0.23f, 2.8f), new Vector2(0.01f, 0.009f)), (S(0.21f, 2.88f), new Vector2(0.01f, 0.009f)), (S(0.17f, 2.9f), new Vector2(0.009f, 0.008f)),
                     (S(0.15f, 2.86f), new Vector2(0.008f, 0.007f)), (S(0.17f, 2.83f), new Vector2(0.007f, 0.006f)),
                 }, 2f, true, true);
-                iron.AppendMesh(curl, Matrix4x4.identity);
+                lantern.AppendMesh(curl, Matrix4x4.identity);
                 Object.Destroy(curl);
                 // A small curl back up to the lantern's floor.
                 var stay = Lofts.Tube(new[]
                 {
                     (S(0.21f, 2.88f), new Vector2(0.008f, 0.008f)), (S(0.2f, 2.95f), new Vector2(0.008f, 0.008f)), (S(0.19f, 3.0f), new Vector2(0.008f, 0.008f)),
                 }, 2f, true, true);
-                iron.AppendMesh(stay, Matrix4x4.identity);
+                lantern.AppendMesh(stay, Matrix4x4.identity);
                 Object.Destroy(stay);
             }
 
