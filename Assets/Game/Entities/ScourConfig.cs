@@ -60,6 +60,12 @@ namespace Game.Entities
         public float killDistance = 3f;
         [Tooltip("Looking at it only holds it still while your flashlight is on. In the dark it creeps even while you watch.")]
         public bool creepsWhenWatchedInDark = true;
+        [Tooltip("Each creep, it comes apart where it stands and pulls back together at the new spot (its appearing, very fast). Off: it just jumps.")]
+        public bool creepBlink = true;
+        [Range(0.02f, 1f), Tooltip("Seconds to come apart...")]
+        public float blinkOut = 0.1f;
+        [Range(0.02f, 1f), Tooltip("...and to pull back together.")]
+        public float blinkIn = 0.15f;
         [Range(0f, 1f), Tooltip("Chance a creep takes it to a tree on its way to you, to hide behind the trunk and peek out.")]
         public float creepToTreeChance = 0.35f;
 

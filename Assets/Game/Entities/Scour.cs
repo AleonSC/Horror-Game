@@ -117,6 +117,7 @@ namespace Game.Entities
         {
             if (portal != null) portal.Close();
             portal = null;
+            if (blinkTime >= 0f) { blinkArrive = null; blinkTime = -1f; body.SetMaterialize(1f); body.Shudder(0f); }
             body.SetVisible(false);
             body.ShutMouth();
             body.SetPose(ScourPose.Neutral, 1, true);
@@ -211,6 +212,7 @@ namespace Game.Entities
 
         void UpdateStalking()
         {
+            if (UpdateBlink()) return;
             float dt = Time.deltaTime;
             Vector3 target = player.transform.position;
             float dist = PlayerSense.FlatDistance(transform.position, target);
@@ -328,23 +330,70 @@ namespace Game.Entities
                 Vector3 spot = PeekSpot(peekOut);
                 if (zones == null || !zones.Contains(spot, s.ringMargin))
                 {
-                    transform.position = spot;
-                    body.Face(target);
-                    body.SetPose(ScourPose.Peek, 1, true);
-                    Play(Sound.Creep, 0.7f, Random.Range(0.85f, 1.15f), 25f);
-                    if (Services.TryGet<EventBus>(out var ev)) ev.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept behind a tree at {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
+                    Blink(() =>
+                    {
+                        transform.position = spot;
+                        body.Face(target);
+                        body.SetPose(ScourPose.Peek, 1, true);
+                        if (Services.TryGet<EventBus>(out var ev)) ev.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept behind a tree at {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
+                    });
                     return;
                 }
                 peekTree = null;
             }
 
-            MoveTo(next);
-            peekTree = null; // stepped out into the open
-            body.Face(target);
-            // A new pose for when you look back (it moved unseen, so it can snap).
-            body.SetPose(CreepPose(), RandomSide(), true);
+            peekTree = null; // stepping out into the open
+            Blink(() =>
+            {
+                MoveTo(next);
+                body.Face(target);
+                body.SetPose(CreepPose(), RandomSide(), true);
+                if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept to {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
+            });
+        }
+
+        // A creep: it comes apart where it stands and pulls back together at the new spot, in a blink.
+        System.Action blinkArrive;
+        float blinkTime = -1f;
+
+        void Blink(System.Action arrive)
+        {
             Play(Sound.Creep, 0.7f, Random.Range(0.85f, 1.15f), 25f);
-            if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept to {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
+            if (!s.creepBlink)
+            {
+                arrive();
+                return;
+            }
+            blinkArrive = arrive;
+            blinkTime = 0f;
+        }
+
+        /// <summary>Mid-blink: true while it's still coming apart or pulling together (nothing else happens then).</summary>
+        bool UpdateBlink()
+        {
+            if (blinkTime < 0f) return false;
+            blinkTime += Time.deltaTime;
+            float gone = Mathf.Max(0.01f, s.blinkOut), back = Mathf.Max(0.01f, s.blinkIn);
+            if (blinkTime < gone)
+            {
+                body.SetMaterialize(1f - blinkTime / gone);
+                return true;
+            }
+            if (blinkArrive != null)
+            {
+                blinkArrive();
+                blinkArrive = null;
+            }
+            float t = (blinkTime - gone) / back;
+            if (t < 1f)
+            {
+                body.SetMaterialize(t);
+                return true;
+            }
+            body.SetMaterialize(1f);
+            body.Shudder(0f);
+            blinkTime = -1f;
+            return false;
         }
 
         // Can't come in: it prowls just outside the light while you're not looking.
