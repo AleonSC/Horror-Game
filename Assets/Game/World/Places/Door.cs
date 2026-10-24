@@ -18,6 +18,8 @@ namespace Game.World
         float open;     // 0 shut, 1 open
         bool opening;
         Collider handle;
+        Collider[] solid;
+        CharacterController player;
 
         public bool IsOpen => opening;
         public string Prompt => locked ? "Locked" : opening ? "Close" : "Open";
@@ -28,6 +30,7 @@ namespace Game.World
         {
             shut = transform.localRotation;
             handle = GetComponentInChildren<Collider>();
+            solid = GetComponentsInChildren<Collider>();
         }
 
         public void Interact()
@@ -62,9 +65,27 @@ namespace Game.World
         void Update()
         {
             float target = opening ? 1f : 0f;
+            // Only solid when shut (and not shut on you): swinging or open, you walk through it, so it never
+            // shoves you or pins you in the doorway.
+            bool block = !opening && open <= 0f && !Overlaps();
+            foreach (var c in solid) if (c != null && c.isTrigger == block) c.isTrigger = !block;
             if (Mathf.Approximately(open, target)) return;
             open = Mathf.MoveTowards(open, target, Time.deltaTime / Mathf.Max(0.05f, swingTime));
             transform.localRotation = shut * Quaternion.Euler(0f, -openAngle * Mathf.SmoothStep(0f, 1f, open), 0f);
+        }
+
+        bool Overlaps()
+        {
+            if (player == null)
+            {
+                if (!Services.TryGet<Game.Player.PlayerController>(out var p)) return false;
+                player = p.GetComponent<CharacterController>();
+                if (player == null) return false;
+            }
+            var near = player.bounds;
+            near.Expand(0.1f);
+            foreach (var c in solid) if (c != null && c.bounds.Intersects(near)) return true;
+            return false;
         }
 
         void Play(Sound sound, float volume, float pitch)

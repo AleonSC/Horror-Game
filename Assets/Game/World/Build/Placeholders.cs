@@ -70,11 +70,11 @@ namespace Game.World.Build
             switch (site.Kind)
             {
                 case StructureKind.Cabin:
-                    Room(t, new Vector3(8f, 3.2f, 7f), 1.1f, 2.1f, wood, darkWood);
+                    Room(t, new Vector3(8f, 3.2f, 7f), 1.6f, 2.3f, wood, darkWood);
                     Table(t, PlaceFittings.CabinTableSpot);
                     break;
                 case StructureKind.Shack:
-                    Room(t, new Vector3(4f, 2.6f, 5f), 1f, 2f, wood, darkWood);
+                    Room(t, new Vector3(4f, 2.6f, 5f), 1.5f, 2.2f, wood, darkWood);
                     Table(t, PlaceFittings.TableSpot);
                     break;
                 case StructureKind.Campsite:
