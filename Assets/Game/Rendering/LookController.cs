@@ -33,6 +33,8 @@ namespace Game.Rendering
         GroundMist mist;
         Color lastAmbient = new Color(-1f, 0f, 0f);
 
+        readonly System.Collections.Generic.List<System.IDisposable> subs = new System.Collections.Generic.List<System.IDisposable>();
+
         public LookConfig Config => config;
 
         /// <summary>Something tinting the world (the giant's eye turns the fog red): the colour, and how much (0-1).</summary>
@@ -40,6 +42,10 @@ namespace Game.Rendering
         public float FogTintAmount;
         /// <summary>Blurred vision (waking up groggy), 0-1: everything past arm's length soft, clearing outward as it falls.</summary>
         public float Blur;
+        /// <summary>The world going (a scour has you), 0-1: the fog turns black and stops glowing, the moon goes out.</summary>
+        public float Void;
+        /// <summary>While it goes: how far you can still see (metres).</summary>
+        public float VoidSight = 30f;
 
         /// <summary>What HDRP multiplies light by at this exposure (EV100). Screen colours are divided by it.</summary>
         public static float ExposureMultiplier(float ev100) => 1f / (1.2f * Mathf.Pow(2f, ev100));
@@ -71,11 +77,18 @@ namespace Game.Rendering
             Services.Register(this);
             SceneManager.sceneLoaded += OnSceneLoaded;
             SwitchOffSceneDirectionalLights();
+            // (The world comes back when you wake, or a run starts.)
+            if (Services.TryGet<EventBus>(out var events))
+            {
+                subs.Add(events.Subscribe<PlayerRespawned>(_ => Void = 0f));
+                subs.Add(events.Subscribe<RunStarted>(_ => Void = 0f));
+            }
             Apply();
         }
 
         void OnDestroy()
         {
+            foreach (var sub in subs) sub.Dispose();
             Services.Unregister(this);
             SceneManager.sceneLoaded -= OnSceneLoaded;
             if (profile != null) Destroy(profile);
@@ -153,7 +166,8 @@ namespace Game.Rendering
             tonemapping.mode.Override(s.neutralTonemapping ? TonemappingMode.Neutral : TonemappingMode.None);
 
             // The ambient light is a flat sky in the ambient colour (only updated when it changes: it re-bakes).
-            Color ambient = s.ambient.linear * s.ambientStrength / mul;
+            // (Darkened in steps while the world goes: each change re-bakes the ambient light.)
+            Color ambient = s.ambient.linear * s.ambientStrength / mul * (1f - Mathf.Round(Mathf.Clamp01(Void) * 5f) / 5f);
             if (ambient != lastAmbient)
             {
                 lastAmbient = ambient;
@@ -164,10 +178,14 @@ namespace Game.Rendering
 
             fog.enabled.Override(true);
             Color fogColor = Color.Lerp(s.fogColor, FogTint, Mathf.Clamp01(FogTintAmount));
+            float gone = Mathf.Clamp01(Void);
+            fogColor = Color.Lerp(fogColor, Color.black, gone);
             fog.color.Override(fogColor.linear / mul);
-            fog.meanFreePath.Override(MeanFreePath(s.fogDensity));
+            float freePath = MeanFreePath(s.fogDensity);
+            if (gone > 0f) freePath = Mathf.Min(freePath, Mathf.Max(0.4f, VoidSight / 3f)); // (seeing about 3 free paths)
+            fog.meanFreePath.Override(freePath);
             fog.enableVolumetricFog.Override(s.volumetricFog);
-            fog.albedo.Override(Color.white * s.fogGlow);
+            fog.albedo.Override(Color.white * (s.fogGlow * (1f - gone)));
             fog.anisotropy.Override(s.fogAnisotropy);
             // At least as far as the camera sees, or there's a hard line where the lit fog gives way to plain fog.
             var cam = Camera.main;
@@ -193,13 +211,13 @@ namespace Game.Rendering
             }
 
             moon.color = s.moonColor;
-            moon.intensity = s.moonBrightness; // (lux: a directional light's own unit in HDRP)
+            moon.intensity = s.moonBrightness * (1f - Mathf.Clamp01(Void)); // (lux: a directional light's own unit in HDRP)
             moon.enabled = s.moonBrightness > 0f;
             moon.shadows = s.moonShadows ? LightShadows.Soft : LightShadows.None;
             moonData.angularDiameter = s.moonShadowSoftness;
             moon.transform.rotation = Quaternion.Euler(s.moonHeight, s.moonDirection, 0f);
 
-            mist.Apply(s, cam);
+            mist.Apply(s, cam, Mathf.Clamp01(Void));
         }
     }
 }

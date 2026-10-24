@@ -120,8 +120,16 @@ namespace Game.Entities
         public float approachSpeed = 1.1f;
         [Range(1f, 8f)] public float approachMinDistance = 3.5f;
         [Range(0.2f, 5f)] public float graspTime = 1.4f;
-        [Range(0.2f, 5f)] public float portalOpenTime = 1f;
-        [Range(0.5f, 8f)] public float dragTime = 2.8f;
+        [Range(0.3f, 6f), Tooltip("Seconds it takes to lift you up to its eyes.")]
+        public float liftTime = 2.2f;
+        [Range(0f, 2f), Tooltip("How far above its eyes it holds yours (metres; it lifts you to them).")]
+        public float liftAboveEyes = 0.05f;
+        [Range(1f, 15f), Tooltip("Seconds for the world round you to come apart and the dark to close in, before the fade.")]
+        public float dissolveTime = 5f;
+        [Range(5f, 60f), Tooltip("How far round you the world is seen coming apart (metres).")]
+        public float dissolveReach = 24f;
+        [Range(0, 3000), Tooltip("How many motes the world comes apart into.")]
+        public int worldMotes = 1200;
         [Range(0f, 120f), Tooltip("After it takes you, seconds before they come back.")]
         public float returnAfterCaught = 25f;
 

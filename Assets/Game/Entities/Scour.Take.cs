@@ -1,17 +1,20 @@
 using Game.Audio;
 using Game.Core;
 using Game.Player;
+using Game.Rendering;
 using UnityEngine;
 
 namespace Game.Entities
 {
     // Taking the player (section 6.7): you're held, your gaze is dragged to it as it walks up to you, it takes
-    // hold of you, a hole tears open behind it, and it backs into it, dragging you after it. The screen fades.
+    // hold of you and lifts you up to its eyes, and stares, while the world round you comes apart into motes
+    // and the dark closes in. Then black.
     public sealed partial class Scour
     {
-        Vector3 takeStart, takeForward, approachFrom, portalCentre;
-        float approachTime;
+        Vector3 takeStart, takeForward, approachFrom;
+        float approachTime, liftBy;
         bool caughtSent;
+        WorldMotes motes;
 
         void StartTaking()
         {
@@ -47,9 +50,9 @@ namespace Game.Entities
             timer += Time.deltaTime;
             float dt = Time.deltaTime;
             float t = timer;
-            float tGrasp = approachTime, tPortal = tGrasp + s.graspTime, tDrag = tPortal + s.portalOpenTime;
+            float tGrasp = approachTime, tLift = tGrasp + s.graspTime, tDissolve = tLift + s.liftTime;
             float eyeHeight = s.height * 0.94f * growth;
-            body.SetEyes(Mathf.Lerp(1.2f, 3.2f, Mathf.Clamp01(t / tPortal)), s.spawnEyeGlow * 2f * Random.Range(0.85f, 1.15f), 0f, 0f, s.eyeLight, s.eyeLightRange);
+            body.SetEyes(Mathf.Lerp(1.2f, 3.2f, Mathf.Clamp01(t / tLift)), s.spawnEyeGlow * 2f * Random.Range(0.85f, 1.15f), 0f, 0f, s.eyeLight, s.eyeLightRange);
 
             if (t < tGrasp)
             {
@@ -69,7 +72,7 @@ namespace Game.Entities
                 return;
             }
 
-            if (t < tPortal)
+            if (t < tLift)
             {
                 // It takes hold of you, its face right up to yours.
                 if (t - dt < tGrasp)
@@ -87,54 +90,69 @@ namespace Game.Entities
                 return;
             }
 
-            // A hole tears open in the air behind it.
+            // It lifts you up, off your feet, to its eyes.
             Vector3 hold = takeStart + takeForward * 0.75f;
-            float toPlane = 0.75f + 0.55f;
-            if (portal == null && !caughtSent)
+            var look = Services.TryGet<LookController>(out var lc) ? lc : null;
+            if (t - dt < tLift)
             {
-                portalCentre = hold + takeForward * 0.55f;
-                portalCentre.y = PlayerSense.GroundHeight(hold) + s.height * 0.52f;
-                portal = ScourPortal.Open(portalCentre, -takeForward, new Vector2(0.85f, 1.5f) * (s.height / 2.4f), s.portalOpenTime);
-                Play(Sound.Portal, 1f, 0.8f, 20f);
+                Play(Sound.Moan, 0.7f, 0.5f, 12f);
+                liftBy = Mathf.Clamp(eyeHeight + s.liftAboveEyes - (player.Head.position.y - player.transform.position.y), 0.2f, 2.5f);
             }
-            if (t < tDrag)
+            float up = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - tLift) / Mathf.Max(0.01f, s.liftTime)));
+            float bob = Mathf.Sin(t * 1.3f) * 0.03f * up;
+            player.transform.position = takeStart + Vector3.up * (liftBy * up + bob) + takeForward * (0.15f * up);
+            transform.position = new Vector3(hold.x, PlayerSense.GroundHeight(hold), hold.z);
+            body.Face(player.transform.position);
+            body.SetMouth(Mathf.Lerp(1.6f, 0.4f, up)); // (it goes quiet, and just looks)
+            if (t < tDissolve)
             {
-                body.Shudder(s.crescendoVibration * 0.3f);
-                LookAtIt(eyeHeight, 6f, 3f, dt);
+                body.Shudder(s.crescendoVibration * Mathf.Lerp(0.25f, 0.08f, up));
+                LookAtIt(eyeHeight, 6f, Mathf.Lerp(2.6f, 1.2f, up), dt);
                 return;
             }
 
-            // It backs into the hole, dragging you after it, slowly and then all at once.
-            float d = Mathf.Clamp01((t - tDrag) / Mathf.Max(s.dragTime, 0.01f));
-            float pull = d * d * (3f - 2f * d) * d;
-            float moved = pull * (toPlane - 0.18f); // (stopping just short: all you see is the black)
-            Vector3 you = takeStart + takeForward * moved;
-            you.y = Mathf.Lerp(takeStart.y, PlayerSense.GroundHeight(you), 0.5f) + 0.15f * d;
-            player.transform.position = you;
-            Vector3 it = takeStart + takeForward * (0.75f + moved);
-            it.y = PlayerSense.GroundHeight(it);
-            transform.position = it;
-            body.Shudder(s.crescendoVibration * Mathf.Lerp(0.3f, 0.05f, d));
+            // The world round you comes apart, from the far edge in, and the dark closes in after it; at last
+            // there's only its eyes. Then black.
+            if (motes == null && !caughtSent)
+            {
+                motes = WorldMotes.Begin(player.Head.position, s.dissolveReach, s.worldMotes, s.dissolveTime);
+                Play(Sound.Portal, 0.6f, 0.45f, 25f);
+                if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Breath, MixerNames.Player, 0.7f, 0.65f);
+            }
+            float d = Mathf.Clamp01((t - tDissolve) / Mathf.Max(0.5f, s.dissolveTime));
+            if (look != null && motes != null)
+            {
+                look.Void = Mathf.Clamp01(d * 2.5f);
+                look.VoidSight = motes.Sight;
+            }
+            body.Shudder(s.crescendoVibration * 0.05f);
+            LookAtIt(eyeHeight, 8f, Mathf.Lerp(1.2f, 0.4f, d), dt);
 
-            var cam = player.Head;
-            Quaternion look = Quaternion.LookRotation(portalCentre - cam.position);
-            cam.rotation = Quaternion.Slerp(cam.rotation, look, 1f - Mathf.Exp(-4f * dt)) * Quaternion.Euler(Random.insideUnitSphere * Mathf.Lerp(2.5f, 0.6f, d));
-
-            if (!caughtSent && d > 0.55f)
+            if (!caughtSent && d > 0.8f)
             {
                 caughtSent = true;
                 var flow = player.GetComponent<CatchFlow>();
                 if (flow != null) flow.Begin(EntityKind.Scour, id);
             }
-            if (d >= 1f)
+            bool black = Services.TryGet<ScreenFade>(out var fade) && fade.Alpha >= 0.99f;
+            if (caughtSent && (black || t > tDissolve + s.dissolveTime + 4f))
             {
-                // You're gone; so is it. The catch flow wakes you up somewhere else.
-                if (portal != null) portal.Close();
-                portal = null;
+                // You're gone; so is it. The catch flow wakes you up somewhere else (and the world comes back).
+                if (motes != null) Destroy(motes.gameObject);
+                motes = null;
+                liftBy = 0f;
                 body.SetVisible(false);
                 State = ScourState.Hidden; // (no Hide(): the player stays held until the catch flow wakes them)
                 timer = s.returnAfterCaught;
             }
+        }
+
+        void StopWorldGoing()
+        {
+            if (motes != null) Destroy(motes.gameObject);
+            motes = null;
+            liftBy = 0f;
+            if (Services.TryGet<LookController>(out var look)) look.Void = 0f;
         }
 
         // Drags the held player's gaze onto its face (pull: how fast), trembling with fear (degrees).

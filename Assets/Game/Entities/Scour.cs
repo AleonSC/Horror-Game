@@ -124,7 +124,16 @@ namespace Game.Entities
             body.SetPose(ScourPose.Neutral, 1, true);
             growth = 1f;
             body.SetGrowth(1f);
-            if (State == ScourState.Taking && player != null) player.SetHeld(false);
+            if (State == ScourState.Taking)
+            {
+                // Let go part way: back on your feet, and the world back.
+                if (player != null)
+                {
+                    player.SetHeld(false);
+                    if (liftBy > 0f) player.Teleport(takeStart, player.transform.rotation, keepPitch: true);
+                }
+                StopWorldGoing();
+            }
             SetState(ScourState.Hidden, seconds > 0f ? $"gone for {seconds:0} s" : "gone");
             timer = seconds;
         }

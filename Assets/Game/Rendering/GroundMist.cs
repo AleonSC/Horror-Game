@@ -32,7 +32,7 @@ namespace Game.Rendering
         }
 
         /// <summary>Follow the camera and take the look's mist settings (called every frame by LookController).</summary>
-        public void Apply(LookSettings s, Camera cam)
+        public void Apply(LookSettings s, Camera cam, float gone = 0f)
         {
             volume.enabled = s.mist && cam != null;
             if (!volume.enabled) return;
@@ -60,7 +60,7 @@ namespace Game.Rendering
             volume.parameters.size = new Vector3(width, top, width);
             volume.parameters.textureTiling = new Vector3(width / tile, 1f, width / tile);
             volume.parameters.textureScrollingSpeed = new Vector3(s.mistDrift / tile, 0f, s.mistDrift * 0.6f / tile);
-            volume.parameters.albedo = s.mistColor;
+            volume.parameters.albedo = s.mistColor * (1f - gone); // (no glow while the world goes)
             volume.parameters.meanFreePath = Mathf.Max(0.05f, s.mistThickness);
             // Soft sides so the box's edge never shows; the top fade is already in the texture.
             volume.parameters.positiveFade = new Vector3(0.3f, 0.01f, 0.3f);

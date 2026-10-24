@@ -37,8 +37,8 @@ until it is.
     on the wind, its eyes hanging in the air a moment. That costs 10% battery. It's back 7-12 s later.
   - **Flash the light on and off at it 4 times quickly** and it shrieks and charges your face, then vanishes.
     It comes back sooner and angrier.
-  - **Taken**: you're held, it walks up to you, a hole tears open behind it, it drags you through, and the
-    screen fades. You wake up (groggy) by the last lamp you lit, or where you started.
+  - **Taken**: you're held, it walks up to you and grabs you, lifts you up to its eyes and stares, while the
+    world round you comes apart into motes and the dark closes in; then black. You wake up (groggy) by the last lamp you lit, or where you started.
 - **The lamp** is in the clearing up the path. Click it repeatedly to crank its meter. Stop and the meter drains.
   When it's full it lights: a 13 m safe circle the scour can't enter (it prowls the edge instead).
 - **Sound states.** With the scour within 7 m, the world goes quiet and you hear breathing (Dread). When it's

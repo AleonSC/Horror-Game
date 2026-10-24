@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// The narration (section 7): the intro, line by line over black (capitals; *word* red, **word** red and
+    /// The narration (section 7), along the bottom of the screen: the intro, line by line (capitals; *word* red, **word** red and
     /// lingering, ***word*** lingering long), and lines on lighting certain lamps, low on the screen over the game
     /// ("-word" red; the 5th lamp's frantic: red, bold and shaking).
     /// </summary>
@@ -20,6 +20,8 @@ namespace Game.UI
         System.IDisposable lampSub;
 
         public bool Speaking => showing || queue.Count > 0;
+
+        const float Bottom = 105f; // (the lines' distance from the bottom of the 900-high screen)
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
@@ -40,13 +42,18 @@ namespace Game.UI
         {
             var ui = UiRoot.Get();
             if (ui == null) return;
-            centre = UiStyle.Fill(UiStyle.Text(ui.Top, "", 30, UiStyle.Ink, TextAnchor.MiddleCenter, 4f));
+            // Both low on the screen, like subtitles.
+            centre = UiStyle.Text(ui.Top, "", 30, UiStyle.Ink, TextAnchor.MiddleCenter, 4f);
+            centre.style.position = Position.Absolute;
+            centre.style.left = 0;
+            centre.style.right = 0;
+            centre.style.bottom = Bottom;
             centre.style.opacity = 0f;
             lower = UiStyle.Text(ui.Hud, "", 22, UiStyle.Ink, TextAnchor.MiddleCenter, 2f);
             lower.style.position = Position.Absolute;
             lower.style.left = 0;
             lower.style.right = 0;
-            lower.style.bottom = 170;
+            lower.style.bottom = Bottom;
             lower.style.opacity = 0f;
             if (Services.TryGet<EventBus>(out var events)) lampSub = events.Subscribe<LampLit>(OnLamp);
         }
