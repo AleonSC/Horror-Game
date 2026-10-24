@@ -66,7 +66,7 @@ namespace Game.Player
             // It fades over its last fifth.
             float level = Mathf.Clamp01(lifeLeft / Mathf.Max(0.01f, life * 0.2f));
             glow.intensity = intensity * level;
-            if (halo != null) Game.Rendering.Effects.SetGlow(halo, haloColor * (0.45f * level)); // (a soft glow: the stick itself stays yellow, not blown out white)
+            if (halo != null) Game.Rendering.Effects.SetGlow(halo, haloColor * (0.12f * level)); // (only a faint haze: any more and the night exposure blows it out white)
             if (lifeLeft <= 0f) Destroy(gameObject);
         }
 

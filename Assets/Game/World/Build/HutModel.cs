@@ -144,18 +144,33 @@ namespace Game.World.Build
                 for (float y = 0.1f + board * 0.5f; y < h; y += board + 0.012f)
                 {
                     // The wall in runs, split where the door or a window cuts it.
-                    float start = -length * 0.5f;
-                    for (float a = -length * 0.5f; a <= length * 0.5f + 0.001f; a += 0.05f)
-                    {
-                        bool solid = a < length * 0.5f && Solid(wall == 3 ? 3 : wall, a, y, doorWidth, doorHeight, windows, winBottom, winTop, winHalf);
-                        if (solid) continue;
-                        if (a - start > 0.06f) Board(t, wall, start, a, y, board, hw, hd);
-                        start = a + 0.05f;
-                    }
+                    int w0 = wall;
+                    float yb = y;
+                    Runs(length, a => Solid(w0, a, yb, doorWidth, doorHeight, windows, winBottom, winTop, winHalf), (from, to) => Board(t, w0, from, to, yb, board, hw, hd));
                 }
             }
             for (int c = 0; c < 4; c++)
                 Box(t, "Corner post", new Vector3(c % 2 == 0 ? -hw : hw, h * 0.5f, c < 2 ? -hd : hd), new Vector3(0.14f, h, 0.14f), plankC);
+        }
+
+        // Walk along a wall (centred, this long) in small even steps, and lay a piece over each stretch that's
+        // solid (between the openings). (Counted in whole steps, so the last stretch always reaches the end.)
+        static void Runs(float length, System.Func<float, bool> solid, System.Action<float, float> lay)
+        {
+            int steps = Mathf.Max(1, Mathf.CeilToInt(length / 0.05f));
+            float step = length / steps, start = -length * 0.5f;
+            bool inRun = false;
+            for (int k = 0; k <= steps; k++)
+            {
+                float a = -length * 0.5f + k * step;
+                bool here = k < steps && solid(a + step * 0.5f);
+                if (here && !inRun) { start = a; inRun = true; }
+                else if (!here && inRun)
+                {
+                    if (a - start > 0.06f) lay(start, a);
+                    inRun = false;
+                }
+            }
         }
 
         void Board(Transform t, int wall, float from, float to, float y, float height, float hw, float hd)
@@ -186,14 +201,9 @@ namespace Game.World.Build
                     bool alongZ = wall < 2;
                     float length = (alongZ ? d : w) + 0.5f; // (out past the corners)
                     float yy = y + (alongZ == (row % 2 == 0) ? 0f : r * 0.92f) - r * 0.46f; // (side and end logs interleave)
-                    float start = -length * 0.5f;
-                    for (float a = -length * 0.5f; a <= length * 0.5f + 0.001f; a += 0.05f)
-                    {
-                        bool solid = a < length * 0.5f && (Mathf.Abs(a) > (alongZ ? hd : hw) - 0.05f || Solid(wall, a, yy, doorWidth, doorHeight, windows, winBottom, winTop, winHalf));
-                        if (solid) continue;
-                        if (a - start > 0.06f) Log(t, wall, start, a, yy, r, hw, hd);
-                        start = a + 0.05f;
-                    }
+                    int w0 = wall;
+                    float half = alongZ ? hd : hw;
+                    Runs(length, a => Mathf.Abs(a) > half - 0.05f || Solid(w0, a, yy, doorWidth, doorHeight, windows, winBottom, winTop, winHalf), (from, to) => Log(t, w0, from, to, yy, r, hw, hd));
                 }
             }
         }
