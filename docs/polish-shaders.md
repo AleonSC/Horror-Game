@@ -357,3 +357,11 @@ Sheltered sound state only turned it down.
   and leaning with the wind, up past the treetops to about 80 m before it thins away. It's drawn out to 450 m,
   so you can see the camps' smoke on the skyline.
 
+## Scours burned off by light all round them
+
+A scour caught in a light that fills the ground round it comes apart, as it does when you face it down: a last
+shudder, then it bursts into dark motes that scatter on the wind, with its dissolving sound. That covers a lamp,
+your torch or lighter flame, the car's headlights, the watchtower floodlights and the space round a shelter.
+Before, it simply vanished. It happens whether it was stalking, being faced down, charging or just appearing,
+and costs your flashlight nothing.
+

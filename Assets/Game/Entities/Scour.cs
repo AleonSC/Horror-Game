@@ -101,6 +101,15 @@ namespace Game.Entities
                 return;
             }
 
+            // Caught in a light that fills the ground round it (a lamp, a torch, the car's headlights, a flare): it
+            // comes apart, as it does when you face it down, and it's gone.
+            if ((State == ScourState.Stalking || State == ScourState.FacedDown || State == ScourState.Charging || State == ScourState.Appearing)
+                && Services.TryGet<SafeZones>(out var lights) && lights.Contains(transform.position))
+            {
+                BurnAway();
+                return;
+            }
+
             switch (State)
             {
                 case ScourState.Hidden:
@@ -243,13 +252,6 @@ namespace Game.Entities
             if (dist > s.relocateDistance)
             {
                 Hide(Random.Range(1f, 3f));
-                return;
-            }
-            // A light lit right where it stands drives it off.
-            if (zones != null && zones.Contains(transform.position))
-            {
-                Play(Sound.Portal, 0.7f, 1.3f, 30f);
-                Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
                 return;
             }
 
@@ -546,6 +548,15 @@ namespace Game.Entities
             body.ShutMouth();
             Play(Sound.Appear, 0.9f, 0.6f, 35f);
             SetState(ScourState.Retreating, "driven off");
+        }
+
+        // Burned off by a light all round it (no cost to your flashlight): the same coming apart.
+        void BurnAway()
+        {
+            body.ShutMouth();
+            Play(Sound.Appear, 0.85f, 0.75f, 35f);
+            Play(Sound.Portal, 0.5f, 1.3f, 30f);
+            SetState(ScourState.Retreating, "burned off by the light");
         }
 
         // A last shudder, then it bursts apart (the motes carry on by themselves) and it's gone.
