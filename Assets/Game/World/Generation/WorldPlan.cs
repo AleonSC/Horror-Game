@@ -100,6 +100,17 @@ namespace Game.World.Generation
         }
     }
 
+    /// <summary>A rough patch of trodden earth: a ragged disc.</summary>
+    public sealed class DirtPatch
+    {
+        public Vector2 Centre;
+        public float Radius;
+        public int Seed;
+
+        /// <summary>Its edge's distance from the centre in this direction (radians).</summary>
+        public float RadiusAt(float angle) => Radius * (1f + 0.22f * (PeriodicNoise.Around(angle, 7, Seed) * 2f - 1f));
+    }
+
     public sealed class Trail
     {
         public readonly List<Vector2> Points = new List<Vector2>();
@@ -146,6 +157,8 @@ namespace Game.World.Generation
         public readonly List<Hill> Hills = new List<Hill>();
         public readonly List<Pond> Ponds = new List<Pond>();
         public readonly List<Vector2> Puddles = new List<Vector2>();
+        /// <summary>Patches of trodden earth (one under each lamp), drawn like the trails.</summary>
+        public readonly List<DirtPatch> Patches = new List<DirtPatch>();
         public readonly List<Clearing> Clearings = new List<Clearing>();
         public readonly List<LampSite> Lamps = new List<LampSite>();
         public readonly List<StructureSite> Structures = new List<StructureSite>();

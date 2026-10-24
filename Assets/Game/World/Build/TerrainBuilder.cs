@@ -122,7 +122,47 @@ namespace Game.World.Build
                     }
                 }
             }
+            // The lamps' patches: a ragged disc each, in rings so it follows the ground.
+            foreach (var patch in plan.Patches)
+            {
+                const int segments = 28, rings = 3;
+                int cx = Mathf.Clamp(Mathf.FloorToInt(patch.Centre.x / ChunkSize), 0, across - 1);
+                int cz = Mathf.Clamp(Mathf.FloorToInt(patch.Centre.y / ChunkSize), 0, across - 1);
+                var origin = new Vector2(cx * ChunkSize, cz * ChunkSize);
+                Vector2 c = Wrap.Delta(origin, patch.Centre, plan.Size);
+                var p = parts[cz * across + cx] ??= new MeshBuilder();
+                int centre = p.AddVertex(Lift(plan, origin, c, 0.035f), c * 0.5f);
+                int first = -1;
+                for (int r = 1; r <= rings; r++)
+                {
+                    for (int i = 0; i < segments; i++)
+                    {
+                        float a = i / (float)segments * Mathf.PI * 2f;
+                        Vector2 at = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * patch.RadiusAt(a) * (r / (float)rings);
+                        int v = p.AddVertex(Lift(plan, origin, at, 0.035f), at * 0.5f);
+                        if (r == 1 && i == 0) first = v;
+                    }
+                }
+                // (Clockwise seen from above: Unity's front faces.)
+                for (int i = 0; i < segments; i++) p.AddTriangle(centre, first + (i + 1) % segments, first + i);
+                for (int r = 1; r < rings; r++)
+                {
+                    int inner = first + (r - 1) * segments, outer = first + r * segments;
+                    for (int i = 0; i < segments; i++)
+                    {
+                        int j = (i + 1) % segments;
+                        p.AddTriangle(inner + i, inner + j, outer + i);
+                        p.AddTriangle(inner + j, outer + j, outer + i);
+                    }
+                }
+            }
             return parts;
+        }
+
+        static Vector3 Lift(WorldPlan plan, Vector2 origin, Vector2 local, float above)
+        {
+            Vector2 w = origin + local;
+            return new Vector3(local.x, plan.Height.Sample(w.x, w.y) + above, local.y);
         }
 
         static Vector3 Lift(WorldPlan plan, Vector2 origin, Vector2 local)

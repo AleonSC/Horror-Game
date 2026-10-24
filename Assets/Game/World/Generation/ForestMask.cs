@@ -28,6 +28,17 @@ namespace Game.World.Generation
                     trailGrid.Add(t.Points[i]);
                     if (t.Worn[i]) wornGrid.Add(t.Points[i]);
                 }
+            // The lamps' patches count as trodden too (filled with points a metre apart, inside the edge).
+            foreach (var patch in plan.Patches)
+                for (float y = -patch.Radius; y <= patch.Radius; y += 1f)
+                for (float x = -patch.Radius; x <= patch.Radius; x += 1f)
+                {
+                    var d = new Vector2(x, y);
+                    if (d.magnitude > patch.RadiusAt(Mathf.Atan2(y, x)) - trailHalfWidth * 0.5f) continue;
+                    var p = Wrap.Into(patch.Centre + d, plan.Size);
+                    trailGrid.Add(p);
+                    wornGrid.Add(p);
+                }
         }
 
         public bool OnTrail(Vector2 p, float margin = 0f) => trailGrid.AnyWithin(p, trailHalfWidth + margin);

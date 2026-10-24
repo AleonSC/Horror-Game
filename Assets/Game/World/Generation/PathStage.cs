@@ -22,12 +22,13 @@ namespace Game.World.Generation
                     plan.Trails.Add(MakeTrail(plan, lamps[a].Position, lamps[b].Position, s, rng));
             }
 
-            // The cabin and the shacks, along the lamp trails (before the rings, so they're never on one).
+            // The cabin and the shacks, along the lamp trails.
             var lampTrails = new List<Trail>(plan.Trails);
             for (int i = 0; i < s.shacks; i++)
                 PlaceBesideTrail(plan, s, rng, lampTrails, i == 0 ? StructureKind.Cabin : StructureKind.Shack);
 
-            foreach (var lamp in lamps) plan.Trails.Add(Ring(lamp.Position, 3.5f, s));
+            // Each lamp on a patch of trodden earth, its trails running out of it.
+            foreach (var lamp in lamps) plan.Patches.Add(new DirtPatch { Centre = lamp.Position, Radius = s.lampPatchRadius, Seed = rng.Range(0, 100000) });
 
             foreach (var st in plan.Structures)
             {
@@ -147,19 +148,6 @@ namespace Game.World.Generation
                 float wander = (PeriodicNoise.Line(along, 14f, seedA) * 2f - 1f) * 4f * Mathf.Sin(t * Mathf.PI);
                 trail.Points.Add(Wrap.Into(a + d * t + side * wander, plan.Size));
                 trail.Worn.Add(PeriodicNoise.Line(along, 25f, seedB) < s.trailWorn);
-            }
-            return trail;
-        }
-
-        static Trail Ring(Vector2 centre, float radius, WorldGenSettings s)
-        {
-            var trail = new Trail { Width = s.trailWidth };
-            int steps = Mathf.CeilToInt(radius * Mathf.PI * 2f);
-            for (int i = 0; i <= steps; i++)
-            {
-                float a = i / (float)steps * Mathf.PI * 2f;
-                trail.Points.Add(centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius);
-                trail.Worn.Add(true);
             }
             return trail;
         }

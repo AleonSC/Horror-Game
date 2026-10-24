@@ -24,7 +24,7 @@ new world.
 - **Structures** as grey boxes for now: the cabin, 2 shacks, 3 campsites, the watchtower, the car, and the
   giant landmark pine. There's also **the lone door**. Their insides and uses come in M4/M5.
 - **14 glades** full of tall grass.
-- **Trails** linking the lamps (darker packed earth, petering out in places), a trodden ring round each lamp,
+- **Trails** linking the lamps (darker packed earth, petering out in places), a patch of trodden earth under each lamp (the trails run out of it),
   and paths up to the structures.
 - **The forest**: about 2,600 trees (pines and dead ones, a few old giants), 1,400 bushes, about 30,000 grass
   clumps, rocks, boulders and logs.
