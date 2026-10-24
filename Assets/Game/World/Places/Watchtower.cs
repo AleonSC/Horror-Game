@@ -16,9 +16,9 @@ namespace Game.World
         public float rechargeTime = 120f;
         public float safeRadius = 45f;
         [Tooltip("How bright each floodlight is (candela).")]
-        public float brightness = 300f;
+        public float brightness = 1500f;
         [Tooltip("How much they light the fog (0-1): high and the whole area turns to white haze.")]
-        public float fogGlow = 0.25f;
+        public float fogGlow = 0.3f;
         [Tooltip("Where the floodlights hang (this object's space); they shine out and down.")]
         public Vector3[] lightSpots = { new Vector3(-2f, 13.8f, -2f), new Vector3(2f, 13.8f, -2f), new Vector3(-2f, 13.8f, 2f), new Vector3(2f, 13.8f, 2f) };
         [Tooltip("The button, in this object's space.")]
@@ -30,7 +30,7 @@ namespace Game.World
         float onLeft, rechargeLeft;
         Collider button;
 
-        public string Prompt => onLeft > 0f ? "Lights on" : rechargeLeft > 0f ? "Recharging" : "Floodlights";
+        public string Prompt => onLeft > 0f ? $"On {Mathf.CeilToInt(onLeft)}s" : rechargeLeft > 0f ? $"Recharging {Mathf.CeilToInt(rechargeLeft)}s" : "Floodlights";
         public bool CanInteract => onLeft <= 0f && rechargeLeft <= 0f;
         public Vector3 FocusPoint => transform.TransformPoint(buttonSpot);
         public bool On => onLeft > 0f;
