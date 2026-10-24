@@ -18,7 +18,7 @@ namespace Game.World
         {
             public Vector3 Pos, Vel;
             public float Ground, Spin, Yaw, Tilt;
-            public bool Flying;
+            public bool Flying, Hidden;
         }
 
         Leaf[] leaves;
@@ -65,7 +65,10 @@ namespace Game.World
             ref var l = ref leaves[i];
             float a = Random.Range(0f, Mathf.PI * 2f), r = (anywhere ? Mathf.Sqrt(Random.value) : Random.Range(0.85f, 1f)) * Reach;
             var p = new Vector3(c.x + Mathf.Cos(a) * r, c.y, c.z + Mathf.Sin(a) * r);
-            l.Ground = Physics.Raycast(p + Vector3.up * 20f, Vector3.down, out var hit, 50f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore) ? hit.point.y + 0.01f : c.y - 1.7f;
+            // (From well above, all the way down: the menu film's camera can be high over the trees. No ground
+            // found, no leaf, rather than one lying on nothing.)
+            l.Hidden = !Physics.Raycast(p + Vector3.up * 200f, Vector3.down, out var hit, 2000f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore);
+            l.Ground = l.Hidden ? c.y : hit.point.y + 0.01f;
             bool fromCanopy = i >= lying;
             p.y = fromCanopy ? l.Ground + Random.Range(anywhere ? 0.5f : 7f, 11f) : l.Ground;
             l.Pos = p;
@@ -95,6 +98,7 @@ namespace Game.World
                 ref var l = ref leaves[i];
                 float dx = l.Pos.x - c.x, dz = l.Pos.z - c.z;
                 if (dx * dx + dz * dz > Reach * Reach * 1.2f) { Respawn(i, c, false); continue; }
+                if (l.Hidden) continue;
                 Vector2 push = wind != null ? wind.At(l.Pos.x, l.Pos.z) : Vector2.zero;
                 if (!l.Flying)
                 {

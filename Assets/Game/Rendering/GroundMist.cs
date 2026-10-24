@@ -70,7 +70,7 @@ namespace Game.Rendering
         // The mist sits on the ground under the camera (smoothed, so it doesn't jump over rocks).
         void FindGround(Vector3 from)
         {
-            if (Physics.Raycast(from + Vector3.up, Vector3.down, out var hit, 60f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(from + Vector3.up, Vector3.down, out var hit, 500f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore))
             {
                 groundHeight = hasGround ? Mathf.Lerp(groundHeight, hit.point.y, 1f - Mathf.Exp(-3f * Time.deltaTime)) : hit.point.y;
                 hasGround = true;

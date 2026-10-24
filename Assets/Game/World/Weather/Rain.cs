@@ -87,7 +87,7 @@ namespace Game.World
         {
             var p = new Vector3(c.x + Random.Range(-0.5f, 0.5f) * BoxSize, c.y + (anywhere ? Random.Range(-4f, BoxHeight) : BoxHeight * Random.Range(0.7f, 1f)), c.z + Random.Range(-0.5f, 0.5f) * BoxSize);
             drops[i] = p;
-            landAt[i] = Physics.Raycast(p, Vector3.down, out var hit, BoxHeight * 2f + 30f, mask, QueryTriggerInteraction.Ignore) ? hit.point.y : c.y - 30f;
+            landAt[i] = Physics.Raycast(p, Vector3.down, out var hit, BoxHeight * 2f + 500f, mask, QueryTriggerInteraction.Ignore) ? hit.point.y : c.y - 30f;
         }
     }
 }
