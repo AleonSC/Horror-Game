@@ -73,7 +73,12 @@ namespace Game.Entities
         [Range(0.5f, 30f), Tooltip("...and longest.")]
         public float maxLightning = 7f;
         public Color lightningColor = new Color(1f, 0.1f, 0.05f);
-        [Range(0f, 100000f)] public float lightningIntensity = 30000f;
+        [Range(0f, 100000f), Tooltip("How bright a strike lights the forest (candela).")]
+        public float lightningIntensity = 1500f;
+        [Range(0f, 1f), Tooltip("How much a strike lights the fog: high and the whole view flashes red.")]
+        public float lightningFogGlow = 0.2f;
+        [Range(0f, 60f), Tooltip("How brightly the bolt itself glows.")]
+        public float boltGlow = 8f;
 
         public BlindSettings Clone() => (BlindSettings)MemberwiseClone();
     }

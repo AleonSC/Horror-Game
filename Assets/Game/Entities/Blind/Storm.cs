@@ -18,6 +18,7 @@ namespace Game.Entities
         LineRenderer bolt;
         Material boltMat;
         Light flash;
+        HDAdditionalLightData flashData;
         float nextStrike, flashLeft, thunderAt = -1f;
         Vector3 thunderFrom;
 
@@ -56,7 +57,7 @@ namespace Game.Entities
 
             var flashGo = new GameObject("Lightning flash");
             flashGo.transform.SetParent(transform, false);
-            flashGo.AddHDLight(LightType.Point);
+            flashData = flashGo.AddHDLight(LightType.Point);
             flash = flashGo.GetComponent<Light>();
             flash.shadows = LightShadows.None;
             flash.enabled = false;
@@ -123,6 +124,8 @@ namespace Game.Entities
             }
             flash.transform.position = Vector3.Lerp(top, ground, 0.7f);
             flash.color = s.lightningColor;
+            flashData.volumetricDimmer = s.lightningFogGlow;
+            RuntimeMaterials.SetGlow(boltMat, s.lightningColor * s.boltGlow);
             flash.range = 120f;
             flash.enabled = true;
             flashLeft = 0.35f;
