@@ -82,6 +82,17 @@ namespace Game.Player
                     Cyl(t, new Vector3(0f, 0f, 0.04f), 0.03f, 0.035f, metal);
                     Part(PrimitiveType.Cube, t, new Vector3(0.04f, 0.035f, 0.026f), new Vector3(0.03f, 0.015f, 0.004f), Mat("Flash window", new Color(0.85f, 0.85f, 0.8f), 0.9f));
                     break;
+                case ItemKind.Map:
+                {
+                    // Folded paper, a little creased.
+                    var paper = Mat("Map paper", new Color(0.62f, 0.56f, 0.44f), 0.2f);
+                    var a = Part(PrimitiveType.Cube, t, new Vector3(-0.055f, 0f, 0f), new Vector3(0.11f, 0.003f, 0.16f), paper);
+                    a.transform.localRotation = Quaternion.Euler(0f, 0f, -4f);
+                    var b = Part(PrimitiveType.Cube, t, new Vector3(0.055f, 0.002f, 0f), new Vector3(0.11f, 0.003f, 0.16f), paper);
+                    b.transform.localRotation = Quaternion.Euler(0f, 0f, 5f);
+                    Part(PrimitiveType.Cube, t, new Vector3(0.05f, 0.004f, 0.02f), new Vector3(0.05f, 0.001f, 0.004f), Mat("Map ink", new Color(0.08f, 0.06f, 0.05f), 0.1f));
+                    break;
+                }
                 case ItemKind.KeyFob:
                     Part(PrimitiveType.Cube, t, new Vector3(0f, 0f, 0f), new Vector3(0.03f, 0.012f, 0.06f), black);
                     Part(PrimitiveType.Cube, t, new Vector3(0f, 0.007f, 0.01f), new Vector3(0.014f, 0.004f, 0.014f), Mat("Fob button", new Color(0.5f, 0.05f, 0.04f), 0.5f));

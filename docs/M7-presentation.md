@@ -44,3 +44,22 @@ other `"quoted"` words are italic, and `-WORD-` is one red word.
   inside a tree or looks at the giant up close?
 - Do START and the intro flow into the game smoothly, with the mouse captured afterwards?
 - Do the lamp lines appear, and are they readable?
+
+## Part 3: inventory, map and polaroids
+
+- **Inventory (Tab):** the world dims but keeps going, and you can still walk. Your eight slots in a grid on
+  the left: **drag** one onto another to swap them (the number keys follow the new order); **click** one for
+  its page on the right (what it is, what F does, what's left in it). Your photos are underneath; click one
+  to look at it. Tab or Esc closes it.
+- **The map** lies on the watchtower's deck. Hold it and press **F** to hold it up: a pencil sketch of the
+  trails, lamps as rings, ponds, and little symbols for the buildings. Lamps you've lit are inked in. It
+  doesn't show where you are. You can walk and look round with it up; F again, or switching item, puts it
+  down. Its inventory page shows it too. (Dev window, Game tab: **Give the map**.)
+- **Polaroids:** each photo with the camera comes out at the bottom right, blank, and develops over about 8
+  seconds (`ItemsConfig` > Camera: photo size and develop time). They're kept in the inventory for the run.
+
+**Let me know:**
+- Do drag and click both work in the inventory? Does Esc close it without opening the pause menu?
+- Does the map look like a sketch, and is it the right way round compared to the forest (north up)?
+- Do the polaroids show the actual shot, lit by the flash? Too dark, too bright, or washed out?
+- The first time the map is shown there may be a short hitch while it's drawn.

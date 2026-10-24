@@ -10,7 +10,7 @@ namespace Game.World.Build
     /// Fits out a place, built-in or your own prefab: the loot from the plan (on the table, in the tent, in the
     /// backpack, glove box and trunk), its shelter, its door, and the car's fob response. Your prefab can say where
     /// things go with children named <c>Table</c>, <c>Tent</c>, <c>Backpack</c>, <c>GloveBox</c>, <c>Trunk</c>
-    /// (a spot), <c>Inside</c> (a Box Collider: the shelter's inside) and <c>Door</c> (swings about its pivot;
+    /// (a spot), <c>Deck</c> (the watchtower's, where the map lies), <c>Inside</c> (a Box Collider: the shelter's inside) and <c>Door</c> (swings about its pivot;
     /// needs a collider). Anything not named uses the built-in layout's spot.
     /// </summary>
     public static class PlaceFittings
@@ -21,6 +21,7 @@ namespace Game.World.Build
         public static readonly Vector3 TentSpot = new Vector3(-2f, 0f, 0f);
         public const float TentYaw = 90f; // (opening toward the fire)
         public static readonly Vector3 BackpackSpot = new Vector3(0.3f, 0f, 1.5f);
+        public static readonly Vector3 DeckSpot = new Vector3(1f, 12.13f, 1f); // (the watchtower's floor, by the button)
         static readonly Vector3 GloveBoxSpot = new Vector3(0.95f, 1.05f, 0.45f);
         static readonly Vector3 TrunkSpot = new Vector3(0f, 0.85f, -2.25f);
 
@@ -33,6 +34,7 @@ namespace Game.World.Build
 
             var onTable = new List<Loot>();
             var inTent = new List<Loot>();
+            var onDeck = new List<Loot>();
             var containers = new Dictionary<LootPlace, Container>();
             foreach (var l in loot)
             {
@@ -40,6 +42,7 @@ namespace Game.World.Build
                 {
                     case LootPlace.Table: onTable.Add(l); break;
                     case LootPlace.Tent: inTent.Add(l); break;
+                    case LootPlace.Deck: onDeck.Add(l); break;
                     default:
                         if (!containers.TryGetValue(l.Place, out var c)) containers[l.Place] = c = MakeContainer(root, l.Place);
                         if (TryItem(l.Kind, out var item)) c.Put(item, l.Count);
@@ -51,6 +54,7 @@ namespace Game.World.Build
             Lay(root, onTable, Spot(root, "Table", kind == StructureKind.Cabin ? CabinTableSpot : TableSpot) + Vector3.up * 0.77f, root.right, 0.22f);
             Vector3 tentFloor = Spot(root, "Tent", TentSpot) + Vector3.up * 0.06f;
             Lay(root, inTent, tentFloor, root.right, 0.25f); // (the tent lies across the campsite)
+            Lay(root, onDeck, Spot(root, "Deck", DeckSpot) + Vector3.up * 0.01f, root.right, 0.3f);
         }
 
         static void Lay(Transform root, List<Loot> items, Vector3 centre, Vector3 along, float gap)
@@ -151,6 +155,7 @@ namespace Game.World.Build
                 case LootKind.FlareGun: item = ItemKind.FlareGun; return true;
                 case LootKind.Glowsticks: item = ItemKind.Glowsticks; return true;
                 case LootKind.Camera: item = ItemKind.Camera; return true;
+                case LootKind.Map: item = ItemKind.Map; return true;
                 default: item = ItemKind.None; return false;
             }
         }

@@ -181,6 +181,20 @@ namespace Game.Core
     }
 
     /// <summary>The player used the item in their hand.</summary>
+    /// <summary>F with the map held: hold it up, or put it down.</summary>
+    public readonly struct MapToggled : IGameEvent
+    {
+        public override string ToString() => "Map raised or lowered";
+    }
+
+    /// <summary>A photo was taken (the polaroid, numbered from 0, is in the player's Polaroids).</summary>
+    public readonly struct PhotoTaken : IGameEvent
+    {
+        public readonly int Index;
+        public PhotoTaken(int index) { Index = index; }
+        public override string ToString() => $"Photo {Index + 1} taken";
+    }
+
     public readonly struct ItemUsed : IGameEvent
     {
         public readonly string Item;

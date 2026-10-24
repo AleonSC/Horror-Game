@@ -250,7 +250,7 @@ namespace Game.UI
         {
             if (!built) return;
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OtherScreenOpen() && GameFlow.IsPlaying)
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OtherScreenOpen() && GameFlow.IsPlaying && InventoryScreen.EscUsedFrame != Time.frameCount)
             {
                 if (!Paused) OpenMenu();
                 else if (main.style.display != DisplayStyle.Flex) Show(main);

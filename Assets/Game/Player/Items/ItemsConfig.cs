@@ -31,6 +31,7 @@ namespace Game.Player
         public GameObject glowstick;
         public GameObject camera;
         public GameObject keyFob;
+        public GameObject map;
 
         [Header("Lying in the world (empty: the held model)")]
         public GameObject batteryPickup;
@@ -40,6 +41,7 @@ namespace Game.Player
         public GameObject glowsticksPickup;
         public GameObject cameraPickup;
         public GameObject keyFobPickup;
+        public GameObject mapPickup;
         public GameObject snack;
 
         public GameObject Held(ItemKind kind)
@@ -54,6 +56,7 @@ namespace Game.Player
                 case ItemKind.Glowsticks: return glowstick;
                 case ItemKind.Camera: return camera;
                 case ItemKind.KeyFob: return keyFob;
+                case ItemKind.Map: return map;
                 default: return null;
             }
         }
@@ -70,6 +73,7 @@ namespace Game.Player
                 case ItemKind.Glowsticks: own = glowsticksPickup; break;
                 case ItemKind.Camera: own = cameraPickup; break;
                 case ItemKind.KeyFob: own = keyFobPickup; break;
+                case ItemKind.Map: own = mapPickup; break;
                 default: own = null; break;
             }
             return own != null ? own : Held(kind);
@@ -148,6 +152,10 @@ namespace Game.Player
         [Range(1f, 120f), Tooltip("Seconds what it drives off stays away.")]
         public float cameraRepelTime = 30f;
         [Range(0f, 2000f)] public float cameraFlashIntensity = 600f;
+        [Range(128, 1024), Tooltip("Size of a polaroid's picture (pixels, square).")]
+        public int photoSize = 512;
+        [Range(1f, 30f), Tooltip("Seconds for a polaroid to develop.")]
+        public float photoDevelopTime = 8f;
 
         [Header("Key fob")]
         [Range(5f, 200f), Tooltip("How far off things hear the car's chirp (metres).")]

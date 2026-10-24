@@ -288,6 +288,7 @@ namespace Game.UI
                 case ItemKind.Glowsticks: return "GLOW";
                 case ItemKind.Camera: return "CAMERA";
                 case ItemKind.KeyFob: return "FOB";
+                case ItemKind.Map: return "MAP";
                 default: return kind.ToString().ToUpperInvariant();
             }
         }
@@ -303,6 +304,7 @@ namespace Game.UI
                 case ItemKind.Camera: return $"{Mathf.FloorToInt(held.Charge)} shots";
                 case ItemKind.FlareGun: return "one flare: F to fire it into the sky";
                 case ItemKind.KeyFob: return "F: the car chirps";
+                case ItemKind.Map: return "F to hold it up";
                 default: return "";
             }
         }

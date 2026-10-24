@@ -3,7 +3,7 @@ using System;
 namespace Game.Player
 {
     /// <summary>The things you can carry (section 6.3). Snacks aren't here: they're eaten on the spot.</summary>
-    public enum ItemKind { None, Flashlight, Batteries, Torch, Lighter, FlareGun, Glowsticks, Camera, KeyFob }
+    public enum ItemKind { None, Flashlight, Batteries, Torch, Lighter, FlareGun, Glowsticks, Camera, KeyFob, Map }
 
     /// <summary>One hotbar slot: what's in it, how many, and its own charge (fuel, burn time left, shots).</summary>
     public struct ItemStack
@@ -159,6 +159,24 @@ namespace Game.Player
         {
             for (int i = 0; i < SlotCount; i++) if (slots[i].Empty) return i;
             return -1;
+        }
+
+        /// <summary>What it is and what F does with it (the inventory's page for it).</summary>
+        public static string DescriptionOf(ItemKind kind)
+        {
+            switch (kind)
+            {
+                case ItemKind.Flashlight: return "Your light. F turns it on and off. They don't like being seen in it. It eats battery.";
+                case ItemKind.Batteries: return "F puts one in the flashlight: a tenth of a full charge each.";
+                case ItemKind.Torch: return "F lights it from a lighter (a little of its fuel). Burns a couple of minutes; nothing comes close to its fire.";
+                case ItemKind.Lighter: return "F opens it: a small flame, and a small circle nothing will enter. Its fuel runs down while it's open.";
+                case ItemKind.FlareGun: return "One flare. Fired high it bursts in the sky, floods the forest red and sends everything hunting you back. Fired low, it's wasted.";
+                case ItemKind.Glowsticks: return "F cracks one and tosses it. A light that lasts for minutes, nothing more: they pay it no attention.";
+                case ItemKind.Camera: return "F takes a photo. The flash drives off whatever is in the picture, for a while. A polaroid comes out.";
+                case ItemKind.KeyFob: return "F presses it: the car chirps and flashes, wherever it is. Other things hear it too.";
+                case ItemKind.Map: return "A ranger's sketch of the trails between the lamps. Lit lamps are inked in as you go. It doesn't say where you are. F holds it up.";
+                default: return "";
+            }
         }
 
         public static string NameOf(ItemKind kind)

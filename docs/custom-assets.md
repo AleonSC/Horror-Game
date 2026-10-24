@@ -11,7 +11,7 @@ instead. Leave a slot empty and the built-in one is used. Fill it and yours is u
 | The scour | `Assets/Config/Entities/ScourConfig` (see [custom-scour.md](custom-scour.md)) |
 | Any sound | `Assets/Config/Audio/AudioConfig` > **Sound Overrides** |
 | The flashlight's beam shape | `Assets/Config/Player/FlashlightConfig` > **Cookie** |
-| Items, held and lying in the world (flashlight, battery, torch, lighter, flare gun, glowstick, camera, key fob, snack) | `Assets/Config/Player/ItemsConfig` > **Art** |
+| Items, held and lying in the world (flashlight, battery, torch, lighter, flare gun, glowstick, camera, key fob, map, snack) | `Assets/Config/Player/ItemsConfig` > **Art** |
 
 Later systems (the other creatures, items, the player's body, music, the HUD) will get slots the same way.
 
@@ -54,6 +54,7 @@ the ground. Your colliders are kept.
 | `Table` | where the shack's items are laid out (on top of it) |
 | `Tent` | the tent's floor, where the snack lies |
 | `Backpack`, `GloveBox`, `Trunk` | what you click to search |
+| `Deck` | (the watchtower) where the map lies |
 | `Inside` | a **Box Collider** covering the inside: being in it is sheltered (the collider is only a marker) |
 | `Door` | the door: it swings about its pivot (the hinge), so it needs a collider |
 

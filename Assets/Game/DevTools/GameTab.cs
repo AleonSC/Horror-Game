@@ -160,7 +160,10 @@ namespace Game.DevTools
                 if (i == items.Selected) held.Append(" (held)");
             }
             GUILayout.Label(held.Length > 0 ? held.ToString() : "Carrying nothing.", DevStyle.MutedLabel);
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button("Give one of every item", DevStyle.Button)) GiveEverything(player.Hotbar);
+            if (GUILayout.Button("Give the map", DevStyle.Button)) player.Hotbar.Give(ItemKind.Map);
+            GUILayout.EndHorizontal();
         }
 
         static void DrawScours(ScourSpawner spawner)

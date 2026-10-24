@@ -169,6 +169,10 @@ namespace Game.Tests
                     {
                         Assert.IsTrue(Has(LootPlace.GloveBox, LootKind.Battery) && Has(LootPlace.Trunk, LootKind.Camera), $"seed {seed}: the car without its batteries and camera");
                     }
+                    else if (kind == StructureKind.Watchtower)
+                    {
+                        Assert.IsTrue(Has(LootPlace.Deck, LootKind.Map), $"seed {seed}: the watchtower without its map");
+                    }
                     else Assert.AreEqual(0, loot.Count, $"seed {seed}: loot in a {kind}");
                 }
             }

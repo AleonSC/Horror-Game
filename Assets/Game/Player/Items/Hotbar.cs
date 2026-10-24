@@ -21,6 +21,7 @@ namespace Game.Player
         Transform flame;
         ItemKind shown = ItemKind.None;
         Light handLight;
+        Polaroids polaroids;
         HDAdditionalLightData handLightData;
         Light flash;
         float flashLeft;
@@ -320,6 +321,11 @@ namespace Game.Player
                     TakePhoto(slot, held);
                     break;
 
+                case ItemKind.Map:
+                    Play(Sound.Click, 0.25f, 0.6f);
+                    if (Services.TryGet<EventBus>(out var mapEvents)) mapEvents.Publish(new MapToggled());
+                    break;
+
                 case ItemKind.KeyFob:
                     Play(Sound.Click, 0.5f, 1.6f);
                     if (Services.TryGet<EventBus>(out var events)) events.Publish(new KeyFobPressed());
@@ -357,6 +363,9 @@ namespace Game.Player
             var eye = player.Head;
             if (Services.TryGet<EventBus>(out var events))
                 events.Publish(new FlashBurst(eye.position, eye.forward, s.cameraRange, s.cameraHalfAngle, s.cameraRepelTime));
+            // The shot itself, lit by the flash: a polaroid comes out.
+            if (polaroids == null && !TryGetComponent(out polaroids)) polaroids = gameObject.AddComponent<Polaroids>();
+            polaroids.Take(player.View, s);
             float left = held.Charge - 1f;
             if (left < 1f)
             {
