@@ -18,7 +18,10 @@ namespace Game.DevTools
         static bool ready;
         static Texture2D pill, knob;
 
-        public static GUIStyle PanelStyle, Title, Label, MutedLabel, Tab, TabActive, Button, Section, Mono, SectionButton, SmallButton, TextField;
+        public static GUIStyle PanelStyle, Title, Label, MutedLabel, Tab, TabActive, Button, Section, Mono, SectionButton, SmallButton, TextField, SliderTrack, SliderThumb, NumberField;
+
+        /// <summary>How wide labels are beside sliders (a share of the window, set by the window each frame).</summary>
+        public static float LabelWidth = 150f;
 
         // Styles are rebuilt each Play session (they'd survive it when domain reload is off).
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -55,7 +58,39 @@ namespace Game.DevTools
             TabActive = new GUIStyle(Button) { normal = { background = raised, textColor = Amber }, hover = { background = raised, textColor = Amber } };
             SectionButton = new GUIStyle(Section) { hover = { textColor = Text }, active = { textColor = Text } };
             SmallButton = new GUIStyle(Button) { fixedWidth = 26, fixedHeight = 20, padding = new RectOffset(0, 0, 0, 0) };
+            var track = RoundedTexture(12, 8, 4, new Color(0.22f, 0.225f, 0.26f, 1f));
+            SliderTrack = new GUIStyle { normal = { background = track }, border = new RectOffset(4, 4, 4, 4), fixedHeight = 8, margin = new RectOffset(6, 6, 9, 9) };
+            SliderThumb = new GUIStyle { normal = { background = RoundedTexture(18, 18, 9, Amber) }, hover = { background = RoundedTexture(18, 18, 9, Color.white) }, active = { background = RoundedTexture(18, 18, 9, Color.white) }, fixedWidth = 18, overflow = new RectOffset(0, 0, 5, 5) }; // (18 high over the 8 high track)
             TextField = new GUIStyle(Button) { alignment = TextAnchor.MiddleLeft, normal = { background = raised, textColor = Text }, hover = { background = raised, textColor = Text }, focused = { background = raisedHover, textColor = Text } };
+            NumberField = new GUIStyle(TextField) { fontSize = 12, fixedHeight = 22, alignment = TextAnchor.MiddleRight, padding = new RectOffset(4, 6, 2, 2) };
+        }
+
+        static string editing, editingText;
+
+        /// <summary>
+        /// A big slider with a box beside it to type an exact value (it may go past the slider's ends). Returns the
+        /// new value. <paramref name="key"/> names it, so a half-typed number survives the frame.
+        /// </summary>
+        public static float Slider(string key, float value, float min, float max, bool whole = false)
+        {
+            Ensure();
+            float v = GUILayout.HorizontalSlider(Mathf.Clamp(value, min, max), min, max, SliderTrack, SliderThumb, GUILayout.ExpandWidth(true), GUILayout.MinWidth(90));
+            if (!Mathf.Approximately(v, Mathf.Clamp(value, min, max))) value = whole ? Mathf.Round(v) : v;
+
+            string name = "num:" + key;
+            GUI.SetNextControlName(name);
+            bool focused = GUI.GetNameOfFocusedControl() == name;
+            string shown = focused && editing == name ? editingText : value.ToString(whole ? "0" : "0.###");
+            string typed = GUILayout.TextField(shown, NumberField, GUILayout.Width(64));
+            if (focused)
+            {
+                editing = name;
+                editingText = typed;
+                if (typed != shown && float.TryParse(typed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                    value = whole ? Mathf.Round(parsed) : parsed;
+            }
+            else if (editing == name) editing = null;
+            return value;
         }
 
         /// <summary>A label with a pill switch on the right. Returns the new value.</summary>

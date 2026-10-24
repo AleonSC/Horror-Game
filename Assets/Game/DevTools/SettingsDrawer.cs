@@ -71,19 +71,22 @@ namespace Game.DevTools
                 case float f:
                 {
                     var range = field.GetCustomAttribute<RangeAttribute>();
-                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(150));
-                    if (range != null) f = GUILayout.HorizontalSlider(f, range.min, range.max, GUILayout.ExpandWidth(true));
-                    GUILayout.Label(f.ToString("0.###"), DevStyle.MutedLabel, GUILayout.Width(52));
-                    result = f;
+                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(DevStyle.LabelWidth));
+                    // (No [Range]: a slider from 0 to a few times its default, and you can type past it.)
+                    float d = initial is float df ? df : f;
+                    float lo = range != null ? range.min : Mathf.Min(0f, d * 3f);
+                    float hi = range != null ? range.max : Mathf.Max(1f, d * 3f, f);
+                    result = DevStyle.Slider(field.DeclaringType.Name + "." + field.Name, f, lo, hi);
                     break;
                 }
                 case int n:
                 {
                     var range = field.GetCustomAttribute<RangeAttribute>();
-                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(150));
-                    if (range != null) n = Mathf.RoundToInt(GUILayout.HorizontalSlider(n, range.min, range.max, GUILayout.ExpandWidth(true)));
-                    GUILayout.Label(n.ToString(), DevStyle.MutedLabel, GUILayout.Width(52));
-                    result = n;
+                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(DevStyle.LabelWidth));
+                    int d = initial is int di ? di : n;
+                    float lo = range != null ? range.min : Mathf.Min(0, d * 3);
+                    float hi = range != null ? range.max : Mathf.Max(10, d * 3, n);
+                    result = Mathf.RoundToInt(DevStyle.Slider(field.DeclaringType.Name + "." + field.Name, n, lo, hi, true));
                     break;
                 }
                 case bool b:
@@ -93,7 +96,7 @@ namespace Game.DevTools
                     break;
                 case Color c:
                 {
-                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(150));
+                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(DevStyle.LabelWidth));
                     var swatch = GUILayoutUtility.GetRect(20, 16, GUILayout.Width(20), GUILayout.Height(16));
                     if (Event.current.type == EventType.Repaint)
                     {
@@ -104,20 +107,20 @@ namespace Game.DevTools
                     }
                     GUILayout.Label($"{c.r:0.00} {c.g:0.00} {c.b:0.00}", DevStyle.MutedLabel);
                     GUILayout.EndHorizontal();
-                    c.r = ChannelSlider("R", c.r);
-                    c.g = ChannelSlider("G", c.g);
-                    c.b = ChannelSlider("B", c.b);
+                    c.r = ChannelSlider("R", c.r, key: field.DeclaringType.Name + "." + field.Name);
+                    c.g = ChannelSlider("G", c.g, key: field.DeclaringType.Name + "." + field.Name);
+                    c.b = ChannelSlider("B", c.b, key: field.DeclaringType.Name + "." + field.Name);
                     GUILayout.BeginHorizontal();
                     result = c;
                     break;
                 }
                 case Vector3 v:
-                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(150));
+                    GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(DevStyle.LabelWidth));
                     GUILayout.Label($"{v.x:0.00}, {v.y:0.00}, {v.z:0.00}", DevStyle.MutedLabel);
                     GUILayout.EndHorizontal();
-                    v.x = ChannelSlider("X", v.x, -1f, 1f);
-                    v.y = ChannelSlider("Y", v.y, -1f, 1f);
-                    v.z = ChannelSlider("Z", v.z, -1f, 1f);
+                    v.x = ChannelSlider("X", v.x, -1f, 1f, field.DeclaringType.Name + "." + field.Name);
+                    v.y = ChannelSlider("Y", v.y, -1f, 1f, field.DeclaringType.Name + "." + field.Name);
+                    v.z = ChannelSlider("Z", v.z, -1f, 1f, field.DeclaringType.Name + "." + field.Name);
                     GUILayout.BeginHorizontal();
                     result = v;
                     break;
@@ -136,13 +139,12 @@ namespace Game.DevTools
             return true;
         }
 
-        static float ChannelSlider(string label, float value, float min = 0f, float max = 1f)
+        static float ChannelSlider(string label, float value, float min = 0f, float max = 1f, string key = "")
         {
             GUILayout.BeginHorizontal();
             GUILayout.Space(16);
             GUILayout.Label(label, DevStyle.MutedLabel, GUILayout.Width(16));
-            value = GUILayout.HorizontalSlider(value, min, max);
-            GUILayout.Label(value.ToString("0.00"), DevStyle.MutedLabel, GUILayout.Width(40));
+            value = DevStyle.Slider(key + "." + label, value, min, max);
             GUILayout.EndHorizontal();
             return value;
         }

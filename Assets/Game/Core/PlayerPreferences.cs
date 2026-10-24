@@ -25,6 +25,9 @@ namespace Game.Core
         [Tooltip("Your own values for the Custom difficulty.")]
         public DifficultySettings customDifficulty = new DifficultySettings();
         public string devTab = "Game";
+        [Tooltip("The dev window's size (drag its edge or corner); height 0 is the full screen.")]
+        public float devWidth = 520f;
+        public float devHeight;
 
         public static string DefaultPath => Path.Combine(Application.persistentDataPath, FileName);
 

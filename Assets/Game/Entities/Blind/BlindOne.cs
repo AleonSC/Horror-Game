@@ -318,7 +318,7 @@ namespace Game.Entities
         {
             if (DistanceToPlayer > s.takeDistance) return;
             var flow = player.GetComponent<CatchFlow>();
-            if (flow == null || flow.Active) return;
+            if (flow == null || !flow.CanTake) return;
             if (Services.TryGet<SafeZones>(out var zones) && zones.Contains(player.transform.position)) return;
             StartTaking();
         }

@@ -30,6 +30,7 @@ namespace Game.DevTools
             GUILayout.EndHorizontal();
             GUILayout.Label("Most values change live; a few (like how many empty chains) on Restart. ↺ puts one back to its default. " +
                             "In the editor, what you set here stays in the config assets after you stop.", DevStyle.MutedLabel);
+            CatchFlow.Invincible = DevStyle.Switch("Invincible (nothing can take you)", CatchFlow.Invincible);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Restart run", DevStyle.Button) && Services.TryGet<GameRoot>(out var root)) root.Restart();
             if (Services.TryGet<Giant>(out var giant) && Services.TryGet<PlayerController>(out var player) &&

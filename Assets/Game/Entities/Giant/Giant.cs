@@ -376,7 +376,7 @@ namespace Game.Entities
             }
 
             var catchFlow = player.GetComponent<CatchFlow>();
-            if (Distance <= s.takeDistance && catchFlow != null && !catchFlow.Active) catchFlow.Begin(EntityKind.Giant, 0);
+            if (Distance <= s.takeDistance && catchFlow != null && catchFlow.CanTake) catchFlow.Begin(EntityKind.Giant, 0);
         }
 
         // The shockwave from its landing, rolling out until it passes you: a gust of shake as it does.

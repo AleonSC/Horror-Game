@@ -220,7 +220,7 @@ namespace Game.Entities
             if (Services.TryGet<SafeZones>(out var zones) && zones.Contains(player.transform.position)) return false;
             if (Spawner != null && Spawner.SomeoneOnFace) return false;
             var flow = player.GetComponent<CatchFlow>();
-            if (flow != null && flow.Active) return false;
+            if (flow != null && !flow.CanTake) return false;
             leapFrom = transform.position;
             if (animator != null) animator.SetTrigger("Leap");
             Play(Sound.Shriek, 0.8f, 1.8f, 20f);

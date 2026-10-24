@@ -108,9 +108,8 @@ namespace Game.DevTools
         static bool Slider(string label, ref float value, float min, float max)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label(label, DevStyle.Label, GUILayout.Width(170));
-            float v = GUILayout.HorizontalSlider(value, min, max);
-            GUILayout.Label(v.ToString("0.###"), DevStyle.MutedLabel, GUILayout.Width(52));
+            GUILayout.Label(label, DevStyle.Label, GUILayout.Width(DevStyle.LabelWidth));
+            float v = DevStyle.Slider("main:" + label, value, min, max);
             GUILayout.EndHorizontal();
             if (Mathf.Approximately(v, value)) return false;
             value = v;

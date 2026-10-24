@@ -16,7 +16,7 @@ namespace Game.Entities
         void StartTaking()
         {
             var flow = player.GetComponent<CatchFlow>();
-            if (flow != null && flow.Active) return;
+            if (flow != null && !flow.CanTake) return;
 
             peekTree = null;
             player.SetHeld(true);

@@ -23,6 +23,14 @@ namespace Game.Player
         /// <summary>True from being taken until the player is awake again (nothing else may take them).</summary>
         public bool Active { get; private set; }
 
+        /// <summary>Dev: nothing can take you.</summary>
+        public static bool Invincible;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetOnPlay() => Invincible = false;
+
+        /// <summary>Can something start taking you now? (Not while already being taken, nor while invincible.)</summary>
+        public bool CanTake => !Active && !Invincible;
+
         public static readonly string[] Messages = { "IT TOOK YOU.", "YOU WERE SEEN.", "THEY DON'T LET GO.", "WAKE UP." };
 
         void Awake()

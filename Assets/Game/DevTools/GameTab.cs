@@ -141,6 +141,7 @@ namespace Game.DevTools
             DevStyle.Row("Stamina", $"{player.Stamina.Value * 100f:0}%{(player.Stamina.Winded ? " (winded)" : "")}");
             bool safe = Services.TryGet<SafeZones>(out var zones) && zones.Contains(player.transform.position);
             DevStyle.Row("Safe", safe ? "yes" : "no");
+            CatchFlow.Invincible = DevStyle.Switch("Invincible (nothing can take you)", CatchFlow.Invincible);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Full battery", DevStyle.Button) && player.Flashlight != null) player.Flashlight.Battery.Add(1f);
             if (GUILayout.Button("Full stamina", DevStyle.Button)) player.Stamina.Refill();
