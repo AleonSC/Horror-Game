@@ -59,7 +59,7 @@ namespace Game.UI
             do pick = Random.Range(0, 5); while (pick == last);
             last = pick;
             var shot = (Shot)pick;
-            if (shot == Shot.Deer && !(Services.TryGet<Wildlife>(out var w) && w.HerdOut)) shot = Shot.Mist;
+            if (shot == Shot.Deer && !(Deer.Current != null && Deer.Current.TryGetDeer(home, out _))) shot = Shot.Mist;
             if (shot == Shot.Owl && (Owls.Current == null || Owls.Current.Count == 0)) shot = Shot.Treetops;
 
             Vector3 f = AwayFromGiant(plan, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward);
@@ -87,7 +87,8 @@ namespace Game.UI
                 }
                 case Shot.Deer:
                 {
-                    Vector3 herd = Services.Get<Wildlife>().HerdCentre;
+                    Deer.Current.TryGetDeer(home, out var one);
+                    Vector3 herd = one.position;
                     Vector3 side = Vector3.Cross(Vector3.up, f);
                     fromPos = herd - f * 14f + Vector3.up * 1.6f - side * 2f;
                     toPos = fromPos + side * 4f;

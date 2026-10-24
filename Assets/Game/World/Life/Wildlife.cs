@@ -9,8 +9,8 @@ using UnityEngine;
 namespace Game.World
 {
     /// <summary>
-    /// The animals round you (section 6.13), recycled as you move: a herd of deer grazing that looks up when you're
-    /// near and bolts when you're close (one spooked sets the rest off), beetles crawling and rats that flee, bats
+    /// The small animals round you (section 6.13), recycled as you move (the deer are their own, in Deer): beetles
+    /// crawling and rats that flee, bats
     /// crossing overhead and crows bursting up from the trees every so often, and moths and fireflies at the lit
     /// lamps.
     /// </summary>
@@ -19,12 +19,6 @@ namespace Game.World
         ForestLifeConfig config;
         PlayerController player;
 
-        // ------------------------------------------------------------------ deer
-        sealed class Deer { public Transform Body, Head; public Transform[] Legs = new Transform[4]; public Vector3 Goal; public float Phase; public Heat.Source Heat; public Transform[] Eyes = new Transform[2]; public Renderer[] Shine = new Renderer[2]; }
-        readonly List<Deer> herd = new List<Deer>();
-        Vector3 herdCentre, fleeDir;
-        float herdFleeing, herdAway;
-        bool herdPlaced;
 
         // ------------------------------------------------------------------ small things
         sealed class Critter { public Transform Body; public Vector3 Goal; public float Speed, Wait; public bool Rat, Fleeing; }
@@ -41,9 +35,6 @@ namespace Game.World
         readonly Matrix4x4[] motes = new Matrix4x4[InstancedDraw.MaxPerCall];
 
         public ForestLifeSettings Settings => config.settings;
-        /// <summary>Where the deer are grazing (and whether they're there to see).</summary>
-        public Vector3 HerdCentre => herdCentre;
-        public bool HerdOut => herdPlaced && herdAway <= 0f && herdFleeing <= 0f && herd.Count > 0;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
@@ -82,7 +73,6 @@ namespace Game.World
             if (player == null && !Services.TryGet(out player)) return;
             if (PlayerPlace.InDarkRoom) return;
             float dt = Time.deltaTime;
-            Herd(dt);
             Critters(dt);
             Flocks(dt);
             LampLife();
@@ -100,146 +90,6 @@ namespace Game.World
         {
             float a = Random.Range(0f, Mathf.PI * 2f), r = Random.Range(min, max);
             return OnGround(centre + new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r));
-        }
-
-        // ------------------------------------------------------------------ deer
-
-        void Herd(float dt)
-        {
-            var s = config.settings;
-            if (herd.Count != s.deer)
-            {
-                foreach (var d in herd) { Heat.Remove(d.Heat); Destroy(d.Body.gameObject); }
-                herd.Clear();
-                for (int i = 0; i < s.deer; i++)
-                {
-                    var body = AnimalModels.Deer(transform, i == 0).transform;
-                    var deer = new Deer { Body = body, Head = body.Find("Head"), Phase = Random.value * 10f, Heat = Heat.Add(body, 1.4f, 0.45f) };
-                    for (int l = 0; l < 4; l++) deer.Legs[l] = body.Find($"Leg{l}");
-                    // Eyeshine: their eyes throw the flashlight back, pale green.
-                    for (int e = 0; e < 2; e++)
-                    {
-                        deer.Eyes[e] = deer.Head != null ? deer.Head.Find(e == 0 ? "EyeL" : "EyeR") : null;
-                        if (deer.Eyes[e] != null) deer.Shine[e] = Effects.Glow(deer.Eyes[e].parent, deer.Eyes[e].localPosition + Vector3.forward * 0.02f, 0.14f, Color.black, 0.35f, 3.5f, "Eyeshine");
-                    }
-                    herd.Add(deer);
-                }
-                herdPlaced = false;
-            }
-            if (herd.Count == 0) return;
-            if (herdAway > 0f) { herdAway -= dt; if (herdAway <= 0f) herdPlaced = false; else return; }
-
-            if (!herdPlaced || (herdCentre - P).magnitude > 110f)
-            {
-                // Somewhere you could see them: near enough for the fog, with a clear view, often ahead of you.
-                herdCentre = HerdSpot(s);
-                foreach (var d in herd)
-                {
-                    d.Body.gameObject.SetActive(true);
-                    d.Body.position = Around(herdCentre, 0f, 6f);
-                    d.Goal = Around(herdCentre, 0f, 7f);
-                }
-                herdPlaced = true;
-                herdFleeing = 0f;
-            }
-
-            float nearest = float.MaxValue;
-            foreach (var d in herd) nearest = Mathf.Min(nearest, (d.Body.position - P).magnitude);
-            // One spooked sets the whole herd off.
-            if (herdFleeing <= 0f && (nearest < s.deerBolt || (nearest < s.deerBolt * 1.6f && player.Running)))
-            {
-                herdFleeing = 6f;
-                fleeDir = herdCentre - P;
-                fleeDir.y = 0f;
-                fleeDir = fleeDir.sqrMagnitude > 0.01f ? fleeDir.normalized : Vector3.forward;
-                if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.Hooves, herdCentre, MixerNames.Outside, 0.9f, Random.Range(0.9f, 1.1f), 60f);
-                if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(herdCentre, 30f, "deer bolting"));
-            }
-
-            foreach (var d in herd)
-            {
-                Vector3 pos = d.Body.position;
-                float speed;
-                bool alert = nearest < s.deerNotice;
-                if (herdFleeing > 0f)
-                {
-                    d.Goal = pos + (fleeDir + new Vector3(Mathf.Sin(d.Phase), 0f, Mathf.Cos(d.Phase)) * 0.2f) * 10f;
-                    speed = 9f;
-                }
-                else if (alert) speed = 0f;
-                else
-                {
-                    if ((d.Goal - pos).magnitude < 0.5f) d.Goal = Around(herdCentre, 0f, 8f);
-                    speed = 0.35f;
-                }
-                Vector3 to = d.Goal - pos;
-                to.y = 0f;
-                if (speed > 0f && to.sqrMagnitude > 0.01f)
-                {
-                    Vector3 step = to.normalized * speed * dt;
-                    d.Body.position = OnGroundCheap(pos + step, pos.y, dt);
-                    d.Body.rotation = Quaternion.Slerp(d.Body.rotation, Quaternion.LookRotation(to), 1f - Mathf.Exp(-4f * dt));
-                }
-                else if (alert) d.Body.rotation = Quaternion.Slerp(d.Body.rotation, Quaternion.LookRotation(Flat(P - pos)), 1f - Mathf.Exp(-1.5f * dt));
-
-                // Grazing: head down. Alert: head up, ears to you. Running: legs a blur.
-                d.Phase += dt * (speed > 3f ? 14f : speed > 0f ? 4f : 0f);
-                if (d.Head != null) d.Head.localRotation = Quaternion.Slerp(d.Head.localRotation, Quaternion.Euler(alert || herdFleeing > 0f ? -5f : 65f, 0f, 0f), 1f - Mathf.Exp(-4f * dt));
-                Eyeshine(d);
-                for (int l = 0; l < 4; l++)
-                    if (d.Legs[l] != null) d.Legs[l].localRotation = Quaternion.Euler(Mathf.Sin(d.Phase + (l == 0 || l == 3 ? 0f : Mathf.PI)) * (speed > 3f ? 40f : speed > 0f ? 15f : 0f), 0f, 0f);
-            }
-            if (herdFleeing > 0f)
-            {
-                herdFleeing -= dt;
-                if (herdFleeing <= 0f)
-                {
-                    foreach (var d in herd) d.Body.gameObject.SetActive(false);
-                    herdAway = Random.Range(config.settings.deerReturn * 0.6f, config.settings.deerReturn * 1.4f);
-                }
-            }
-        }
-
-        // A spot for the herd: inside what the fog lets you see (from 12 m), a clear line from your eyes to it, and
-        // usually somewhere ahead. Failing that, anywhere in range.
-        Vector3 HerdSpot(ForestLifeSettings s)
-        {
-            float freePath = Services.TryGet<LookController>(out var look) ? LookController.MeanFreePath(look.Config.settings.fogDensity) : 14f;
-            float far = Mathf.Clamp(freePath * 2.2f, s.deerBolt + 4f, 40f);
-            float near = Mathf.Max(s.deerBolt + 1f, far * 0.6f);
-            Vector3 eye = player.Head != null ? player.Head.position : P + Vector3.up * 1.6f;
-            Vector3 ahead = player.Head != null ? Flat(player.Head.forward) : Vector3.forward;
-            int mask = Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Props) | Layers.Mask(Layers.Ground);
-            for (int i = 0; i < 24; i++)
-            {
-                float yaw = i < 16 ? Random.Range(-75f, 75f) : Random.Range(0f, 360f);
-                Vector3 dir = Quaternion.Euler(0f, yaw, 0f) * (ahead.sqrMagnitude > 0.01f ? ahead.normalized : Vector3.forward);
-                Vector3 spot = OnGround(P + dir * Random.Range(near, far));
-                Vector3 to = spot + Vector3.up * 1.2f - eye;
-                if (!Physics.Raycast(eye, to.normalized, to.magnitude - 1f, mask, QueryTriggerInteraction.Ignore)) return spot;
-            }
-            return Around(P, near, far);
-        }
-
-        // Eyeshine: bright where the flashlight's beam meets their eyes, nothing otherwise.
-        void Eyeshine(Deer d)
-        {
-            var light = player.Flashlight;
-            for (int e = 0; e < 2; e++)
-            {
-                var shine = d.Shine[e];
-                if (shine == null) continue;
-                float k = 0f;
-                if (light != null && light.IsOn && d.Eyes[e] != null)
-                {
-                    var beam = light.Beam;
-                    Vector3 to = d.Eyes[e].position - beam.position;
-                    float along = Vector3.Dot(beam.forward, to.normalized);
-                    float facing = Vector3.Dot(d.Head.forward, -to.normalized); // (it has to be looking your way)
-                    k = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.93f, 0.995f, along)) * Mathf.Clamp01(facing * 2f) * Mathf.Clamp01(1.4f - to.magnitude / 45f);
-                }
-                Effects.SetGlow(shine, new Color(0.75f, 1f, 0.7f) * (config.settings.deerEyeshine * k));
-            }
         }
 
         // The ground under a moving animal, rechecked every so often rather than every frame.

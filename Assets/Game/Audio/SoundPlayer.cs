@@ -95,6 +95,11 @@ namespace Game.Audio
             Add(Sound.Rotors, SoundSynth.Rotors(42));
             Add(Sound.Static, SoundSynth.Static(43));
             Add(Sound.RadioSong, SoundSynth.RadioSong(44));
+            Add(Sound.DeerGrunt, SoundSynth.DeerGrunt(45));
+            Add(Sound.DeerBleat, SoundSynth.DeerBleat(46));
+            Add(Sound.DeerSnort, SoundSynth.DeerSnort(47));
+            Add(Sound.DeerAlarm, SoundSynth.DeerAlarm(48));
+            Add(Sound.Gallop, SoundSynth.Gallop(49));
         }
 
         void Add(Sound sound, float[] samples)

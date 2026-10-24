@@ -727,6 +727,105 @@ namespace Game.Audio
             return Loop(s, 0.45f);
         }
 
+        // ------------------------------------------------------------------ deer (as the prototype made them)
+
+        /// <summary>Two or three short, throaty pulses, each a little lower.</summary>
+        public static float[] DeerGrunt(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.9f);
+            float phase = 0f, lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float pulse = (t % 0.3f) / 0.3f;
+                int n = (int)(t / 0.3f);
+                float amp = (float)Math.Sin(Math.PI * Math.Min(1f, pulse * 1.4f)) * (n < 3 ? 1f - n * 0.25f : 0f);
+                float pitch = 110f - n * 12f;
+                phase += pitch / SampleRate;
+                float voice = 2f * (phase % 1f) - 1f;
+                lp += (voice + Noise(rng) * 0.4f - lp) * 0.08f; // (dark and muffled)
+                s[i] = lp * amp;
+            }
+            return Normalize(s, 0.8f);
+        }
+
+        /// <summary>Nasal and reedy: rising, then breaking downward.</summary>
+        public static float[] DeerBleat(int seed)
+        {
+            var rng = new Random(seed);
+            const float len = 0.8f;
+            var s = Make(len);
+            float phase = 0f, lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i), p = t / len;
+                float env = Math.Min(1f, t / 0.04f) * (float)Math.Pow(1f - p, 1.3f);
+                float pitch = (p < 0.6f ? Lerp(420f, 560f, p / 0.6f) : Lerp(560f, 380f, (p - 0.6f) / 0.4f)) * (1f + 0.03f * (float)Math.Sin(t * 2 * Math.PI * 22f));
+                phase += pitch / SampleRate;
+                float reed = (2f * (phase % 1f) - 1f) * 0.6f + (float)Math.Sin(2 * Math.PI * phase * 3f) * 0.3f;
+                lp += (reed + Noise(rng) * 0.15f - lp) * 0.3f;
+                s[i] = lp * env;
+            }
+            return Normalize(s, 0.7f);
+        }
+
+        /// <summary>A sharp snort through the nose, the nostrils fluttering.</summary>
+        public static float[] DeerSnort(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.5f);
+            float lp = 0f, hp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float env = Math.Min(1f, t / 0.01f) * (float)Math.Exp(-t * 9f);
+                lp += (Noise(rng) - lp) * 0.35f;
+                hp += (lp - hp) * 0.05f;
+                float flutter = 0.7f + 0.3f * (float)Math.Sin(t * 2 * Math.PI * 35f);
+                s[i] = (lp - hp) * env * flutter;
+            }
+            return Normalize(s, 0.8f);
+        }
+
+        /// <summary>The alarm as one bolts: a forceful burst of breath with a little throaty buzz.</summary>
+        public static float[] DeerAlarm(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.6f);
+            float lp = 0f, hp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                lp += (Noise(rng) - lp) * 0.35f;
+                hp += (lp - hp) * 0.06f;
+                float env = t < 0.02f ? t / 0.02f : (float)Math.Exp(-(t - 0.02f) * 7f);
+                float buzz = (float)Math.Sin(2 * Math.PI * 140f * t) * 0.25f * (float)Math.Exp(-t * 10f);
+                s[i] = ((lp - hp) + buzz) * env;
+            }
+            return Normalize(s, 0.8f);
+        }
+
+        /// <summary>Galloping: three strides a loop, four hoof strikes a stride.</summary>
+        public static float[] Gallop(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.2f + 0.4f); // (a stride over, crossfaded back in by Loop)
+            float lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float stride = t % 0.4f;
+                float hits = Hoof(stride, 0f) + Hoof(stride, 0.05f) * 0.8f + Hoof(stride, 0.13f) + Hoof(stride, 0.17f) * 0.9f;
+                lp += (Noise(rng) - lp) * 0.2f;
+                s[i] = hits * ((float)Math.Sin(2 * Math.PI * 70f * t) * 0.8f + lp * 0.6f);
+            }
+            return Loop(s, 0.8f);
+        }
+
+        static float Hoof(float t, float start) => t >= start ? (float)Math.Exp(-(t - start) * 45f) : 0f;
+        static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
         // Crossfade the end into the start so it loops without a click.
         static float[] Loop(float[] s, float peak)
         {

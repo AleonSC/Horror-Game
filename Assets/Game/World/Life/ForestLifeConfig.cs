@@ -64,16 +64,25 @@ namespace Game.World
         [Range(5f, 300f), Tooltip("...and longest.")]
         public float maxOwlCall = 70f;
 
-        [Header("Deer")]
-        [Range(0, 20)] public int deer = 6;
-        [Range(5f, 60f), Tooltip("They look up when you're this close...")]
-        public float deerNotice = 24f;
-        [Range(3f, 40f), Tooltip("...and bolt (the whole herd with them) at this.")]
-        public float deerBolt = 14f;
-        [Range(0f, 20f), Tooltip("How bright their eyes shine back when your flashlight catches them.")]
-        public float deerEyeshine = 3f;
-        [Range(5f, 600f), Tooltip("After bolting, about this many seconds before the herd turns up somewhere else.")]
-        public float deerReturn = 90f;
+        [Header("Deer (as the prototype had them)")]
+        [Range(0, 20), Tooltip("How many deer (on Restart). They turn up in small herds.")]
+        public int deer = 6;
+        [Range(10f, 200f), Tooltip("They roam within this distance of you.")]
+        public float deerRange = 70f;
+        [Range(5f, 60f), Tooltip("They stop and watch you inside this...")]
+        public float deerAlert = 24f;
+        [Range(3f, 40f), Tooltip("...and bolt at this (one spooked sets off the herd round it).")]
+        public float deerFlee = 14f;
+        [Range(0.2f, 4f)] public float deerWalkSpeed = 1.1f;
+        [Range(2f, 20f)] public float deerGallopSpeed = 10f;
+        [Range(5f, 300f), Tooltip("A grazing deer near you grunts, bleats or snorts every this many seconds (shortest)...")]
+        public float minDeerCall = 30f;
+        [Range(5f, 300f), Tooltip("...and longest.")]
+        public float maxDeerCall = 80f;
+        [Range(5f, 150f), Tooltip("Only deer this close call.")]
+        public float deerCallDistance = 60f;
+        [Tooltip("A deer you startle drops a battery as it bolts.")]
+        public bool deerDropBattery = true;
 
         [Header("Small things")]
         [Range(0, 200)] public int beetles = 40;
