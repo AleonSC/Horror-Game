@@ -35,6 +35,8 @@ namespace Game.Rendering
 
         readonly System.Collections.Generic.List<System.IDisposable> subs = new System.Collections.Generic.List<System.IDisposable>();
 
+        static readonly int FogFreePathId = Shader.PropertyToID("_HorrorFogFreePath"), FogColorId = Shader.PropertyToID("_HorrorFogColor");
+
         public LookConfig Config => config;
 
         /// <summary>Something tinting the world (the giant's eye turns the fog red): the colour, and how much (0-1).</summary>
@@ -184,6 +186,9 @@ namespace Game.Rendering
             float freePath = MeanFreePath(s.fogDensity);
             if (gone > 0f) freePath = Mathf.Min(freePath, Mathf.Max(0.4f, VoidSight / 3f)); // (seeing about 3 free paths)
             fog.meanFreePath.Override(freePath);
+            // (The game's own shaders fade glows and shafts into the fog by these.)
+            Shader.SetGlobalFloat(FogFreePathId, freePath);
+            Shader.SetGlobalColor(FogColorId, fogColor.linear);
             fog.enableVolumetricFog.Override(s.volumetricFog);
             fog.albedo.Override(Color.white * (s.fogGlow * (1f - gone)));
             fog.anisotropy.Override(s.fogAnisotropy);

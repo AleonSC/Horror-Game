@@ -46,6 +46,8 @@ namespace Game.Entities
         public Color angryColor = new Color(1f, 0.08f, 0.04f);
         [Range(0f, 100000f), Tooltip("Brightness (candela).")]
         public float beamIntensity = 40000f;
+        [Range(0f, 10f), Tooltip("The shaft of light down its beam (0: none).")]
+        public float beamShaft = 0.5f;
         [Range(0f, 60f), Tooltip("For this long after its eye lights, its beam keeps off you.")]
         public float graceAtStart = 15f;
         [Range(1f, 40f), Tooltip("The beam passing this close to you snaps onto you.")]

@@ -30,6 +30,7 @@ namespace Game.World
         float lastClick = -10f;
         float litLevel;
         Material markerMat, glassMat;
+        Renderer glassHalo, markerHalo;
         Color glassGlow;
         System.IDisposable resetSub;
 
@@ -65,6 +66,9 @@ namespace Game.World
                 glassMat = glass.material;
                 glassGlow = glassMat.HasProperty("_EmissiveColor") ? glassMat.GetColor("_EmissiveColor") : Color.white;
             }
+            // Soft glows round the glass (lit) and the marker (dark), in the mist.
+            if (glass != null) glassHalo = Effects.Glow(transform, transform.InverseTransformPoint(glass.bounds.center), config.settings.glassHaloSize, Color.black, 0.8f, 2.2f, "Lamp glow");
+            if (marker != null) markerHalo = Effects.Glow(transform, transform.InverseTransformPoint(marker.bounds.center), 0.9f, Color.black, 0.45f, 3f, "Marker glow");
             if (Services.TryGet<SafeZones>(out var zones)) zones.Add(zone);
             if (Services.TryGet<EventBus>(out var events)) resetSub = events.Subscribe<RunReset>(_ => PutOut());
             if (lampLight != null && lampLight.GetComponent<FogGlowLight>() == null) lampLight.gameObject.AddComponent<FogGlowLight>();
@@ -148,12 +152,22 @@ namespace Game.World
                 lampLight.range = s.lightRange;
             }
             if (glassMat != null) glassMat.SetColor("_EmissiveColor", glassGlow * litLevel);
+            if (glassHalo != null)
+            {
+                glassHalo.transform.localScale = Vector3.one * s.glassHaloSize;
+                Effects.SetGlow(glassHalo, s.lightColor * (s.glassHalo * litLevel));
+            }
 
             if (markerMat != null)
             {
                 // A slow pulse, only while dark.
                 float blink = Lit ? 0f : Mathf.Pow(0.5f + 0.5f * Mathf.Sin(time * s.markerBlinkRate * Mathf.PI * 2f), 3f);
                 markerMat.SetColor("_EmissiveColor", s.markerColor * s.markerGlow * blink);
+            }
+            if (markerHalo != null)
+            {
+                float pulse = Lit ? 0f : Mathf.Pow(0.5f + 0.5f * Mathf.Sin(time * s.markerBlinkRate * Mathf.PI * 2f), 3f);
+                Effects.SetGlow(markerHalo, s.markerColor * (s.markerHalo * pulse));
             }
         }
     }

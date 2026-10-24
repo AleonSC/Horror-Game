@@ -25,6 +25,7 @@ namespace Game.Entities
         Transform root;
         FlierBody body;
         Light beam;
+        Renderer shaft;
         readonly List<System.IDisposable> subs = new List<System.IDisposable>();
 
         Vector3 diveStart, diveDir, stretch, aim;
@@ -66,6 +67,7 @@ namespace Game.Entities
             beam = beamGo.GetComponent<Light>();
             beam.shadows = LightShadows.Soft;
             beam.enabled = false;
+            shaft = Game.Rendering.Effects.Beam(beamGo.transform, 1f, 1f, Color.black, 0.5f, 0.3f, "Flier shaft");
             root.gameObject.SetActive(false);
             Services.Register(this);
         }
@@ -330,6 +332,7 @@ namespace Game.Entities
         void UpdateBeam()
         {
             beam.enabled = eyeLit && root.gameObject.activeSelf;
+            if (shaft != null) shaft.enabled = beam.enabled && s.beamShaft > 0f;
             if (!beam.enabled) return;
             Vector3 eye = body.Eye != null ? body.Eye.position : root.position;
             beam.transform.SetPositionAndRotation(eye, Quaternion.LookRotation(aim - eye));
@@ -339,6 +342,12 @@ namespace Game.Entities
             beam.range = dist * 1.6f + 20f;
             beam.color = Color.Lerp(s.beamColor, s.angryColor, angry);
             beam.intensity = s.beamIntensity;
+            if (shaft != null)
+            {
+                float r = dist * Mathf.Tan(s.beamHalfAngle * Mathf.Deg2Rad);
+                shaft.transform.localScale = new Vector3(r, r, dist);
+                Game.Rendering.Effects.SetGlow(shaft, beam.color * s.beamShaft);
+            }
         }
 
         // A silhouette that darkens as it nears (the haze keeps the fog from hiding it).

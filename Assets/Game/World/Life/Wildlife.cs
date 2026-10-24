@@ -20,7 +20,7 @@ namespace Game.World
         PlayerController player;
 
         // ------------------------------------------------------------------ deer
-        sealed class Deer { public Transform Body, Head; public Transform[] Legs = new Transform[4]; public Vector3 Goal; public float Phase; public Heat.Source Heat; }
+        sealed class Deer { public Transform Body, Head; public Transform[] Legs = new Transform[4]; public Vector3 Goal; public float Phase; public Heat.Source Heat; public Transform[] Eyes = new Transform[2]; public Renderer[] Shine = new Renderer[2]; }
         readonly List<Deer> herd = new List<Deer>();
         Vector3 herdCentre, fleeDir;
         float herdFleeing, herdAway;
@@ -116,6 +116,12 @@ namespace Game.World
                     var body = AnimalModels.Deer(transform, i == 0).transform;
                     var deer = new Deer { Body = body, Head = body.Find("Head"), Phase = Random.value * 10f, Heat = Heat.Add(body, 1.4f, 0.45f) };
                     for (int l = 0; l < 4; l++) deer.Legs[l] = body.Find($"Leg{l}");
+                    // Eyeshine: their eyes throw the flashlight back, pale green.
+                    for (int e = 0; e < 2; e++)
+                    {
+                        deer.Eyes[e] = deer.Head != null ? deer.Head.Find(e == 0 ? "EyeL" : "EyeR") : null;
+                        if (deer.Eyes[e] != null) deer.Shine[e] = Effects.Glow(deer.Eyes[e].parent, deer.Eyes[e].localPosition + Vector3.forward * 0.02f, 0.14f, Color.black, 0.35f, 3.5f, "Eyeshine");
+                    }
                     herd.Add(deer);
                 }
                 herdPlaced = false;
@@ -125,8 +131,8 @@ namespace Game.World
 
             if (!herdPlaced || (herdCentre - P).magnitude > 110f)
             {
-                // Somewhere off in the trees, 35-60 m away.
-                herdCentre = Around(P, 35f, 60f);
+                // Somewhere you could see them: near enough for the fog, with a clear view, often ahead of you.
+                herdCentre = HerdSpot(s);
                 foreach (var d in herd)
                 {
                     d.Body.gameObject.SetActive(true);
@@ -179,6 +185,7 @@ namespace Game.World
                 // Grazing: head down. Alert: head up, ears to you. Running: legs a blur.
                 d.Phase += dt * (speed > 3f ? 14f : speed > 0f ? 4f : 0f);
                 if (d.Head != null) d.Head.localRotation = Quaternion.Slerp(d.Head.localRotation, Quaternion.Euler(alert || herdFleeing > 0f ? -5f : 65f, 0f, 0f), 1f - Mathf.Exp(-4f * dt));
+                Eyeshine(d);
                 for (int l = 0; l < 4; l++)
                     if (d.Legs[l] != null) d.Legs[l].localRotation = Quaternion.Euler(Mathf.Sin(d.Phase + (l == 0 || l == 3 ? 0f : Mathf.PI)) * (speed > 3f ? 40f : speed > 0f ? 15f : 0f), 0f, 0f);
             }
@@ -188,8 +195,50 @@ namespace Game.World
                 if (herdFleeing <= 0f)
                 {
                     foreach (var d in herd) d.Body.gameObject.SetActive(false);
-                    herdAway = 25f;
+                    herdAway = Random.Range(config.settings.deerReturn * 0.6f, config.settings.deerReturn * 1.4f);
                 }
+            }
+        }
+
+        // A spot for the herd: inside what the fog lets you see (from 12 m), a clear line from your eyes to it, and
+        // usually somewhere ahead. Failing that, anywhere in range.
+        Vector3 HerdSpot(ForestLifeSettings s)
+        {
+            float freePath = Services.TryGet<LookController>(out var look) ? LookController.MeanFreePath(look.Config.settings.fogDensity) : 14f;
+            float far = Mathf.Clamp(freePath * 2.2f, s.deerBolt + 4f, 40f);
+            float near = Mathf.Max(s.deerBolt + 1f, far * 0.6f);
+            Vector3 eye = player.Head != null ? player.Head.position : P + Vector3.up * 1.6f;
+            Vector3 ahead = player.Head != null ? Flat(player.Head.forward) : Vector3.forward;
+            int mask = Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Props) | Layers.Mask(Layers.Ground);
+            for (int i = 0; i < 24; i++)
+            {
+                float yaw = i < 16 ? Random.Range(-75f, 75f) : Random.Range(0f, 360f);
+                Vector3 dir = Quaternion.Euler(0f, yaw, 0f) * (ahead.sqrMagnitude > 0.01f ? ahead.normalized : Vector3.forward);
+                Vector3 spot = OnGround(P + dir * Random.Range(near, far));
+                Vector3 to = spot + Vector3.up * 1.2f - eye;
+                if (!Physics.Raycast(eye, to.normalized, to.magnitude - 1f, mask, QueryTriggerInteraction.Ignore)) return spot;
+            }
+            return Around(P, near, far);
+        }
+
+        // Eyeshine: bright where the flashlight's beam meets their eyes, nothing otherwise.
+        void Eyeshine(Deer d)
+        {
+            var light = player.Flashlight;
+            for (int e = 0; e < 2; e++)
+            {
+                var shine = d.Shine[e];
+                if (shine == null) continue;
+                float k = 0f;
+                if (light != null && light.IsOn && d.Eyes[e] != null)
+                {
+                    var beam = light.Beam;
+                    Vector3 to = d.Eyes[e].position - beam.position;
+                    float along = Vector3.Dot(beam.forward, to.normalized);
+                    float facing = Vector3.Dot(d.Head.forward, -to.normalized); // (it has to be looking your way)
+                    k = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.93f, 0.995f, along)) * Mathf.Clamp01(facing * 2f) * Mathf.Clamp01(1.4f - to.magnitude / 45f);
+                }
+                Effects.SetGlow(shine, new Color(0.75f, 1f, 0.7f) * (config.settings.deerEyeshine * k));
             }
         }
 

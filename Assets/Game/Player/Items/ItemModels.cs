@@ -140,8 +140,18 @@ namespace Game.Player
             return tube;
         }
 
+        static Material flameMat;
+
+        // A live flame (the flame shader), or if that can't be used, a glowing teardrop.
         static void Flame(Transform parent, Vector3 at, float size)
         {
+            var fire = Effects.Flame(parent, at - Vector3.up * size * 0.4f, size * 1.3f, size * 2.6f, Color.white * 2f);
+            if (fire != null)
+            {
+                if (flameMat == null) flameMat = fire.sharedMaterial;
+                else { Object.Destroy(fire.sharedMaterial); fire.sharedMaterial = flameMat; }
+                return; // (named "Flame": shown while lit, and the light sits there)
+            }
             var flame = Part(PrimitiveType.Sphere, parent, at, new Vector3(size * 0.6f, size, size * 0.6f), GlowMat("Flame", new Color(1f, 0.5f, 0.15f) * 2f));
             flame.name = "Flame";
             flame.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;

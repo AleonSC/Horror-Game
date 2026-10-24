@@ -37,6 +37,7 @@ namespace Game.Entities
         readonly List<float> emptyBearings = new List<float>();
         Material chainMat, eyeMat, pupilMat;
         Light[] searchlights;
+        Renderer[] shafts;
         Vector3 searchAim;
         readonly List<ScourLook> crowd = new List<ScourLook>();
         readonly List<float> crowdAngle = new List<float>();
@@ -468,6 +469,7 @@ namespace Game.Entities
             if (on && searchlights == null)
             {
                 searchlights = new Light[2];
+                shafts = new Renderer[2];
                 for (int i = 0; i < 2; i++)
                 {
                     var go = new GameObject(i == 0 ? "Searchlight L" : "Searchlight R");
@@ -476,11 +478,14 @@ namespace Game.Entities
                     var l = go.GetComponent<Light>();
                     l.shadows = LightShadows.None;
                     searchlights[i] = l;
+                    shafts[i] = Effects.Beam(go.transform, 1f, 1f, Color.black, 0.25f, 0.25f, "Searchlight shaft");
+                    if (shafts[i] != null) shafts[i].sharedMaterial.SetFloat("_Falloff", 0.35f); // (bright all the way down)
                 }
                 searchAim = player != null ? player.transform.position + Random.insideUnitSphere * 30f : Vector3.zero;
             }
             searching = on;
             if (searchlights != null) foreach (var l in searchlights) l.enabled = on;
+            if (shafts != null) foreach (var r in shafts) if (r != null) r.enabled = on;
         }
 
         void UpdateSearchlights(float dt, Vector3 p)
@@ -501,6 +506,11 @@ namespace Game.Entities
                 l.range = dist + 80f;
                 l.color = s.searchlightColor;
                 l.intensity = s.searchlightIntensity * 0.5f;
+                if (shafts[i] != null)
+                {
+                    shafts[i].transform.localScale = new Vector3(s.searchlightRadius, s.searchlightRadius, dist);
+                    Effects.SetGlow(shafts[i], s.searchlightColor * s.searchlightShaft);
+                }
             }
         }
 

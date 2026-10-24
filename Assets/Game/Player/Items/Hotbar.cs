@@ -205,7 +205,7 @@ namespace Game.Player
             handLight.range = torch ? s.torchRange : s.lighterRange;
             if (handLightData != null) handLightData.volumetricDimmer = torch ? s.torchFogGlow : s.lighterFogGlow;
             if (flame != null && flame.TryGetComponent<Renderer>(out var flameLook) && flameLook.sharedMaterial != null && flameLook.sharedMaterial.name == "Flame")
-                RuntimeMaterials.SetGlow(flameLook.sharedMaterial, new Color(1f, 0.5f, 0.15f) * s.flameGlow * flicker);
+                RuntimeMaterials.SetGlow(flameLook.sharedMaterial, (flameLook.sharedMaterial.HasProperty("_GlowColor") ? Color.white : new Color(1f, 0.5f, 0.15f)) * s.flameGlow * flicker);
             handLight.transform.position = flame != null ? flame.position : hand.position + hand.forward * 0.3f;
         }
 

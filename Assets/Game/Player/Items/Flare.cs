@@ -16,7 +16,7 @@ namespace Game.Player
         bool sky, burst, landed;
         float burnLeft;
         Light glow;
-        Renderer spark;
+        Renderer spark, fire, halo;
 
         public static void Fire(ItemSettings s, Vector3 from, Vector3 direction)
         {
@@ -36,6 +36,10 @@ namespace Game.Player
             r.sharedMaterial = Game.Rendering.RuntimeMaterials.Glow("Flare spark", s.flareColor * 30f);
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             flare.spark = r;
+            // A burning flare: a flame streaming off it and a red glow round it in the air.
+            flare.fire = Game.Rendering.Effects.Flame(go.transform, Vector3.zero, 0.18f, 0.45f, Color.white * 4f, "Flare fire");
+            flare.halo = Game.Rendering.Effects.Glow(go.transform, Vector3.zero, 3f, s.flareColor * 3f, 0.5f, 2f, "Flare glow");
+            if (flare.fire != null) Game.Rendering.Effects.SetGlow(flare.fire, s.flareColor * 6f);
 
             var lightGo = new GameObject("Flare light");
             lightGo.transform.SetParent(go.transform, false);
@@ -77,6 +81,12 @@ namespace Game.Player
                 glow.intensity = s.flareIntensity * Mathf.SmoothStep(0f, 1f, life) * flicker;
             }
             else glow.intensity = 25f * life * flicker;
+            if (halo != null)
+            {
+                halo.transform.localScale = Vector3.one * (burst ? 16f : 3f);
+                Game.Rendering.Effects.SetGlow(halo, s.flareColor * ((burst ? 2.5f : 3f) * life * flicker));
+            }
+            if (fire != null) Game.Rendering.Effects.SetGlow(fire, s.flareColor * (6f * life));
             if (burnLeft <= 0f) Destroy(gameObject);
         }
 

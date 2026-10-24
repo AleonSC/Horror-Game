@@ -13,6 +13,8 @@ namespace Game.Player
 
         Light glow;
         float life, lifeLeft, intensity;
+        Renderer halo;
+        Color haloColor;
 
         public static void Throw(ItemSettings s, GameObject yours, Vector3 from, Vector3 direction)
         {
@@ -52,6 +54,8 @@ namespace Game.Player
             stick.glow.range = s.glowstickRange;
             stick.intensity = s.glowstickIntensity;
             stick.life = stick.lifeLeft = s.glowstickTime;
+            stick.halo = Game.Rendering.Effects.Glow(go.transform, Vector3.zero, 0.6f, Color.black, 0.7f, 2.5f, "Glowstick glow");
+            stick.haloColor = s.glowstickColor;
             glowing.Add(stick);
         }
 
@@ -61,6 +65,7 @@ namespace Game.Player
             // It fades over its last fifth.
             float level = Mathf.Clamp01(lifeLeft / Mathf.Max(0.01f, life * 0.2f));
             glow.intensity = intensity * level;
+            if (halo != null) Game.Rendering.Effects.SetGlow(halo, haloColor * (1.2f * level));
             if (lifeLeft <= 0f) Destroy(gameObject);
         }
 

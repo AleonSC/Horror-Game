@@ -10,7 +10,7 @@ namespace Game.World
     /// </summary>
     public static class AnimalModels
     {
-        static Material brown, grey, black, dark, eyes;
+        static Material brown, grey, black, dark, eyes, coat, belly, white, antler;
 
         static void Mats()
         {
@@ -20,6 +20,10 @@ namespace Game.World
             black = RuntimeMaterials.Lit("Animal black", new Color(0.02f, 0.02f, 0.02f), 0.4f);
             dark = RuntimeMaterials.Lit("Beetle shell", new Color(0.03f, 0.035f, 0.03f), 0.85f);
             eyes = RuntimeMaterials.Glow("Owl eyes", new Color(0.9f, 0.95f, 1f) * 3f);
+            coat = RuntimeMaterials.Lit("Deer coat", new Color(0.3f, 0.2f, 0.12f), 0.22f);
+            belly = RuntimeMaterials.Lit("Deer belly", new Color(0.46f, 0.38f, 0.28f), 0.2f);
+            white = RuntimeMaterials.Lit("Deer white", new Color(0.7f, 0.68f, 0.62f), 0.2f);
+            antler = RuntimeMaterials.Lit("Antler", new Color(0.4f, 0.34f, 0.26f), 0.35f);
         }
 
         public static GameObject Owl(Transform parent)
@@ -33,31 +37,68 @@ namespace Game.World
             return root.gameObject;
         }
 
+        /// <summary>
+        /// A deer: a deep chest and slim waist, a long neck carrying a narrow head, big ears, two-jointed legs (the
+        /// hind ones bent back at the hock), a white rump and tail, and on a buck, branching antlers. Its eyes are
+        /// named "EyeL" and "EyeR" (they catch the flashlight).
+        /// </summary>
         public static GameObject Deer(Transform parent, bool antlers)
         {
             Mats();
             var root = Root("Deer", parent);
-            var body = Part(PrimitiveType.Capsule, root, new Vector3(0f, 1.05f, 0f), new Vector3(0.4f, 0.55f, 0.4f), brown);
-            body.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            var head = Joint(root, "Head", new Vector3(0f, 1.25f, 0.55f));
-            var neck = Part(PrimitiveType.Capsule, head, new Vector3(0f, 0.2f, 0.06f), new Vector3(0.13f, 0.25f, 0.13f), brown);
-            neck.transform.localRotation = Quaternion.Euler(25f, 0f, 0f);
-            Part(PrimitiveType.Capsule, head, new Vector3(0f, 0.45f, 0.2f), new Vector3(0.13f, 0.13f, 0.28f), brown);
+            // Body: chest, barrel and haunches, with a paler belly.
+            var barrel = Part(PrimitiveType.Capsule, root, new Vector3(0f, 1.04f, -0.02f), new Vector3(0.36f, 0.46f, 0.34f), coat);
+            barrel.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            Part(PrimitiveType.Sphere, root, new Vector3(0f, 1.06f, 0.3f), new Vector3(0.38f, 0.44f, 0.42f), coat);   // chest
+            Part(PrimitiveType.Sphere, root, new Vector3(0f, 1.1f, -0.34f), new Vector3(0.36f, 0.4f, 0.4f), coat);    // haunches
+            Part(PrimitiveType.Sphere, root, new Vector3(0f, 0.9f, 0f), new Vector3(0.26f, 0.14f, 0.66f), belly);
+            Part(PrimitiveType.Sphere, root, new Vector3(0f, 1.1f, -0.52f), new Vector3(0.24f, 0.26f, 0.08f), white); // rump patch
+            var tail = Part(PrimitiveType.Capsule, root, new Vector3(0f, 1.15f, -0.56f), new Vector3(0.07f, 0.08f, 0.04f), white);
+            tail.transform.localRotation = Quaternion.Euler(-35f, 0f, 0f);
+
+            // Neck and head (the head joint is at the base of the neck: it bends down to graze).
+            var head = Joint(root, "Head", new Vector3(0f, 1.18f, 0.44f));
+            var neck = Part(PrimitiveType.Capsule, head, new Vector3(0f, 0.2f, 0.1f), new Vector3(0.15f, 0.26f, 0.18f), coat);
+            neck.transform.localRotation = Quaternion.Euler(32f, 0f, 0f);
+            Part(PrimitiveType.Sphere, head, new Vector3(0f, 0.2f, 0.19f), new Vector3(0.1f, 0.16f, 0.06f), white); // throat
+            Part(PrimitiveType.Sphere, head, new Vector3(0f, 0.45f, 0.24f), new Vector3(0.16f, 0.16f, 0.2f), coat);  // skull
+            var snout = Part(PrimitiveType.Capsule, head, new Vector3(0f, 0.41f, 0.36f), new Vector3(0.1f, 0.12f, 0.1f), coat);
+            snout.transform.localRotation = Quaternion.Euler(72f, 0f, 0f);
+            Part(PrimitiveType.Sphere, head, new Vector3(0f, 0.39f, 0.47f), new Vector3(0.06f, 0.05f, 0.05f), black); // nose
             for (int e = -1; e <= 1; e += 2)
             {
-                var ear = Part(PrimitiveType.Sphere, head, new Vector3(e * 0.07f, 0.55f, 0.12f), new Vector3(0.05f, 0.1f, 0.02f), brown);
-                ear.transform.localRotation = Quaternion.Euler(0f, 0f, e * 30f);
+                var eye = Part(PrimitiveType.Sphere, head, new Vector3(e * 0.072f, 0.48f, 0.29f), Vector3.one * 0.034f, black);
+                eye.name = e < 0 ? "EyeL" : "EyeR";
+                var ear = Part(PrimitiveType.Sphere, head, new Vector3(e * 0.1f, 0.58f, 0.18f), new Vector3(0.07f, 0.14f, 0.025f), coat);
+                ear.transform.localRotation = Quaternion.Euler(-10f, e * 20f, e * -50f);
                 if (!antlers) continue;
+                // A main beam sweeping up and back, with tines off it.
+                var beam = Joint(head, e < 0 ? "AntlerL" : "AntlerR", new Vector3(e * 0.06f, 0.58f, 0.2f));
+                beam.localRotation = Quaternion.Euler(-25f, 0f, e * -25f);
+                Part(PrimitiveType.Cylinder, beam, new Vector3(0f, 0.14f, 0f), new Vector3(0.022f, 0.14f, 0.022f), antler);
+                var upper = Joint(beam, "Beam", new Vector3(0f, 0.27f, 0f));
+                upper.localRotation = Quaternion.Euler(35f, 0f, e * 10f);
+                Part(PrimitiveType.Cylinder, upper, new Vector3(0f, 0.12f, 0f), new Vector3(0.017f, 0.12f, 0.017f), antler);
                 for (int k = 0; k < 3; k++)
                 {
-                    var tine = Part(PrimitiveType.Cylinder, head, new Vector3(e * (0.05f + k * 0.04f), 0.62f + k * 0.07f, 0.1f - k * 0.03f), new Vector3(0.015f, 0.08f, 0.015f), grey);
-                    tine.transform.localRotation = Quaternion.Euler(-20f, 0f, e * (20f + k * 15f));
+                    var tine = Part(PrimitiveType.Cylinder, k == 0 ? beam : upper, new Vector3(0f, k == 0 ? 0.12f : 0.06f + k * 0.07f, 0.02f), new Vector3(0.012f, 0.07f, 0.012f), antler);
+                    tine.transform.localRotation = Quaternion.Euler(-55f + k * 10f, 0f, 0f);
+                    tine.transform.localPosition += new Vector3(0f, 0.04f, 0.05f);
                 }
             }
+
+            // Legs: a pivot at the shoulder or hip (Leg0..3: front left, front right, back left, back right), a knee.
             for (int i = 0; i < 4; i++)
             {
-                var leg = Joint(root, $"Leg{i}", new Vector3(i % 2 == 0 ? -0.14f : 0.14f, 0.85f, i < 2 ? 0.38f : -0.38f));
-                Part(PrimitiveType.Capsule, leg, new Vector3(0f, -0.42f, 0f), new Vector3(0.06f, 0.43f, 0.06f), brown);
+                bool front = i < 2;
+                float side = i % 2 == 0 ? -1f : 1f;
+                var leg = Joint(root, $"Leg{i}", new Vector3(side * 0.12f, 0.98f, front ? 0.32f : -0.36f));
+                var upper = Part(PrimitiveType.Capsule, leg, new Vector3(0f, -0.2f, front ? 0f : -0.03f), new Vector3(front ? 0.09f : 0.12f, 0.22f, front ? 0.1f : 0.15f), coat);
+                upper.transform.localRotation = Quaternion.Euler(front ? 0f : 12f, 0f, 0f);
+                var knee = Joint(leg, "Knee", new Vector3(0f, -0.44f, front ? 0f : -0.08f));
+                knee.localRotation = Quaternion.Euler(front ? 0f : -14f, 0f, 0f); // (the hock: hind legs bend back)
+                Part(PrimitiveType.Capsule, knee, new Vector3(0f, -0.24f, 0f), new Vector3(0.045f, 0.25f, 0.05f), coat);
+                Part(PrimitiveType.Cube, knee, new Vector3(0f, -0.5f, 0.02f), new Vector3(0.05f, 0.05f, 0.07f), black); // hoof
             }
             return root.gameObject;
         }

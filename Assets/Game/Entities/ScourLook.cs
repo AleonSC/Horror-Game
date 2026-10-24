@@ -31,6 +31,9 @@ namespace Game.Entities
         /// <summary>Does the eyes' glow light up what's near (a trunk it's peeking round), or only the fog?</summary>
         public bool EyeLightOnSurfaces;
 
+        /// <summary>How bright the glow round each eye is, as a share of the eyes' own glow.</summary>
+        public float EyeHalo { get; set; } = 0.12f;
+
         /// <summary>The point between the eyes, in the world.</summary>
         public virtual Vector3 EyePoint
         {
@@ -114,7 +117,17 @@ namespace Game.Entities
             }
             eyeScales = new Vector3[eyes.Length];
             for (int i = 0; i < eyes.Length; i++) eyeScales[i] = eyes[i].localScale;
+            // A soft glow round each eye, hanging in the mist (it comes and goes with the body).
+            halos = new Renderer[eyes.Length];
+            for (int i = 0; i < eyes.Length; i++)
+            {
+                var parent = eyes[i].parent != null ? eyes[i].parent : eyes[i];
+                halos[i] = Effects.Glow(parent, parent.InverseTransformPoint(eyes[i].position), 0.22f, Color.black, 0.2f, 3f, "Eye glow");
+                if (halos[i] != null) halos[i].transform.localScale = Vector3.one * (0.22f / Mathf.Max(0.001f, parent.lossyScale.x));
+            }
         }
+
+        Renderer[] halos = new Renderer[0];
 
         /// <summary>The red glow the eyes throw into the fog.</summary>
         protected void AddEyeLight(Transform bone, Vector3 localPoint)
@@ -201,6 +214,7 @@ namespace Game.Entities
         {
             Color c = Color.Lerp(Color.Lerp(Red, Warm, shine), Blue, blue);
             RuntimeMaterials.SetGlow(eyeMat, c * glow);
+            foreach (var h in halos) Effects.SetGlow(h, c * (glow * EyeHalo));
             for (int i = 0; i < eyes.Length; i++)
                 eyes[i].localScale = new Vector3(eyeScales[i].x * widen, eyeScales[i].y * Mathf.Lerp(1f, widen, 0.6f), eyeScales[i].z);
             if (eyeLight == null) return;
@@ -224,7 +238,7 @@ namespace Game.Entities
             var baked = new Mesh();
             foreach (var r in renderers)
             {
-                if (r == null || !r.enabled) continue;
+                if (r == null || !r.enabled || r.gameObject.layer == Layers.Effects) continue; // (not the glows)
                 Mesh mesh = null;
                 Matrix4x4 toWorld = r.transform.localToWorldMatrix;
                 if (r is SkinnedMeshRenderer skinned)

@@ -19,12 +19,15 @@ namespace Game.World
         public float brightness = 450f;
         [Tooltip("How much they light the fog (0-1): high and the whole area turns to white haze.")]
         public float fogGlow = 0.12f;
+        [Tooltip("The soft shafts of light under them (0: none).")]
+        public float beamGlow = 0.35f;
         [Tooltip("Where the floodlights hang (this object's space); they shine out and down.")]
         public Vector3[] lightSpots = { new Vector3(-2f, 13.8f, -2f), new Vector3(2f, 13.8f, -2f), new Vector3(-2f, 13.8f, 2f), new Vector3(2f, 13.8f, 2f) };
         [Tooltip("The button, in this object's space.")]
         public Vector3 buttonSpot = new Vector3(1.5f, 13f, 1.5f);
 
         Light[] lights;
+        Renderer[] shafts;
         HDAdditionalLightData[] lightData;
         SafeZone zone;
         float onLeft, rechargeLeft;
@@ -52,6 +55,7 @@ namespace Game.World
             look.GetComponent<Renderer>().sharedMaterial = Game.Rendering.RuntimeMaterials.Lit("Button", new Color(0.4f, 0.05f, 0.03f), 0.5f);
 
             lights = new Light[lightSpots.Length];
+            shafts = new Renderer[lightSpots.Length];
             lightData = new HDAdditionalLightData[lightSpots.Length];
             for (int i = 0; i < lightSpots.Length; i++)
             {
@@ -72,6 +76,8 @@ namespace Game.World
                 l.shadows = LightShadows.None;
                 l.enabled = false;
                 lights[i] = l;
+                shafts[i] = Game.Rendering.Effects.Beam(go.transform, 34f, 22f, Color.black, 0.6f, 0.4f, "Floodlight shaft");
+                if (shafts[i] != null) shafts[i].enabled = false;
             }
             zone = new SafeZone("Watchtower floodlights", transform.position, safeRadius) { Active = false };
             if (Services.TryGet<SafeZones>(out var zones)) zones.Add(zone);
@@ -120,6 +126,11 @@ namespace Game.World
                 lights[i].enabled = level > 0f;
                 lights[i].intensity = brightness * level;
                 lightData[i].volumetricDimmer = fogGlow;
+                if (shafts[i] != null)
+                {
+                    shafts[i].enabled = level > 0f && beamGlow > 0f;
+                    Game.Rendering.Effects.SetGlow(shafts[i], lights[i].color * (beamGlow * level));
+                }
             }
         }
     }

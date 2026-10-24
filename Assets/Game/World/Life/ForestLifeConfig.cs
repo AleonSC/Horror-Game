@@ -70,6 +70,10 @@ namespace Game.World
         public float deerNotice = 24f;
         [Range(3f, 40f), Tooltip("...and bolt (the whole herd with them) at this.")]
         public float deerBolt = 14f;
+        [Range(0f, 20f), Tooltip("How bright their eyes shine back when your flashlight catches them.")]
+        public float deerEyeshine = 3f;
+        [Range(5f, 600f), Tooltip("After bolting, about this many seconds before the herd turns up somewhere else.")]
+        public float deerReturn = 90f;
 
         [Header("Small things")]
         [Range(0, 200)] public int beetles = 40;

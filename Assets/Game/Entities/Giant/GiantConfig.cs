@@ -91,6 +91,8 @@ namespace Game.Entities
         public Color searchlightColor = new Color(1f, 0.25f, 0.18f);
         [Range(0f, 10000000f), Tooltip("Brightness (candela: they're far away).")]
         public float searchlightIntensity = 1000000f;
+        [Range(0f, 10f), Tooltip("The shafts of light from its eyes down to the circle (0: none).")]
+        public float searchlightShaft = 0.6f;
         [Range(0, 64), Tooltip("Scours circling the edge of the light.")]
         public int crowd = 32;
         [Range(2f, 40f), Tooltip("How far from you they circle (metres).")]

@@ -136,7 +136,9 @@ namespace Game.Rendering
 
         public static void SetGlow(Material m, Color glow)
         {
-            if (m != null) m.SetColor("_EmissiveColor", glow);
+            if (m == null) return;
+            if (m.HasProperty("_GlowColor")) m.SetColor("_GlowColor", glow); // (the game's own effect shaders)
+            else m.SetColor("_EmissiveColor", glow);
         }
     }
 }

@@ -29,11 +29,17 @@ namespace Game.World
         [Range(0f, 200f), Tooltip("Brightness (candela).")]
         public float lightIntensity = 25f;
         [Range(1f, 60f)] public float lightRange = 13f;
+        [Range(0f, 20f), Tooltip("The soft glow round a lit lamp's glass.")]
+        public float glassHalo = 1.5f;
+        [Range(0.2f, 8f), Tooltip("How wide that glow is (metres).")]
+        public float glassHaloSize = 2.4f;
 
         [Header("Unlit")]
         [Tooltip("The blinking marker on top of a dark lamp.")]
         public Color markerColor = new Color(1f, 0.05f, 0.02f);
         [Range(0f, 20f)] public float markerGlow = 4f;
+        [Range(0f, 20f), Tooltip("The soft red glow round the marker (seen through the fog).")]
+        public float markerHalo = 1.2f;
         [Range(0.1f, 5f), Tooltip("Blinks per second.")]
         public float markerBlinkRate = 0.8f;
 

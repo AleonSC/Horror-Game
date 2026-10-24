@@ -17,6 +17,8 @@ namespace Game.World
         public bool snack;
 
         Light glow;
+        Renderer halo;
+        Color haloColor;
         float glowStrength;
         float phase;
 
@@ -70,12 +72,17 @@ namespace Game.World
             glow.range = s.batteryGlowRange;
             glowStrength = s.batteryGlowStrength;
             phase = Random.value * 10f;
+            // A faint soft gleam round it too (kept dim: they were too bright as lights).
+            halo = Game.Rendering.Effects.Glow(transform, Vector3.up * 0.06f, 0.45f, Color.black, 0.9f, 3f, "Battery gleam");
+            haloColor = s.batteryGlow;
         }
 
         void Update()
         {
             if (glow == null) return;
-            glow.intensity = glowStrength * (0.35f + 0.65f * Mathf.Pow(0.5f + 0.5f * Mathf.Sin((Time.time + phase) * 2.2f), 2f));
+            float pulse = 0.35f + 0.65f * Mathf.Pow(0.5f + 0.5f * Mathf.Sin((Time.time + phase) * 2.2f), 2f);
+            glow.intensity = glowStrength * pulse;
+            if (halo != null) Game.Rendering.Effects.SetGlow(halo, haloColor * (0.35f * pulse));
         }
 
         public void Interact()
