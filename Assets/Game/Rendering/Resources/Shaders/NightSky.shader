@@ -119,8 +119,8 @@ Shader "Game/NightSky"
                 float disc = saturate((_MoonSize - angle) / max(_MoonSize * 0.04, 0.05));
                 float3 local = (dir - moonDir * cosA) / max(radians(_MoonSize), 1e-4);
                 float seas = HorrorNoise(local * 2.2 + 3.0) * 0.6 + HorrorNoise(local * 5.0 + 9.0) * 0.4;
-                float3 moon = _MoonColor.rgb * disc * (0.78 + 0.22 * smoothstep(0.35, 0.65, seas));
-                float halo = _MoonGlow * (exp(-max(angle - _MoonSize, 0.0) / (_MoonSize * 0.6)) * 0.5 + exp(-angle / (_MoonSize * 4.0)) * 0.15);
+                float3 moon = _MoonColor.rgb * disc * (0.72 + 0.28 * smoothstep(0.35, 0.65, seas)) * 0.55;
+                float halo = _MoonGlow * (exp(-max(angle - _MoonSize, 0.0) / (_MoonSize * 0.45)) * 0.22 + exp(-angle / (_MoonSize * 3.0)) * 0.05);
                 // Rays: bright and dark spokes round the moon, slowly turning, fading out along their length.
                 float3 side = normalize(cross(moonDir, abs(moonDir.y) < 0.95 ? float3(0, 1, 0) : float3(1, 0, 0)));
                 float3 upAxis = cross(side, moonDir);
@@ -130,7 +130,7 @@ Shader "Game/NightSky"
                 float rays = pow(HorrorNoise(float3(spoke * 9.0, t)), 2.2) * 0.7 + pow(HorrorNoise(float3(spoke * 23.0, t * 1.7 + 4.0)), 3.0) * 0.5;
                 float along = max(angle - _MoonSize, 0.0);
                 rays *= exp(-along / max(_RayLength, 0.1)) * smoothstep(0.0, _MoonSize * 0.3, along) * (cosA > 0.0 ? 1.0 : 0.0);
-                float3 light = moon + _MoonColor.rgb * (halo + rays * _Rays * 0.35);
+                float3 light = moon + _MoonColor.rgb * (halo + rays * _Rays * 0.12);
 
                 // Stars: fewer and dimmer toward the horizon (more air to see through).
                 float density = _StarDensity;

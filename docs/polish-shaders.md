@@ -33,8 +33,10 @@ moved). Without the giant (the look test) it's where the look's moon settings pu
 tab, **Night sky**: the moon's colour, size, glow and rays, stars and how many, cloud cover, brightness and
 drift.
 
-The giant is rebuilt blocky and bulky: a slab of a chest and heavy shoulders, thick square limbs, big hands
-and feet, a cube of a head under a heavy brow.
+The giant is blocky but gaunt and solid black (`solidBlack`): narrow square slabs, thin square limbs, hands
+ending in long crooked fingers, big flat feet, a cube of a head under a heavy brow. Once it's fallen, its eyes
+open (red) and a search ray from them sweeps the forest in the distance, back and forth as it walks and round
+with its head when it stops to scan (`GiantConfig` > Awake). The 10th lamp's searchlights take over from it.
 
 ## Lamps
 

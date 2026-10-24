@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.Entities
 {
     /// <summary>
-    /// The giant's body: the built-in one (a vast, blocky, bulky figure of hazed shapes on a jointed frame) or your own
+    /// The giant's body: the built-in one (a vast, blocky, gaunt black figure with long fingers, on a jointed frame) or your own
     /// model. Built one unit tall with its feet at the pivot, facing +Z; the giant scales it. Poses: hanging (head
     /// lolled, limbs dangling), falling, walking (a stride phase), and scanning (the head turning).
     /// </summary>
@@ -27,6 +27,8 @@ namespace Game.Entities
             go.transform.SetParent(parent, false);
             var body = go.AddComponent<GiantBody>();
             body.haze = RuntimeMaterials.Silhouette("Giant");
+            body.eyeMat = RuntimeMaterials.Haze("The giant's own eyes", Color.black);
+            RuntimeMaterials.DrawAfter(body.eyeMat, 3); // (over its black face)
             if (config.customModel != null) body.UseYours(config.customModel);
             else body.BuildBuiltIn();
             return body;
@@ -37,6 +39,7 @@ namespace Game.Entities
         void OnDestroy()
         {
             if (haze != null) Destroy(haze);
+            if (eyeMat != null) Destroy(eyeMat);
         }
 
         void UseYours(GameObject prefab)
@@ -57,54 +60,98 @@ namespace Game.Entities
             animator = model.GetComponentInChildren<Animator>();
         }
 
-        // Blocky and bulky: a slab of a chest and heavy shoulders, thick square limbs, big hands and feet, a cube of
-        // a head under a heavy brow. One unit tall, feet at the pivot.
+        // Blocky but gaunt: narrow square slabs for a body, thin square limbs, hands that end in long, crooked
+        // fingers, big flat feet, a cube of a head under a heavy brow. One unit tall, feet at the pivot.
         void BuildBuiltIn()
         {
             var t = transform;
             hips = Joint(t, new Vector3(0f, 0.52f, 0f));
-            Block(hips, new Vector3(0f, 0.01f, 0f), new Vector3(0.23f, 0.12f, 0.14f));          // pelvis
-            Block(hips, new Vector3(0f, 0.12f, 0.005f), new Vector3(0.21f, 0.12f, 0.13f));      // gut
+            Block(hips, new Vector3(0f, 0.01f, 0f), new Vector3(0.12f, 0.1f, 0.07f));           // pelvis
+            Block(hips, new Vector3(0f, 0.12f, 0.005f), new Vector3(0.09f, 0.13f, 0.06f));      // a narrow waist
             chest = Joint(hips, new Vector3(0f, 0.2f, 0f));
-            Block(chest, new Vector3(0f, 0.06f, 0f), new Vector3(0.33f, 0.17f, 0.18f));         // ribcage
-            Block(chest, new Vector3(0f, 0.125f, -0.01f), new Vector3(0.4f, 0.07f, 0.16f));     // shoulders
-            Block(chest, new Vector3(0f, 0.16f, -0.025f), new Vector3(0.16f, 0.05f, 0.11f));    // the hump of the back of the neck
-            neck = Joint(chest, new Vector3(0f, 0.14f, 0.01f));
-            Block(neck, new Vector3(0f, 0.03f, 0f), new Vector3(0.08f, 0.075f, 0.075f));
+            Block(chest, new Vector3(0f, 0.06f, 0f), new Vector3(0.16f, 0.16f, 0.09f));         // ribcage
+            Block(chest, new Vector3(0f, 0.125f, -0.005f), new Vector3(0.21f, 0.045f, 0.08f));  // shoulders
+            Block(chest, new Vector3(0f, 0.155f, -0.015f), new Vector3(0.08f, 0.04f, 0.06f));   // the hump of the back of the neck
+            neck = Joint(chest, new Vector3(0f, 0.14f, 0.005f));
+            Block(neck, new Vector3(0f, 0.03f, 0f), new Vector3(0.04f, 0.075f, 0.04f));
             head = Joint(neck, new Vector3(0f, 0.07f, 0f));
-            var skull = Block(head, new Vector3(0f, 0.045f, 0.01f), new Vector3(0.115f, 0.115f, 0.115f));
+            var skull = Block(head, new Vector3(0f, 0.045f, 0.01f), new Vector3(0.075f, 0.1f, 0.08f));
             skull.name = "Head";
-            Block(head, new Vector3(0f, 0.07f, 0.065f), new Vector3(0.125f, 0.026f, 0.03f));    // brow
-            Block(head, new Vector3(0f, 0.0f, 0.035f), new Vector3(0.095f, 0.035f, 0.085f));    // jaw
+            Block(head, new Vector3(0f, 0.07f, 0.048f), new Vector3(0.085f, 0.02f, 0.025f));    // brow
+            Block(head, new Vector3(0f, 0.0f, 0.025f), new Vector3(0.06f, 0.03f, 0.06f));       // jaw
 
-            armL = Joint(chest, new Vector3(-0.2f, 0.11f, 0f));
-            armR = Joint(chest, new Vector3(0.2f, 0.11f, 0f));
+            armL = Joint(chest, new Vector3(-0.11f, 0.115f, 0f));
+            armR = Joint(chest, new Vector3(0.11f, 0.115f, 0f));
             foreL = Joint(armL, new Vector3(0f, -0.2f, 0f));
             foreR = Joint(armR, new Vector3(0f, -0.2f, 0f));
             foreach (var a in new[] { armL, armR })
             {
-                Block(a, new Vector3(0f, -0.005f, 0f), new Vector3(0.1f, 0.08f, 0.11f));       // shoulder
-                Block(a, new Vector3(0f, -0.1f, 0f), new Vector3(0.08f, 0.2f, 0.085f));        // upper arm
+                Block(a, new Vector3(0f, -0.005f, 0f), new Vector3(0.05f, 0.05f, 0.055f));     // shoulder
+                Block(a, new Vector3(0f, -0.1f, 0f), new Vector3(0.036f, 0.2f, 0.04f));        // upper arm
             }
             foreach (var f in new[] { foreL, foreR })
             {
-                Block(f, new Vector3(0f, -0.1f, 0f), new Vector3(0.075f, 0.2f, 0.08f));        // forearm
-                Block(f, new Vector3(0f, -0.235f, 0.01f), new Vector3(0.08f, 0.085f, 0.055f)); // hand
+                Block(f, new Vector3(0f, -0.1f, 0f), new Vector3(0.032f, 0.2f, 0.036f));       // forearm
+                Block(f, new Vector3(0f, -0.215f, 0.005f), new Vector3(0.045f, 0.04f, 0.022f)); // palm
+                // Long fingers, splayed a little and crooked at the end.
+                float side = f == foreL ? -1f : 1f;
+                for (int k = 0; k < 4; k++)
+                {
+                    float x = (k - 1.5f) * 0.011f;
+                    var finger = Joint(f, new Vector3(x, -0.235f, 0.006f));
+                    finger.localRotation = Quaternion.Euler(-6f, 0f, (k - 1.5f) * 5f * side);
+                    float length = k == 0 || k == 3 ? 0.1f : 0.13f;
+                    Block(finger, new Vector3(0f, -length * 0.35f, 0f), new Vector3(0.007f, length * 0.7f, 0.008f));
+                    var tip = Joint(finger, new Vector3(0f, -length * 0.7f, 0f));
+                    tip.localRotation = Quaternion.Euler(-28f, 0f, 0f);
+                    Block(tip, new Vector3(0f, -length * 0.15f, 0f), new Vector3(0.006f, length * 0.32f, 0.007f));
+                }
+                Block(f, new Vector3(0.016f * side, -0.225f, 0.016f), new Vector3(0.007f, 0.05f, 0.008f)); // thumb
             }
 
-            thighL = Joint(hips, new Vector3(-0.065f, 0f, 0f));
-            thighR = Joint(hips, new Vector3(0.065f, 0f, 0f));
+            thighL = Joint(hips, new Vector3(-0.035f, 0f, 0f));
+            thighR = Joint(hips, new Vector3(0.035f, 0f, 0f));
             shinL = Joint(thighL, new Vector3(0f, -0.25f, 0f));
             shinR = Joint(thighR, new Vector3(0f, -0.25f, 0f));
-            foreach (var th in new[] { thighL, thighR }) Block(th, new Vector3(0f, -0.125f, 0f), new Vector3(0.105f, 0.25f, 0.115f));
+            foreach (var th in new[] { thighL, thighR }) Block(th, new Vector3(0f, -0.125f, 0f), new Vector3(0.05f, 0.25f, 0.055f));
             foreach (var sh in new[] { shinL, shinR })
             {
-                Block(sh, new Vector3(0f, -0.13f, 0f), new Vector3(0.09f, 0.26f, 0.095f));
-                Block(sh, new Vector3(0f, -0.255f, 0.03f), new Vector3(0.095f, 0.035f, 0.16f)); // foot
+                Block(sh, new Vector3(0f, -0.125f, 0f), new Vector3(0.042f, 0.25f, 0.045f));
+                Block(sh, new Vector3(0f, -0.255f, 0.04f), new Vector3(0.075f, 0.035f, 0.2f));  // big flat feet
             }
-            NeckLocal = new Vector3(0f, 0.86f, -0.04f);
-            EyesLocal = new Vector3(0f, 0.95f, 0.07f);
+
+            // The eyes: shut until it wakes (see SetEyes).
+            eyes = new Transform[2];
+            for (int e = 0; e < 2; e++)
+            {
+                var eye = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(eye.GetComponent<Collider>());
+                eye.name = "Eye";
+                eye.layer = Game.Core.Layers.Effects;
+                eye.transform.SetParent(head, false);
+                eye.transform.localPosition = new Vector3((e == 0 ? -1f : 1f) * 0.018f, 0.052f, 0.051f);
+                eye.transform.localScale = new Vector3(0.016f, 0f, 0.004f);
+                var r = eye.GetComponent<Renderer>();
+                r.sharedMaterial = eyeMat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                eyes[e] = eye.transform;
+            }
+            NeckLocal = new Vector3(0f, 0.86f, -0.03f);
+            EyesLocal = new Vector3(0f, 0.95f, 0.055f);
         }
+
+        Transform[] eyes = new Transform[0];
+        Material eyeMat;
+
+        /// <summary>Its own eyes (once it wakes): <paramref name="open"/> 0 shut to 1 wide, glowing this colour.</summary>
+        public void SetEyes(float open, Color glow)
+        {
+            foreach (var e in eyes) if (e != null) e.localScale = new Vector3(0.016f, 0.009f * Mathf.Clamp01(open), 0.004f);
+            if (eyeMat != null) RuntimeMaterials.SetHazeColor(eyeMat, glow * Mathf.Clamp01(open));
+        }
+
+        /// <summary>The head, for things that look where it looks (its search ray).</summary>
+        public Transform HeadJoint => head;
 
         GameObject Block(Transform parent, Vector3 at, Vector3 size) => Shape(PrimitiveType.Cube, parent, at, size);
 

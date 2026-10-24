@@ -46,6 +46,28 @@ namespace Game.Entities
         [Range(0f, 120f), Tooltip("Not before this many seconds into a run.")]
         public float firstSightAfter = 8f;
 
+        [Tooltip("Solid black (ignores haze and beam-through).")]
+        public bool solidBlack = true;
+
+        [Header("Awake: its eyes and its search ray (once it's fallen)")]
+        [Range(0.1f, 10f), Tooltip("Seconds for its eyes to open once it's landed.")]
+        public float eyesOpenTime = 2.5f;
+        public Color ownEyeColor = new Color(1f, 0.12f, 0.05f);
+        [Range(0f, 50f)] public float ownEyeGlow = 6f;
+        [Tooltip("The search ray from its eyes, sweeping the distance.")]
+        public Color scanColor = new Color(1f, 0.35f, 0.25f);
+        [Range(1f, 40f), Tooltip("How wide the ray is (degrees).")]
+        public float scanAngle = 7f;
+        [Range(0f, 60f), Tooltip("How far down it points (degrees below its gaze).")]
+        public float scanPitch = 16f;
+        [Range(0f, 90f), Tooltip("How far it sweeps each way as it walks (degrees).")]
+        public float scanSweep = 35f;
+        [Range(0.05f, 2f), Tooltip("How fast it sweeps.")]
+        public float scanSweepSpeed = 0.3f;
+        [Range(0f, 5000000f)] public float scanIntensity = 400000f;
+        [Range(0f, 10f), Tooltip("The shaft of the ray in the air.")]
+        public float scanShaft = 0.6f;
+
         [Header("The eye (at the 5th lamp)")]
         [Range(1, 10)] public int eyeAtLamp = 5;
         [Range(10f, 89f), Tooltip("Degrees above the horizon.")]

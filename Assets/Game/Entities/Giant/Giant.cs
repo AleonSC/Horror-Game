@@ -92,6 +92,7 @@ namespace Game.Entities
             pupilMat = RuntimeMaterials.Haze("The eye's pupil", Color.black);
             RuntimeMaterials.DrawAfter(eyeMat, 1);  // (over the body, which darkens what's behind it)
             RuntimeMaterials.DrawAfter(pupilMat, 2);
+            BuildScan();
             eye = Ball("The eye", eyeMat);
             pupil = Ball("Pupil", pupilMat);
             pupil.SetParent(eye, false);
@@ -133,6 +134,7 @@ namespace Game.Entities
             State = GiantState.Hanging;
             bearing = Services.TryGet<WorldBuilder>(out var world) && world.Plan != null ? world.Plan.GiantBearing : 0f;
             sawIt = eyeDone = searching = false;
+            eyesOpen = 0f; // (shut again, hanging)
             timer = 0f;
             swing = swingSpeed = 0f;
             shockRadius = -1f;
@@ -195,7 +197,7 @@ namespace Game.Entities
             if (player == null && !Services.TryGet(out player)) return;
             // Through the lone door there's no sky: it's gone from view, and it waits.
             if (PlayerPlace.InDarkRoom != hiddenForRoom) ShowForRoom(!PlayerPlace.InDarkRoom);
-            if (hiddenForRoom) return;
+            if (hiddenForRoom) { if (scanRoot != null) scanRoot.gameObject.SetActive(false); return; }
             float dt = Time.deltaTime;
             Vector3 p = PlayerFeet;
 
@@ -220,6 +222,7 @@ namespace Game.Entities
 
             Shockwave(dt, p);
             Draw(p);
+            Scan(dt, p);
             UpdateSearchlights(dt, p);
             UpdateCrowd(dt, p);
         }
@@ -431,8 +434,9 @@ namespace Game.Entities
                 var ls = look.Config.settings;
                 float mul = LookController.ExposureMultiplier(ls.exposure);
                 Color fog = Color.Lerp(ls.fogColor, look.FogTint, look.FogTintAmount).linear / mul;
-                body.SetShade(s.haze, fog, s.beamThrough);
-                RuntimeMaterials.SetSilhouette(chainMat, s.haze * 0.8f, fog, s.beamThrough);
+                body.SetShade(s.solidBlack ? 0f : s.haze, fog, s.solidBlack ? 0f : s.beamThrough);
+                RuntimeMaterials.SetSilhouette(chainMat, s.solidBlack ? 0f : s.haze * 0.8f, fog, s.solidBlack ? 0f : s.beamThrough);
+                body.SetEyes(eyesOpen, s.ownEyeColor.linear * s.ownEyeGlow / mul);
                 RuntimeMaterials.SetHazeColor(eyeMat, s.eyeColor.linear * s.eyeGlow / mul);
                 RuntimeMaterials.SetHazeColor(pupilMat, Color.black);
             }
@@ -455,6 +459,58 @@ namespace Game.Entities
             {
                 eye.position = EyeWorld(p);
                 eye.rotation = Quaternion.LookRotation(eye.position - player.Head.position);
+            }
+        }
+
+        // ------------------------------------------------------------------ awake: its eyes and its search ray
+
+        Transform scanRoot;
+        Light scanLight;
+        Renderer scanShaft;
+        float eyesOpen;
+
+        void BuildScan()
+        {
+            scanRoot = new GameObject("Search ray").transform;
+            scanRoot.SetParent(transform, false);
+            scanRoot.gameObject.AddHDLight(LightType.Spot);
+            scanLight = scanRoot.GetComponent<Light>();
+            scanLight.shadows = LightShadows.None;
+            scanLight.enabled = false;
+            scanShaft = Effects.Beam(scanRoot, 1f, 1f, Color.black, 0.2f, 0.3f, "Search ray shaft");
+            if (scanShaft != null) scanShaft.sharedMaterial.SetFloat("_Falloff", 0.5f);
+            scanRoot.gameObject.SetActive(false);
+        }
+
+        // Once it's down and walking, its eyes open and a ray from them sweeps the forest in the distance, back and
+        // forth as it walks, round with its head when it stops to scan. (The 10th lamp's searchlights take over.)
+        void Scan(float dt, Vector3 p)
+        {
+            bool awake = (State == GiantState.Landed && timer > s.shockwaveAfter) || State == GiantState.Walking || State == GiantState.Resting;
+            eyesOpen = Mathf.MoveTowards(eyesOpen, awake ? 1f : 0f, dt / Mathf.Max(0.1f, s.eyesOpenTime));
+            bool on = eyesOpen > 0.01f && !searching && body.HeadJoint != null;
+            if (scanRoot.gameObject.activeSelf != on) scanRoot.gameObject.SetActive(on);
+            if (!on) return;
+
+            Vector3 from = bodyRoot.TransformPoint(body.EyesLocal);
+            Vector3 gaze = body.HeadJoint.forward;
+            float yaw = Mathf.Atan2(gaze.x, gaze.z) * Mathf.Rad2Deg;
+            float sweep = State == GiantState.Walking && scanLeft <= 0f ? Mathf.Sin(Time.time * s.scanSweepSpeed * Mathf.PI * 2f * 0.25f) * s.scanSweep : 0f;
+            Vector3 dir = Quaternion.Euler(s.scanPitch, yaw + sweep, 0f) * Vector3.forward;
+            float reach = Physics.Raycast(from, dir, out var hit, 2000f, Layers.Mask(Layers.Ground) | Layers.Mask(Layers.Trees), QueryTriggerInteraction.Ignore) ? hit.distance : Vector3.Distance(from, p) * 1.3f;
+            scanRoot.SetPositionAndRotation(from, Quaternion.LookRotation(dir));
+            float open = eyesOpen * eyesOpen;
+            scanLight.enabled = true;
+            scanLight.spotAngle = s.scanAngle;
+            scanLight.innerSpotAngle = s.scanAngle * 0.7f;
+            scanLight.range = reach + 60f;
+            scanLight.color = s.scanColor;
+            scanLight.intensity = s.scanIntensity * open;
+            if (scanShaft != null)
+            {
+                float radius = reach * Mathf.Tan(s.scanAngle * 0.5f * Mathf.Deg2Rad);
+                scanShaft.transform.localScale = new Vector3(radius, radius, reach);
+                Effects.SetGlow(scanShaft, s.scanColor * (s.scanShaft * open));
             }
         }
 
