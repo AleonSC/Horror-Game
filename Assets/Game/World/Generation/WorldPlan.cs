@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.World.Generation
 {
     public enum ClearingKind { Start, Lamp, Glade, OldTree, Structure }
-    public enum StructureKind { Shack, Cabin, Campsite, Watchtower, Car, LandmarkTree }
+    public enum StructureKind { Shack, Cabin, Campsite, Watchtower, Car, LandmarkTree, Bunker }
     public enum TreeKind { Pine, Dead }
     public enum BushKind { Mound, Upright, Leaning }
 

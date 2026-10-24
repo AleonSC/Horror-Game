@@ -111,6 +111,7 @@ namespace Game.World.Generation
                 case StructureKind.Campsite: return new Vector2(5f, 5f);
                 case StructureKind.Watchtower: return new Vector2(3f, 3f);
                 case StructureKind.Car: return new Vector2(2.5f, 3.5f);
+                case StructureKind.Bunker: return new Vector2(5.5f, 6f);
                 default: return new Vector2(4f, 4f); // the landmark tree
             }
         }
@@ -121,26 +122,37 @@ namespace Game.World.Generation
             for (int i = 0; i < s.campsites; i++) Place(plan, s, rng, StructureKind.Campsite, s.campsitesApart, StructureKind.Campsite, StructureKind.Campsite);
             Place(plan, s, rng, StructureKind.Watchtower, 0f, StructureKind.Watchtower, StructureKind.Watchtower);
             Place(plan, s, rng, StructureKind.Car, 0f, StructureKind.Car, StructureKind.Car);
+            for (int i = 0; i < s.bunkers; i++) Place(plan, s, rng, StructureKind.Bunker, 80f, StructureKind.Bunker, StructureKind.Bunker);
             Place(plan, s, rng, StructureKind.LandmarkTree, 0f, StructureKind.LandmarkTree, StructureKind.LandmarkTree);
         }
 
         // One structure: clear of the start, at least 7 m from any lamp, apart from its own kind (and 15 m
-        // from anything else), on reasonable ground.
+        // from anything else), on reasonable ground. If nowhere will do, it tries again less fussily (closer to
+        // the others, on steeper ground), so it's always there.
         static void Place(WorldPlan plan, WorldGenSettings s, Rng rng, StructureKind kind, float apart, StructureKind same1, StructureKind same2)
+        {
+            for (int pass = 0; pass < 4; pass++)
+                if (TryPlace(plan, s, rng, kind, apart, same1, same2, pass)) return;
+        }
+
+        static bool TryPlace(WorldPlan plan, WorldGenSettings s, Rng rng, StructureKind kind, float apart, StructureKind same1, StructureKind same2, int pass)
         {
             var half = HalfSize(kind);
             float reach = half.magnitude;
+            float spacing = pass == 0 ? 1f : pass == 1 ? 0.6f : pass == 2 ? 0.35f : 0.2f;
+            float slope = pass == 0 ? 0.22f : pass == 1 ? 0.3f : 0.6f;
             for (int attempt = 0; attempt < 3000; attempt++)
             {
                 var p = rng.InsideSquare(plan.Size);
                 if (plan.Distance(p, plan.Start) < s.startClearing + reach + 8f) continue;
-                if (!GoodGround(plan, p, reach + 3f, 0.22f)) continue;
+                if (pass < 3 && !GoodGround(plan, p, reach + 3f, slope)) continue;
+                if (pass == 3 && plan.InWater(p)) continue;
                 bool clash = false;
                 foreach (var l in plan.Lamps)
                     if (plan.Distance(p, l.Position) < 7f + reach) { clash = true; break; }
                 foreach (var o in plan.Structures)
                 {
-                    float need = (o.Kind == same1 || o.Kind == same2) ? Mathf.Max(apart, 15f) : 15f + reach + o.HalfSize.magnitude;
+                    float need = (o.Kind == same1 || o.Kind == same2) ? Mathf.Max(apart * spacing, 15f) : (15f * spacing + reach + o.HalfSize.magnitude);
                     if (plan.Distance(p, o.Position) < need) { clash = true; break; }
                 }
                 if (clash) continue;
@@ -151,8 +163,10 @@ namespace Game.World.Generation
                     Kind = ClearingKind.Structure, Centre = p, Radius = reach + 2f,
                     Ragged = 0.2f, Thinning = 0.3f, Seed = rng.Range(0, 100000),
                 });
-                return;
+                if (kind == StructureKind.Bunker) Level(plan, p, 0f, new Vector2(6.5f, 6.5f), 1f, 5f); // (square: it's turned to face its path later)
+                return true;
             }
+            return false;
         }
 
         // The lone door: far from the start, on the flattest ground found, clear of structures, and well inside

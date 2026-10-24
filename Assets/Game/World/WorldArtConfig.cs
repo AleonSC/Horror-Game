@@ -47,6 +47,8 @@ namespace Game.World
         public GameObject watchtower;
         public GameObject car;
         public GameObject landmarkTree;
+        [Tooltip("The bunker: its doorway facing +Z, a child named Table where its loot goes, and Inside (a Box Collider) over its rooms. Empty: the built-in one.")]
+        public GameObject bunker;
         public GameObject door;
     }
 }

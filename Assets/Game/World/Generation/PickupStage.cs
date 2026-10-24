@@ -50,6 +50,12 @@ namespace Game.World.Generation
                         Add(plan, i, LootPlace.Trunk, LootKind.Camera, 1);
                         Add(plan, i, LootPlace.BackSeat, LootKind.Radio, 1);
                         break;
+                    case StructureKind.Bunker:
+                        // Old supplies on a crate at the back of its dark room.
+                        Add(plan, i, LootPlace.Table, LootKind.Battery, 2);
+                        Add(plan, i, LootPlace.Table, LootKind.Glowsticks, 2);
+                        if (loot.Chance(0.5f)) Add(plan, i, LootPlace.Table, LootKind.FlareGun, 1);
+                        break;
                     case StructureKind.Watchtower:
                         Add(plan, i, LootPlace.Deck, LootKind.Map, 1); // (the ranger's sketch of the trails)
                         break;

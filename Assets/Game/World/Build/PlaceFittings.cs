@@ -18,6 +18,7 @@ namespace Game.World.Build
         // The built-in layout's spots (local to the place).
         public static readonly Vector3 TableSpot = new Vector3(0.9f, 0f, -1.4f);
         public static readonly Vector3 CabinTableSpot = new Vector3(2.2f, 0f, -1.8f);
+        public static readonly Vector3 BunkerCrateSpot = new Vector3(0f, 0f, -2.65f); // (the crate at the back of its room)
         public static readonly Vector3 TentSpot = new Vector3(-2f, 0f, 0f);
         public const float TentYaw = 90f; // (opening toward the fire)
         public static readonly Vector3 BackpackSpot = new Vector3(0.3f, 0f, 1.5f);
@@ -60,7 +61,7 @@ namespace Game.World.Build
             }
 
             // Laid out in a row along the table top, or along the tent floor.
-            Lay(root, onTable, Spot(root, "Table", kind == StructureKind.Cabin ? CabinTableSpot : TableSpot) + Vector3.up * 0.77f, root.right, 0.22f);
+            Lay(root, onTable, Spot(root, "Table", kind == StructureKind.Cabin ? CabinTableSpot : kind == StructureKind.Bunker ? BunkerCrateSpot : TableSpot) + Vector3.up * 0.77f, root.right, 0.22f);
             Vector3 tentFloor = Spot(root, "Tent", TentSpot) + Vector3.up * 0.06f;
             Lay(root, inTent, tentFloor, root.right, 0.25f); // (the tent lies across the campsite)
             Lay(root, onDeck, Spot(root, "Deck", DeckSpot) + Vector3.up * 0.01f, root.right, 0.3f);
@@ -97,7 +98,7 @@ namespace Game.World.Build
 
         static void FitYourDoorAndInside(Transform root, StructureKind kind)
         {
-            if (kind != StructureKind.Shack && kind != StructureKind.Cabin && kind != StructureKind.Campsite) return;
+            if (kind != StructureKind.Shack && kind != StructureKind.Cabin && kind != StructureKind.Campsite && kind != StructureKind.Bunker) return;
             var door = Find(root, "Door");
             if (door != null && door.GetComponent<Door>() == null && door.GetComponentInChildren<Collider>() != null)
                 door.gameObject.AddComponent<Door>();
@@ -111,7 +112,7 @@ namespace Game.World.Build
                 Object.Destroy(box); // (only a marker)
                 AddShelter(root, root.name, bounds);
             }
-            else if (kind != StructureKind.Campsite)
+            else if (kind != StructureKind.Campsite && kind != StructureKind.Bunker)
                 Debug.LogWarning($"Your {root.name} prefab has no child named 'Inside' with a Box Collider, so it isn't a shelter (docs/custom-assets.md).");
         }
 

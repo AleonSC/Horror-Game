@@ -117,6 +117,10 @@ namespace Game.UI
                 case StructureKind.Car:
                     L(-4f, -8f, 4f, -8f); L(4f, -8f, 4f, 8f); L(4f, 8f, -4f, 8f); L(-4f, 8f, -4f, -8f);
                     break;
+                case StructureKind.Bunker:
+                    L(-6f, -4f, 6f, -4f); L(-6f, -4f, -6f, 3f); L(6f, -4f, 6f, 3f); L(-6f, 3f, 6f, 3f);
+                    L(-2f, 3f, -2f, -1f); L(2f, 3f, 2f, -1f); L(-2f, -1f, 2f, -1f); // (its doorway)
+                    break;
                 case StructureKind.LandmarkTree:
                     L(0f, -8f, 0f, 10f); L(-7f, 0f, 0f, 10f); L(7f, 0f, 0f, 10f); L(-5f, -3f, 0f, 4f); L(5f, -3f, 0f, 4f);
                     break;

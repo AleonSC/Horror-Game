@@ -34,37 +34,51 @@ namespace Game.Audio
         }
 
         /// <summary>
-        /// A scour's hunting you: no drums (the blind one has those). A bowed cello ostinato pushing on in F# minor,
-        /// with a tritone in it (F#, G, F#, C), under a glassy, dissonant cluster that slowly swells and breathes;
-        /// a soft swell of air rising into each bar, and a low sub throb on the downbeat (8 s).
+        /// A scour's hunting you: not music at all, no notes and no beat. A deep rumble you feel more than hear,
+        /// swelling and sinking; something breathing close by, in uneven, ragged breaths; dull thumps at odd
+        /// moments, like something heavy shifting in the dark; and now and then a long, low scrape (16 s).
         /// </summary>
         public static float[] Danger(int seed)
         {
             var rng = new Random(seed);
-            var s = Make(8f);
-            string[] line = { "F#2", "G2", "F#2", "C3", "F#2", "G2", "A2", "G2" };
-            float lp = 0f, cello = 0f;
+            var s = Make(16f);
+            float rumble1 = 0f, rumble2 = 0f, air1 = 0f, air2 = 0f, thump = 0f, scrape1 = 0f, scrape2 = 0f;
+            // When things happen in the 16 s (at uneven times, so there's no beat to it).
+            float[] breaths = { 0.4f, 2.1f, 3.3f, 5.6f, 6.4f, 8.9f, 10.2f, 11.1f, 13.5f, 14.6f };
+            float[] thumps = { 1.3f, 4.7f, 5.05f, 9.6f, 12.4f, 15.1f };
+            float[] scrapes = { 3.9f, 11.8f };
             for (int i = 0; i < s.Length; i++)
             {
                 float t = T(i);
-                // The ostinato: each note bowed (a quick swell, held, then let go), filtered dark.
-                const float step = 0.5f;
-                int n = (int)(t / step) % line.Length;
-                float local = t % step;
-                float bow = Math.Min(1f, local / 0.04f) * (local < step * 0.8f ? 1f : Math.Max(0f, 1f - (local - step * 0.8f) / (step * 0.2f)));
-                float raw = Saw(Note(line[n]), t, 8) * bow;
-                cello += (raw - cello) * 0.12f;
-                float octave = Saw(Note(line[n]) * 2f, t, 4) * bow * 0.15f;
-                // The cluster: three close notes high up, slow vibrato, swelling over each half and easing off.
-                float half = t % 4f;
-                float swell = (float)Math.Pow(Math.Min(1f, half / 3.4f), 2f) * (half < 3.6f ? 1f : Math.Max(0f, 1f - (half - 3.6f) / 0.4f));
-                float vib = 1f + 0.004f * (float)Math.Sin(2 * Math.PI * 5.2 * t);
-                float glass = (Sine(Note("C#4") * vib, t) + Sine(Note("D4") * vib * 1.002f, t) * 0.8f + Sine(Note("G#4") * vib, t) * 0.5f) * 0.12f;
-                // Air rising into each bar.
-                lp += (Noise(rng) - lp) * (0.02f + 0.1f * (t % 2f) / 2f);
-                float air = lp * (float)Math.Pow((t % 2f) / 2f, 3f) * 0.6f;
-                float throb = Sine(Note("F#1"), t) * Decay(t % 2f, 3f) * 0.35f;
-                s[i] = cello * 0.55f + octave + glass * (0.35f + 0.65f * swell) + air + throb;
+                float n = Noise(rng);
+                // The rumble: noise taken right down low, slowly swelling.
+                rumble1 += (n - rumble1) * 0.004f;
+                rumble2 += (rumble1 - rumble2) * 0.004f;
+                float rumble = rumble2 * 28f * (0.6f + 0.4f * (float)Math.Sin(2 * Math.PI * t / 16f) * (float)Math.Sin(2 * Math.PI * t / 5.3f + 1f));
+                // Breathing: a band of hissing air, each breath in drawn out and let go.
+                air1 += (n - air1) * 0.12f;
+                air2 += (air1 - air2) * 0.12f;
+                float breath = 0f;
+                foreach (float b in breaths)
+                {
+                    float u = (t - b) / 1.1f;
+                    if (u > 0f && u < 1f) breath += (float)Math.Sin(Math.PI * Math.Pow(u, 0.7)) * (u < 0.55f ? 0.7f : 1f);
+                }
+                float air = (air1 - air2) * breath * 1.6f;
+                // Thumps: a burst of low noise, quickly gone.
+                float hit = 0f;
+                foreach (float h in thumps) hit += Decay(t - h, 9f) * (t >= h ? 1f : 0f);
+                thump += (n * hit - thump) * 0.03f;
+                // Scrapes: gritty mid noise, wavering, slow in and out.
+                scrape1 += (n - scrape1) * 0.25f;
+                scrape2 += (scrape1 - scrape2) * 0.05f;
+                float scrape = 0f;
+                foreach (float sc in scrapes)
+                {
+                    float u = (t - sc) / 2.4f;
+                    if (u > 0f && u < 1f) scrape += (float)Math.Sin(Math.PI * u) * (0.6f + 0.4f * (float)Math.Sin(2 * Math.PI * 13f * t));
+                }
+                s[i] = rumble + air + thump * 9f + (scrape1 - scrape2) * scrape * 0.8f;
             }
             return Loopable(s, 0.6f);
         }

@@ -226,3 +226,24 @@ chain starts fading 30% of the way up its length and is gone by 90% (`GiantConfi
   of them sit on the trails, so the paths run through them with grass either side and none on the trodden earth.
   This applies to new worlds.
 
+## The bunker, the camps' smoke, and what's always there
+
+- **The bunker:** one old concrete bunker is dug into an earth mound somewhere in the forest, its doorway facing
+  the trail that runs to it.
+  - **The front:** a thick, stained concrete front (rain streaks, moss low down, cracks) with a dark doorway
+    under a heavy lintel and a capping slab, and stepped wing walls angling out to hold back the earth.
+  - **The mound:** heaped over it in the forest floor's soil, banked against its sides.
+  - **Inside:** a corridor runs back to a small, dark room, with a crate (2 batteries, 2 glowsticks, half the
+    time a flare gun), a rusted drum and rubble. Inside counts as shelter.
+  - **Settings:** `WorldGenConfig` > `bunkers`; your own model goes in `WorldArtConfig` > `bunker`.
+- **Campfire smoke:** grey puffs drift up off each campsite's dead fire, swelling, thinning and carried off by
+  the wind. They're lit like anything else, so they show in your flashlight and the embers' glow.
+- **Always there:**
+  - Every world has its 3 campsites, its 3 shacks (one of them the cabin), its car and its bunker. If
+    there's no room by the usual rules, each tries again less fussily (closer to the others, on steeper ground)
+    rather than being left out.
+  - A test checks this on 20 worlds (and it held on 60).
+  - Your saved `WorldGenConfig` asset decides the counts (`campsites`, `shacks`, `bunkers`).
+- **The scour hunt sound:** it's no longer music: no notes and no beat. It's a deep rumble that swells and
+  sinks, something breathing close by in uneven breaths, dull thumps at odd moments, and the odd long scrape.
+

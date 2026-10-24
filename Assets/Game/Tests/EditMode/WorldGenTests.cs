@@ -173,8 +173,27 @@ namespace Game.Tests
                     {
                         Assert.IsTrue(Has(LootPlace.Deck, LootKind.Map), $"seed {seed}: the watchtower without its map");
                     }
+                    else if (kind == StructureKind.Bunker)
+                    {
+                        Assert.IsTrue(Has(LootPlace.Table, LootKind.Battery) && Has(LootPlace.Table, LootKind.Glowsticks), $"seed {seed}: the bunker without its batteries and glowsticks");
+                    }
                     else Assert.AreEqual(0, loot.Count, $"seed {seed}: loot in a {kind}");
                 }
+            }
+        }
+
+        [Test]
+        public void ThePlaces_AreAlwaysAllThere()
+        {
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                var plan = Plan(seed);
+                int Count(StructureKind k) => plan.Structures.FindAll(x => x.Kind == k).Count;
+                Assert.AreEqual(S.campsites, Count(StructureKind.Campsite), $"seed {seed}: campsites");
+                Assert.AreEqual(1, Count(StructureKind.Cabin), $"seed {seed}: the cabin");
+                Assert.AreEqual(S.shacks - 1, Count(StructureKind.Shack), $"seed {seed}: shacks");
+                Assert.AreEqual(1, Count(StructureKind.Car), $"seed {seed}: the car");
+                Assert.AreEqual(S.bunkers, Count(StructureKind.Bunker), $"seed {seed}: the bunker");
             }
         }
 

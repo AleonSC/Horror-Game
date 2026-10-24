@@ -56,6 +56,8 @@ namespace Game.World.Generation
         public int shacks = 3;
         public float shacksApart = 60f;
         public int campsites = 3;
+        [Tooltip("An old concrete bunker dug into an earth mound (0 or 1).")]
+        public int bunkers = 1;
         public float campsitesApart = 50f;
         public float doorMinFromStart = 65f;
         public int doorAttempts = 600;

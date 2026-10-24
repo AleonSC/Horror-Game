@@ -162,7 +162,7 @@ namespace Game.World.Build
                 wrap.Add(lamp.transform, pos);
             }
 
-            var props = new Placeholders(made, populator.Bark, populator.Needles, art);
+            var props = new Placeholders(made, populator.Bark, populator.Needles, art, ground);
             var loot = new List<Loot>();
             for (int i = 0; i < plan.Structures.Count; i++)
             {
