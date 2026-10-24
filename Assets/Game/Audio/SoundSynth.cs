@@ -369,21 +369,64 @@ namespace Game.Audio
             return Normalize(s, 0.6f);
         }
 
-        /// <summary>A footstep on the forest floor: a soft thud and a crunch of needles.</summary>
+        /// <summary>
+        /// A footstep on the forest floor: the heel coming down dull and soft on earth, the foot rolling through
+        /// leaf litter (a scatter of little crackles, a twig now and then), then a lighter push off the toe. Each
+        /// seed is a slightly different step, so a walk isn't one sound repeated.
+        /// </summary>
         public static float[] Step(int seed)
         {
             var rng = new Random(seed);
-            var s = Make(0.22f);
-            float lp = 0f;
+            const float len = 0.42f;
+            var s = Make(len);
+            float heelHz = 50f + (float)rng.NextDouble() * 25f;
+            float toeAt = 0.17f + (float)rng.NextDouble() * 0.06f;
+            // The crackles of the leaves under the foot as it rolls.
+            int crackles = 8 + rng.Next(10);
+            var at = new float[crackles];
+            var amp = new float[crackles];
+            var width = new float[crackles];
+            for (int c = 0; c < crackles; c++)
+            {
+                at[c] = 0.03f + (float)Math.Pow(rng.NextDouble(), 1.4) * 0.24f;
+                amp[c] = 0.25f + (float)rng.NextDouble() * 0.75f;
+                width[c] = 0.003f + (float)rng.NextDouble() * 0.012f;
+            }
+            bool twig = rng.NextDouble() < 0.25;
+            float twigAt = 0.06f + (float)rng.NextDouble() * 0.12f;
+            float lp = 0f, lp2 = 0f, dull = 0f, soft = 0f;
             for (int i = 0; i < s.Length; i++)
             {
                 float t = Time(i);
-                lp += (Noise(rng) - lp) * 0.5f;
-                float thud = (float)Math.Sin(2 * Math.PI * 85 * t) * Decay(t, 35f);
-                float crunch = lp * Decay(t, 22f) * (rng.NextDouble() < 0.3 ? 1f : 0.4f);
-                s[i] = thud * 0.6f + crunch * 0.8f;
+                float n = Noise(rng);
+                // The heel: a low, dull thump, more felt than heard, and the earth giving under it.
+                float heel = (float)Math.Sin(2 * Math.PI * heelHz * t) * Decay(t, 28f) * Math.Min(1f, t / 0.004f);
+                dull += (n - dull) * 0.04f;
+                float earth = dull * Decay(t, 22f) * 3f;
+                // The toe pushing off: softer.
+                float tt = t - toeAt;
+                float toe = tt > 0f ? ((float)Math.Sin(2 * Math.PI * heelHz * 1.3f * tt) * 0.35f + dull * 1.2f) * Decay(tt, 30f) * Math.Min(1f, tt / 0.006f) : 0f;
+                // The leaves: bursts of filtered noise.
+                lp += (n - lp) * 0.32f;
+                lp2 += (lp - lp2) * 0.06f;
+                float band = lp - lp2;
+                float crackle = 0f;
+                for (int c = 0; c < crackles; c++)
+                {
+                    float d = (t - at[c]) / width[c];
+                    if (d > -1f && d < 4f) crackle += amp[c] * (float)Math.Exp(-Math.Max(0f, d)) * (d < 0f ? 1f + d : 1f);
+                }
+                float rustle = band * (0.12f * Env(t, 0.02f, len, 0.15f));
+                float leaves = band * crackle * 0.8f + rustle;
+                // Now and then, a twig snapping under it: a short, dry crack.
+                float tw = t - twigAt;
+                float snap = twig && tw > 0f && tw < 0.03f ? band * Decay(tw, 160f) * 2.2f : 0f;
+                float v = heel * 0.55f + earth * 0.5f + toe * 0.4f + leaves + snap;
+                // A touch of softening on top: nothing harsh.
+                soft += (v - soft) * 0.55f;
+                s[i] = soft;
             }
-            return Normalize(s, 0.5f);
+            return Normalize(s, 0.38f);
         }
 
         /// <summary>Thunder (and the giant's chain snapping): a crack, then a long rolling rumble.</summary>

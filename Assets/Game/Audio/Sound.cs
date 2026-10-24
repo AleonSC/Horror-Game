@@ -13,5 +13,6 @@ namespace Game.Audio
         RainLoop, Hoot, Croak, Squeak, Caw, Splash, Hooves,
         Rotors, Static, RadioSong,
         DeerGrunt, DeerBleat, DeerSnort, DeerAlarm, Gallop,
+        Step2, Step3, Step4, Step5, Step6,
     }
 }

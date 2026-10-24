@@ -100,6 +100,12 @@ namespace Game.Audio
             Add(Sound.DeerSnort, SoundSynth.DeerSnort(47));
             Add(Sound.DeerAlarm, SoundSynth.DeerAlarm(48));
             Add(Sound.Gallop, SoundSynth.Gallop(49));
+            // (More footsteps, each a little different.)
+            Add(Sound.Step2, SoundSynth.Step(50));
+            Add(Sound.Step3, SoundSynth.Step(51));
+            Add(Sound.Step4, SoundSynth.Step(52));
+            Add(Sound.Step5, SoundSynth.Step(53));
+            Add(Sound.Step6, SoundSynth.Step(54));
         }
 
         void Add(Sound sound, float[] samples)

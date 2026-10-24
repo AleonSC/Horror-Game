@@ -183,13 +183,26 @@ namespace Game.Player
         void Footstep(PlayerSettings s)
         {
             float noise = Crouching ? s.crouchNoise : Running ? s.runNoise : s.walkNoise;
-            float volume = s.stepVolume * (Crouching ? 0.3f : Running ? 1.4f : 1f);
+            float volume = s.stepVolume * (Crouching ? 0.35f : Running ? 1.25f : 1f) * Random.Range(0.8f, 1.05f);
             // Wading: splashes, and louder.
             if (Wading) { noise *= 1.6f; volume *= 1.5f; }
             if (Services.TryGet<Game.Audio.SoundPlayer>(out var sounds))
-                sounds.Play(Wading ? Game.Audio.Sound.Splash : Game.Audio.Sound.Step, transform.position, Game.Audio.MixerNames.Player, volume, Random.Range(0.85f, 1.15f) * (Running ? 1.1f : 1f), 12f);
+                sounds.Play(Wading ? Game.Audio.Sound.Splash : NextStep(), transform.position, Game.Audio.MixerNames.Player, volume, Random.Range(0.92f, 1.08f) * (Running ? 1.05f : 1f), 12f);
             if (noise > 0f && Services.TryGet<EventBus>(out var events))
                 events.Publish(new NoiseEmitted(transform.position, noise, Crouching ? "creeping" : Running ? "running" : "walking"));
+        }
+
+        static readonly Game.Audio.Sound[] steps = { Game.Audio.Sound.Step, Game.Audio.Sound.Step2, Game.Audio.Sound.Step3, Game.Audio.Sound.Step4, Game.Audio.Sound.Step5, Game.Audio.Sound.Step6 };
+        int lastStep = -1;
+
+        // One of the footsteps, never the same one twice running.
+        Game.Audio.Sound NextStep()
+        {
+            int i = Random.Range(0, steps.Length - 1);
+            if (i >= lastStep) i++;
+            if (lastStep < 0) i = Random.Range(0, steps.Length);
+            lastStep = i;
+            return steps[i];
         }
 
         // Winded: you pant, and something close by can hear it.

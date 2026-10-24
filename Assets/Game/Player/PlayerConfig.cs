@@ -57,7 +57,7 @@ namespace Game.Player
 
         [Header("Footsteps")]
         [Range(0f, 1f), Tooltip("How loud your footsteps are to you.")]
-        public float stepVolume = 0.35f;
+        public float stepVolume = 0.2f;
         [Range(0f, 60f), Tooltip("How far a running step is heard by things that hunt by sound (metres, x difficulty).")]
         public float runNoise = 22f;
         [Range(0f, 30f), Tooltip("How far a walking step is heard.")]
