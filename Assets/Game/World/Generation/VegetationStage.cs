@@ -5,7 +5,7 @@ namespace Game.World.Generation
     /// <summary>
     /// Stage 5 (section 3.6): the forest grown round the layout. Trees in patchy density (dead ones, the odd old
     /// giant with room round it, natural gaps), bushes, meadow grass and tufts at tree feet, and tall grass in the
-    /// lamp clearings and glades.
+    /// lamp clearings and glades, and grassy verges along the trails.
     /// </summary>
     public sealed class VegetationStage : IWorldStage
     {
@@ -18,6 +18,7 @@ namespace Game.World.Generation
             PlantBushes(plan, s, rng.Fork(2), mask, trees);
             PlantGrass(plan, s, rng.Fork(3), mask);
             PlantTallGrass(plan, s, rng.Fork(4), mask);
+            PlantVerges(plan, s, rng.Fork(5), mask);
         }
 
         static SpatialGrid PlantTrees(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)
@@ -90,6 +91,54 @@ namespace Game.World.Generation
                     var p = t.Position + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
                     if (!mask.Free(p)) continue;
                     plan.Grass.Add(new Spot { Position = Wrap.Into(p, plan.Size), Size = rng.Range(0.25f, 0.6f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
+                }
+            }
+        }
+
+        // Grass lining both sides of the worn trails and the rims of the lamps' patches, thickest right at the edge,
+        // so the trodden earth runs between grassy banks; a few taller clumps among it.
+        static void PlantVerges(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)
+        {
+            float half = s.trailWidth * 0.5f;
+            void Verge(Vector2 at, Vector2 outward, float along, bool tall)
+            {
+                int count = Mathf.FloorToInt(s.trailVergeGrass * along + rng.Value());
+                for (int i = 0; i < count; i++)
+                {
+                    float out_ = rng.Range(0f, 1f);
+                    out_ *= out_; // (bunched at the edge)
+                    var p = Wrap.Into(at + outward * (half + 0.05f + out_ * 1.1f) + new Vector2(rng.Range(-0.5f, 0.5f), rng.Range(-0.5f, 0.5f)) * along, plan.Size);
+                    if (!mask.Free(p, 0.02f)) continue;
+                    plan.Grass.Add(new Spot { Position = p, Size = rng.Range(0.45f, 1f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
+                }
+                if (tall && rng.Chance(s.trailVergeTallGrass * along))
+                {
+                    var p = Wrap.Into(at + outward * (half + rng.Range(0.4f, 1.4f)), plan.Size);
+                    if (mask.Free(p, 0.3f) && !plan.InWater(p))
+                        plan.TallGrass.Add(new Spot { Position = p, Size = rng.Range(s.tallGrassHeight.x, s.tallGrassHeight.y) * 0.85f, Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
+                }
+            }
+            foreach (var trail in plan.Trails)
+                for (int i = 0; i < trail.Points.Count - 1; i++)
+                {
+                    if (!trail.Worn[i] || !trail.Worn[i + 1]) continue;
+                    Vector2 a = trail.Points[i];
+                    Vector2 d = Wrap.Delta(a, trail.Points[i + 1], plan.Size);
+                    float length = d.magnitude;
+                    if (length < 0.01f) continue;
+                    Vector2 side = new Vector2(-d.y, d.x) / length;
+                    Vector2 mid = a + d * 0.5f;
+                    Verge(mid, side, length, true);
+                    Verge(mid, -side, length, true);
+                }
+            foreach (var patch in plan.Patches)
+            {
+                int around = Mathf.CeilToInt(patch.Radius * Mathf.PI * 2f);
+                for (int i = 0; i < around; i++)
+                {
+                    float a = (i + rng.Value()) / around * Mathf.PI * 2f;
+                    var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                    Verge(patch.Centre + dir * (patch.RadiusAt(a) - half), dir, 1f, false); // (no tall grass by the lamp)
                 }
             }
         }

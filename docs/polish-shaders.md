@@ -57,11 +57,20 @@ own light.
 
 ## Paths
 
-The trails and the dirt patches round the lamps are now see-through packed earth, with faint ruts and grit.
-They're solid down the middle and fade out raggedly at the sides into the forest floor, instead of ending in a
-hard edge. They're drawn a bit wider so the fade sits outside the old edge (`TerrainBuilder` > `FadeWider`,
-`PatchWider`). This only applies to the built-in trail look: your own trail material (WorldArtConfig) is used as
-it is.
+- **One surface:** the trails and the lamp patches are now one surface for each piece of ground, not separate
+  overlapping strips. It's built on a fine 25 cm grid from each point's distance to the nearest trail or patch
+  edge. Where trails meet, cross, or run into a lamp's patch, they join up cleanly, with no darker overlaps or
+  gaps.
+- **Edges:** they wander a little and fade over the last 40 cm. The surface follows the ground mesh exactly.
+- **The dirt:** paler, sandy packed earth, with faint ruts and grit, a lighter middle where it's walked most,
+  and edges darkening as the litter creeps in. A fine bumpy grain of little pebbles lies over it in world space
+  and catches the flashlight (HDRP's detail map on the second UV set).
+- **Verges:** grass lines both sides of every worn trail, thickest right at the edge, about 3 clumps a metre
+  each side, with the odd taller clump. The rims of the lamp patches get short grass only.
+  `WorldGenConfig` > Trails > `trailVergeGrass`, `trailVergeTallGrass`. This applies to new worlds.
+- **Your own trail material:** if you set one in `WorldArtConfig`, it's used on the same surface: U is the
+  distance from the middle line (0.5 on it, 0 at the edge of the fade), V runs over the ground, and UV1 is the
+  ground position.
 
 ## HUD
 

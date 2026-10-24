@@ -71,6 +71,21 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>
+        /// Lay HDRP's detail map over a lit material (fine grain and bumps), read from the mesh's UV set
+        /// <paramref name="uvSet"/> (0-3) so it can run in a different space to the main texture.
+        /// </summary>
+        public static void SetDetail(Material m, Texture2D detail, int uvSet, float normalScale)
+        {
+            m.SetTexture("_DetailMap", detail);
+            m.SetFloat("_UVDetail", uvSet);
+            m.SetVector("_UVDetailsMappingMask", new Vector4(uvSet == 0 ? 1f : 0f, uvSet == 1 ? 1f : 0f, uvSet == 2 ? 1f : 0f, uvSet == 3 ? 1f : 0f));
+            m.SetFloat("_DetailAlbedoScale", 1f);
+            m.SetFloat("_DetailNormalScale", normalScale);
+            m.SetFloat("_DetailSmoothnessScale", 1f);
+            HDMaterial.ValidateMaterial(m);
+        }
+
         /// <summary>A lit material that also glows (a lamp's glass).</summary>
         public static Material LitGlow(string name, Color color, Color glow)
         {

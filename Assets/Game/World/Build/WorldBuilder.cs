@@ -118,9 +118,12 @@ namespace Game.World.Build
             else
             {
                 // Packed earth that fades out at the sides into the litter, rather than stopping at a hard edge.
-                var trailTex = GroundTexture.Trail(seed);
+                var trailTex = GroundTexture.Trail(seed, TerrainBuilder.TrailSolidShare(settings.trailWidth));
+                var grain = GroundTexture.TrailDetail(seed);
                 made.Add(trailTex);
-                made.Add(trail = RuntimeMaterials.LitBlended("Trail", Color.white, 0.12f, trailTex));
+                made.Add(grain);
+                made.Add(trail = RuntimeMaterials.LitBlended("Trail", Color.white, 0.18f, trailTex));
+                RuntimeMaterials.SetDetail(trail, grain, 1, 1.3f);
             }
             if (art != null && art.water != null) water = fixer.Fix(art.water);
             else made.Add(water = RuntimeMaterials.Lit("Water", new Color(0.015f, 0.02f, 0.025f), 0.95f));

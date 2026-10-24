@@ -81,6 +81,10 @@ namespace Game.World.Generation
         public float lampPatchRadius = 2.8f;
         [Range(0f, 1f), Tooltip("Share of a trail that's worn (the rest peters out).")]
         public float trailWorn = 0.75f;
+        [Range(0f, 10f), Tooltip("Grass clumps lining each side of a worn trail (and round the lamps' patches), per metre.")]
+        public float trailVergeGrass = 3f;
+        [Range(0f, 2f), Tooltip("Tall grass clumps along each side, per metre.")]
+        public float trailVergeTallGrass = 0.3f;
 
         [Header("Vegetation")]
         public int trees = 2800;

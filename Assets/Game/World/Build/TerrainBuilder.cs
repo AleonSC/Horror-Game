@@ -7,7 +7,7 @@ namespace Game.World.Build
 {
     /// <summary>
     /// The ground as 32 m chunks (1 m between vertices, normals from the heightfield so chunks meet without a
-    /// seam), each with its collider and the worn stretches of trail on it; and the ponds' water.
+    /// seam), each with its collider and the trodden earth of the trails and lamp patches on it; and the ponds' water.
     /// </summary>
     public static class TerrainBuilder
     {
@@ -36,10 +36,9 @@ namespace Game.World.Build
                 go.AddComponent<MeshRenderer>().sharedMaterial = ground;
                 go.AddComponent<MeshCollider>().sharedMesh = mesh;
 
-                var parts = trailParts[cz * across + cx];
-                if (parts != null && parts.VertexCount > 0)
+                var trailMesh = trailParts[cz * across + cx];
+                if (trailMesh != null)
                 {
-                    var trailMesh = parts.ToMesh($"Trail {cx},{cz}");
                     made.Add(trailMesh);
                     var t = new GameObject("Trail") { layer = Layers.Ground };
                     t.transform.SetParent(go.transform, false);
@@ -84,114 +83,170 @@ namespace Game.World.Build
             return mesh;
         }
 
-        // How much wider than the trail (and its lamps' patches) the earth is drawn: it fades out over the extra.
-        const float FadeWider = 1.6f, PatchWider = 1.35f;
-        // Along a trail, the earth's texture repeats every this many metres.
+        // The trails' earth is drawn out to this far past a trail's edge, fading out over the last of it.
+        public const float TrailFade = 0.4f;
+        // ...solid to this far inside the edge.
+        public const float TrailSolidInside = 0.15f;
+        // The overlay's grid spacing (metres): fine enough to follow the edges.
+        const float TrailStep = 0.25f;
+        // The earth's texture repeats every this many metres.
         const float TrailRepeat = 3f;
 
-        // Each worn stretch of trail as a ribbon of packed earth just above the ground, cut up by chunk; U runs
-        // across it (its sides fade out), V along it.
-        static MeshBuilder[] SplitTrails(WorldPlan plan, int across)
+        /// <summary>The trails' earth: from the centre (0) to the edge of the fade (1), the share where it's solid.</summary>
+        public static float TrailSolidShare(float trailWidth) => Mathf.Clamp01((trailWidth * 0.5f - TrailSolidInside) / (trailWidth * 0.5f + TrailFade));
+
+        // All the worn trails and the lamps' patches as one surface per chunk, so where trails meet, cross or run
+        // into a patch they join up as one: a fine grid over the chunk, each point knowing how far it is from the
+        // nearest trail (or patch edge), with a little noise so the edges wander. U is that distance (0.5 on the
+        // middle line, 0 at the edge of the fade: the texture's alpha); V runs over the ground; UV1 is the ground
+        // itself (for the fine grain). Only the cells with earth in them are kept.
+        static Mesh[] SplitTrails(WorldPlan plan, int across)
         {
-            var parts = new MeshBuilder[across * across];
-            foreach (var trail in plan.Trails)
+            var meshes = new Mesh[across * across];
+            if (plan.Trails.Count == 0 && plan.Patches.Count == 0) return meshes;
+            float half = plan.Trails.Count > 0 ? plan.Trails[0].Width * 0.5f : 0.7f;
+            float outer = half + TrailFade;
+            int n = Mathf.RoundToInt(ChunkSize / TrailStep);
+            int stride = n + 1;
+            var dist = new float[across * across][];
+            float[] Field(int cx, int cz)
             {
-                float half = trail.Width * 0.5f * FadeWider;
-                float along = 0f;
+                cx = ((cx % across) + across) % across;
+                cz = ((cz % across) + across) % across;
+                int i = cz * across + cx;
+                if (dist[i] == null)
+                {
+                    dist[i] = new float[stride * stride];
+                    for (int k = 0; k < dist[i].Length; k++) dist[i][k] = float.MaxValue;
+                }
+                return dist[i];
+            }
+            // Stamp a shape's distance into every chunk its reach overlaps (unwrapped: a chunk index past the
+            // map's edge is the chunk on the other side).
+            void Stamp(Vector2 min, Vector2 max, System.Func<Vector2, float> distanceAt)
+            {
+                min -= Vector2.one * outer;
+                max += Vector2.one * outer;
+                for (int cz = Mathf.FloorToInt(min.y / ChunkSize); cz <= Mathf.FloorToInt(max.y / ChunkSize); cz++)
+                for (int cx = Mathf.FloorToInt(min.x / ChunkSize); cx <= Mathf.FloorToInt(max.x / ChunkSize); cx++)
+                {
+                    var field = Field(cx, cz);
+                    var origin = new Vector2(cx * ChunkSize, cz * ChunkSize);
+                    int x0 = Mathf.Clamp(Mathf.FloorToInt((min.x - origin.x) / TrailStep), 0, n), x1 = Mathf.Clamp(Mathf.CeilToInt((max.x - origin.x) / TrailStep), 0, n);
+                    int z0 = Mathf.Clamp(Mathf.FloorToInt((min.y - origin.y) / TrailStep), 0, n), z1 = Mathf.Clamp(Mathf.CeilToInt((max.y - origin.y) / TrailStep), 0, n);
+                    for (int z = z0; z <= z1; z++)
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        float d = distanceAt(origin + new Vector2(x * TrailStep, z * TrailStep));
+                        int k = z * stride + x;
+                        if (d < field[k]) field[k] = d;
+                    }
+                }
+            }
+
+            foreach (var trail in plan.Trails)
                 for (int i = 0; i < trail.Points.Count - 1; i++)
                 {
+                    if (!trail.Worn[i] || !trail.Worn[i + 1]) continue;
                     Vector2 a = trail.Points[i];
                     Vector2 b = a + Wrap.Delta(a, trail.Points[i + 1], plan.Size);
-                    float v0 = along / TrailRepeat, v1 = (along += (b - a).magnitude) / TrailRepeat;
-                    if (!trail.Worn[i] || !trail.Worn[i + 1]) continue;
-                    Vector2 mid = Wrap.Into((a + b) * 0.5f, plan.Size);
-                    int cx = Mathf.Clamp(Mathf.FloorToInt(mid.x / ChunkSize), 0, across - 1);
-                    int cz = Mathf.Clamp(Mathf.FloorToInt(mid.y / ChunkSize), 0, across - 1);
-                    var origin = new Vector2(cx * ChunkSize, cz * ChunkSize);
-                    // Local to the chunk, the short way round (so a stretch over the map's edge stays whole).
-                    Vector2 la = Wrap.Delta(origin, a, plan.Size), lb = la + (b - a);
-                    Vector2 dir = (lb - la).sqrMagnitude > 1e-4f ? (lb - la).normalized : Vector2.right;
-                    Vector2 side = new Vector2(-dir.y, dir.x) * half;
-                    var p = parts[cz * across + cx] ??= new MeshBuilder();
-                    // In two halves across (a vertex down the middle too, so it follows the ground's camber).
-                    int q0 = p.AddVertex(Lift(plan, origin, la - side), new Vector2(0f, v0));
-                    int q1 = p.AddVertex(Lift(plan, origin, la), new Vector2(0.5f, v0));
-                    int q2 = p.AddVertex(Lift(plan, origin, la + side), new Vector2(1f, v0));
-                    int q3 = p.AddVertex(Lift(plan, origin, lb - side), new Vector2(0f, v1));
-                    int q4 = p.AddVertex(Lift(plan, origin, lb), new Vector2(0.5f, v1));
-                    int q5 = p.AddVertex(Lift(plan, origin, lb + side), new Vector2(1f, v1));
-                    // Face up whichever way the stretch runs.
-                    bool up = Vector3.Cross(Lift(plan, origin, lb - side) - Lift(plan, origin, la - side), Lift(plan, origin, la + side) - Lift(plan, origin, la - side)).y > 0f;
-                    Quad(p, q0, q1, q3, q4, up);
-                    Quad(p, q1, q2, q4, q5, up);
+                    Stamp(Vector2.Min(a, b), Vector2.Max(a, b), p => Segment(p, a, b) - half);
                 }
-            }
-            // The lamps' patches: a ragged disc each, in rings so it follows the ground, fading out at its rim (U
-            // runs from the middle, 0.5, out to the rim, 0, so it shares the trails' texture; V round it).
+            // A patch: inside its ragged edge counts as on a trail (its edge where a trail's would be).
             foreach (var patch in plan.Patches)
             {
-                const int segments = 32, rings = 6;
-                int cx = Mathf.Clamp(Mathf.FloorToInt(patch.Centre.x / ChunkSize), 0, across - 1);
-                int cz = Mathf.Clamp(Mathf.FloorToInt(patch.Centre.y / ChunkSize), 0, across - 1);
+                Vector2 c = patch.Centre;
+                float reach = patch.Radius * 1.25f;
+                Stamp(c - Vector2.one * reach, c + Vector2.one * reach, p =>
+                {
+                    Vector2 d = p - c;
+                    return d.magnitude - patch.RadiusAt(Mathf.Atan2(d.y, d.x));
+                });
+            }
+
+            int edgeSeed = plan.Seed * 13 + 5;
+            int fine = Mathf.Max(1, Mathf.RoundToInt(plan.Size / 0.8f)), coarse = Mathf.Max(1, Mathf.RoundToInt(plan.Size / 3f));
+            for (int c = 0; c < dist.Length; c++)
+            {
+                var field = dist[c];
+                if (field == null) continue;
+                int cx = c % across, cz = c / across;
                 var origin = new Vector2(cx * ChunkSize, cz * ChunkSize);
-                Vector2 c = Wrap.Delta(origin, patch.Centre, plan.Size);
-                var p = parts[cz * across + cx] ??= new MeshBuilder();
-                int centre = p.AddVertex(Lift(plan, origin, c, 0.035f), new Vector2(0.5f, 0f));
-                int first = -1;
-                const int ring = segments + 1; // (the first point again at the end, so V can run on round)
-                float round = patch.Radius * PatchWider * Mathf.PI * 2f / TrailRepeat;
-                for (int r = 1; r <= rings; r++)
+                // Signed distance from the trail's edge, plus wander: 0 at the edge, -half on the middle line.
+                var edge = new float[field.Length];
+                for (int z = 0; z <= n; z++)
+                for (int x = 0; x <= n; x++)
                 {
-                    for (int i = 0; i <= segments; i++)
-                    {
-                        float a = i / (float)segments * Mathf.PI * 2f;
-                        float f = r / (float)rings;
-                        Vector2 at = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * patch.RadiusAt(a) * PatchWider * f;
-                        int v = p.AddVertex(Lift(plan, origin, at, 0.035f), new Vector2(0.5f - 0.5f * f, i / (float)segments * round));
-                        if (r == 1 && i == 0) first = v;
-                    }
+                    int k = z * stride + x;
+                    if (field[k] > TrailFade + 0.5f) { edge[k] = float.MaxValue; continue; }
+                    float wx = origin.x + x * TrailStep, wz = origin.y + z * TrailStep;
+                    float wander = (PeriodicNoise.Sample(wx, wz, plan.Size, coarse, edgeSeed) - 0.5f) * 0.45f
+                                 + (PeriodicNoise.Sample(wx, wz, plan.Size, fine, edgeSeed + 1) - 0.5f) * 0.2f;
+                    edge[k] = field[k] + wander;
                 }
-                // (Clockwise seen from above: Unity's front faces.)
-                for (int i = 0; i < segments; i++) p.AddTriangle(centre, first + i + 1, first + i);
-                for (int r = 1; r < rings; r++)
+                var verts = new List<Vector3>();
+                var uv0 = new List<Vector2>();
+                var uv1 = new List<Vector2>();
+                var tris = new List<int>();
+                var index = new int[field.Length];
+                for (int k = 0; k < index.Length; k++) index[k] = -1;
+                int Vertex(int x, int z)
                 {
-                    int inner = first + (r - 1) * ring, outer = first + r * ring;
-                    for (int i = 0; i < segments; i++)
-                    {
-                        int j = i + 1;
-                        p.AddTriangle(inner + i, inner + j, outer + i);
-                        p.AddTriangle(inner + j, outer + j, outer + i);
-                    }
+                    int k = z * stride + x;
+                    if (index[k] >= 0) return index[k];
+                    float lx = x * TrailStep, lz = z * TrailStep;
+                    float wx = origin.x + lx, wz = origin.y + lz;
+                    float d = Mathf.Max(0f, edge[k] + half) / outer; // 0 on the middle line, 1 at the edge of the fade
+                    index[k] = verts.Count;
+                    verts.Add(new Vector3(lx, GroundAt(plan, wx, wz) + 0.025f, lz));
+                    uv0.Add(new Vector2(0.5f - 0.5f * Mathf.Clamp01(d), (wx * 0.83f + wz * 0.56f) / TrailRepeat));
+                    uv1.Add(new Vector2(wx, wz) / 1.6f);
+                    return index[k];
                 }
+                for (int z = 0; z < n; z++)
+                for (int x = 0; x < n; x++)
+                {
+                    int k = z * stride + x;
+                    float near = Mathf.Min(Mathf.Min(edge[k], edge[k + 1]), Mathf.Min(edge[k + stride], edge[k + stride + 1]));
+                    if (near >= TrailFade) continue; // (no earth in this cell)
+                    int a = Vertex(x, z), b = Vertex(x + 1, z), cc = Vertex(x, z + 1), d = Vertex(x + 1, z + 1);
+                    // (The same split as the ground's own triangles, clockwise from above.)
+                    tris.Add(a); tris.Add(cc); tris.Add(b);
+                    tris.Add(b); tris.Add(cc); tris.Add(d);
+                }
+                if (tris.Count == 0) continue;
+                var mesh = new Mesh { name = $"Trail {cx},{cz}" };
+                if (verts.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                mesh.SetVertices(verts);
+                mesh.SetUVs(0, uv0);
+                mesh.SetUVs(1, uv1);
+                mesh.SetTriangles(tris, 0);
+                mesh.RecalculateNormals();
+                mesh.RecalculateTangents();
+                mesh.RecalculateBounds();
+                meshes[c] = mesh;
             }
-            return parts;
+            return meshes;
         }
 
-        // Two triangles, a b along one side and c d along the other, facing up.
-        static void Quad(MeshBuilder p, int a, int b, int c, int d, bool up)
+        static float Segment(Vector2 p, Vector2 a, Vector2 b)
         {
-            if (up)
-            {
-                p.AddTriangle(a, c, b);
-                p.AddTriangle(b, c, d);
-            }
-            else
-            {
-                p.AddTriangle(a, b, c);
-                p.AddTriangle(b, d, c);
-            }
+            Vector2 d = b - a;
+            float t = d.sqrMagnitude > 1e-6f ? Mathf.Clamp01(Vector2.Dot(p - a, d) / d.sqrMagnitude) : 0f;
+            return (p - (a + d * t)).magnitude;
         }
 
-        static Vector3 Lift(WorldPlan plan, Vector2 origin, Vector2 local, float above)
+        // The ground's height here as its mesh has it (straight between the 1 m vertices, split the same way), so
+        // the trails lie just on it rather than dipping under it between vertices.
+        static float GroundAt(WorldPlan plan, float wx, float wz)
         {
-            Vector2 w = origin + local;
-            return new Vector3(local.x, plan.Height.Sample(w.x, w.y) + above, local.y);
-        }
-
-        static Vector3 Lift(WorldPlan plan, Vector2 origin, Vector2 local)
-        {
-            Vector2 w = origin + local;
-            return new Vector3(local.x, plan.Height.Sample(w.x, w.y) + 0.03f, local.y);
+            float x0 = Mathf.Floor(wx), z0 = Mathf.Floor(wz);
+            float fx = wx - x0, fz = wz - z0;
+            var h = plan.Height;
+            float h00 = h.Sample(x0, z0), h10 = h.Sample(x0 + 1f, z0), h01 = h.Sample(x0, z0 + 1f), h11 = h.Sample(x0 + 1f, z0 + 1f);
+            // Triangles (0,0)-(0,1)-(1,0) and (1,0)-(0,1)-(1,1): the diagonal runs from (1,0) to (0,1).
+            if (fx + fz <= 1f) return h00 + (h10 - h00) * fx + (h01 - h00) * fz;
+            return h11 + (h01 - h11) * (1f - fx) + (h10 - h11) * (1f - fz);
         }
 
         /// <summary>A pond's water: a disc at its level, a little wider than the pond so its edge is under the bank.</summary>
