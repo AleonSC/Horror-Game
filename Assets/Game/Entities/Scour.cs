@@ -117,6 +117,8 @@ namespace Game.Entities
         {
             if (portal != null) portal.Close();
             portal = null;
+            if (pit != null) pit.Close();
+            pit = null;
             body.SetVisible(false);
             body.ShutMouth();
             body.SetPose(ScourPose.Neutral, 1, true);
@@ -451,26 +453,40 @@ namespace Game.Entities
             if (c >= 1f) Dispel();
         }
 
-        // Driven off: it comes apart the way it came, shrinking into a smear and dissipating. The light pays for it.
+        // Driven off: a black hole opens on the ground under it and it falls in. The light pays for it.
+        GroundPortal pit;
+        float sinkFrom;
+
         void Dispel()
         {
             if (player.Flashlight != null) player.Flashlight.Battery.Spend(s.dismissCost);
             body.ShutMouth();
-            Play(Sound.Appear, 0.9f, 0.75f, 35f);
+            sinkFrom = transform.position.y;
+            pit = GroundPortal.Create(new Vector3(transform.position.x, PlayerSense.GroundHeight(transform.position), transform.position.z), 0.9f * growth * (s.height / 2.4f));
+            Play(Sound.Portal, 1f, 0.8f, 35f);
             SetState(ScourState.Retreating, "driven off");
         }
 
         void UpdateRetreating()
         {
-            const float settle = 0.3f; // (the crescendo's shudder dies away first)
+            const float settle = 0.35f; // (the crescendo's shudder dies away as the hole opens)
             timer += Time.deltaTime;
-            float time = Mathf.Max(0.1f, s.dissipateTime);
+            float time = Mathf.Max(0.1f, s.sinkTime);
             float t = Mathf.Clamp01((timer - settle) / time);
-            if (timer < settle) body.Shudder(Mathf.Lerp(s.crescendoVibration, s.vibration, timer / settle), 1f - timer / settle);
-            else body.SetMaterialize(1f - t); // (the appearing, backwards)
+            body.Shudder(Mathf.Lerp(s.crescendoVibration, s.vibration, Mathf.Clamp01(timer / settle)) * (1f - t), 0f);
+            // It drops into the hole: slow to give, then gone.
+            float drop = t * t * t;
+            var p = transform.position;
+            p.y = sinkFrom - drop * s.height * growth * 1.15f;
+            transform.position = p;
             body.SetEyes(Mathf.Lerp(3f, 0.3f, t), s.spawnEyeGlow * (1f - t), 1f - t * 0.5f, 0f, s.eyeLight * (1f - t), s.eyeLightRange);
             player.AddShake(s.cameraShake * 0.5f * (1f - Mathf.Clamp01(timer / settle)));
-            if (t >= 1f) Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
+            if (t >= 1f)
+            {
+                if (pit != null) pit.Close();
+                pit = null;
+                Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
+            }
         }
 
         // ------------------------------------------------------------------ Provoked

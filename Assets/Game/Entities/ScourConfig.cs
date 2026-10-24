@@ -84,8 +84,8 @@ namespace Game.Entities
         [Range(0f, 1f), Tooltip("Each lamp lit makes the crescendo this much quicker (0.15 = 15%).")]
         public float crescendoSpeedupPerLamp = 0.15f;
         [Range(0.1f, 5f)] public float minCrescendoTime = 0.8f;
-        [Range(0.1f, 5f), Tooltip("Driven off, it shrinks and dissipates (its appearing, backwards) over this many seconds.")]
-        public float dissipateTime = 1.2f;
+        [Range(0.1f, 5f), Tooltip("Driven off, a black hole opens under it and it falls in, over this many seconds.")]
+        public float sinkTime = 1.1f;
         [Range(0f, 1f), Tooltip("Share of the battery it costs to drive one off.")]
         public float dismissCost = 0.1f;
 
