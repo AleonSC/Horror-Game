@@ -61,12 +61,13 @@ namespace Game.World
         {
             var lightGo = new GameObject("Glow");
             lightGo.transform.SetParent(transform, false);
-            lightGo.transform.localPosition = Vector3.up * 0.3f;
-            lightGo.AddHDLight(LightType.Point);
+            lightGo.transform.localPosition = Vector3.up * 0.15f;
+            var data = lightGo.AddHDLight(LightType.Point);
+            data.volumetricDimmer = 0f; // (no glowing ball in the mist: just a faint gleam on the ground)
             glow = lightGo.GetComponent<Light>();
             glow.shadows = LightShadows.None;
             glow.color = s.batteryGlow;
-            glow.range = 2.5f;
+            glow.range = s.batteryGlowRange;
             glowStrength = s.batteryGlowStrength;
             phase = Random.value * 10f;
         }

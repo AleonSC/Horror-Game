@@ -21,10 +21,10 @@ MonoBehaviour:
     beamAngle: 31
     edgeFeather: 0
     shadows: 1
-    fogGlow: 0.22
+    fogGlow: 0.08
     spillStrength: 0.08
     spillAngle: 85
-    spillFogGlow: 0.3
+    spillFogGlow: 0.2
     bounceStrength: 0.25
     bounceDistance: 12
     bounceRange: 7

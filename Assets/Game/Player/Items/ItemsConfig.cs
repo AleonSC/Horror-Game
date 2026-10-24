@@ -83,8 +83,10 @@ namespace Game.Player
         [Range(0f, 1f), Tooltip("How much one battery recharges the flashlight.")]
         public float batteryCharge = 0.1f;
         public Color batteryGlow = new Color(0.25f, 1f, 0.35f);
-        [Range(0f, 10f), Tooltip("How bright the pulsing green light on a battery lying in the forest is.")]
-        public float batteryGlowStrength = 1.2f;
+        [Range(0f, 2f), Tooltip("How bright the pulsing green light on a battery lying in the forest is.")]
+        public float batteryGlowStrength = 0.12f;
+        [Range(0.2f, 5f), Tooltip("How far that light reaches (metres).")]
+        public float batteryGlowRange = 1.5f;
 
         [Header("Torch")]
         [Range(10f, 600f), Tooltip("Seconds a torch burns.")]
