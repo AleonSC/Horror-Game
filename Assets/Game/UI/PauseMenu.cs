@@ -124,7 +124,7 @@ namespace Game.UI
             var keys = UiStyle.KeyHints(scroll, 12,
                 ("W A S D", "Move"), ("Shift", "Run"), ("Ctrl/C", "Crouch"), ("Space", "Jump"),
                 ("LMB", "Use, crank, take"), ("E", "Doors"), ("F", "Use what you hold"), ("1-8", "Pick an item"),
-                ("G", "Drop it"), ("Tab", "Inventory"), ("Y", "Sit"), ("Esc", "Pause"));
+                ("G", "Drop it"), ("Tab", "Inventory"), ("Y", "Sit, move seat"), ("E", "Get out"), ("RMB", "Fob: car alarm"), ("Esc", "Pause"));
             keys.style.marginTop = 8;
             keys.style.marginBottom = 6;
 
