@@ -88,6 +88,36 @@ namespace Game.Rendering
             m.SetColor("_UnlitColor", c);
         }
 
+        /// <summary>
+        /// A silhouette that darkens what's behind it instead of covering it (transparent, fog off, black): something
+        /// vast and far away (the giant, the flier, a tornado). Behind it is the fog, so it reads the same as a hazed
+        /// colour; but the fog in front, lit by the flashlight, is behind it on screen too, so the beam's glow still
+        /// shows through instead of being cut out. The depth prepass keeps its own parts from darkening each other.
+        /// Set how dark with <see cref="SetSilhouetteShade"/>.
+        /// </summary>
+        public static Material Silhouette(string name)
+        {
+            var m = Unlit(name, new Color(0f, 0f, 0f, 0.5f), true);
+            HDMaterial.SetSurfaceType(m, true);
+            m.SetFloat("_EnableFogOnTransparent", 0f);
+            m.SetFloat("_TransparentDepthPrepassEnable", 1f);
+            HDMaterial.ValidateMaterial(m);
+            return m;
+        }
+
+        /// <summary>What's behind it is kept by <paramref name="shade"/>: 0 black, 1 not there (the fog colour times this).</summary>
+        public static void SetSilhouetteShade(Material m, float shade)
+        {
+            if (m != null) m.SetColor("_UnlitColor", new Color(0f, 0f, 0f, 1f - Mathf.Clamp01(shade)));
+        }
+
+        /// <summary>Draw this transparent material after others at the same spot (higher: later).</summary>
+        public static void DrawAfter(Material m, int priority)
+        {
+            m.SetFloat("_TransparentSortPriority", priority);
+            HDMaterial.ValidateMaterial(m);
+        }
+
         public static void SetGlow(Material m, Color glow)
         {
             if (m != null) m.SetColor("_EmissiveColor", glow);

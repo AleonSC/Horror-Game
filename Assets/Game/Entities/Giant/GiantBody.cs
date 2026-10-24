@@ -26,7 +26,7 @@ namespace Game.Entities
             var go = new GameObject("Giant body") { layer = Game.Core.Layers.Effects };
             go.transform.SetParent(parent, false);
             var body = go.AddComponent<GiantBody>();
-            body.haze = RuntimeMaterials.Haze("Giant", Color.black);
+            body.haze = RuntimeMaterials.Silhouette("Giant");
             if (config.customModel != null) body.UseYours(config.customModel);
             else body.BuildBuiltIn();
             return body;
@@ -90,7 +90,7 @@ namespace Game.Entities
         }
 
         /// <summary>The fog's colour (as the look shows it) taken by this much: it stays a silhouette, just hazed.</summary>
-        public void SetHaze(Color hazeColor) => RuntimeMaterials.SetHazeColor(haze, hazeColor);
+        public void SetShade(float shade) => RuntimeMaterials.SetSilhouetteShade(haze, shade);
 
         /// <summary>Hanging from the chain: <paramref name="sway"/> -1..1 swings the limbs a little.</summary>
         public void PoseHanging(float sway)

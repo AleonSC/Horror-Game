@@ -153,12 +153,10 @@ namespace Game.World
                     tornadoes.Add(Tornado.Create(transform, Random.Range(0f, 360f), s.tornadoDistance * Random.Range(0.8f, 1.3f), s.tornadoHeight * Random.Range(0.8f, 1.2f), i));
             if (tornadoSound != null) tornadoSound.volume = Mathf.Lerp(tornadoSound.volume, tornadoes.Count > 0 && outside ? 0.35f : 0f, 1f - Mathf.Exp(-0.5f * dt));
             if (cam == null || look == null) return;
-            var ls = look.Config.settings;
-            Color hazed = Color.Lerp(ls.fogColor, look.FogTint, look.FogTintAmount).linear / mul * 0.6f;
             foreach (var t in tornadoes)
             {
                 t.gameObject.SetActive(outside);
-                if (outside) t.Tick(cam.transform.position, hazed, dt);
+                if (outside) t.Tick(cam.transform.position, 0.6f, dt);
             }
         }
 

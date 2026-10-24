@@ -81,10 +81,12 @@ namespace Game.Entities
             bodyRoot = new GameObject("Giant (drawn)").transform;
             bodyRoot.SetParent(transform, false);
             body = GiantBody.Create(bodyRoot, config);
-            chainMat = RuntimeMaterials.Haze("Giant chain", Color.black);
+            chainMat = RuntimeMaterials.Silhouette("Giant chain");
             chain = Bar("Chain", chainMat);
             eyeMat = RuntimeMaterials.Haze("The eye", Color.red);
             pupilMat = RuntimeMaterials.Haze("The eye's pupil", Color.black);
+            RuntimeMaterials.DrawAfter(eyeMat, 1);  // (over the body, which darkens what's behind it)
+            RuntimeMaterials.DrawAfter(pupilMat, 2);
             eye = Ball("The eye", eyeMat);
             pupil = Ball("Pupil", pupilMat);
             pupil.SetParent(eye, false);
@@ -411,14 +413,13 @@ namespace Game.Entities
             }
             bodyRoot.localScale = Vector3.one * s.height * k;
 
-            // The haze: the fog's colour (as it shows on screen), taken by s.haze.
+            // The haze: it keeps s.haze of the fog behind it (the eye glows over the top).
             if (Services.TryGet<LookController>(out var look))
             {
                 var ls = look.Config.settings;
                 float mul = LookController.ExposureMultiplier(ls.exposure);
-                Color fog = Color.Lerp(ls.fogColor, look.FogTint, look.FogTintAmount).linear / mul;
-                body.SetHaze(fog * s.haze);
-                RuntimeMaterials.SetHazeColor(chainMat, fog * (s.haze * 0.8f));
+                body.SetShade(s.haze);
+                RuntimeMaterials.SetSilhouetteShade(chainMat, s.haze * 0.8f);
                 RuntimeMaterials.SetHazeColor(eyeMat, s.eyeColor.linear * s.eyeGlow / mul);
                 RuntimeMaterials.SetHazeColor(pupilMat, Color.black);
             }

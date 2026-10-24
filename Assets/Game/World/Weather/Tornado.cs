@@ -32,7 +32,7 @@ namespace Game.World
 
         void Build()
         {
-            haze = RuntimeMaterials.Haze("Tornado", Color.black);
+            haze = RuntimeMaterials.Silhouette("Tornado");
             for (int i = 0; i < Segments; i++)
             {
                 var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -51,10 +51,10 @@ namespace Game.World
             if (haze != null) Destroy(haze);
         }
 
-        /// <summary>Place and animate it round the viewer, coloured with the hazed fog.</summary>
-        public void Tick(Vector3 viewer, Color hazed, float dt)
+        /// <summary>Place and animate it round the viewer; <paramref name="shade"/>: how much of the fog behind it shows.</summary>
+        public void Tick(Vector3 viewer, float shade, float dt)
         {
-            RuntimeMaterials.SetHazeColor(haze, hazed);
+            RuntimeMaterials.SetSilhouetteShade(haze, shade);
             spin += dt;
             bearing += drift * dt * 0.15f;
             float a = bearing * Mathf.Deg2Rad;

@@ -21,7 +21,7 @@ namespace Game.Entities
             var go = new GameObject("Flier body") { layer = Game.Core.Layers.Effects };
             go.transform.SetParent(parent, false);
             var b = go.AddComponent<FlierBody>();
-            b.skin = RuntimeMaterials.Haze("Flier", Color.black);
+            b.skin = RuntimeMaterials.Silhouette("Flier");
             if (config.customModel != null) b.UseYours(config.customModel);
             else b.Build();
             return b;
@@ -32,7 +32,7 @@ namespace Game.Entities
             if (skin != null) Destroy(skin);
         }
 
-        public void SetColor(Color c) => RuntimeMaterials.SetHazeColor(skin, c);
+        public void SetShade(float shade) => RuntimeMaterials.SetSilhouetteShade(skin, shade);
 
         void UseYours(GameObject prefab)
         {

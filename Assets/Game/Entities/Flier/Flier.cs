@@ -344,11 +344,8 @@ namespace Game.Entities
         // A silhouette that darkens as it nears (the haze keeps the fog from hiding it).
         void UpdateLook()
         {
-            if (!Services.TryGet<Game.Rendering.LookController>(out var look)) return;
-            var ls = look.Config.settings;
-            float mul = Game.Rendering.LookController.ExposureMultiplier(ls.exposure);
             float far = Mathf.Clamp01(DistanceToPlayer / 200f);
-            body.SetColor(ls.fogColor.linear / mul * Mathf.Lerp(0.05f, 0.6f, far));
+            body.SetShade(Mathf.Lerp(0.05f, 0.6f, far));
         }
 
         void SetState(FlierState next)
