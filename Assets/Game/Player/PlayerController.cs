@@ -25,7 +25,8 @@ namespace Game.Player
         float height;
         float bobPhase;
         float shake;
-        float groggy;
+        float groggy, groggyFull = 1f;
+        bool blurred;
         float nextPant;
         Vector3 gazeTarget;
         float gazeLeft, gazeTime;
@@ -115,6 +116,7 @@ namespace Game.Player
             bool keysTaken = ui != null && ui.KeysTaken;
             shake = Mathf.MoveTowards(shake, 0f, dt * Mathf.Max(2f, shake * 3f));
             groggy = Mathf.Max(0f, groggy - dt);
+            UpdateBlur(s);
 
             if (Held || !GameFlow.IsPlaying)
             {
@@ -159,7 +161,7 @@ namespace Game.Player
             if (shake > 0f) wobble += Random.insideUnitSphere * shake;
             if (groggy > 0f)
             {
-                float g = groggy / Mathf.Max(0.01f, s.groggyTime);
+                float g = Groggy;
                 float t = Time.time;
                 wobble += new Vector3(Mathf.Sin(t * 0.9f) * 3f, Mathf.Sin(t * 0.7f + 1f) * 4f, Mathf.Sin(t * 0.5f) * 5f) * g;
             }
@@ -231,7 +233,7 @@ namespace Game.Player
         void Look(PlayerSettings s)
         {
             float sensitivity = Services.TryGet<PlayerPreferences>(out var prefs) ? prefs.mouseSensitivity : 1f;
-            Vector2 d = input.Look.ReadValue<Vector2>() * s.mouseSpeed * sensitivity;
+            Vector2 d = input.Look.ReadValue<Vector2>() * s.mouseSpeed * sensitivity * Mathf.Lerp(1f, s.groggyLook, Groggy);
             yaw += d.x;
             pitch = Mathf.Clamp(pitch - d.y, -85f, 85f);
             if (gazeLeft > 0f)
@@ -264,11 +266,11 @@ namespace Game.Player
             body.center = new Vector3(0f, height * 0.5f, 0f);
 
             int lamps = Services.TryGet<GameRun>(out var run) ? run.LampsLit : 0;
-            bool wantSprint = !keysTaken && input.Sprint.IsPressed() && !Crouching && move.y > 0.1f;
+            bool wantSprint = !keysTaken && input.Sprint.IsPressed() && !Crouching && move.y > 0.1f && Groggy < 0.3f; // (too groggy to run)
             Running = Stamina.Tick(dt, wantSprint, Moving, s, lamps);
 
             float speed = Crouching ? s.crouchSpeed : Running ? s.runSpeed : s.walkSpeed;
-            if (groggy > 0f) speed *= Mathf.Lerp(1f, s.groggySpeed, groggy / Mathf.Max(0.01f, s.groggyTime));
+            if (groggy > 0f) speed *= Mathf.Lerp(1f, s.groggySpeed, Groggy);
             if (Dream > 0f) speed *= Mathf.Lerp(1f, s.dreamSpeed, Dream);
             Wading = WaterAt != null && WaterAt(transform.position);
             if (Wading) speed *= WadeSpeed;
@@ -370,7 +372,26 @@ namespace Game.Player
             body.enabled = wasEnabled;
         }
 
-        public void StartGroggy() => groggy = config.settings.groggyTime;
+        public void StartGroggy() => StartGroggy(config.settings.groggyTime);
+
+        /// <summary>Groggy for this many seconds: slow, swaying, slow to look round, vision blurred; all wearing off.</summary>
+        public void StartGroggy(float seconds)
+        {
+            groggyFull = Mathf.Max(0.01f, seconds);
+            groggy = groggyFull;
+        }
+
+        /// <summary>How groggy, 1 just woken to 0 clear.</summary>
+        float Groggy => groggy > 0f ? groggy / groggyFull : 0f;
+
+        void UpdateBlur(PlayerSettings s)
+        {
+            if (!blurred && groggy <= 0f) return;
+            if (!Services.TryGet<Game.Rendering.LookController>(out var look)) return;
+            float g = Groggy;
+            look.Blur = s.groggyBlur * g * g * (3f - 2f * g); // (eases clear)
+            blurred = groggy > 0f;
+        }
 
         /// <summary>Where the run starts (and where you wake if you haven't lit a lamp yet).</summary>
         public void SetSpawn(Vector3 position, Quaternion facing)

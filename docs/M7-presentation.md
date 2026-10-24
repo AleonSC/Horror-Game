@@ -26,15 +26,16 @@ Press **Play** in the forest scene and you now get:
 2. **Main menu:** the title and **START / DIFFICULTY / QUIT** between black letterbox bars, over a slow film of
    the forest: treetops, a crane shot, the deer herd, an owl, low mist. Shots cut through black. Nothing hunts you
    here and the clock doesn't run.
-3. **START:** fade to black, the intro lines one at a time (red words, some lingering), then the forest fades in
-   around you and the run begins.
+3. **START:** fade to black and "Wake up" over black; then you wake in the forest, groggy (slow, swaying, slow to
+   look round, vision blurred and clearing over 5 seconds), and can move while the rest of the intro lines play.
 4. **Lamp narration:** lines low on the screen when you light the 2nd, 3rd, 5th (frantic: red and shaking) and
    7th lamps.
 
 The menu shows once per session; Restart goes straight back into the forest.
 
 **Settings** (`Assets/Config/UI/PresentationConfig.asset`): the title (empty uses the product name), whether the
-menu shows at all, seconds per film shot, the intro lines, how long each holds, and the lamp lines. Markup: in the
+menu shows at all, seconds per film shot, the intro lines, how long each holds, how many play over black before you wake, how long you're groggy, and the
+lamp lines. How slow and blurred groggy is: `PlayerConfig` (Waking up). Markup: in the
 intro `*word*` is red, `**word**` red and lingers, `***word***` lingers long; in lamp lines `"-word"` is red,
 other `"quoted"` words are italic, and `-WORD-` is one red word.
 

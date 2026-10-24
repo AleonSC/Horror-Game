@@ -27,6 +27,7 @@ namespace Game.Rendering
         Vignette vignette;
         FilmGrain grain;
         MotionBlur motionBlur;
+        DepthOfField blur;
         Light moon;
         HDAdditionalLightData moonData;
         GroundMist mist;
@@ -37,6 +38,8 @@ namespace Game.Rendering
         /// <summary>Something tinting the world (the giant's eye turns the fog red): the colour, and how much (0-1).</summary>
         public Color FogTint = Color.black;
         public float FogTintAmount;
+        /// <summary>Blurred vision (waking up groggy), 0-1: everything past arm's length soft, clearing outward as it falls.</summary>
+        public float Blur;
 
         /// <summary>What HDRP multiplies light by at this exposure (EV100). Screen colours are divided by it.</summary>
         public static float ExposureMultiplier(float ev100) => 1f / (1.2f * Mathf.Pow(2f, ev100));
@@ -109,6 +112,9 @@ namespace Game.Rendering
             vignette = profile.Add<Vignette>(true);
             grain = profile.Add<FilmGrain>(true);
             motionBlur = profile.Add<MotionBlur>(true);
+            blur = profile.Add<DepthOfField>(true);
+            blur.nearFocusStart.Override(0f);
+            blur.nearFocusEnd.Override(0f);
 
             var go = new GameObject("Look Volume");
             go.transform.SetParent(transform, false);
@@ -171,12 +177,20 @@ namespace Game.Rendering
             colorAdjustments.contrast.Override(s.contrast);
             colorAdjustments.saturation.Override(s.saturation);
             colorAdjustments.colorFilter.Override(s.colorFilter);
-            vignette.intensity.Override(s.vignette);
+            float b = Mathf.Clamp01(Blur);
+            vignette.intensity.Override(Mathf.Clamp01(s.vignette + 0.3f * b));
             grain.intensity.Override(s.grain);
             grain.type.Override(FilmGrainLookup.Medium3);
             // Motion blur is the player's choice (options), not part of the look.
             var prefs = Services.TryGet<PlayerPreferences>(out var p) ? p : null;
             motionBlur.intensity.Override(prefs != null && prefs.motionBlur ? prefs.motionBlurStrength : 0f);
+            // Blurred vision: the sharp distance pushes outward as it clears.
+            blur.focusMode.Override(b > 0.001f ? DepthOfFieldMode.Manual : DepthOfFieldMode.Off);
+            if (b > 0.001f)
+            {
+                blur.farFocusStart.Override(Mathf.Lerp(60f, 0.3f, b));
+                blur.farFocusEnd.Override(Mathf.Lerp(150f, 4f, b));
+            }
 
             moon.color = s.moonColor;
             moon.intensity = s.moonBrightness; // (lux: a directional light's own unit in HDRP)

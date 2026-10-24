@@ -90,11 +90,13 @@ namespace Game.UI
             showing = false;
         }
 
-        /// <summary>The intro, over black: each line fades in, holds (longer for **emphasis**), and fades out.</summary>
-        public IEnumerator Intro()
+        /// <summary>Intro lines <paramref name="from"/> up to (not including) <paramref name="to"/>: each fades in, holds
+        /// (longer for **emphasis**), and fades out.</summary>
+        public IEnumerator Intro(int from = 0, int to = int.MaxValue)
         {
-            foreach (var line in config.intro)
+            for (int i = Mathf.Max(0, from); i < Mathf.Min(to, config.intro.Length); i++)
             {
+                string line = config.intro[i];
                 float linger = line.Contains("***") ? 2.2f : line.Contains("**") ? 1.6f : 1f;
                 centre.text = NarrationText.Intro(line);
                 yield return Fade(centre, 0f, 1f, 0.8f, false, true);

@@ -207,12 +207,19 @@ namespace Game.UI
             flow?.Set(GamePhase.Intro);
             PlayerController.SetCursorCaptured(true);
 
-            if (Services.TryGet<Narration>(out var narration)) yield return narration.Intro();
+            // The first line(s) over black ("wake up"), then you wake in the forest, groggy, and can move while the
+            // rest are said.
+            Services.TryGet<Narration>(out var narration);
+            int wake = Mathf.Max(0, config.linesBeforeWaking);
+            if (narration != null) yield return narration.Intro(0, wake);
 
             flow?.Set(GamePhase.Playing);
-            for (float t = 0f; t < 2.5f && black != null; t += Time.unscaledDeltaTime)
+            if (Services.TryGet<PlayerController>(out var player)) player.StartGroggy(config.wakeGroggyTime);
+            if (narration != null) narration.StartCoroutine(narration.Intro(wake));
+            float fade = Mathf.Max(0.2f, config.wakeFadeTime);
+            for (float t = 0f; t < fade && black != null; t += Time.unscaledDeltaTime)
             {
-                black.style.opacity = 1f - Mathf.SmoothStep(0f, 1f, t / 2.5f);
+                black.style.opacity = 1f - Mathf.SmoothStep(0f, 1f, t / fade);
                 yield return null;
             }
             if (black != null) black.RemoveFromHierarchy();

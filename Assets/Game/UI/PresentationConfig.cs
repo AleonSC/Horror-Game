@@ -17,7 +17,7 @@ namespace Game.UI
         public float shotTime = 9f;
 
         [Header("Intro (after START)")]
-        [Tooltip("Shown one at a time over black. *word* is red; **word** is red and lingers; ***word*** lingers long.")]
+        [Tooltip("Shown one at a time (the first over black, the rest over the forest once you wake). *word* is red; **word** is red and lingers; ***word*** lingers long.")]
         [TextArea(1, 2)]
         public string[] intro =
         {
@@ -32,6 +32,12 @@ namespace Game.UI
         };
         [Range(0.5f, 10f), Tooltip("Seconds each line holds (plus its fades).")]
         public float lineTime = 2.2f;
+        [Range(0, 20), Tooltip("Lines shown over black before you wake in the forest; you can move during the rest.")]
+        public int linesBeforeWaking = 1;
+        [Range(0f, 15f), Tooltip("Seconds you wake groggy for: slow, swaying, blurred vision clearing.")]
+        public float wakeGroggyTime = 5f;
+        [Range(0.2f, 6f), Tooltip("Seconds for the forest to fade in when you wake.")]
+        public float wakeFadeTime = 2f;
 
         [Header("Lamp narration")]
         [Tooltip("Lines shown when that many lamps are lit. \"-word\" is red. Frantic: red, bold and shaking.")]
