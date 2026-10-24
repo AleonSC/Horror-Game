@@ -58,8 +58,10 @@ namespace Game.UI
         VisualElement Page()
         {
             var page = UiStyle.Fill(new VisualElement());
-            page.style.alignItems = Align.Center;
+            // (Lined up down the left side.)
+            page.style.alignItems = Align.FlexStart;
             page.style.justifyContent = Justify.Center;
+            page.style.paddingLeft = UiStyle.MenuLeft;
             page.style.display = DisplayStyle.None;
             root.Add(page);
             return page;
@@ -68,7 +70,7 @@ namespace Game.UI
         void BuildMain()
         {
             main = Page();
-            var title = UiStyle.Text(main, Hud.Spaced("Paused"), 40, UiStyle.Ink);
+            var title = UiStyle.Text(main, Hud.Spaced("Paused"), 40, UiStyle.Ink, TextAnchor.MiddleLeft);
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.marginBottom = 30;
             UiStyle.MenuButton(main, "Return", Close);
@@ -80,9 +82,9 @@ namespace Game.UI
         void BuildConfirm()
         {
             confirm = Page();
-            confirmTitle = UiStyle.Text(confirm, "", 40, UiStyle.Ink);
+            confirmTitle = UiStyle.Text(confirm, "", 40, UiStyle.Ink, TextAnchor.MiddleLeft);
             confirmTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
-            confirmDetail = UiStyle.Text(confirm, "", 15, UiStyle.Muted);
+            confirmDetail = UiStyle.Text(confirm, "", 15, UiStyle.Muted, TextAnchor.MiddleLeft);
             confirmDetail.style.marginTop = 10;
             confirmDetail.style.marginBottom = 24;
             var row = new VisualElement();
@@ -104,7 +106,7 @@ namespace Game.UI
         void BuildOptions()
         {
             options = Page();
-            var title = UiStyle.Text(options, Hud.Spaced("Options"), 34, UiStyle.Ink);
+            var title = UiStyle.Text(options, Hud.Spaced("Options"), 34, UiStyle.Ink, TextAnchor.MiddleLeft);
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.marginBottom = 16;
             var scroll = new ScrollView(ScrollViewMode.Vertical);

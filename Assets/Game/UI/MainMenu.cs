@@ -64,14 +64,16 @@ namespace Game.UI
             barBottom.style.height = 110;
 
             var column = UiStyle.Fill(new VisualElement());
-            column.style.alignItems = Align.Center;
+            // (Lined up down the left side.)
+            column.style.alignItems = Align.FlexStart;
             column.style.justifyContent = Justify.Center;
+            column.style.paddingLeft = UiStyle.MenuLeft;
             root.Add(column);
-            title = UiStyle.Text(column, Hud.Spaced(config.Title), 52, UiStyle.Ink, TextAnchor.MiddleCenter, 6f);
+            title = UiStyle.Text(column, Hud.Spaced(config.Title), 52, UiStyle.Ink, TextAnchor.MiddleLeft, 6f);
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.marginBottom = 50;
             buttons = new VisualElement();
-            buttons.style.alignItems = Align.Center;
+            buttons.style.alignItems = Align.FlexStart;
             column.Add(buttons);
             UiStyle.MenuButton(buttons, "Start", Begin);
             UiStyle.MenuButton(buttons, "Difficulty", () => levels.style.display = levels.style.display == DisplayStyle.Flex ? DisplayStyle.None : DisplayStyle.Flex);
@@ -115,7 +117,8 @@ namespace Game.UI
                     }
                     RefreshLevels();
                 }, 150f, 38f);
-                b.style.marginLeft = b.style.marginRight = 5;
+                b.style.marginLeft = 0;
+                b.style.marginRight = 10;
                 if (current == l) b.style.color = UiStyle.Red;
             }
         }

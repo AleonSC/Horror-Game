@@ -69,6 +69,9 @@ namespace Game.UI
         }
 
         /// <summary>A menu button: spaced capitals on a dark band, red underline and brighter on hover.</summary>
+        /// <summary>How far the menus sit in from the left edge (in the 1600x900 layout).</summary>
+        public const float MenuLeft = 150f;
+
         public static Button MenuButton(VisualElement parent, string text, System.Action clicked, float width = 300f, float height = 46f)
         {
             var b = new Button(clicked) { text = Hud.Spaced(text) };
@@ -77,7 +80,8 @@ namespace Game.UI
             b.style.fontSize = 18;
             b.style.color = Ink;
             b.style.backgroundColor = new Color(0.05f, 0.05f, 0.06f, 0.7f);
-            b.style.unityTextAlign = TextAnchor.MiddleCenter;
+            b.style.unityTextAlign = TextAnchor.MiddleLeft;
+            b.style.paddingLeft = 20;
             b.style.marginTop = b.style.marginBottom = 7;
             b.style.marginLeft = b.style.marginRight = 0;
             Border(b, Clear, 0f);
