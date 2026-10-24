@@ -418,8 +418,9 @@ namespace Game.Entities
             {
                 var ls = look.Config.settings;
                 float mul = LookController.ExposureMultiplier(ls.exposure);
-                body.SetShade(s.haze);
-                RuntimeMaterials.SetSilhouetteShade(chainMat, s.haze * 0.8f);
+                Color fog = Color.Lerp(ls.fogColor, look.FogTint, look.FogTintAmount).linear / mul;
+                body.SetShade(s.haze, fog, s.beamThrough);
+                RuntimeMaterials.SetSilhouette(chainMat, s.haze * 0.8f, fog, s.beamThrough);
                 RuntimeMaterials.SetHazeColor(eyeMat, s.eyeColor.linear * s.eyeGlow / mul);
                 RuntimeMaterials.SetHazeColor(pupilMat, Color.black);
             }

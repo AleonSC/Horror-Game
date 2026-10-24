@@ -33,6 +33,8 @@ namespace Game.Entities
         public int emptyChains = 4;
         [Range(0f, 1f), Tooltip("How much of the fog's colour it takes: 0 black, 1 invisible in the fog.")]
         public float haze = 0.55f;
+        [Range(0f, 1f), Tooltip("How much the fog in front shows over it: 0 a crisp silhouette that blocks the flashlight's glow, 1 the glow shows through but the lit fog softens it.")]
+        public float beamThrough = 0.4f;
         [Range(0f, 30f), Tooltip("Degrees each lamp lit makes it swing on its chain.")]
         public float joltSwing = 6f;
         [Tooltip("The first clear view of it gently draws your eyes up to it (once).")]

@@ -161,9 +161,11 @@ namespace Game.Player
             if (shake > 0f) wobble += Random.insideUnitSphere * shake;
             if (groggy > 0f)
             {
+                // Coming round: a slow sway, and a tremble, both settling.
                 float g = Groggy;
                 float t = Time.time;
-                wobble += new Vector3(Mathf.Sin(t * 0.9f) * 3f, Mathf.Sin(t * 0.7f + 1f) * 4f, Mathf.Sin(t * 0.5f) * 5f) * g;
+                wobble += new Vector3(Mathf.Sin(t * 0.9f) * 0.6f, Mathf.Sin(t * 0.7f + 1f) * 0.8f, Mathf.Sin(t * 0.5f)) * (s.groggySway * g);
+                wobble += new Vector3(Mathf.PerlinNoise(t * 9f, 0.3f) - 0.5f, Mathf.PerlinNoise(1.7f, t * 9f) - 0.5f, Mathf.PerlinNoise(t * 7f, 4.1f) - 0.5f) * (2f * s.groggyShake * g * g);
             }
             head.localRotation = Quaternion.Euler(pitch, 0f, 0f) * Quaternion.Euler(wobble);
             float fov = Mathf.Lerp(s.fieldOfView, s.dreamFieldOfView, Mathf.SmoothStep(0f, 1f, Dream));
@@ -233,7 +235,7 @@ namespace Game.Player
         void Look(PlayerSettings s)
         {
             float sensitivity = Services.TryGet<PlayerPreferences>(out var prefs) ? prefs.mouseSensitivity : 1f;
-            Vector2 d = input.Look.ReadValue<Vector2>() * s.mouseSpeed * sensitivity * Mathf.Lerp(1f, s.groggyLook, Groggy);
+            Vector2 d = input.Look.ReadValue<Vector2>() * s.mouseSpeed * sensitivity * Mathf.Lerp(1f, s.groggyLook, Ease(Groggy));
             yaw += d.x;
             pitch = Mathf.Clamp(pitch - d.y, -85f, 85f);
             if (gazeLeft > 0f)
@@ -270,7 +272,7 @@ namespace Game.Player
             Running = Stamina.Tick(dt, wantSprint, Moving, s, lamps);
 
             float speed = Crouching ? s.crouchSpeed : Running ? s.runSpeed : s.walkSpeed;
-            if (groggy > 0f) speed *= Mathf.Lerp(1f, s.groggySpeed, Groggy);
+            if (groggy > 0f) speed *= Mathf.Lerp(1f, s.groggySpeed, Ease(Groggy)); // (slow, then picking up)
             if (Dream > 0f) speed *= Mathf.Lerp(1f, s.dreamSpeed, Dream);
             Wading = WaterAt != null && WaterAt(transform.position);
             if (Wading) speed *= WadeSpeed;
@@ -381,6 +383,8 @@ namespace Game.Player
             groggy = groggyFull;
         }
 
+        static float Ease(float x) => x * x * (3f - 2f * x);
+
         /// <summary>How groggy, 1 just woken to 0 clear.</summary>
         float Groggy => groggy > 0f ? groggy / groggyFull : 0f;
 
@@ -389,7 +393,7 @@ namespace Game.Player
             if (!blurred && groggy <= 0f) return;
             if (!Services.TryGet<Game.Rendering.LookController>(out var look)) return;
             float g = Groggy;
-            look.Blur = s.groggyBlur * g * g * (3f - 2f * g); // (eases clear)
+            look.Blur = s.groggyBlur * Ease(g);
             blurred = groggy > 0f;
         }
 

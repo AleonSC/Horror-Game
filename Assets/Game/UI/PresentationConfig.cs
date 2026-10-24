@@ -37,7 +37,7 @@ namespace Game.UI
         [Range(0f, 15f), Tooltip("Seconds you wake groggy for: slow, swaying, blurred vision clearing.")]
         public float wakeGroggyTime = 5f;
         [Range(0.2f, 6f), Tooltip("Seconds for the forest to fade in when you wake.")]
-        public float wakeFadeTime = 2f;
+        public float wakeFadeTime = 4f;
 
         [Header("Lamp narration")]
         [Tooltip("Lines shown when that many lamps are lit. \"-word\" is red. Frantic: red, bold and shaking.")]

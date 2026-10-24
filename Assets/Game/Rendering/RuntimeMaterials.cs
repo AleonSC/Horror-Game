@@ -111,6 +111,22 @@ namespace Game.Rendering
             if (m != null) m.SetColor("_UnlitColor", new Color(0f, 0f, 0f, 1f - Mathf.Clamp01(shade)));
         }
 
+        /// <summary>
+        /// Part solid, part darkening: <paramref name="through"/> 0 is a flat <paramref name="fog"/> x shade (a crisp
+        /// silhouette, but it covers the flashlight's glow), 1 darkens what's behind by shade (the glow shows through,
+        /// but so does all the lit fog, which softens it). <paramref name="fog"/> is the fog as it shows on screen.
+        /// </summary>
+        public static void SetSilhouette(Material m, float shade, Color fog, float through)
+        {
+            if (m == null) return;
+            shade = Mathf.Clamp01(shade);
+            through = Mathf.Clamp01(through);
+            float a = Mathf.Max(0.001f, 1f - through * shade);
+            Color c = fog * (shade * (1f - through) / a);
+            c.a = a;
+            m.SetColor("_UnlitColor", c);
+        }
+
         /// <summary>Draw this transparent material after others at the same spot (higher: later).</summary>
         public static void DrawAfter(Material m, int priority)
         {

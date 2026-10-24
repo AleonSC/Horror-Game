@@ -219,7 +219,9 @@ namespace Game.UI
             float fade = Mathf.Max(0.2f, config.wakeFadeTime);
             for (float t = 0f; t < fade && black != null; t += Time.unscaledDeltaTime)
             {
-                black.style.opacity = 1f - Mathf.SmoothStep(0f, 1f, t / fade);
+                // Eyes opening: slow to start, a little lift, slow to finish.
+                float x = t / fade;
+                black.style.opacity = 1f - x * x * x * (x * (x * 6f - 15f) + 10f);
                 yield return null;
             }
             if (black != null) black.RemoveFromHierarchy();
