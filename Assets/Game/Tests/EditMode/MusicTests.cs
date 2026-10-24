@@ -23,7 +23,7 @@ namespace Game.Tests
         public void MoodLoops_AreTheRightLength_AndSound()
         {
             Sound(MusicSynth.Tension(1), 15.75f, "Tension");
-            Sound(MusicSynth.Danger(2), 7.75f, "Danger");
+            Sound(MusicSynth.Danger(2), 15.75f, "Danger");
             Sound(MusicSynth.Watcher(3), 15.75f, "Watcher");
         }
 
