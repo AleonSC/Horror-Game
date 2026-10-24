@@ -106,6 +106,8 @@ namespace Game.Audio
             Add(Sound.Step4, SoundSynth.Step(52));
             Add(Sound.Step5, SoundSynth.Step(53));
             Add(Sound.Step6, SoundSynth.Step(54));
+            Add(Sound.Screech, SoundSynth.Screech(55));
+            Add(Sound.LeavesLoop, SoundSynth.LeavesLoop(56));
         }
 
         void Add(Sound sound, float[] samples)

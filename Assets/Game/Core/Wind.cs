@@ -19,7 +19,7 @@ namespace Game.Core
         float shockStart = -1000f, shockSpeed = 220f, shockStrength;
 
         // Worked out once per frame by Prepare, so At is cheap enough for thousands of plants.
-        float now, dirX = 1f, dirZ, gustK, breezeT, patchT;
+        float now, dirX = 1f, dirZ, gustK, breezeT, swayT, patchT;
         bool shockLive;
 
         /// <summary>Get ready to sample at this time (call once a frame before many At calls).</summary>
@@ -30,7 +30,8 @@ namespace Game.Core
             dirX = dir.x;
             dirZ = dir.y;
             gustK = Mathf.PI * 2f / Mathf.Max(1f, GustSpacing);
-            breezeT = time * 1.3f;
+            breezeT = time * 0.4f;
+            swayT = time * 2.4f;
             patchT = time * 0.05f;
             float since = time - shockStart;
             shockLive = since >= 0f && since <= 20f;
@@ -48,8 +49,10 @@ namespace Game.Core
         {
             float along = x * dirX + z * dirZ;
             float across = -x * dirZ + z * dirX;
-            // A slow breeze, out of step from place to place so it doesn't look like one sheet moving.
-            float breeze = Breeze * (0.6f + 0.4f * Mathf.Sin(breezeT + along * 0.11f + across * 0.07f));
+            // A breeze, out of step from place to place so it doesn't look like one sheet moving: a slow lean that
+            // comes and goes, and a quicker sway back and forth over it (never more than the breeze all told).
+            float breeze = Breeze * (0.55f + 0.25f * Mathf.Sin(breezeT + along * 0.11f + across * 0.07f)
+                                   + 0.2f * Mathf.Sin(swayT + along * 0.3f + across * 0.21f));
             // Gust fronts rolling downwind, stronger in some stretches than others.
             float front = Mathf.Sin((along - now * GustSpeed) * gustK);
             front = front > 0f ? front * front * front : 0f;

@@ -194,3 +194,24 @@ a camp someone left in a hurry:
   the back. When the chain snaps, the collar stays on, with a few broken links hanging straight down from it as
   it walks.
 
+The chains fade into the sky: they're drawn with `Game/SkyFade`, a silhouette that thins out with height. Each
+chain starts fading 30% of the way up its length and is gone by 90% (`GiantConfig` > `chainFadeFrom`,
+`chainFadeTo`), so none of them ever visibly ends.
+
+## Wind and ambience
+
+- **Wind sway:** the wind was there, but the sway was far too small to see: a tall tree's top moved about a
+  centimetre. Now:
+  - A tree's top moves about 10 cm in the breeze and nearly a metre in a strong gust.
+  - Bushes and grass bow well over.
+  - The breeze sways things back and forth every couple of seconds over a slower lean, out of step from place
+    to place.
+  - The vines hanging from the trees lean with them.
+- **Ambience:**
+  - A new layer of the canopy hissing and rustling in the wind, louder in the gusts.
+  - The wind itself is louder.
+  - Every 15 to 40 seconds, an animal calls far off in the dark: an owl, a barn owl's screech, or a crow.
+- **Owl and crow calls:** these are the prototype's (the HDRP build's): the tawny owl's hoot, a pause, then
+  the long wavering hoo-hoo-hooo; the barn owl's screech (the owls give one now and then); and the crow's
+  rasping caw.
+

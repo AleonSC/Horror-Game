@@ -23,6 +23,7 @@ namespace Game.World
         {
             public Vector3 Home;      // where it hangs from, on the map
             public float Length, Thickness, Phase;
+            public float Lean;        // how far its tree leans in the wind at the height it hangs from (per unit of wind)
             public Vector3[] Pos = new Vector3[Points], Prev = new Vector3[Points];
             public Vector3 Offset;    // which copy of the map it's at
             public Mesh Mesh;
@@ -72,6 +73,7 @@ namespace Game.World
                         Length = Mathf.Max(1f, top - bottom),
                         Thickness = rng.Range(0.012f, 0.022f),
                         Phase = rng.Range(0f, 100f),
+                        Lean = top * (t.Kind == TreeKind.Pine ? ForestPopulator.TreeSway : ForestPopulator.DeadTreeSway),
                     };
                     var go = new GameObject("Vine") { layer = Layers.Effects };
                     go.transform.SetParent(transform, false);
@@ -121,6 +123,12 @@ namespace Game.World
                 if (!v.Renderer.enabled) continue;
                 v.RustleCooldown -= dt;
                 bool moving = dist < far;
+                // (Hanging from the tree as it leans in the wind.)
+                if (wind != null)
+                {
+                    Vector2 lean = wind.At(at.x, at.z, Time.time) * v.Lean;
+                    at += new Vector3(lean.x, 0f, lean.y);
+                }
                 if (moving && dt > 0f) Simulate(v, at, dt, wind, player);
                 if (moving || !v.Built) Rebuild(v);
             }

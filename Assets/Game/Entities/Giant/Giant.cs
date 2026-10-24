@@ -87,7 +87,9 @@ namespace Game.Entities
             bodyRoot = new GameObject("Giant (drawn)").transform;
             bodyRoot.SetParent(transform, false);
             body = GiantBody.Create(bodyRoot, config);
-            chainMat = RuntimeMaterials.Silhouette("Giant chain");
+            // The chains fade out into the sky as they climb (or, without that shader, plain silhouettes).
+            var skyFade = Effects.GameShader("Game/SkyFade");
+            chainMat = skyFade != null ? new Material(skyFade) { name = "Giant chain" } : RuntimeMaterials.Silhouette("Giant chain");
             chain = MakeChain("Chain", false);
             eyeMat = RuntimeMaterials.Haze("The eye", Color.red);
             pupilMat = RuntimeMaterials.Haze("The eye's pupil", Color.black);
@@ -718,6 +720,10 @@ namespace Game.Entities
             root.position = from;
             root.rotation = Quaternion.FromToRotation(Vector3.up, length > 1e-3f ? d / length : Vector3.up);
             root.localScale = Vector3.one * unit;
+            // Thinning out from partway up into nothing just short of its top.
+            fadeBlock ??= new MaterialPropertyBlock();
+            fadeBlock.SetFloat(FadeStartId, from.y + d.y * s.chainFadeFrom);
+            fadeBlock.SetFloat(FadeEndId, from.y + d.y * s.chainFadeTo);
             int runs = Mathf.CeilToInt(length / Mathf.Max(1e-3f, unit) / ChainMeshes.RunLength);
             int have = 0;
             foreach (Transform c in root)
@@ -729,7 +735,11 @@ namespace Game.Entities
             }
             for (; have < runs; have++)
                 ChainPart(root, "Links", ChainMeshes.Run).localPosition = Vector3.up * (have * ChainMeshes.RunLength);
+            foreach (var r in root.GetComponentsInChildren<MeshRenderer>()) r.SetPropertyBlock(fadeBlock);
         }
+
+        MaterialPropertyBlock fadeBlock;
+        static readonly int FadeStartId = Shader.PropertyToID("_FadeStart"), FadeEndId = Shader.PropertyToID("_FadeEnd");
 
         Transform Ball(string name, Material m)
         {

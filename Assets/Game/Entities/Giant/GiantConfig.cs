@@ -31,6 +31,10 @@ namespace Game.Entities
         public float turnAngle = 40f;
         [Range(0, 12), Tooltip("Empty chains hanging elsewhere round the horizon.")]
         public int emptyChains = 4;
+        [Range(0f, 1f), Tooltip("The chains fade into the sky from this far up their length (0 their bottom, 1 their top)...")]
+        public float chainFadeFrom = 0.3f;
+        [Range(0f, 1f), Tooltip("...and are gone by this far up.")]
+        public float chainFadeTo = 0.9f;
         [Range(0f, 1f), Tooltip("How much of the fog's colour it takes: 0 black, 1 invisible in the fog.")]
         public float haze = 0.55f;
         [Range(0f, 1f), Tooltip("How much the fog in front shows over it: 0 a crisp silhouette that blocks the flashlight's glow, 1 the glow shows through but the lit fog softens it.")]

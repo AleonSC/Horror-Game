@@ -566,6 +566,31 @@ namespace Game.Audio
             return Loop(s, 0.5f);
         }
 
+        /// <summary>
+        /// The canopy in the wind, to loop: a soft, airy hiss of needles and leaves, with little bursts of rustle
+        /// coming and going through it (10 s). Its volume follows the gusts.
+        /// </summary>
+        public static float[] LeavesLoop(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(10f);
+            float hp = 0f, last = 0f, lp = 0f, burst = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                hp = 0.97f * (hp + n - last);       // (high: the hiss of needles)
+                last = n;
+                lp += (hp - lp) * 0.35f;            // (taken down a little, so it's soft)
+                // Rustles: the hiss swells in quick, uneven bursts, here and there.
+                if (rng.NextDouble() < 2.5 / SampleRate) burst = 1f;
+                burst *= 0.99985f;
+                float swell = 0.5f + 0.3f * (float)Math.Sin(2 * Math.PI * t / 5f) * (float)Math.Sin(2 * Math.PI * t / 2.3f + 0.7f);
+                s[i] = lp * (swell + burst * 0.8f);
+            }
+            return Loop(s, 0.4f);
+        }
+
         /// <summary>The forest's low bed: a faint, wavering drone under everything (12 s, to loop).</summary>
         public static float[] Drone(int seed)
         {
@@ -619,18 +644,55 @@ namespace Game.Audio
             return Loop(s, 0.4f);
         }
 
-        /// <summary>An owl: two soft, hollow hoots.</summary>
+        /// <summary>
+        /// A tawny owl's call (the prototype's): a low hoot, a pause, then a long wavering hoo-hoo-hooo, soft and
+        /// hollow, with breath in it (3.6 s).
+        /// </summary>
         public static float[] Hoot(int seed)
         {
-            var s = Make(1.4f);
+            var rng = new Random(seed);
+            var s = Make(3.6f);
+            double phase = 0;
+            float lp = 0f;
+            // (start, length, pitch at start, pitch at end)
+            float[,] notes = { { 0f, 0.45f, 400f, 380f }, { 1.25f, 0.18f, 360f, 380f }, { 1.5f, 0.16f, 370f, 390f }, { 1.72f, 1.2f, 390f, 330f } };
             for (int i = 0; i < s.Length; i++)
             {
                 float t = Time(i);
-                float a = Env(t, 0.05f, 0.35f, 0.2f), b = Env(t - 0.6f, 0.08f, 0.7f, 0.4f);
-                float f = 380f - 30f * Math.Min(1f, t);
-                s[i] = (float)(Math.Sin(2 * Math.PI * f * t) + 0.15 * Math.Sin(2 * Math.PI * f * 2 * t)) * (a + b);
+                float amp = 0f, pitch = 380f;
+                for (int n = 0; n < notes.GetLength(0); n++)
+                {
+                    float u = (t - notes[n, 0]) / notes[n, 1];
+                    if (u < 0f || u > 1f) continue;
+                    amp = (float)Math.Sin(Math.PI * Math.Pow(u, 0.6));
+                    pitch = (notes[n, 2] + (notes[n, 3] - notes[n, 2]) * u) * (1f + 0.02f * (float)Math.Sin(t * 2 * Math.PI * 7f) * u); // a waver as it draws out
+                }
+                phase += pitch / SampleRate;
+                float tone = (float)(Math.Sin(2 * Math.PI * phase) + 0.15 * Math.Sin(2 * Math.PI * phase * 2));
+                lp += (Noise(rng) - lp) * 0.1f;
+                s[i] = (tone * 0.85f + lp * 0.25f) * amp;
             }
-            return Normalize(s, 0.5f);
+            return Normalize(s, 0.8f);
+        }
+
+        /// <summary>A barn owl's screech (the prototype's): a harsh, breathy rasp with a strained falling tone, trailing off (1.4 s).</summary>
+        public static float[] Screech(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.4f);
+            float lp = 0f, hp = 0f;
+            double phase = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i), p = t / 1.4f;
+                float env = Math.Min(1f, t / 0.05f) * (float)Math.Pow(1f - p, 1.6f);
+                lp += (Noise(rng) - lp) * 0.55f;
+                hp += (lp - hp) * 0.15f;
+                float rasp = (lp - hp) * (0.7f + 0.3f * (float)Math.Sin(t * 2 * Math.PI * 60f));
+                phase += (1900f - 600f * p) / SampleRate;
+                s[i] = (rasp + (float)Math.Sin(2 * Math.PI * phase) * 0.25f) * env;
+            }
+            return Normalize(s, 0.75f);
         }
 
         /// <summary>A frog: a low, rattling croak.</summary>
@@ -658,19 +720,30 @@ namespace Game.Audio
             return Normalize(s, 0.4f);
         }
 
-        /// <summary>A crow: a harsh caw.</summary>
+        /// <summary>
+        /// A crow's harsh, rasping caw (the prototype's): a buzzy, rough voice, its pitch sagging, through two nasal
+        /// resonances (0.42 s).
+        /// </summary>
         public static float[] Caw(int seed)
         {
             var rng = new Random(seed);
-            var s = Make(0.5f);
+            var s = Make(0.42f);
+            double phase = 0;
+            float y1 = 0f, y2 = 0f, z1 = 0f, z2 = 0f;
+            const float r = 0.97f;
+            float c1 = 2f * r * (float)Math.Cos(2 * Math.PI * 1200f / SampleRate);
+            float c2 = 2f * r * (float)Math.Cos(2 * Math.PI * 2600f / SampleRate);
             for (int i = 0; i < s.Length; i++)
             {
-                float t = Time(i);
-                float f = 520f + 120f * (float)Math.Sin(t * 9f);
-                float buzz = (float)Math.Sin(2 * Math.PI * f * t) + 0.5f * (float)Math.Sin(2 * Math.PI * f * 2.02f * t) + Noise(rng) * 0.4f;
-                s[i] = buzz * Env(t, 0.03f, 0.5f, 0.25f);
+                float t = Time(i), p = t / 0.42f;
+                phase += (520f - 120f * p + 25f * Noise(rng)) / SampleRate;
+                float source = (float)(2.0 * (phase % 1.0) - 1.0) + Noise(rng) * 0.4f;
+                float a = c1 * y1 - r * r * y2 + source; y2 = y1; y1 = a;
+                float b = c2 * z1 - r * r * z2 + source; z2 = z1; z1 = b;
+                float env = (float)Math.Sin(Math.PI * Math.Min(1f, p * 1.2f)) * (p < 0.08f ? p / 0.08f : 1f);
+                s[i] = (a + b * 0.7f) * env;
             }
-            return Normalize(s, 0.5f);
+            return Normalize(s, 0.8f);
         }
 
         /// <summary>A step in water: a splash and slosh.</summary>
