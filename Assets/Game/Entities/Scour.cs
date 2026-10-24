@@ -117,8 +117,6 @@ namespace Game.Entities
         {
             if (portal != null) portal.Close();
             portal = null;
-            if (pit != null) pit.Close();
-            pit = null;
             body.SetVisible(false);
             body.ShutMouth();
             body.SetPose(ScourPose.Neutral, 1, true);
@@ -237,7 +235,7 @@ namespace Game.Entities
 
             SafeZone safe = null;
             bool playerSafe = zones != null && zones.Contains(target, out safe);
-            bool lit = PlayerSense.InBeam(player, body.Chest, s.beamMargin);
+            bool lit = LitByBeam(s.beamMargin);
             bool advancing = false;
 
             if (playerSafe)
@@ -246,13 +244,9 @@ namespace Game.Entities
             }
             else if (lit && dist < s.reactDistance)
             {
-                // Faced down: you slow as you near it, and reaching it starts the crescendo.
-                player.LimitApproach(transform.position, s.reactDistance, s.stopDistance);
-                if (dist <= s.stopDistance + s.triggerMargin)
-                {
-                    StartFacedDown();
-                    return;
-                }
+                // Your light on it, anywhere in range: the crescendo starts building.
+                StartFacedDown();
+                return;
             }
             else if (!lit && dist < s.reactDistance)
             {
@@ -421,72 +415,77 @@ namespace Game.Entities
             }
         }
 
+        float faceDown;   // 0-1: how far the crescendo has built
+
+        /// <summary>Your beam on it, anywhere on its body (chest, head or hips), with nothing in the way.</summary>
+        bool LitByBeam(float margin)
+        {
+            return PlayerSense.InBeam(player, body.Chest, margin)
+                || PlayerSense.InBeam(player, body.EyePoint, margin)
+                || PlayerSense.InBeam(player, transform.position + Vector3.up * s.height * growth * 0.35f, margin);
+        }
+
         void StartFacedDown()
         {
             SetState(ScourState.FacedDown, "faced down");
-            float duration = CrescendoDuration;
-            Play(Sound.Crescendo, 0.9f, s.crescendoTime / duration, 30f);
+            faceDown = 0f;
+            lastLitTime = Time.time;
+            Play(Sound.Crescendo, 0.9f, 1f, 30f);
         }
 
+        // Hold the light on it and the crescendo builds (faster the closer you are). Lose it for a moment and the
+        // build holds; lose it for longer and it drains away, and when it's gone it's back to stalking you.
         void UpdateFacedDown()
         {
+            float dt = Time.deltaTime;
             body.Face(player.transform.position);
-            player.LimitApproach(transform.position, s.reactDistance, s.stopDistance);
+            float dist = DistanceToPlayer;
+            // You can't walk into it (slowing over the last stretch only).
+            player.LimitApproach(transform.position, s.stopDistance + 1.5f, s.stopDistance);
 
-            // The beam has to stay on it; drop it and it's back to stalking you.
-            if (PlayerSense.InBeam(player, body.Chest, s.beamMargin + 3f)) lastLitTime = Time.time;
-            else if (Time.time - lastLitTime > 0.6f)
+            if (LitByBeam(s.beamMargin + 3f)) lastLitTime = Time.time;
+            bool lit = Time.time - lastLitTime < 0.05f;
+            float closeness = Mathf.Clamp01(Mathf.InverseLerp(s.reactDistance, s.stopDistance, dist));
+            if (lit) faceDown += dt / CrescendoDuration * Mathf.Lerp(s.buildFar, s.buildNear, closeness);
+            else if (Time.time - lastLitTime > s.faceDownGrace) faceDown -= dt * s.faceDownDrain;
+            if (faceDown <= 0f && !lit)
             {
                 SetState(ScourState.Stalking, "the light left it");
                 creepTimer = NextCreepDelay();
+                blue = 0f;
                 return;
             }
+            faceDown = Mathf.Clamp01(faceDown);
 
-            timer += Time.deltaTime;
-            float c = Mathf.Clamp01(timer / CrescendoDuration);
+            float c = faceDown;
             float e = c * c; // slow build, violent finish
             body.Shudder(Mathf.Lerp(s.vibration, s.crescendoVibration, e), e);
             body.SetMouth(Mathf.Lerp(0.7f, 1.5f, e)); // stretching wider and wider
-            blue = Mathf.Max(blue, Mathf.SmoothStep(0f, 1f, c));
-            body.SetEyes(Mathf.Lerp(1.6f, 4f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 1.5f, e), blue, 0f, s.eyeLight * (1f + 4f * blue), s.eyeLightRange);
+            blue = Mathf.SmoothStep(0f, 1f, c);
+            // The blue stays in the eyes: they burn brighter, but the light they throw barely rises.
+            body.SetEyes(Mathf.Lerp(1.6f, 3f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 0.5f, e), blue, 0f, s.eyeLight * (1f + 0.6f * blue), s.eyeLightRange);
             player.AddShake(s.cameraShake * e);
             if (c >= 1f) Dispel();
         }
 
-        // Driven off: a black hole opens on the ground under it and it falls in. The light pays for it.
-        GroundPortal pit;
-        float sinkFrom;
-
+        // Driven off: it comes apart into dark motes that scatter on the wind. The light pays for it.
         void Dispel()
         {
             if (player.Flashlight != null) player.Flashlight.Battery.Spend(s.dismissCost);
             body.ShutMouth();
-            sinkFrom = transform.position.y;
-            pit = GroundPortal.Create(new Vector3(transform.position.x, PlayerSense.GroundHeight(transform.position), transform.position.z), 0.9f * growth * (s.height / 2.4f));
-            Play(Sound.Portal, 1f, 0.8f, 35f);
+            Play(Sound.Appear, 0.9f, 0.6f, 35f);
             SetState(ScourState.Retreating, "driven off");
         }
 
+        // A last shudder, then it bursts apart (the motes carry on by themselves) and it's gone.
         void UpdateRetreating()
         {
-            const float settle = 0.35f; // (the crescendo's shudder dies away as the hole opens)
+            const float last = 0.25f;
             timer += Time.deltaTime;
-            float time = Mathf.Max(0.1f, s.sinkTime);
-            float t = Mathf.Clamp01((timer - settle) / time);
-            body.Shudder(Mathf.Lerp(s.crescendoVibration, s.vibration, Mathf.Clamp01(timer / settle)) * (1f - t), 0f);
-            // It drops into the hole: slow to give, then gone.
-            float drop = t * t * t;
-            var p = transform.position;
-            p.y = sinkFrom - drop * s.height * growth * 1.15f;
-            transform.position = p;
-            body.SetEyes(Mathf.Lerp(3f, 0.3f, t), s.spawnEyeGlow * (1f - t), 1f - t * 0.5f, 0f, s.eyeLight * (1f - t), s.eyeLightRange);
-            player.AddShake(s.cameraShake * 0.5f * (1f - Mathf.Clamp01(timer / settle)));
-            if (t >= 1f)
-            {
-                if (pit != null) pit.Close();
-                pit = null;
-                Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
-            }
+            body.Shudder(s.crescendoVibration * (1f - timer / last), 1f - timer / last);
+            if (timer < last) return;
+            ScourMotes.Burst(body, s.scatterTime, blue);
+            Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
         }
 
         // ------------------------------------------------------------------ Provoked

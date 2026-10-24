@@ -214,6 +214,36 @@ namespace Game.Entities
             }
         }
 
+        /// <summary>
+        /// Points on the body's surface as it stands right now, in the world (for it coming apart): taken from its
+        /// skinned and plain meshes.
+        /// </summary>
+        public Vector3[] SamplePoints(int count)
+        {
+            var all = new System.Collections.Generic.List<Vector3>();
+            var baked = new Mesh();
+            foreach (var r in renderers)
+            {
+                if (r == null || !r.enabled) continue;
+                Mesh mesh = null;
+                Matrix4x4 toWorld = r.transform.localToWorldMatrix;
+                if (r is SkinnedMeshRenderer skinned)
+                {
+                    skinned.BakeMesh(baked, false); // (in its own space, unscaled: toWorld does the rest)
+                    mesh = baked;
+                }
+                else if (r.TryGetComponent<MeshFilter>(out var mf)) mesh = mf.sharedMesh;
+                if (mesh == null) continue;
+                // (Skip the eyes: they get their own lingering glow.)
+                if (r.sharedMaterial == eyeMat) continue;
+                foreach (var v in mesh.vertices) all.Add(toWorld.MultiplyPoint3x4(v));
+            }
+            Destroy(baked);
+            var picked = new Vector3[Mathf.Min(count, all.Count)];
+            for (int i = 0; i < picked.Length; i++) picked[i] = all[Random.Range(0, all.Count)];
+            return picked;
+        }
+
         /// <summary>Turn to face a point (yaw only).</summary>
         public void Face(Vector3 point)
         {

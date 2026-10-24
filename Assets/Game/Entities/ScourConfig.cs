@@ -74,18 +74,26 @@ namespace Game.Entities
         [Range(0.5f, 4f), Tooltip("Advancing, it takes you when this close.")]
         public float touchDistance = 1.5f;
 
-        [Header("Facing it down")]
-        [Range(1f, 6f), Tooltip("You can't get closer than this; reaching it starts the crescendo.")]
+        [Header("Facing it down (hold your light on it)")]
+        [Range(1f, 6f), Tooltip("You can't walk closer than this.")]
         public float stopDistance = 2.5f;
-        [Range(0f, 2f)] public float triggerMargin = 0.4f;
-        [Range(0f, 20f), Tooltip("Degrees past the beam's edge that still count as lighting it.")]
-        public float beamMargin = 5f;
-        [Range(0.3f, 10f)] public float crescendoTime = 2.5f;
+        [Range(0f, 20f), Tooltip("Degrees past the beam's edge that still count as lighting it (anywhere on its body).")]
+        public float beamMargin = 6f;
+        [Range(0.3f, 10f), Tooltip("Seconds of light on it to drive it off, at middle distance.")]
+        public float crescendoTime = 2.5f;
+        [Range(0.2f, 3f), Tooltip("From the edge of its range (14 m), the build is this much as fast...")]
+        public float buildFar = 0.6f;
+        [Range(0.2f, 3f), Tooltip("...and right up close, this much.")]
+        public float buildNear = 1.5f;
+        [Range(0f, 5f), Tooltip("Lose the beam off it and the build holds this many seconds...")]
+        public float faceDownGrace = 1f;
+        [Range(0.05f, 3f), Tooltip("...then drains away at this share a second (all gone: it's back to stalking you).")]
+        public float faceDownDrain = 0.5f;
         [Range(0f, 1f), Tooltip("Each lamp lit makes the crescendo this much quicker (0.15 = 15%).")]
         public float crescendoSpeedupPerLamp = 0.15f;
         [Range(0.1f, 5f)] public float minCrescendoTime = 0.8f;
-        [Range(0.1f, 5f), Tooltip("Driven off, a black hole opens under it and it falls in, over this many seconds.")]
-        public float sinkTime = 1.1f;
+        [Range(0.3f, 8f), Tooltip("Driven off, it comes apart into dark motes that scatter on the wind for this long.")]
+        public float scatterTime = 2.2f;
         [Range(0f, 1f), Tooltip("Share of the battery it costs to drive one off.")]
         public float dismissCost = 0.1f;
 

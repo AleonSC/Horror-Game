@@ -31,9 +31,10 @@ until it is.
     A creep that would bring it within 3 m takes you.
   - **Some creeps take it behind a tree** on its way to you (35%): it hides behind the trunk and peeks out when you look away.
   - **Get near it in the dark** (within 14 m, the light not on it) and it grows and comes for you, with a pounding beat.
-  - **Face it down**: walk at it with the beam on it. Its eyes turn blue, you slow to a stop 2.5 m away, it
-    shudders to a crescendo, then a black hole opens on the ground under it, dark motes swirling round it, and it
-    falls in. That costs 10% battery. It's back 7-12 s later.
+  - **Face it down**: hold your beam on it (anywhere on its body) within 14 m. The crescendo builds, faster the
+    closer you are: its eyes turn blue and it shudders harder and harder. Let the beam slip off for a moment and the
+    build holds; leave it off for longer and it drains away. At the peak it comes apart into dark motes that scatter
+    on the wind, its eyes hanging in the air a moment. That costs 10% battery. It's back 7-12 s later.
   - **Flash the light on and off at it 4 times quickly** and it shrieks and charges your face, then vanishes.
     It comes back sooner and angrier.
   - **Taken**: you're held, it walks up to you, a hole tears open behind it, it drags you through, and the
