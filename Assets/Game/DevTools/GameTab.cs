@@ -41,6 +41,7 @@ namespace Game.DevTools
             if (Services.TryGet<PlayerController>(out var player)) DrawPlayer(player);
             if (Services.TryGet<ScourSpawner>(out var spawner)) DrawScours(spawner);
             if (Services.TryGet<Giant>(out var giant)) DrawGiant(giant);
+            if (Services.TryGet<BlindOne>(out var blind)) DrawBlind(blind);
 
             GUILayout.Label("Sound state", DevStyle.Section);
             if (!Services.TryGet<AudioStateController>(out var audio))
@@ -142,6 +143,13 @@ namespace Game.DevTools
             if (GUILayout.Button("Open the eye now", DevStyle.Button)) giant.OpenEyeNow();
             if (GUILayout.Button("Searchlights and crowd now", DevStyle.Button)) giant.SearchlightsNow();
             GUILayout.EndHorizontal();
+        }
+
+        static void DrawBlind(BlindOne blind)
+        {
+            GUILayout.Label("Blind one", DevStyle.Section);
+            DevStyle.Row("State", blind.State == BlindState.Absent ? $"not yet (comes at lamp {blind.Settings.arriveAtLamp})" : $"{blind.State}, {blind.DistanceToPlayer:0} m");
+            if (blind.State == BlindState.Absent && GUILayout.Button("Bring it now", DevStyle.Button)) blind.Arrive();
         }
 
         static void GiveEverything(Hotbar hotbar)

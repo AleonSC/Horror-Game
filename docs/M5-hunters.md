@@ -50,3 +50,30 @@ floodlights that drive it back come in part 6.
 
 **Let me know:** does it read as a silhouette? Is the fall and walk scary, too slow or too fast? Does the
 searchlight look right? What's the frame time with the crowd out?
+
+## Part 3: the blind one ("the Auscult")
+
+- **The 3rd lamp:** a low black storm gathers 45 m ahead of you, with red lightning forking down and thunder
+  after it. Its theme starts, and in time with it:
+  - at 3.5 s it **breaks out of the ground**
+  - at 7.6 s it **roars**
+  - at 13.1 s it **stamps twice**
+
+  Then it hunts.
+- **It's blind and hunts by sound.** It roams within 40 m of you (1.5 m/s), stopping now and then to cock its
+  head and click.
+  - **Noises send it rushing** to the spot (5.2 m/s): your running steps (heard from 22 m), walking (5 m),
+    panting when winded (6 m), the flare gun, the car's chirp, a tree falling.
+  - **It searches where it heard you**: 5 s on the spot, then 45 s round it.
+  - **Within 4 m it hears you whatever you do**, unless you're crouching. Creep past it.
+- **Within 2.6 m it takes you:** it leans its face down to yours, then a hard cut to black. It's gone for a
+  minute after that.
+- **Lights stop it:** it won't step into a lamp's circle, or a torch's or a refuge's.
+- **It barges through trees and knocks them down**; they topple, thud, lie a while and sink away. Rocks,
+  boulders and buildings it walks round.
+- **Get 90 m away for a minute and it catches up**, 35 m behind you.
+- A **camera flash** drives it off for 30 s. A **flare** in the sky makes it lose interest for a while.
+- **To test quickly:** F9 > Game > Blind one > **Bring it now**.
+- Numbers: `Assets/Config/Entities/BlindConfig`. Your own model can go in **Custom Model**.
+
+**Let me know:** is it fair? Can you creep past it? Does the storm look right? Do the falling trees look OK?

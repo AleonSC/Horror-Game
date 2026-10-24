@@ -46,21 +46,23 @@ namespace Game.Player
         }
 
         /// <summary>The player has been taken: fade out, then wake them again.</summary>
-        public void Begin(EntityKind by, int entityId)
+        /// <param name="hardCut">Straight to black, no fade (the blind one).</param>
+        public void Begin(EntityKind by, int entityId, bool hardCut = false)
         {
             if (Active) return;
             Active = true;
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new PlayerCaught(by, entityId, transform.position));
-            StartCoroutine(Run());
+            StartCoroutine(Run(hardCut));
         }
 
-        IEnumerator Run()
+        IEnumerator Run(bool hardCut)
         {
             var fade = Services.Get<ScreenFade>();
             fade.Color = Color.black;
             fade.Message = Messages[Random.Range(0, Messages.Length)];
+            if (hardCut) fade.Alpha = 1f;
 
-            for (float t = 0f; t < FadeOutTime; t += Time.deltaTime)
+            for (float t = 0f; t < FadeOutTime && !hardCut; t += Time.deltaTime)
             {
                 fade.Alpha = Mathf.Max(fade.Alpha, Mathf.SmoothStep(0f, 1f, t / FadeOutTime));
                 yield return null;

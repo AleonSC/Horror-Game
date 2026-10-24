@@ -95,6 +95,20 @@ namespace Game.World.Build
             InstanceCount++;
         }
 
+        public Kind GetKind(int kind) => kinds[kind];
+
+        /// <summary>Take a copy away again (a tree knocked down). False if it isn't there.</summary>
+        public bool Remove(int kind, Vector2 home, Matrix4x4 matrix)
+        {
+            var list = homes[kind][ChunkIndex(home)];
+            if (list == null) return false;
+            int i = list.IndexOf(matrix);
+            if (i < 0) return false;
+            list.RemoveAt(i);
+            InstanceCount--;
+            return true;
+        }
+
         int ChunkIndex(Vector2 p)
         {
             int cx = Mathf.Clamp(Mathf.FloorToInt(Wrap.Into(p.x, mapSize) / chunkSize), 0, across - 1);

@@ -90,7 +90,12 @@ namespace Game.World.Build
                 var kinds = isPine ? pine : dead;
                 foreach (int k in kinds[t.Variant % kinds.Length]) renderer.Add(k, t.Position, m);
 
-                var col = Collider(t.Position, "Tree", Layers.Trees).AddComponent<CapsuleCollider>();
+                var treeGo = Collider(t.Position, "Tree", Layers.Trees);
+                var marker = treeGo.AddComponent<ForestTree>();
+                marker.Kinds = kinds[t.Variant % kinds.Length];
+                marker.Home = t.Position;
+                marker.Matrix = m;
+                var col = treeGo.AddComponent<CapsuleCollider>();
                 col.radius = 0.3f * t.Scale;
                 col.height = 6f * t.Scale;
                 col.center = Vector3.up * 3f * t.Scale;
