@@ -45,6 +45,10 @@ namespace Game.Player
         public bool Moving { get; private set; }
         /// <summary>Held still: no moving or looking (something else is moving the camera).</summary>
         public bool Held { get; private set; }
+        /// <summary>The seat you're in (the car), or null.</summary>
+        public ISeat Seat { get; private set; }
+        /// <summary>On a ladder right now.</summary>
+        public bool Climbing { get; private set; }
         /// <summary>Space pressed this frame, even while held (struggling free of a crawler).</summary>
         public bool StrugglePressed => input.Jump.WasPressedThisFrame();
         /// <summary>0-1: the dream hallway (the giant's eye): the view stretches wide and running gets you nowhere.</summary>
@@ -119,7 +123,9 @@ namespace Game.Player
             if (!uiOpen && input.Interact.WasPressedThisFrame() && Cursor.lockState == CursorLockMode.Locked) Interactor.TryInteract();
             if (!keysTaken && input.Door.WasPressedThisFrame()) Interactor.TryUseDoor();
 
-            Move(s, dt, keysTaken);
+            if (!keysTaken && input.Sit.WasPressedThisFrame()) ToggleSeat();
+            if (Seat != null) KeepSeated();
+            else Move(s, dt, keysTaken);
             Pant(s);
             Interactor.Update(head, s.reach, s.aimAssist);
         }
@@ -175,6 +181,35 @@ namespace Game.Player
                 sounds.Play2D(Game.Audio.Sound.Breath, Game.Audio.MixerNames.Player, 0.5f, 1.6f);
             if (s.pantNoise > 0f && Services.TryGet<EventBus>(out var events))
                 events.Publish(new NoiseEmitted(transform.position, s.pantNoise, "panting"));
+        }
+
+        // Y: in or out of a seat (the car).
+        void ToggleSeat()
+        {
+            if (Seat != null)
+            {
+                var exit = Seat.ExitPoint;
+                Seat.Sat(false);
+                Seat = null;
+                Teleport(exit, Quaternion.Euler(0f, yaw, 0f));
+                body.enabled = true;
+                return;
+            }
+            var seat = Seats.Near(transform.position);
+            if (seat == null) return;
+            Seat = seat;
+            body.enabled = false;
+            velocity = Vector3.zero;
+            seat.Sat(true);
+        }
+
+        void KeepSeated()
+        {
+            Moving = Running = Crouching = false;
+            var p = Seat.SeatPoint;
+            transform.position = p.position;
+            // Seated: a lower eye, and the body turns with the view.
+            height = Mathf.MoveTowards(height, config.settings.crouchingHeight + 0.2f, Time.deltaTime * 4f);
         }
 
         /// <summary>Gently draw the view toward a point over a few seconds (the mouse still works).</summary>
@@ -234,6 +269,19 @@ namespace Game.Player
             flat = Vector3.MoveTowards(flat, wish, accel * dt);
             velocity.x = flat.x;
             velocity.z = flat.z;
+
+            // On a ladder: W climbs the way you look (down when you look down), Space lets go.
+            var ladder = Ladder.At(transform.position + Vector3.up * 0.9f);
+            Climbing = ladder != null && !(input.Jump.WasPressedThisFrame() && !keysTaken);
+            if (Climbing)
+            {
+                float way = pitch > 35f ? -1f : 1f;
+                velocity.y = move.y * way * s.climbSpeed;
+                velocity.x *= 0.5f;
+                velocity.z *= 0.5f;
+                body.Move(velocity * dt);
+                return;
+            }
 
             if (body.isGrounded)
             {
@@ -300,13 +348,13 @@ namespace Game.Player
         }
 
         /// <summary>Move the player (waking up, restarting).</summary>
-        public void Teleport(Vector3 position, Quaternion facing)
+        public void Teleport(Vector3 position, Quaternion facing, bool keepPitch = false)
         {
             bool wasEnabled = body.enabled;
             body.enabled = false;
             transform.SetPositionAndRotation(position, Quaternion.Euler(0f, facing.eulerAngles.y, 0f));
             yaw = transform.eulerAngles.y;
-            pitch = 0f;
+            if (!keepPitch) pitch = 0f;
             velocity = Vector3.zero;
             body.enabled = wasEnabled;
         }

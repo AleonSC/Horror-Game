@@ -2,6 +2,7 @@ using System.IO;
 using Game.Core;
 using Game.DevTools;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Tests
 {
@@ -113,6 +114,21 @@ namespace Game.Tests
             log.Add(0f, "x");
             log.Clear();
             Assert.AreEqual(0, log.Count);
+        }
+    }
+
+    public class SafeZoneShapeTests
+    {
+        [Test]
+        public void Beam_IsABoxAhead()
+        {
+            // Car headlights: 16 m long, 2.6 m each side, pointing along +x from (0, 0).
+            var z = new SafeZone("Headlights", new Vector3(0f, 0f, 0f), 8f) { Beam = true, Forward = new Vector3(1f, 0f, 0f), Length = 16f, HalfWidth = 2.6f };
+            Assert.IsTrue(z.Contains(new Vector3(8f, 0f, 1f)));
+            Assert.IsTrue(z.Contains(new Vector3(15.9f, 0f, -2.5f)));
+            Assert.IsFalse(z.Contains(new Vector3(-1f, 0f, 0f)));   // behind the car
+            Assert.IsFalse(z.Contains(new Vector3(8f, 0f, 3f)));    // off to the side
+            Assert.IsFalse(z.Contains(new Vector3(17f, 0f, 0f)));   // past the end
         }
     }
 }

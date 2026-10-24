@@ -11,6 +11,14 @@ namespace Game.Core
         public float Radius;
         public bool Active = true;
 
+        /// <summary>
+        /// A beam-shaped zone (car headlights) instead of a circle: a box this long, starting at Center and pointing
+        /// along Forward, this wide on each side. (Radius still says roughly how big it is, for circling round it.)
+        /// </summary>
+        public bool Beam;
+        public Vector3 Forward = new Vector3(0f, 0f, 1f);
+        public float Length, HalfWidth;
+
         public SafeZone(string name, Vector3 center, float radius)
         {
             Name = name;
@@ -23,6 +31,14 @@ namespace Game.Core
         {
             if (!Active) return false;
             float dx = point.x - Center.x, dz = point.z - Center.z;
+            if (Beam)
+            {
+                float len = Mathf.Sqrt(Forward.x * Forward.x + Forward.z * Forward.z);
+                float fx = len > 0f ? Forward.x / len : 0f, fz = len > 0f ? Forward.z / len : 1f;
+                float along = dx * fx + dz * fz;
+                float across = Mathf.Abs(-dx * fz + dz * fx);
+                return along >= -margin && along <= Length + margin && across <= HalfWidth + margin;
+            }
             float r = Radius + margin;
             return dx * dx + dz * dz <= r * r;
         }
@@ -53,7 +69,7 @@ namespace Game.Core
             {
                 if (!z.Contains(point, margin)) continue;
                 float dx = point.x - z.Center.x, dz = point.z - z.Center.z;
-                float depth = Mathf.Sqrt(dx * dx + dz * dz) - z.Radius;
+                float depth = z.Beam ? -z.HalfWidth : Mathf.Sqrt(dx * dx + dz * dz) - z.Radius;
                 if (depth < best)
                 {
                     best = depth;

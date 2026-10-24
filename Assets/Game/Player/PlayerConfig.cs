@@ -25,6 +25,8 @@ namespace Game.Player
         [Range(0f, 3f), Tooltip("Jump height (metres).")]
         public float jumpHeight = 1.1f;
         [Range(-50f, -5f)] public float gravity = -20f;
+        [Range(0.5f, 8f), Tooltip("Climbing a ladder (metres a second).")]
+        public float climbSpeed = 2.5f;
 
         [Header("Body")]
         [Range(1f, 2.5f)] public float standingHeight = 1.8f;

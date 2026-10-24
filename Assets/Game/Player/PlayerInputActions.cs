@@ -14,8 +14,9 @@ namespace Game.Player
         public readonly InputAction Interact = new InputAction("Interact", InputActionType.Button, "<Mouse>/leftButton");
         public readonly InputAction Door = new InputAction("Door", InputActionType.Button, "<Keyboard>/e");
         public readonly InputAction Use = new InputAction("Use", InputActionType.Button, "<Keyboard>/f");
+        public readonly InputAction Sit = new InputAction("Sit", InputActionType.Button, "<Keyboard>/y");
 
-        InputAction[] All => new[] { Move, Look, Sprint, Jump, Crouch, Interact, Door, Use };
+        InputAction[] All => new[] { Move, Look, Sprint, Jump, Crouch, Interact, Door, Use, Sit };
 
         public PlayerInputActions()
         {

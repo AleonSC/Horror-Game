@@ -214,4 +214,13 @@ namespace Game.Core
         public BossThemeEnded(EntityKind kind) { Kind = kind; }
         public override string ToString() => $"{Kind}'s theme ends";
     }
+
+    /// <summary>The watchtower's floodlights came on: hunts reset, the area is safe, the giant is driven back.</summary>
+    public readonly struct FloodlightsLit : IGameEvent
+    {
+        public readonly Vector3 Position;
+        public readonly float Seconds;
+        public FloodlightsLit(Vector3 position, float seconds) { Position = position; Seconds = seconds; }
+        public override string ToString() => "The watchtower's floodlights came on";
+    }
 }

@@ -27,6 +27,7 @@ namespace Game.World.Build
         public static void Fit(Transform root, StructureKind kind, IList<Loot> loot)
         {
             if (kind == StructureKind.Car && root.GetComponent<Car>() == null) root.gameObject.AddComponent<Car>();
+            if (kind == StructureKind.Watchtower) FitWatchtower(root);
             FitYourDoorAndInside(root, kind);
             if (loot == null || loot.Count == 0) return;
 
@@ -99,6 +100,29 @@ namespace Game.World.Build
             }
             else if (kind != StructureKind.Campsite)
                 Debug.LogWarning($"Your {root.name} prefab has no child named 'Inside' with a Box Collider, so it isn't a shelter (docs/custom-assets.md).");
+        }
+
+        // The ladder (your prefab: a child named "Ladder" with a Box Collider covering where you climb), the button
+        // ("Button") and the floodlights (children named "Floodlight").
+        static void FitWatchtower(Transform root)
+        {
+            var ladder = root.gameObject.AddComponent<Game.Player.Ladder>();
+            var marked = Find(root, "Ladder");
+            var box = marked != null ? marked.GetComponent<BoxCollider>() : null;
+            if (box != null)
+            {
+                ladder.box = new Bounds(root.InverseTransformPoint(marked.TransformPoint(box.center)), Vector3.Scale(box.size, marked.lossyScale));
+                Object.Destroy(box);
+            }
+            else ladder.box = new Bounds(new Vector3(-2.1f, 6.7f, 0f), new Vector3(1f, 13.4f, 1.2f));
+
+            var tower = root.gameObject.AddComponent<Watchtower>();
+            var button = Find(root, "Button");
+            if (button != null) tower.buttonSpot = root.InverseTransformPoint(button.position);
+            var spots = new List<Vector3>();
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (t != root && t.name == "Floodlight") spots.Add(root.InverseTransformPoint(t.position));
+            if (spots.Count > 0) tower.lightSpots = spots.ToArray();
         }
 
         public static Shelter AddShelter(Transform on, string name, Bounds inside)

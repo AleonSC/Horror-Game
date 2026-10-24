@@ -168,6 +168,9 @@ namespace Game.World.Build
             }
             var door = props.Door(plan.Door, plan.DoorYaw, plan.GroundAt(plan.Door), root);
             wrap.Add(door.transform, door.transform.position);
+            // The room through it, far below (not wrapped: you're only ever there by the door).
+            var lone = door.GetComponentInChildren<LoneDoor>();
+            if (lone != null) lone.room = DarkRoom.Build(door.transform.position, plan.DoorYaw, root, made);
 
             Timings.Add($"Build: {watch.ElapsedMilliseconds - planned} ms ({forest.InstanceCount} instances)");
             Debug.Log($"World {seed} made in {watch.ElapsedMilliseconds} ms: {string.Join(", ", Timings)}");

@@ -74,6 +74,13 @@ namespace Game.Entities
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
+            // Through the lone door nothing can follow: it keeps away until you come back.
+            if (PlayerPlace.InDarkRoom)
+            {
+                if (State == ScourState.Hidden) timer = Mathf.Max(timer, 3f);
+                else if (State != ScourState.Taking) Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
+                return;
+            }
             var catchFlow = player.GetComponent<CatchFlow>();
             if (catchFlow != null && catchFlow.Active && State != ScourState.Taking)
             {

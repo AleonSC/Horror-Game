@@ -176,6 +176,7 @@ namespace Game.Entities
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
+            if (PlayerPlace.InDarkRoom) return; // (it can't follow you there: it waits)
             float dt = Time.deltaTime;
             deafFor = Mathf.Max(0f, deafFor - dt);
             stateTime += dt;

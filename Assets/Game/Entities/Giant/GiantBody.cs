@@ -90,7 +90,7 @@ namespace Game.Entities
         }
 
         /// <summary>The fog's colour (as the look shows it) taken by this much: it stays a silhouette, just hazed.</summary>
-        public void SetHaze(Color hazeColor) => haze.SetColor("_UnlitColor", hazeColor);
+        public void SetHaze(Color hazeColor) => RuntimeMaterials.SetHazeColor(haze, hazeColor);
 
         /// <summary>Hanging from the chain: <paramref name="sway"/> -1..1 swings the limbs a little.</summary>
         public void PoseHanging(float sway)

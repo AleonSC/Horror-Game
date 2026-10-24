@@ -96,6 +96,11 @@ namespace Game.World.Build
                     Box(t, new Vector3(0f, 12.6f, 1.95f), new Vector3(4f, 1f, 0.08f), wood);
                     Box(t, new Vector3(0f, 12.6f, -1.95f), new Vector3(4f, 1f, 0.08f), wood);
                     Box(t, new Vector3(0f, 14f, 0f), new Vector3(4.4f, 0.2f, 4.4f), darkWood, false);
+                    // The ladder up the west side (rails and rungs: you climb through them, not on them).
+                    for (int side = -1; side <= 1; side += 2)
+                        Box(t, new Vector3(-2.15f, 6.4f, side * 0.3f), new Vector3(0.07f, 12.8f, 0.07f), darkWood, false);
+                    for (float y = 0.35f; y < 12.6f; y += 0.35f)
+                        Box(t, new Vector3(-2.15f, y, 0f), new Vector3(0.05f, 0.05f, 0.6f), darkWood, false);
                     break;
                 case StructureKind.Car:
                     Box(t, new Vector3(0f, 0.65f, 0f), new Vector3(1.8f, 0.8f, 4.4f), paint);

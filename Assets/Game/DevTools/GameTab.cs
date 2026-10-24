@@ -37,7 +37,11 @@ namespace Game.DevTools
             if (GUILayout.Button("Light the nearest lamp", DevStyle.Button)) LightNearestLamp();
             GUILayout.EndHorizontal();
 
-            if (Services.TryGet<WorldBuilder>(out var world) && world.Plan != null) DrawWorld(world, root);
+            if (Services.TryGet<WorldBuilder>(out var world) && world.Plan != null)
+            {
+                DrawWorld(world, root);
+                DrawPlaces(run);
+            }
             if (Services.TryGet<PlayerController>(out var player)) DrawPlayer(player);
             if (Services.TryGet<ScourSpawner>(out var spawner)) DrawScours(spawner);
             if (Services.TryGet<Giant>(out var giant)) DrawGiant(giant);
@@ -93,6 +97,32 @@ namespace Game.DevTools
             DevStyle.Row("Forest", $"{world.Forest.InstanceCount} things, {world.Forest.DrawnInstances} drawn in {world.Forest.DrawCalls} calls");
             foreach (var t in world.Timings) GUILayout.Label(t, DevStyle.MutedLabel);
             GUILayout.Label("Restart run makes a new world (with Randomize Seed Each Run on, in GameSetup).", DevStyle.MutedLabel);
+        }
+
+        // Quick trips for testing the places.
+        static void DrawPlaces(GameRun run)
+        {
+            GUILayout.Label("Places", DevStyle.Section);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Go to the car", DevStyle.Button)) GoTo(Object.FindFirstObjectByType<Game.World.Car>(), new Vector3(-2.5f, 0f, 0f));
+            if (GUILayout.Button("Go to the watchtower", DevStyle.Button)) GoTo(Object.FindFirstObjectByType<Game.World.Watchtower>(), new Vector3(-3.5f, 0f, 0f));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            var door = Object.FindFirstObjectByType<Game.World.LoneDoor>();
+            if (GUILayout.Button("Go to the lone door", DevStyle.Button) && door != null) GoTo(door.frame != null ? door.frame : door.transform, new Vector3(0f, 0f, 3f));
+            if (door != null && !door.Unlocked && GUILayout.Button("Unlock it", DevStyle.Button) && Services.TryGet<EventBus>(out var events)) events.Publish(new DoorUnlocked());
+            GUILayout.EndHorizontal();
+            if (PlayerPlace.InDarkRoom) GUILayout.Label("You're in the dark room.", DevStyle.MutedLabel);
+        }
+
+        static void GoTo(Component place, Vector3 offset)
+        {
+            if (place == null || !Services.TryGet<PlayerController>(out var player)) return;
+            Vector3 at = place.transform.TransformPoint(offset);
+            if (Physics.Raycast(at + Vector3.up * 30f, Vector3.down, out var hit, 60f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore)) at = hit.point + Vector3.up * 0.05f;
+            Vector3 look = place.transform.position - at;
+            look.y = 0f;
+            player.Teleport(at, Quaternion.LookRotation(look.sqrMagnitude > 0.01f ? look : Vector3.forward));
         }
 
         static void DrawPlayer(PlayerController player)

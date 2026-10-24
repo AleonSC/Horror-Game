@@ -80,6 +80,14 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>Set a haze material's colour, always fully opaque (dividing a colour by the exposure would thin its alpha too).</summary>
+        public static void SetHazeColor(Material m, Color c)
+        {
+            if (m == null) return;
+            c.a = 1f;
+            m.SetColor("_UnlitColor", c);
+        }
+
         public static void SetGlow(Material m, Color glow)
         {
             if (m != null) m.SetColor("_EmissiveColor", glow);

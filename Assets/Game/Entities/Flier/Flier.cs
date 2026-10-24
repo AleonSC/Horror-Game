@@ -77,6 +77,7 @@ namespace Game.Entities
             subs.Add(events.Subscribe<RunReset>(_ => Remove()));
             subs.Add(events.Subscribe<PlayerRespawned>(_ => { if (arrived) GoAway(s.awayAfterCaught); }));
             subs.Add(events.Subscribe<HuntsReset>(_ => { if (State == FlierState.Locked) Release(s.graceAfter * 2f); }));
+            subs.Add(events.Subscribe<FloodlightsLit>(e => DriveAway(e.Seconds + 30f)));
             Threats.Add(this);
         }
 
@@ -143,6 +144,15 @@ namespace Game.Entities
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
+            bool away = PlayerPlace.InDarkRoom;
+            if (root.gameObject.activeSelf == away && (State == FlierState.Patrolling || State == FlierState.Locked || State == FlierState.Climbing))
+                root.gameObject.SetActive(!away);
+            if (away)
+            {
+                beam.enabled = false;
+                if (State == FlierState.Locked) Release(s.graceAfter);
+                return;
+            }
             float dt = Time.deltaTime;
             stateTime += dt;
             grace = Mathf.Max(0f, grace - dt);

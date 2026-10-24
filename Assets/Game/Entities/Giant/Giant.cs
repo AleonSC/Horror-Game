@@ -47,7 +47,7 @@ namespace Game.Entities
         float swing, swingSpeed;
         float stride, nextScan, scanLeft, scan;
         float shockRadius = -1f;
-        bool sawIt, eyeDone, searching;
+        bool sawIt, eyeDone, searching, hiddenForRoom;
         int lastStep;
 
         public GiantState State { get; private set; } = GiantState.Hanging;
@@ -102,6 +102,8 @@ namespace Game.Entities
                 subs.Add(events.Subscribe<RunStarted>(_ => Rehang()));
                 subs.Add(events.Subscribe<PlayerRespawned>(_ => SendBack(s.restTime)));
                 subs.Add(events.Subscribe<HuntsReset>(_ => { if (State == GiantState.Walking) { scanLeft = 10f; } }));
+                // The watchtower's floodlights drive it back to the horizon.
+                subs.Add(events.Subscribe<FloodlightsLit>(e => SendBack(s.restTime + e.Seconds)));
             }
             Threats.Add(this);
             Rehang();
@@ -156,7 +158,7 @@ namespace Game.Entities
         /// <summary>Back to the horizon (it took you, or the floodlights drove it off), to walk again after a rest.</summary>
         public void SendBack(float rest)
         {
-            if (State != GiantState.Walking && State != GiantState.Landed && State != GiantState.Resting) return;
+            if (player == null || (State != GiantState.Walking && State != GiantState.Landed && State != GiantState.Resting)) return;
             Vector3 p = PlayerFeet;
             Vector3 dir = Flat(truePos - p);
             if (dir.sqrMagnitude < 0.01f) dir = Flat(Bearing(bearing));
@@ -184,6 +186,9 @@ namespace Game.Entities
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
+            // Through the lone door there's no sky: it's gone from view, and it waits.
+            if (PlayerPlace.InDarkRoom != hiddenForRoom) ShowForRoom(!PlayerPlace.InDarkRoom);
+            if (hiddenForRoom) return;
             float dt = Time.deltaTime;
             Vector3 p = PlayerFeet;
 
@@ -408,9 +413,9 @@ namespace Game.Entities
                 float mul = LookController.ExposureMultiplier(ls.exposure);
                 Color fog = Color.Lerp(ls.fogColor, look.FogTint, look.FogTintAmount).linear / mul;
                 body.SetHaze(fog * s.haze);
-                chainMat.SetColor("_UnlitColor", fog * (s.haze * 0.8f));
-                eyeMat.SetColor("_UnlitColor", s.eyeColor.linear * s.eyeGlow / mul);
-                pupilMat.SetColor("_UnlitColor", Color.black);
+                RuntimeMaterials.SetHazeColor(chainMat, fog * (s.haze * 0.8f));
+                RuntimeMaterials.SetHazeColor(eyeMat, s.eyeColor.linear * s.eyeGlow / mul);
+                RuntimeMaterials.SetHazeColor(pupilMat, Color.black);
             }
 
             if (chain.gameObject.activeSelf)
@@ -517,6 +522,21 @@ namespace Game.Entities
                 c.Face(p);
                 c.SetEyes(1f, 1.5f, 0f, 0f, 0f, 1f);
             }
+        }
+
+        void ShowForRoom(bool shown)
+        {
+            hiddenForRoom = !shown;
+            foreach (Transform child in transform) child.gameObject.SetActive(shown);
+            if (!shown)
+            {
+                if (player != null) player.Dream = 0f;
+                SetWorldRed(0f);
+                return;
+            }
+            chain.gameObject.SetActive(State == GiantState.Hanging || State == GiantState.Staring);
+            eye.gameObject.SetActive(State == GiantState.Staring);
+            if (searchlights != null) foreach (var l in searchlights) l.enabled = searching;
         }
 
         // ------------------------------------------------------------------ helpers

@@ -80,7 +80,7 @@ namespace Game.Entities
 
         void Update()
         {
-            if (active) Fill();
+            if (active && !PlayerPlace.InDarkRoom) Fill();
         }
 
         // Up to the count (x difficulty); also catches any that were lost.

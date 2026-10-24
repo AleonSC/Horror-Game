@@ -116,3 +116,34 @@ searchlight look right? What's the frame time with the crowd out?
 
 **Let me know:** can you see it against the sky? Is the beam easy enough to dodge, and is losing it under the
 trees fair?
+
+## Part 6: the watchtower, the car and the lone door
+
+- **The watchtower:** walk into the ladder on its west side and press **W** to climb. Look down while pressing
+  W to climb down, and press **Space** to let go. On the deck, click the **button** to light the
+  floodlights for 60 s:
+  - every hunt resets
+  - the area round the tower (45 m) is safe
+  - the giant is driven back to the horizon, and the flier away
+
+  They flicker as they die, then need 120 s to recharge.
+- **The car:**
+  - Press **Y** by the driver's door to get in, and Y again to get out. Inside, the sound is muffled
+    (Sheltered).
+  - Click the **headlight switch** on the dashboard: two beams that are a 16 m safe light, for 120 s of
+    battery, flickering as it dies.
+  - There's blood everywhere. The glove box, trunk and key fob work as before.
+- **The lone door** (unlocked by the 10th lamp):
+  - Open it (E) and it's a **window into a vast black pillared room** far below the world. Step through and
+    you're there: the sound changes to the DarkRoom state, and **nothing can follow you**. The hunters wait,
+    and the giant and the flier are gone from view.
+  - The room's own doorway looks back out at the forest. Step back through it to return.
+- **To test quickly:** F9 > Game > Places: **Go to the car**, **Go to the watchtower**, **Go to the lone
+  door**, and **Unlock it**.
+
+**Not yet:** the car's four doors don't open (Y gets you in), and there's no ending in the dark room yet (M7).
+The doorway views are the part most likely to need fixing in Unity: if they look wrong (stretched,
+mirrored, too bright or black), a screenshot will show me what to fix.
+
+**Let me know:** is climbing easy? Do the doorway views line up as you walk past? And the frame time near the
+door: each view is a second camera, drawn only when you're within 40 m.

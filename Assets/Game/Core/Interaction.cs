@@ -21,4 +21,41 @@ namespace Game.Core
 
     /// <summary>A door (shack, cabin, tent flap, the lone door): used with E, never with a click, so frantic clicking never swings one.</summary>
     public interface IDoor : IInteractable { }
+
+    /// <summary>Somewhere to sit (the car's seat): Y gets in and out.</summary>
+    public interface ISeat
+    {
+        /// <summary>Near enough to get in from here?</summary>
+        bool CanSit(Vector3 from);
+        Transform SeatPoint { get; }
+        /// <summary>Where you stand when you get out.</summary>
+        Vector3 ExitPoint { get; }
+        void Sat(bool seated);
+    }
+
+    /// <summary>Every seat in the world (they add themselves).</summary>
+    public static class Seats
+    {
+        static readonly System.Collections.Generic.List<ISeat> all = new System.Collections.Generic.List<ISeat>();
+        public static void Add(ISeat seat) { if (!all.Contains(seat)) all.Add(seat); }
+        public static void Remove(ISeat seat) => all.Remove(seat);
+
+        public static ISeat Near(Vector3 from)
+        {
+            foreach (var s in all) if (s != null && s.CanSit(from)) return s;
+            return null;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetOnPlay() => all.Clear();
+    }
+
+    /// <summary>Where the player is, for the hunters: through the lone door, nothing can follow.</summary>
+    public static class PlayerPlace
+    {
+        public static bool InDarkRoom;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetOnPlay() => InDarkRoom = false;
+    }
 }

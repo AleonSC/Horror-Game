@@ -139,6 +139,7 @@ namespace Game.Entities
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
+            if (PlayerPlace.InDarkRoom) return;
             float dt = Time.deltaTime;
             stateTime += dt;
             Eyes();

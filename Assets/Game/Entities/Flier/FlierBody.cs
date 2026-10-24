@@ -32,7 +32,7 @@ namespace Game.Entities
             if (skin != null) Destroy(skin);
         }
 
-        public void SetColor(Color c) => skin.SetColor("_UnlitColor", c);
+        public void SetColor(Color c) => RuntimeMaterials.SetHazeColor(skin, c);
 
         void UseYours(GameObject prefab)
         {
