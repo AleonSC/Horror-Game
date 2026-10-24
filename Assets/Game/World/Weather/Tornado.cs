@@ -10,7 +10,7 @@ namespace Game.World
     /// </summary>
     public sealed class Tornado : MonoBehaviour
     {
-        const float RenderDistance = 500f;
+        const float RenderDistance = 360f; // (its top stays inside the camera's 600 m far clip)
         const int Segments = 14;
 
         readonly Transform[] rings = new Transform[Segments];

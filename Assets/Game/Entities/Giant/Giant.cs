@@ -24,7 +24,9 @@ namespace Game.Entities
     public sealed class Giant : MonoBehaviour, IThreat
     {
         // Nearer than the camera's far plane (600 m), so it's always drawn.
-        const float RenderDistance = 520f;
+        // (Well inside the camera's far clip, 600 m: swinging on its chain tips its feet away, and further than the
+        // clip they'd be cut off whenever you look straight at it.)
+        const float RenderDistance = 360f;
 
         GiantConfig config;
         GiantSettings s;
@@ -428,7 +430,7 @@ namespace Game.Entities
             if (chain.gameObject.activeSelf)
             {
                 Vector3 neck = bodyRoot.TransformPoint(body.NeckLocal);
-                PlaceBar(chain, neck, neck + Vector3.up * r * 1.5f, s.height * k * 0.008f);
+                PlaceBar(chain, neck, ChainTop(p, neck, r * 1.5f), s.height * k * 0.008f);
             }
             for (int i = 0; i < emptyChains.Count; i++)
             {
@@ -437,13 +439,24 @@ namespace Game.Entities
                 float el = (25f + 8f * Mathf.Sin(i * 2.3f)) * Mathf.Deg2Rad;
                 Vector3 bottom = p + baseDir * rr * Mathf.Cos(el) + Vector3.up * rr * Mathf.Sin(el);
                 bottom += Vector3.Cross(Vector3.up, baseDir) * Mathf.Sin(Time.time * 0.21f + i) * rr * 0.004f;
-                PlaceBar(emptyChains[i], bottom, bottom + Vector3.up * rr * 1.5f, rr * 0.006f);
+                PlaceBar(emptyChains[i], bottom, ChainTop(p, bottom, rr * 1.5f), rr * 0.006f);
             }
             if (eye.gameObject.activeSelf)
             {
                 eye.position = EyeWorld(p);
                 eye.rotation = Quaternion.LookRotation(eye.position - player.Head.position);
             }
+        }
+
+        // A chain runs up from here this far, but stops short of the camera's far clip (or it's cut off overhead).
+        static Vector3 ChainTop(Vector3 viewer, Vector3 from, float length)
+        {
+            var cam = Camera.main;
+            float reach = (cam != null ? cam.farClipPlane : 600f) * 0.92f;
+            Vector3 v = from - viewer;
+            float room = v.y * v.y - (v.sqrMagnitude - reach * reach);
+            float most = room > 0f ? -v.y + Mathf.Sqrt(room) : 0f;
+            return from + Vector3.up * Mathf.Clamp(length, 0f, Mathf.Max(0f, most));
         }
 
         // ------------------------------------------------------------------ the 10th lamp
