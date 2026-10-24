@@ -17,8 +17,9 @@ namespace Game.World
         public bool snack;
 
         Light glow;
-        Renderer halo;
+        Material outline;
         Color haloColor;
+        float outlineStrength;
         float glowStrength;
         float phase;
 
@@ -72,9 +73,12 @@ namespace Game.World
             glow.range = s.batteryGlowRange;
             glowStrength = s.batteryGlowStrength;
             phase = Random.value * 10f;
-            // A faint soft gleam round it too (kept dim: they were too bright as lights).
-            halo = Game.Rendering.Effects.Glow(transform, Vector3.up * 0.06f, 0.45f, Color.black, 0.9f, 3f, "Battery gleam");
+            // Its shape traced in green light (kept dim: they were too bright as glows).
+            outline = Game.Rendering.Effects.Outline(transform, Color.black, 0.004f, 0.85f);
             haloColor = s.batteryGlow;
+            outlineStrength = s.batteryOutline;
+            // A bigger target to grab, so you can take it running past.
+            if (TryGetComponent<SphereCollider>(out var grab)) grab.radius = Mathf.Max(grab.radius, s.batteryGrabRadius);
         }
 
         void Update()
@@ -82,7 +86,7 @@ namespace Game.World
             if (glow == null) return;
             float pulse = 0.35f + 0.65f * Mathf.Pow(0.5f + 0.5f * Mathf.Sin((Time.time + phase) * 2.2f), 2f);
             glow.intensity = glowStrength * pulse;
-            if (halo != null) Game.Rendering.Effects.SetGlow(halo, haloColor * (0.35f * pulse));
+            if (outline != null) Game.Rendering.RuntimeMaterials.SetGlow(outline, haloColor * (outlineStrength * pulse));
         }
 
         public void Interact()

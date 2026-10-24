@@ -84,6 +84,18 @@ namespace Game.World
         [Tooltip("A deer you startle drops a battery as it bolts.")]
         public bool deerDropBattery = true;
 
+        [Header("Lightning bugs")]
+        [Range(0, 200), Tooltip("How many round you (on Restart).")]
+        public int lightningBugs = 40;
+        [Range(5f, 60f), Tooltip("They're about within this distance of you.")]
+        public float lightningBugRange = 24f;
+        [Range(0f, 20f), Tooltip("How bright a flash is (the batteries' green).")]
+        public float lightningBugGlow = 2.5f;
+        [Range(1f, 20f), Tooltip("A flier flashes every this many seconds, give or take.")]
+        public float lightningBugEvery = 5.5f;
+        [Range(0f, 1f), Tooltip("Share of them sitting in the grass, answering nearby flashes (dimmer, two seconds later).")]
+        public float lightningBugsSitting = 0.15f;
+
         [Header("Small things")]
         [Range(0, 200)] public int beetles = 40;
         [Range(0, 40)] public int rats = 6;

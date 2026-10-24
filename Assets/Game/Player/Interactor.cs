@@ -33,6 +33,9 @@ namespace Game.Player
                 float angle = Vector3.Angle(eye.forward, to);
                 // Small things up close get extra leeway.
                 float leeway = assistDegrees + Mathf.Lerp(6f, 0f, dist / reach);
+                // A round target (a pickup's) counts all of it, not just its middle.
+                if (nearby[i] is SphereCollider round && round.isTrigger)
+                    leeway += Mathf.Atan2(round.radius * round.transform.lossyScale.x, dist) * Mathf.Rad2Deg;
                 bool door = candidate is IDoor;
                 if (angle > leeway || angle >= (door ? bestDoor : best)) continue;
                 if (Blocked(eye.position, candidate, to, dist, mask)) continue;

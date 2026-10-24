@@ -88,6 +88,31 @@ namespace Game.Rendering
             return r;
         }
 
+        /// <summary>
+        /// An outline of light round a model: a copy of each of its meshes, pushed out a touch, glowing at its edges
+        /// (the Rim shader). Returns the material, to change its brightness, or null.
+        /// </summary>
+        public static Material Outline(Transform model, Color glow, float thickness = 0.006f, float fog = 0.8f)
+        {
+            var m = Material("Game/Rim", "Outline", glow);
+            if (m == null || model == null) return null;
+            m.SetFloat("_Thickness", thickness);
+            m.SetFloat("_FogAmount", fog);
+            foreach (var filter in model.GetComponentsInChildren<MeshFilter>())
+            {
+                if (filter.sharedMesh == null || filter.gameObject.layer == Layers.Effects) continue;
+                var go = new GameObject("Outline") { layer = Layers.Effects };
+                go.transform.SetParent(filter.transform, false);
+                go.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = m;
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                r.lightProbeUsage = LightProbeUsage.Off;
+            }
+            return m;
+        }
+
         /// <summary>Set an effect's brightness (or, for HDRP's own glowing materials, their glow).</summary>
         public static void SetGlow(Renderer r, Color glow)
         {

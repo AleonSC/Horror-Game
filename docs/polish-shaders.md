@@ -5,11 +5,13 @@ batch is three effects, used all over:
 
 | Shader | What it is | Where you'll see it |
 | --- | --- | --- |
-| `Game/Glow` | a soft disc of light facing you, brightest in the middle, fading into the fog and where it meets surfaces | round a lit lamp's glass, the red marker on a dark lamp, the scours' eyes, a battery's gleam, thrown glowsticks, a flare (big and red when it bursts) |
+| `Game/Glow` | a soft disc of light facing you, brightest in the middle, fading into the fog and where it meets surfaces | round a lit lamp's glass, the red marker on a dark lamp, the scours' eyes, thrown glowsticks, a flare (big and red when it bursts) |
 | `Game/Beam` | a soft shaft of light with dust drifting in it | under the watchtower's floodlights, the giant's searchlights (from its eyes down to you), the flier's beam |
 | `Game/Flame` | a licking, flickering flame: blue at the root, yellow, orange, a red tip | the torch, the lighter, a flare |
 
 | `Game/NightSky` | the sky, drawn through the fog: twinkling stars, drifting clouds lit at the edges near the moon, the moon with faint markings, a halo and rays streaming out | overhead and behind the giant |
+
+| `Game/Rim` | an outline of light: a copy of a model glowing at its edges | batteries lying in the forest (their green) |
 
 They live in `Assets/Game/Rendering/Resources/Shaders` with a shared include, `Horror.hlsl`.
 
@@ -43,6 +45,17 @@ with its head when it stops to scan (`GiantConfig` > Awake). The 10th lamp's sea
 Victorian street lamps now: a stepped base, a fluted iron post ringed with brass collars, a crossbar, and a
 lantern of glass in an iron frame under a sloping roof and a brass finial (the red marker sits on its tip).
 The crank has a housing, an arm and a knob.
+
+## Batteries and lightning bugs
+
+Batteries lying in the forest now have a faint green outline traced round their shape instead of a glow, and
+a much weaker light (`ItemsConfig` > `batteryOutline`, `batteryGlowStrength`). Their grab target is bigger
+(`batteryGrabRadius`), and aiming at any round target counts all of it, not just its middle, so you can take
+one running past.
+
+Lightning bugs drift low and slow through the trees round you, each flashing the batteries' green for half a
+second as it swoops up in a "J", every five or six seconds; a few sit in the grass and answer a nearby flash
+two seconds later, dimmer. `ForestLifeConfig` > Lightning bugs.
 
 ## Deer
 

@@ -96,9 +96,13 @@ namespace Game.Player
         public float batteryCharge = 0.1f;
         public Color batteryGlow = new Color(0.25f, 1f, 0.35f);
         [Range(0f, 2f), Tooltip("How bright the pulsing green light on a battery lying in the forest is.")]
-        public float batteryGlowStrength = 0.12f;
+        public float batteryGlowStrength = 0.04f;
         [Range(0.2f, 5f), Tooltip("How far that light reaches (metres).")]
         public float batteryGlowRange = 1.5f;
+        [Range(0f, 10f), Tooltip("The green outline of light round a battery lying in the forest.")]
+        public float batteryOutline = 0.8f;
+        [Range(0.1f, 2f), Tooltip("How big a battery's grab target is (radius, metres): bigger is easier to take running past.")]
+        public float batteryGrabRadius = 0.55f;
 
         [Header("Torch")]
         [Range(10f, 600f), Tooltip("Seconds a torch burns.")]
