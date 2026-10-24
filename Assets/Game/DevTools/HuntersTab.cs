@@ -24,7 +24,7 @@ namespace Game.DevTools
             }
 
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Search", DevStyle.MutedLabel, GUILayout.Width(50));
+            GUILayout.Label("Search", DevStyle.MutedLabel, GUILayout.Width(66));
             search = GUILayout.TextField(search, DevStyle.TextField);
             if (search.Length > 0 && GUILayout.Button("×", DevStyle.SmallButton)) search = "";
             GUILayout.EndHorizontal();

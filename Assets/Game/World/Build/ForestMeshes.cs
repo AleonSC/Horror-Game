@@ -9,7 +9,11 @@ namespace Game.World.Build
     /// </summary>
     public static class ForestMeshes
     {
-        /// <summary>A tall pine: a bare trunk, then drooping, ragged tiers of boughs up to a point. height &lt;= 0: random.</summary>
+        /// <summary>
+        /// A tall pine: a bare trunk, then full, drooping tiers of boughs up to a point. Each tier is an arched skirt
+        /// with a smaller one inside it (so you don't see daylight through the middle), and up close each bough
+        /// carries hanging sprays of needles that rag the edges. height &lt;= 0: random.
+        /// </summary>
         public static (MeshBuilder trunk, MeshBuilder needles) Pine(System.Random rng, float height = -1f, int lod = 0)
         {
             var trunk = new MeshBuilder();
@@ -18,16 +22,20 @@ namespace Game.World.Build
             float radius = Range(rng, 0.22f, 0.36f);
             trunk.AddTube(Vector3.down * 0.3f, Vector3.up * height, radius * 1.25f, 0.03f, lod == 0 ? 8 : lod == 1 ? 6 : 4);
 
-            float crownStart = height * Range(rng, 0.35f, 0.5f);
-            int tiers = lod == 0 ? rng.Next(9, 13) : lod == 1 ? 6 : 3;
-            int segments = lod == 0 ? 14 : lod == 1 ? 9 : 6;
+            float crownStart = height * Range(rng, 0.3f, 0.45f);
+            int tiers = lod == 0 ? rng.Next(13, 17) : lod == 1 ? 9 : 4;
+            int segments = lod == 0 ? 16 : lod == 1 ? 10 : 7;
+            int sprays = lod == 0 ? 3 : lod == 1 ? 1 : 0;
             for (int t = 0; t < tiers; t++)
             {
                 float f = t / (float)(tiers - 1);              // 0 bottom tier, 1 top
                 float y = Mathf.Lerp(crownStart, height - 0.6f, f);
-                float reach = Mathf.Lerp(Range(rng, 2.2f, 3.2f), 0.4f, Mathf.Pow(f, 0.9f));
-                float droop = Mathf.Lerp(1.2f, 0.4f, f) * (lod == 2 ? 2f : 1f);
-                AddSkirt(needles, rng, y, reach, droop, segments);
+                float reach = Mathf.Lerp(Range(rng, 2.6f, 3.6f), 0.45f, Mathf.Pow(f, 0.85f));
+                float droop = Mathf.Lerp(1.3f, 0.45f, f) * (lod == 2 ? 2f : 1f);
+                AddSkirt(needles, rng, y, reach, droop, segments, lod < 2);
+                // A smaller skirt tucked in under it, filling the gap to the next tier down.
+                if (lod < 2 && f < 0.9f) AddSkirt(needles, rng, y - droop * 0.55f, reach * 0.6f, droop * 0.7f, Mathf.Max(6, segments - 4), false);
+                if (sprays > 0) AddBoughs(needles, rng, y, reach, droop, segments, sprays);
             }
             return (trunk, needles);
         }
@@ -210,20 +218,80 @@ namespace Game.World.Build
             return b;
         }
 
-        // One tier of boughs: a ragged cone skirt from the trunk out and down.
-        static void AddSkirt(MeshBuilder b, System.Random rng, float y, float reach, float droop, int segments)
+        // One tier of boughs: a ragged skirt from the trunk out and down. Arched: it rises a little from the trunk
+        // before it droops, so it has body rather than being a flat cone.
+        static void AddSkirt(MeshBuilder b, System.Random rng, float y, float reach, float droop, int segments, bool arched)
         {
             int centre = b.AddVertex(new Vector3(0f, y + 0.25f, 0f), new Vector2(0.5f, 1f));
+            int mids = b.VertexCount;
+            var angles = new float[segments];
+            for (int s = 0; s < segments; s++) angles[s] = (s + Range(rng, -0.3f, 0.3f)) / segments * Mathf.PI * 2f;
+            if (arched)
+                for (int s = 0; s < segments; s++)
+                {
+                    float r = reach * Range(rng, 0.4f, 0.5f);
+                    b.AddVertex(new Vector3(Mathf.Cos(angles[s]) * r, y + 0.05f - droop * Range(rng, 0.05f, 0.2f), Mathf.Sin(angles[s]) * r), new Vector2(s / (float)segments, 0.5f));
+                }
             int first = b.VertexCount;
             for (int s = 0; s < segments; s++)
             {
-                float a = (s + Range(rng, -0.3f, 0.3f)) / segments * Mathf.PI * 2f;
                 float r = reach * Range(rng, 0.65f, 1.15f);
                 float d = droop * Range(rng, 0.7f, 1.3f);
-                b.AddVertex(new Vector3(Mathf.Cos(a) * r, y - d, Mathf.Sin(a) * r), new Vector2(s / (float)segments, 0f));
+                b.AddVertex(new Vector3(Mathf.Cos(angles[s]) * r, y - d, Mathf.Sin(angles[s]) * r), new Vector2(s / (float)segments, 0f));
             }
             for (int s = 0; s < segments; s++)
-                b.AddTriangle(centre, first + (s + 1) % segments, first + s);
+            {
+                int n = (s + 1) % segments;
+                if (!arched)
+                {
+                    b.AddTriangle(centre, first + n, first + s);
+                    continue;
+                }
+                b.AddTriangle(centre, mids + n, mids + s);
+                b.AddTriangle(mids + s, mids + n, first + s);
+                b.AddTriangle(mids + n, first + n, first + s);
+            }
+        }
+
+        // The boughs of a tier, each hung with sprays of needles: flat, drooping fans out along it and past its tip,
+        // so the tier's edge is ragged and full rather than a clean rim.
+        static void AddBoughs(MeshBuilder b, System.Random rng, float y, float reach, float droop, int boughs, int sprays)
+        {
+            for (int i = 0; i < boughs; i++)
+            {
+                float a = (i + Range(rng, -0.4f, 0.4f)) / boughs * Mathf.PI * 2f;
+                Vector3 outward = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                float r = reach * Range(rng, 0.85f, 1.2f);
+                for (int k = 0; k < sprays; k++)
+                {
+                    float along = sprays == 1 ? 0.8f : Mathf.Lerp(0.35f, 1f, k / (float)(sprays - 1));
+                    Vector3 at = outward * (r * along) + Vector3.up * (y + 0.1f - droop * along * along);
+                    float yaw = Range(rng, -0.7f, 0.7f);
+                    Vector3 point = (Quaternion.AngleAxis(yaw * Mathf.Rad2Deg, Vector3.up) * outward + Vector3.down * Range(rng, 0.25f, 0.7f)).normalized;
+                    float length = reach * Range(rng, 0.3f, 0.45f) * Mathf.Lerp(1f, 0.7f, along);
+                    Spray(b, at, point, length, length * Range(rng, 0.45f, 0.65f), rng);
+                }
+            }
+        }
+
+        // A spray of needles: a fan that widens from its base and droops at the tip, a little cupped.
+        static void Spray(MeshBuilder b, Vector3 at, Vector3 point, float length, float width, System.Random rng)
+        {
+            Vector3 side = Vector3.Cross(point, Vector3.up);
+            if (side.sqrMagnitude < 1e-4f) side = Vector3.right;
+            side = (side.normalized + Vector3.up * Range(rng, -0.25f, 0.25f)).normalized;
+            Vector3 face = Vector3.Cross(side, point).normalized;
+            Vector3 mid = at + point * (length * 0.55f);
+            Vector3 tip = at + point * length + Vector3.down * (length * 0.25f);
+            int v0 = b.AddVertex(at, new Vector2(0.5f, 0f));
+            int vl = b.AddVertex(mid - side * width * 0.5f - face * (width * 0.12f), new Vector2(0f, 0.55f));
+            int vm = b.AddVertex(mid + face * (width * 0.06f), new Vector2(0.5f, 0.55f));
+            int vr = b.AddVertex(mid + side * width * 0.5f - face * (width * 0.12f), new Vector2(1f, 0.55f));
+            int vt = b.AddVertex(tip, new Vector2(0.5f, 1f));
+            b.AddTriangle(v0, vm, vl);
+            b.AddTriangle(vl, vm, vt);
+            b.AddTriangle(v0, vr, vm);
+            b.AddTriangle(vm, vr, vt);
         }
 
         static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);

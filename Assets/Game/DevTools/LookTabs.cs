@@ -56,6 +56,8 @@ namespace Game.DevTools
     /// <summary>The Lighting tab: themes and the main few sliders.</summary>
     sealed class LightingTab : IDevTab
     {
+        string preset, presetNote;
+
         public string Title => "Lighting";
 
         public void Draw()
@@ -97,8 +99,29 @@ namespace Game.DevTools
             if (changed) LookTools.MarkChanged(look);
 
             var flashlight = LookTools.Flashlight;
-            if (flashlight != null && Slider("Flashlight brightness", ref flashlight.settings.intensity, 0f, 200f))
-                LookTools.MarkChanged(flashlight);
+            if (flashlight != null)
+            {
+                GUILayout.Label("Flashlight", DevStyle.Section);
+                GUILayout.Label(presetNote ?? "Pick a beam (it changes only the look, not the battery). Fine-tune it in the Look tab.", DevStyle.MutedLabel);
+                var presets = FlashlightPresets.All;
+                for (int i = 0; i < presets.Length; i += 3)
+                {
+                    GUILayout.BeginHorizontal();
+                    for (int k = i; k < Mathf.Min(i + 3, presets.Length); k++)
+                    {
+                        if (GUILayout.Button(new GUIContent(presets[k].Name, presets[k].Note), presets[k].Name == preset ? DevStyle.TabActive : DevStyle.Tab))
+                        {
+                            FlashlightPresets.Apply(presets[k], flashlight.settings);
+                            preset = presets[k].Name;
+                            presetNote = presets[k].Note;
+                            LookTools.MarkChanged(flashlight);
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                if (Slider("Flashlight brightness", ref flashlight.settings.intensity, 0f, 200f))
+                    LookTools.MarkChanged(flashlight);
+            }
 
             GUILayout.Label("Every other value is in the Look tab.", DevStyle.MutedLabel);
             GUILayout.Space(6);
@@ -134,7 +157,7 @@ namespace Game.DevTools
             }
 
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Search", DevStyle.MutedLabel, GUILayout.Width(50));
+            GUILayout.Label("Search", DevStyle.MutedLabel, GUILayout.Width(66));
             search = GUILayout.TextField(search, DevStyle.TextField);
             if (search.Length > 0 && GUILayout.Button("×", DevStyle.SmallButton)) search = "";
             GUILayout.EndHorizontal();

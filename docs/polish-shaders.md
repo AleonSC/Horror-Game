@@ -365,3 +365,19 @@ your torch or lighter flame, the car's headlights, the watchtower floodlights an
 Before, it simply vanished. It happens whether it was stalking, being faced down, charging or just appearing,
 and costs your flashlight nothing.
 
+
+## Fuller pines, ray tracing, bigger dev text, flashlight presets, a giant that stays far off
+
+- **Pines:** more tiers, each arched (rising a little before it droops) with a smaller skirt tucked under it,
+  so there's no daylight through the middle. Up close (within 40 m) every bough carries drooping sprays of
+  needles that rag the edges; further off (to 95 m) one spray per bough.
+- **Ray tracing:** Options > Picture > Ray tracing (off by default). On, it turns on ray-traced ambient
+  occlusion and reflections and the moon's ray-traced shadows. It only works on a ray tracing card under
+  DirectX 12 with the High Fidelity quality level (the only HDRP asset with ray tracing switched on); otherwise
+  the option says so and does nothing.
+- **Dev window:** bigger text, buttons, number boxes and a wider window by default.
+- **Flashlight presets:** dev window > Lighting > Flashlight: Standard, Old torch, Tactical LED, Floodlight,
+  Spotlight, Dim and grim, Moonlit. Each changes only the look (colour, brightness, reach, width, edge, fog,
+  spill, bounce), not the battery or the hand. Fine-tune in the Look tab; Save keeps it.
+- **The giant** never comes nearer than 90% of the distance it landed at (`GiantConfig` > `keepAway`, on top of
+  `closestDistance`): it barely gains, striding forever on the horizon.

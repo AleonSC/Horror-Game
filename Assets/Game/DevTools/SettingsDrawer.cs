@@ -97,7 +97,7 @@ namespace Game.DevTools
                 case Color c:
                 {
                     GUILayout.Label(new GUIContent(label, tooltip), DevStyle.Label, GUILayout.Width(DevStyle.LabelWidth));
-                    var swatch = GUILayoutUtility.GetRect(20, 16, GUILayout.Width(20), GUILayout.Height(16));
+                    var swatch = GUILayoutUtility.GetRect(26, 20, GUILayout.Width(26), GUILayout.Height(20));
                     if (Event.current.type == EventType.Repaint)
                     {
                         var old = GUI.color;
@@ -143,7 +143,7 @@ namespace Game.DevTools
         {
             GUILayout.BeginHorizontal();
             GUILayout.Space(16);
-            GUILayout.Label(label, DevStyle.MutedLabel, GUILayout.Width(16));
+            GUILayout.Label(label, DevStyle.MutedLabel, GUILayout.Width(22));
             value = DevStyle.Slider(key + "." + label, value, min, max);
             GUILayout.EndHorizontal();
             return value;

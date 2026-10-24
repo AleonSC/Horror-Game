@@ -137,6 +137,10 @@ namespace Game.UI
             Toggle(scroll, "Motion blur", prefs.motionBlur, v => prefs.motionBlur = v);
             Slider(scroll, "Motion blur strength", prefs.motionBlurStrength, 0f, 1f, "P0", v => prefs.motionBlurStrength = v);
             Slider(scroll, "Depth of field", prefs.depthOfField, 0f, 1f, "P0", v => prefs.depthOfField = v);
+            Toggle(scroll, "Ray tracing", prefs.rayTracing, v => prefs.rayTracing = v);
+            UiStyle.Text(scroll, Game.Rendering.LookController.RayTracingSupported
+                ? "Ray-traced shade, reflections and moon shadows. Costly: turn it off if it stutters."
+                : "Not available here: it needs a ray tracing card on DirectX 12 and the High Fidelity quality level.", 12, UiStyle.Muted, TextAnchor.MiddleLeft);
 
             Header(scroll, "Difficulty");
             var levels = new VisualElement();

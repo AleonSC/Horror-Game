@@ -19,7 +19,7 @@ namespace Game.DevTools
     public sealed class DevWindow : MonoBehaviour
     {
         const float VirtualHeight = 1080f;
-        const float MinWidth = 380f, MinHeight = 260f, Grip = 10f;
+        const float MinWidth = 460f, MinHeight = 260f, Grip = 10f;
 
         readonly List<IDevTab> tabs = new List<IDevTab>();
         int current;
@@ -27,7 +27,7 @@ namespace Game.DevTools
         Vector2 scroll;
         CursorLockMode savedLock;
         bool savedVisible;
-        float width = 520f, height;
+        float width = 680f, height;
         int resizing; // 0 no, 1 the right edge, 2 the bottom edge, 3 the corner
 
         public bool IsOpen => open;
@@ -146,7 +146,7 @@ namespace Game.DevTools
             float h = height <= 0f ? maxH : Mathf.Clamp(height, MinHeight, Mathf.Max(MinHeight, maxH));
             var area = new Rect(16f, 16f, w, h);
             Resize(area, maxW, maxH);
-            DevStyle.LabelWidth = Mathf.Clamp(w * 0.34f, 120f, 260f);
+            DevStyle.LabelWidth = Mathf.Clamp(w * 0.36f, 150f, 340f);
 
             GUILayout.BeginArea(area, DevStyle.PanelStyle);
             GUILayout.Label("DEV TOOLS", DevStyle.Title);

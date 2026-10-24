@@ -28,6 +28,9 @@ namespace Game.Rendering
         FilmGrain grain;
         MotionBlur motionBlur;
         DepthOfField blur;
+        ScreenSpaceAmbientOcclusion rtShade;
+        ScreenSpaceReflection rtReflect;
+        bool rayTraced;
         Light moon;
         HDAdditionalLightData moonData;
         GroundMist mist;
@@ -101,6 +104,15 @@ namespace Game.Rendering
 
         void LateUpdate() => Apply();
 
+        /// <summary>
+        /// Whether ray tracing can be on: a card and driver that can (DirectX 12) and a quality level whose HDRP
+        /// asset has it switched on (only High Fidelity does).
+        /// </summary>
+        public static bool RayTracingSupported =>
+            SystemInfo.supportsRayTracing
+            && GraphicsSettings.currentRenderPipeline is HDRenderPipelineAsset hdrp
+            && hdrp.currentPlatformRenderPipelineSettings.supportRayTracing;
+
         void OnSceneLoaded(Scene scene, LoadSceneMode mode) => SwitchOffSceneDirectionalLights();
 
         void BuildVolume()
@@ -133,6 +145,17 @@ namespace Game.Rendering
             blur = profile.Add<DepthOfField>(true);
             blur.nearFocusStart.Override(0f);
             blur.nearFocusEnd.Override(0f);
+            // Ray tracing (the player's choice, where the machine and the quality level can): ray-traced contact
+            // shade and reflections, and the moon's shadows. Off, these overrides do nothing.
+            rtShade = profile.Add<ScreenSpaceAmbientOcclusion>(false);
+            rtShade.rayTracing.Override(true);
+            rtShade.intensity.Override(1f);
+            rtShade.radius.Override(1.5f);
+            rtShade.active = false;
+            rtReflect = profile.Add<ScreenSpaceReflection>(false);
+            rtReflect.enabled.Override(true);
+            rtReflect.tracing.Override(RayCastingMode.RayTracing);
+            rtReflect.active = false;
 
             var go = new GameObject("Look Volume");
             go.transform.SetParent(transform, false);
@@ -221,6 +244,15 @@ namespace Game.Rendering
             {
                 blur.farFocusStart.Override(Mathf.Lerp(farStart, 0.3f, b));
                 blur.farFocusEnd.Override(Mathf.Lerp(farEnd, 4f, b));
+            }
+
+            bool rt = prefs != null && prefs.rayTracing && RayTracingSupported;
+            if (rt != rayTraced)
+            {
+                rayTraced = rt;
+                rtShade.active = rt;
+                rtReflect.active = rt;
+                moonData.useRayTracedShadows = rt;
             }
 
             moon.color = s.moonColor;

@@ -105,6 +105,8 @@ namespace Game.Entities
         public float stepShake = 4.5f;
         [Range(20f, 1000f), Tooltip("It never comes nearer than this (metres): it slows as it nears, still striding, and keeps this far off however you run at it.")]
         public float closestDistance = 220f;
+        [Range(0.3f, 1f), Tooltip("And never nearer than this share of how far off it landed (0.9: it barely gains, forever walking in the distance).")]
+        public float keepAway = 0.9f;
         [Range(0f, 300f), Tooltip("After it's driven back (or you're taken), seconds before it walks again.")]
         public float restTime = 30f;
 
@@ -125,6 +127,9 @@ namespace Game.Entities
         public float crowdRadius = 12f;
 
         public GiantSettings Clone() => (GiantSettings)MemberwiseClone();
+
+        /// <summary>The nearest it ever comes (metres).</summary>
+        public float ClosestDistance => Mathf.Max(20f, closestDistance, HangDistance * keepAway);
 
         /// <summary>How far away it hangs: where its height spans the feet and neck angles.</summary>
         public float HangDistance

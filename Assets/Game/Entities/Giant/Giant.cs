@@ -348,14 +348,15 @@ namespace Game.Entities
             }
         }
 
-        // It never reaches you: it only ever seems to be coming. Nearing its closest it slows, still striding as if
-        // it were coming on, and if you run at it, it stays just as far off.
+        // It never reaches you: it only ever seems to be coming. It keeps out near the horizon where it landed (it
+        // gains only a little, slowing as it does), still striding as if it were coming on, and if you run at it,
+        // it stays just as far off.
         void Walk(float dt, Vector3 p)
         {
             Vector3 to = Flat(p - truePos);
             Distance = to.magnitude;
             Vector3 toward = Distance > 0.01f ? to / Distance : Vector3.forward;
-            float closest = Mathf.Max(20f, s.closestDistance);
+            float closest = s.ClosestDistance;
             if (Distance < closest)
             {
                 truePos = Vector3.MoveTowards(truePos, p - toward * closest, s.walkSpeed * 3f * dt);
@@ -375,7 +376,7 @@ namespace Game.Entities
             {
                 scan = Mathf.MoveTowards(scan, 0f, dt);
                 stride += dt / Mathf.Max(0.5f, s.strideTime) * Mathf.Lerp(0.3f, 1f, moving);
-                float approach = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Distance - closest) / (closest * 0.8f)));
+                float approach = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Distance - closest) / Mathf.Max(1f, s.HangDistance - closest)));
                 truePos += toward * Mathf.Min(Mathf.Max(0f, Distance - closest), s.walkSpeed * approach * moving * dt);
                 body.PoseWalking(stride, scan, moving);
                 nextScan -= dt;
