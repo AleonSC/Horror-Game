@@ -16,9 +16,9 @@ namespace Game.World
         public float rechargeTime = 120f;
         public float safeRadius = 45f;
         [Tooltip("How bright each floodlight is (candela).")]
-        public float brightness = 1500f;
+        public float brightness = 450f;
         [Tooltip("How much they light the fog (0-1): high and the whole area turns to white haze.")]
-        public float fogGlow = 0.3f;
+        public float fogGlow = 0.12f;
         [Tooltip("Where the floodlights hang (this object's space); they shine out and down.")]
         public Vector3[] lightSpots = { new Vector3(-2f, 13.8f, -2f), new Vector3(2f, 13.8f, -2f), new Vector3(-2f, 13.8f, 2f), new Vector3(2f, 13.8f, 2f) };
         [Tooltip("The button, in this object's space.")]
