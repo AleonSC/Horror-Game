@@ -30,6 +30,11 @@ namespace Game.Audio
             drone = Loop(sounds, Sound.Drone, MixerNames.Outside);
             tension = Loop(sounds, Sound.TensionBed, MixerNames.Entities);
             leaves = Loop(sounds, Sound.LeavesLoop, MixerNames.Outside);
+            // Under cover, the forest comes through muffled (the dread a little less: it's in you as much as out there).
+            Muffled.On(wind);
+            Muffled.On(leaves);
+            Muffled.On(drone, 0.7f);
+            Muffled.On(tension, 0.4f);
             nextDistant = Time.time + Random.Range(6f, 14f);
             nextCall = Time.time + Random.Range(10f, 25f);
             if (Services.TryGet<EventBus>(out var events))

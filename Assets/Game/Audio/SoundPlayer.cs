@@ -16,6 +16,20 @@ namespace Game.Audio
         readonly Dictionary<Sound, AudioClip> clips = new Dictionary<Sound, AudioClip>();
         readonly Dictionary<string, AudioMixerGroup> groups = new Dictionary<string, AudioMixerGroup>();
         readonly List<AudioSource> pool = new List<AudioSource>();
+        readonly List<AudioLowPassFilter> filters = new List<AudioLowPassFilter>();
+        readonly List<bool> outside = new List<bool>();
+        readonly HashSet<int> shelters = new HashSet<int>();
+        readonly List<System.IDisposable> subs = new List<System.IDisposable>();
+
+        /// <summary>
+        /// How muffled the world outside is (0 not at all, 1 fully): inside the car, a shack, the cabin or any
+        /// shelter, sounds from outside come through dull and low, as through walls. Loops elsewhere use it via
+        /// <see cref="Muffled"/>.
+        /// </summary>
+        public static float Muffle { get; private set; }
+
+        /// <summary>The cut-off for a sound muffled this much (22 kHz: clear; 550 Hz: through the walls).</summary>
+        public static float CutoffFor(float muffle) => Mathf.Lerp(22000f, 550f, Mathf.Pow(Mathf.Clamp01(muffle), 0.35f));
         AudioMixer mixer;
         AudioConfig config;
         int next;
@@ -39,12 +53,36 @@ namespace Game.Audio
                 var source = go.AddComponent<AudioSource>();
                 source.playOnAwake = false;
                 pool.Add(source);
+                var filter = go.AddComponent<AudioLowPassFilter>();
+                filter.cutoffFrequency = 22000f;
+                filters.Add(filter);
+                outside.Add(false);
             }
+            Muffle = 0f;
             Services.Register(this);
+        }
+
+        void Start()
+        {
+            if (!Services.TryGet<EventBus>(out var events)) return;
+            subs.Add(events.Subscribe<EnteredShelter>(e => shelters.Add(e.ShelterId)));
+            subs.Add(events.Subscribe<ExitedShelter>(e => shelters.Remove(e.ShelterId)));
+            subs.Add(events.Subscribe<RunReset>(_ => shelters.Clear()));
+        }
+
+        void Update()
+        {
+            // Closing in round you quickly as a door shuts behind you; opening out a little slower.
+            float target = shelters.Count > 0 ? 1f : 0f;
+            Muffle = Mathf.MoveTowards(Muffle, target, Time.unscaledDeltaTime / (target > Muffle ? 0.35f : 0.8f));
+            float cut = CutoffFor(Muffle);
+            for (int i = 0; i < pool.Count; i++)
+                if (pool[i].isPlaying) filters[i].cutoffFrequency = outside[i] ? cut : 22000f;
         }
 
         void OnDestroy()
         {
+            foreach (var sub in subs) sub.Dispose();
             Services.Unregister(this);
             foreach (var clip in clips.Values) Destroy(clip);
         }
@@ -155,6 +193,16 @@ namespace Game.Audio
             source.transform.position = position;
             source.clip = clip;
             source.outputAudioMixerGroup = Group(group);
+            // Outside sounds (the forest, things out there, anything in the world more than a few metres off)
+            // come through muffled when you're under cover; your own, the music and the menus never do.
+            int index = pool.IndexOf(source);
+            if (index >= 0)
+            {
+                var listener = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+                outside[index] = group == MixerNames.Outside || group == MixerNames.Entities
+                                 || (group == MixerNames.World && spatial && (position - listener).sqrMagnitude > 16f);
+                filters[index].cutoffFrequency = outside[index] ? CutoffFor(Muffle) : 22000f;
+            }
             source.volume = volume;
             source.pitch = pitch;
             source.loop = false;

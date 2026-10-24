@@ -60,6 +60,8 @@ namespace Game.World
             {
                 rainSound = Loop(sounds, Sound.RainLoop);
                 tornadoSound = Loop(sounds, Sound.WindLoop);
+                Muffled.On(rainSound);   // (rain drumming on the roof instead, through it)
+                Muffled.On(tornadoSound);
                 tornadoSound.pitch = 0.45f;
             }
             if (Services.TryGet<EventBus>(out var events)) resetSub = events.Subscribe<RunReset>(_ => ClearTornadoes());

@@ -534,6 +534,7 @@ namespace Game.World
             if (Services.TryGet<SoundPlayer>(out var sounds))
             {
                 d.loop = d.root.gameObject.AddComponent<AudioSource>();
+                Muffled.On(d.loop);
                 d.loop.clip = sounds.Clip(Sound.Gallop);
                 d.loop.loop = true;
                 d.loop.spatialBlend = 1f;

@@ -279,3 +279,18 @@ chain starts fading 30% of the way up its length and is gone by 90% (`GiantConfi
   - the drone's hints;
   - a full key list under Options > Controls.
 
+## Muffled under cover
+
+Inside the car, a shack, the cabin, the bunker or a tent, the world outside really is muffled now. Before, the
+Sheltered sound state only turned it down.
+- **The filter:** outside sounds go through a low-pass filter that closes in over a third of a second as you get
+  under cover and opens out again as you leave. They come through dull and low, as through walls.
+- **What's muffled:**
+  - the forest's wind, rustling and drone;
+  - rain and tornadoes;
+  - deer;
+  - things out there (the Entities group);
+  - any sound in the world more than 4 m from you.
+- **What isn't:** your own sounds, the music and the menus. The tension under it all is only partly muffled.
+- **For your own loops:** put the `Muffled` component on an outside sound's own looping AudioSource.
+
