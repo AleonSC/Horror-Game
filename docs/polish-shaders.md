@@ -330,3 +330,18 @@ Sheltered sound state only turned it down.
 - **Collision:** what you bump into is still the plain room underneath, now hidden.
 - **Your own models:** prefabs set in `WorldArtConfig` are used instead, as before.
 
+## Depth of field, and moths round your flashlight
+
+- **Depth of field:** a new Options > Picture slider sets how soon the distance goes soft (0 turns it off). At
+  the default (50%), the forest round you stays sharp out past 200 m and the giant, drawn 360 m off, is fully
+  blurred. The waking blur still pulls the sharp distance right in over the top of it.
+- **Moths round your flashlight** (`World/Life/FlashlightMoths.cs`):
+  - **Gathering:** the longer your flashlight's on, the more moths come in out of the dark to flutter about in
+    the beam, up to 28 after two minutes (`ForestLifeConfig` > Moths round your flashlight; the difficulty's
+    moth time scales it). They trail after the beam as you swing it.
+  - **Light off:** they're lost, milling about where they were.
+  - **Light on again:** the ones still near you may find it again. Where you stood, about two thirds come back;
+    5 m on, under half; 10 m on (flicked off and on while running), hardly any (`mothComeBack`,
+    `mothComeBackRange`). The swarm builds up again from those that came back.
+  - **Giving up:** lost ones give up after 4 to 10 seconds and drift off, fading (`mothGiveUp`).
+

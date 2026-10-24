@@ -19,6 +19,8 @@ namespace Game.Core
         [Range(0.1f, 5f)] public float mouseSensitivity = 1f;
         public bool motionBlur = true;
         [Range(0f, 1f)] public float motionBlurStrength = 0.5f;
+        [Range(0f, 1f), Tooltip("Depth of field: how soon the distance goes soft (0 off; the default leaves the forest round you sharp and the giant blurred).")]
+        public float depthOfField = 0.5f;
         public bool classicLook;
         public bool rayTracing;
         public string difficulty = "Normal";

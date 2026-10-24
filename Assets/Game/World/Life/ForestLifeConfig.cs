@@ -108,6 +108,20 @@ namespace Game.World
         [Range(0f, 1f), Tooltip("Share of them sitting in the grass, answering nearby flashes (dimmer, two seconds later).")]
         public float lightningBugsSitting = 0.15f;
 
+        [Header("Moths round your flashlight")]
+        [Range(0, 80), Tooltip("Most moths drawn to your beam at once.")]
+        public int flashlightMoths = 28;
+        [Range(10f, 600f), Tooltip("Seconds of the light being on to gather all of them (the difficulty's moth time scales it).")]
+        public float mothGatherTime = 120f;
+        [Range(0f, 1f), Tooltip("Turn the light off and on again where you stand: the chance each moth comes back to it...")]
+        public float mothComeBack = 0.85f;
+        [Range(1f, 40f), Tooltip("...less the further it is from you by then (none past this many metres: run off and few find you again).")]
+        public float mothComeBackRange = 12f;
+        [Tooltip("Lost moths (the light off, or out of it) give up and are gone after this many seconds (shortest, longest).")]
+        public Vector2 mothGiveUp = new Vector2(4f, 10f);
+        [Range(0.5f, 8f), Tooltip("How fast they fly after the beam (metres a second).")]
+        public float mothSpeed = 3f;
+
         [Header("Small things")]
         [Range(0, 200)] public int beetles = 40;
         [Range(0, 40)] public int rats = 6;

@@ -210,12 +210,17 @@ namespace Game.Rendering
             // Motion blur is the player's choice (options), not part of the look.
             var prefs = Services.TryGet<PlayerPreferences>(out var p) ? p : null;
             motionBlur.intensity.Override(prefs != null && prefs.motionBlur ? prefs.motionBlurStrength : 0f);
-            // Blurred vision: the sharp distance pushes outward as it clears.
-            blur.focusMode.Override(b > 0.001f ? DepthOfFieldMode.Manual : DepthOfFieldMode.Off);
-            if (b > 0.001f)
+            // Depth of field (the player's choice): the far distance going soft. At the default the forest round
+            // you stays sharp (out past 200 m) and the giant, drawn 360 m off, is fully blurred; 1 softens from 40 m.
+            // Blurred vision (waking groggy) pulls the sharp distance right in, and it pushes outward as it clears.
+            float dof = prefs != null ? Mathf.Clamp01(prefs.depthOfField) : 0.5f;
+            float farStart = dof > 0.001f ? Mathf.Lerp(380f, 40f, dof) : 2000f, farEnd = dof > 0.001f ? farStart * 1.6f : 4000f; // (0.5: soft from 210 m, fully by 336)
+            bool blurring = b > 0.001f || dof > 0.001f;
+            blur.focusMode.Override(blurring ? DepthOfFieldMode.Manual : DepthOfFieldMode.Off);
+            if (blurring)
             {
-                blur.farFocusStart.Override(Mathf.Lerp(60f, 0.3f, b));
-                blur.farFocusEnd.Override(Mathf.Lerp(150f, 4f, b));
+                blur.farFocusStart.Override(Mathf.Lerp(farStart, 0.3f, b));
+                blur.farFocusEnd.Override(Mathf.Lerp(farEnd, 4f, b));
             }
 
             moon.color = s.moonColor;

@@ -136,6 +136,7 @@ namespace Game.UI
             Header(scroll, "Picture");
             Toggle(scroll, "Motion blur", prefs.motionBlur, v => prefs.motionBlur = v);
             Slider(scroll, "Motion blur strength", prefs.motionBlurStrength, 0f, 1f, "P0", v => prefs.motionBlurStrength = v);
+            Slider(scroll, "Depth of field", prefs.depthOfField, 0f, 1f, "P0", v => prefs.depthOfField = v);
 
             Header(scroll, "Difficulty");
             var levels = new VisualElement();
