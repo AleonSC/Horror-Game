@@ -5,7 +5,8 @@
         "Game.Core",
         "Game.Audio",
         "Game.Player",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

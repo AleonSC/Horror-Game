@@ -2,25 +2,25 @@ using System.Text;
 using Game.Core;
 using Game.Player;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Game.UI
 {
     /// <summary>
-    /// The in-game display (section 7), a plain first version until the UI Toolkit one in milestone 7: the
-    /// crosshair, what you can use and a meter while cranking, the lamps lit, battery and stamina, and the
-    /// fade and message when you're taken. Laid out on a 1600 x 900 canvas, scaled to the screen.
+    /// The in-game display (section 7), in UI Toolkit: the crosshair, what you can use (with a meter while cranking),
+    /// the row of ten lamps, battery and stamina bottom left, the hotbar for a moment after it changes (with what's
+    /// held and what's left in it), hints, and the fade and message when you're taken.
     /// </summary>
     public sealed class Hud : MonoBehaviour
     {
-        const float W = 1600f, H = 900f;
-        static readonly Color Ink = new Color(0.86f, 0.84f, 0.8f, 0.9f);
-        static readonly Color Band = new Color(0.02f, 0.02f, 0.025f, 0.55f);
-        static readonly Color Red = new Color(0.85f, 0.08f, 0.05f, 1f);
-        static readonly Color Warm = new Color(1f, 0.78f, 0.45f, 1f);
-
-        GUIStyle prompt, small, message, tiny, tinyRight;
+        VisualElement dot, promptBand, meter, meterFill, hotbar, fade;
+        Label prompt, held, hint, message, batteryText;
+        VisualElement batteryFill, batteryBack, staminaBack, staminaFill;
+        readonly VisualElement[] lampFill = new VisualElement[GameRun.LampCount], lampBox = new VisualElement[GameRun.LampCount];
+        readonly VisualElement[] slot = new VisualElement[Inventory.SlotCount], slotMeter = new VisualElement[Inventory.SlotCount];
+        readonly Label[] slotName = new Label[Inventory.SlotCount], slotCount = new Label[Inventory.SlotCount];
         string lastPrompt;
-        string spacedPrompt;
+        bool built;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
@@ -29,27 +29,140 @@ namespace Game.UI
                 root.gameObject.AddComponent<Hud>();
         }
 
-        void OnGUI()
-        {
-            if (Event.current.type != EventType.Repaint) return;
-            EnsureStyles();
-            float scale = Mathf.Min(Screen.width / W, Screen.height / H);
-            var old = GUI.matrix;
-            GUI.matrix = Matrix4x4.TRS(new Vector3((Screen.width - W * scale) * 0.5f, (Screen.height - H * scale) * 0.5f, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
+        void Start() => Build();
 
-            if (Services.TryGet<PlayerController>(out var player))
+        void Build()
+        {
+            var ui = UiRoot.Get();
+            if (ui == null) return;
+            var hud = ui.Hud;
+
+            // The crosshair, and the prompt band under it: ◆ C R A N K ◆ [ LMB ]
+            dot = Centred(UiStyle.Box(hud, Color.white), 0f, 0f, 3f, 3f);
+            promptBand = Centred(UiStyle.Box(hud, UiStyle.Band), 0f, 49f, 340f, 30f);
+            prompt = UiStyle.Text(promptBand, "", 14, UiStyle.Ink);
+            prompt.style.flexGrow = 1f;
+            meter = Centred(UiStyle.Box(hud, new Color(0f, 0f, 0f, 0.6f)), 0f, 72f, 240f, 5f);
+            meterFill = UiStyle.Box(meter, UiStyle.Warm);
+            meterFill.style.height = Length.Percent(100);
+
+            // Ten squares along the top, filled as lamps are lit.
+            var row = UiStyle.Box(hud, UiStyle.Clear);
+            row.style.position = Position.Absolute;
+            row.style.top = 24;
+            row.style.left = Length.Percent(50);
+            row.style.marginLeft = -(GameRun.LampCount * 18f - 7f) / 2f;
+            row.style.flexDirection = FlexDirection.Row;
+            for (int i = 0; i < GameRun.LampCount; i++)
             {
-                bool held = player.Held;
-                if (!held) DrawCrosshair(player);
-                DrawLamps();
-                DrawMeters(player);
-                if (player.Hotbar != null) DrawHotbar(player.Hotbar);
+                var box = UiStyle.Box(row, new Color(0f, 0f, 0f, 0.5f));
+                box.style.width = box.style.height = 11;
+                box.style.marginRight = i < GameRun.LampCount - 1 ? 7 : 0;
+                box.style.paddingLeft = box.style.paddingRight = box.style.paddingTop = box.style.paddingBottom = 2;
+                UiStyle.Border(box, new Color(1f, 1f, 1f, 0.25f));
+                var fill = UiStyle.Box(box, UiStyle.Warm);
+                fill.style.flexGrow = 1f;
+                lampBox[i] = box;
+                lampFill[i] = fill;
             }
-            DrawFade();
-            GUI.matrix = old;
+
+            // Bottom left: the battery with its percentage, and the thin stamina bar above it.
+            batteryBack = UiStyle.Box(hud, new Color(0f, 0f, 0f, 0.55f));
+            batteryBack.style.position = Position.Absolute;
+            batteryBack.style.left = 32;
+            batteryBack.style.bottom = 34;
+            batteryBack.style.width = 180;
+            batteryBack.style.height = 12;
+            batteryBack.style.paddingLeft = batteryBack.style.paddingRight = batteryBack.style.paddingTop = batteryBack.style.paddingBottom = 2;
+            batteryFill = UiStyle.Box(batteryBack, UiStyle.Ink);
+            batteryFill.style.height = Length.Percent(100);
+            batteryText = UiStyle.Text(hud, "", 14, UiStyle.Ink, TextAnchor.MiddleLeft);
+            batteryText.style.position = Position.Absolute;
+            batteryText.style.left = 220;
+            batteryText.style.bottom = 30;
+            staminaBack = UiStyle.Box(hud, new Color(0f, 0f, 0f, 0.45f));
+            staminaBack.style.position = Position.Absolute;
+            staminaBack.style.left = 32;
+            staminaBack.style.bottom = 54;
+            staminaBack.style.height = 4;
+            staminaFill = UiStyle.Box(staminaBack, UiStyle.Ink);
+            staminaFill.style.height = Length.Percent(100);
+
+            // Bottom centre: the hotbar's eight slots, the held item above them.
+            hotbar = UiStyle.Box(hud, UiStyle.Clear);
+            hotbar.style.position = Position.Absolute;
+            hotbar.style.bottom = 46;
+            hotbar.style.left = Length.Percent(50);
+            hotbar.style.marginLeft = -(Inventory.SlotCount * 52f - 6f) / 2f;
+            hotbar.style.flexDirection = FlexDirection.Row;
+            for (int i = 0; i < Inventory.SlotCount; i++)
+            {
+                var s = UiStyle.Box(hotbar, new Color(0f, 0f, 0f, 0.45f));
+                s.style.width = s.style.height = 46;
+                s.style.marginRight = i < Inventory.SlotCount - 1 ? 6 : 0;
+                UiStyle.Rounded(s, 2f);
+                var num = UiStyle.Text(s, (i + 1).ToString(), 10, new Color(1f, 1f, 1f, 0.35f), TextAnchor.UpperLeft);
+                num.style.position = Position.Absolute;
+                num.style.left = 4;
+                num.style.top = 2;
+                slotName[i] = UiStyle.Fill(UiStyle.Text(s, "", 11, UiStyle.Ink));
+                slotCount[i] = UiStyle.Text(s, "", 12, UiStyle.Ink, TextAnchor.LowerRight);
+                slotCount[i].style.position = Position.Absolute;
+                slotCount[i].style.right = 4;
+                slotCount[i].style.bottom = 6;
+                slotMeter[i] = UiStyle.Box(s, UiStyle.Warm);
+                slotMeter[i].style.position = Position.Absolute;
+                slotMeter[i].style.left = 4;
+                slotMeter[i].style.bottom = 3;
+                slotMeter[i].style.height = 2;
+                slot[i] = s;
+            }
+            held = UiStyle.Text(hud, "", 14, UiStyle.Ink);
+            held.style.position = Position.Absolute;
+            held.style.left = 0;
+            held.style.right = 0;
+            held.style.bottom = 102;
+            hint = UiStyle.Text(hud, "", 14, UiStyle.Ink);
+            hint.style.position = Position.Absolute;
+            hint.style.left = 0;
+            hint.style.right = 0;
+            hint.style.top = Length.Percent(50);
+            hint.style.marginTop = 110;
+
+            // The fade (being taken, waking), over everything.
+            fade = UiStyle.Fill(UiStyle.Box(ui.Top, Color.black));
+            message = UiStyle.Fill(UiStyle.Text(fade, "", 34, UiStyle.Red));
+            message.style.unityFontStyleAndWeight = FontStyle.Bold;
+            built = true;
         }
 
-        void DrawCrosshair(PlayerController player)
+        // Centre an element on the screen's middle, offset by (x, y).
+        static VisualElement Centred(VisualElement e, float x, float y, float w, float h)
+        {
+            e.style.position = Position.Absolute;
+            e.style.left = Length.Percent(50);
+            e.style.top = Length.Percent(50);
+            e.style.width = w;
+            e.style.height = h;
+            e.style.marginLeft = x - w / 2f;
+            e.style.marginTop = y - h / 2f;
+            return e;
+        }
+
+        void LateUpdate()
+        {
+            if (!built) return;
+            bool hasPlayer = Services.TryGet<PlayerController>(out var player);
+            Show(dot, hasPlayer && !player.Held);
+            if (hasPlayer && !player.Held) Crosshair(player);
+            else { Show(promptBand, false); Show(meter, false); }
+            Lamps();
+            Meters(player, hasPlayer);
+            Hotbar(hasPlayer ? player.Hotbar : null);
+            Fade();
+        }
+
+        void Crosshair(PlayerController player)
         {
             IInteractable target = player.Interactor.Target;
             bool door = false;
@@ -59,102 +172,104 @@ namespace Game.UI
                 door = true;
             }
             float size = target != null ? 5f : 3f;
-            Rect(new Rect(W / 2 - size / 2, H / 2 - size / 2, size, size), new Color(1f, 1f, 1f, target != null ? 0.85f : 0.45f));
-            if (target == null) return;
-
-            if (target.Prompt != lastPrompt)
+            dot.style.width = dot.style.height = size;
+            dot.style.marginLeft = dot.style.marginTop = -size / 2f;
+            dot.style.backgroundColor = new Color(1f, 1f, 1f, target != null ? 0.85f : 0.45f);
+            Show(promptBand, target != null);
+            if (target == null) { Show(meter, false); return; }
+            string key = target.Prompt + (door ? "E" : "M");
+            if (key != lastPrompt)
             {
-                lastPrompt = target.Prompt;
-                spacedPrompt = Spaced(target.Prompt);
+                lastPrompt = key;
+                prompt.text = $"◆   {Spaced(target.Prompt)}   ◆      {(door ? "[ E ]" : "[ LMB ]")}";
             }
-            // ◆ C R A N K ◆ on a soft dark band, with the mouse (or E) glyph.
-            var band = new Rect(W / 2 - 170, H / 2 + 34, 340, 30);
-            Rect(band, Band);
-            Label(band, $"◆   {spacedPrompt}   ◆      {(door ? "[ E ]" : "[ LMB ]")}", prompt, Ink);
-
-            if (target is IProgressInteractable p && p.Progress > 0f)
-            {
-                var bar = new Rect(W / 2 - 120, H / 2 + 70, 240, 5);
-                Rect(bar, new Color(0f, 0f, 0f, 0.6f));
-                Rect(new Rect(bar.x, bar.y, bar.width * p.Progress, bar.height), Warm);
-            }
+            bool progress = target is IProgressInteractable p && p.Progress > 0f;
+            Show(meter, progress);
+            if (progress) meterFill.style.width = Length.Percent(((IProgressInteractable)target).Progress * 100f);
         }
 
-        // A row of ten squares, filled as lamps are lit.
-        void DrawLamps()
+        void Lamps()
         {
             int lit = Services.TryGet<GameRun>(out var run) ? run.LampsLit : 0;
-            const float size = 11f, gap = 7f;
-            float x = W / 2 - (GameRun.LampCount * (size + gap) - gap) / 2;
-            for (int i = 0; i < GameRun.LampCount; i++)
-            {
-                var r = new Rect(x + i * (size + gap), 24, size, size);
-                Rect(r, new Color(0f, 0f, 0f, 0.5f));
-                if (i < lit) Rect(new Rect(r.x + 2, r.y + 2, size - 4, size - 4), Warm);
-                else Outline(r, new Color(1f, 1f, 1f, 0.25f));
-            }
+            for (int i = 0; i < lampFill.Length; i++) Show(lampFill[i], i < lit);
         }
 
-        // Bottom left: the battery with its percentage, and the thin stamina bar above it.
-        void DrawMeters(PlayerController player)
+        void Meters(PlayerController player, bool hasPlayer)
         {
-            float x = 32, y = H - 46;
-            if (player.Flashlight != null)
+            bool light = hasPlayer && player.Flashlight != null;
+            Show(batteryBack, light);
+            Show(batteryText, light);
+            if (light)
             {
                 float charge = player.Flashlight.Battery.Charge;
-                Rect(new Rect(x, y, 180, 12), new Color(0f, 0f, 0f, 0.55f));
-                Color c = charge < player.Flashlight.Settings.lowBattery ? Red : Ink;
-                Rect(new Rect(x + 2, y + 2, 176 * charge, 8), c);
-                Label(new Rect(x + 188, y - 4, 80, 20), $"{Mathf.CeilToInt(charge * 100f)}%", small, Ink);
+                batteryFill.style.width = Length.Percent(charge * 100f);
+                batteryFill.style.backgroundColor = charge < player.Flashlight.Settings.lowBattery ? UiStyle.Red : UiStyle.Ink;
+                batteryText.text = $"{Mathf.CeilToInt(charge * 100f)}%";
             }
-
+            Show(staminaBack, hasPlayer);
+            if (!hasPlayer) return;
             var stamina = player.Stamina;
-            float length = 180f * (1f + stamina.Bonus);
-            Rect(new Rect(x, y - 12, length, 4), new Color(0f, 0f, 0f, 0.45f));
-            Color sc = stamina.Winded ? Red : Color.Lerp(Red, new Color(0.75f, 0.78f, 0.8f, 0.8f), Mathf.InverseLerp(0.1f, 0.6f, stamina.Value));
-            if (stamina.Value < 0.999f || stamina.Winded) Rect(new Rect(x, y - 12, length * stamina.Value, 4), sc);
+            staminaBack.style.width = 180f * (1f + stamina.Bonus);
+            Show(staminaFill, stamina.Value < 0.999f || stamina.Winded);
+            staminaFill.style.width = Length.Percent(stamina.Value * 100f);
+            staminaFill.style.backgroundColor = stamina.Winded ? UiStyle.Red : Color.Lerp(UiStyle.Red, new Color(0.75f, 0.78f, 0.8f, 0.8f), Mathf.InverseLerp(0.1f, 0.6f, stamina.Value));
         }
 
-        // Bottom centre: the eight slots, shown for a few seconds after a change (and while something's lit), the
-        // held item's name and what's left in it, and any hint ("You need a lighter.").
-        void DrawHotbar(Hotbar hotbar)
+        void Hotbar(Hotbar bar)
         {
-            var items = hotbar.Items;
-            var held = items.Held;
-            float since = Time.unscaledTime - hotbar.LastChanged;
+            Show(hotbar, bar != null);
+            Show(held, bar != null);
+            Show(hint, bar != null && bar.Hint != null);
+            if (bar == null) return;
+            var items = bar.Items;
+            var heldItem = items.Held;
+            float since = Time.unscaledTime - bar.LastChanged;
             float show = Mathf.Clamp01((3f - since) / 0.6f);
-            if (!held.Empty && held.Lit) show = Mathf.Max(show, 0.5f);
-
-            const float size = 46f, gap = 6f;
-            float x0 = W / 2 - (Inventory.SlotCount * (size + gap) - gap) / 2, y = H - 92;
-            if (show > 0f)
+            if (!heldItem.Empty && heldItem.Lit) show = Mathf.Max(show, 0.5f);
+            hotbar.style.opacity = show;
+            for (int i = 0; i < Inventory.SlotCount; i++)
             {
-                for (int i = 0; i < Inventory.SlotCount; i++)
-                {
-                    var r = new Rect(x0 + i * (size + gap), y, size, size);
-                    var slot = items[i];
-                    bool selected = i == items.Selected;
-                    Rect(r, new Color(0f, 0f, 0f, (selected ? 0.7f : 0.45f) * show));
-                    if (selected) Outline(r, new Color(Warm.r, Warm.g, Warm.b, 0.9f * show));
-                    var ink = new Color(Ink.r, Ink.g, Ink.b, Ink.a * show);
-                    Label(new Rect(r.x + 4, r.y + 2, 20, 14), (i + 1).ToString(), tiny, new Color(1f, 1f, 1f, 0.35f * show));
-                    if (slot.Empty) continue;
-                    Label(new Rect(r.x, r.y + 12, size, 22), Short(slot.Kind), tiny, slot.Lit ? new Color(Warm.r, Warm.g, Warm.b, show) : ink);
-                    if (Inventory.Stacks(slot.Kind) && slot.Count > 1) Label(new Rect(r.x, r.y + 28, size - 4, 16), $"x{slot.Count}", tinyRight, ink);
-                    if (slot.Kind == ItemKind.Torch || slot.Kind == ItemKind.Lighter) // (burn or fuel left)
-                        Rect(new Rect(r.x + 4, r.yMax - 5, (size - 8) * Mathf.Clamp01(slot.Charge), 2), new Color(Warm.r, Warm.g, Warm.b, 0.8f * show));
-                }
+                var s = items[i];
+                bool selected = i == items.Selected;
+                slot[i].style.backgroundColor = new Color(0f, 0f, 0f, selected ? 0.7f : 0.45f);
+                UiStyle.Border(slot[i], selected ? new Color(UiStyle.Warm.r, UiStyle.Warm.g, UiStyle.Warm.b, 0.9f) : UiStyle.Clear);
+                slotName[i].text = s.Empty ? "" : Short(s.Kind);
+                slotName[i].style.color = s.Lit ? UiStyle.Warm : UiStyle.Ink;
+                slotCount[i].text = !s.Empty && Inventory.Stacks(s.Kind) && s.Count > 1 ? $"x{s.Count}" : "";
+                bool hasMeter = !s.Empty && (s.Kind == ItemKind.Torch || s.Kind == ItemKind.Lighter);
+                Show(slotMeter[i], hasMeter);
+                if (hasMeter) slotMeter[i].style.width = 38f * Mathf.Clamp01(s.Charge);
             }
-
-            if (!held.Empty && held.Kind != ItemKind.Flashlight)
+            if (!heldItem.Empty && heldItem.Kind != ItemKind.Flashlight)
             {
-                string name = Spaced(Inventory.NameOf(held.Kind));
-                string extra = Detail(held, hotbar.Settings);
-                Label(new Rect(0, y - 26, W, 20), extra.Length > 0 ? $"{name}    {extra}" : name, prompt, Ink);
+                string name = Spaced(Inventory.NameOf(heldItem.Kind));
+                string extra = Detail(heldItem, bar.Settings);
+                held.text = extra.Length > 0 ? $"{name}    {extra}" : name;
             }
+            else held.text = "";
+            if (bar.Hint != null) hint.text = bar.Hint;
+        }
 
-            string hint = hotbar.Hint;
-            if (hint != null) Label(new Rect(0, H / 2 + 110, W, 24), hint, prompt, Ink);
+        void Fade()
+        {
+            var f = Services.TryGet<ScreenFade>(out var sf) ? sf : null;
+            bool on = f != null && f.Alpha > 0f;
+            Show(fade, on);
+            if (!on) return;
+            var c = f.Color;
+            c.a = f.Alpha;
+            fade.style.backgroundColor = c;
+            bool msg = f.MessageAlpha > 0f && !string.IsNullOrEmpty(f.Message);
+            Show(message, msg);
+            if (!msg) return;
+            message.text = Spaced(f.Message);
+            message.style.color = new Color(UiStyle.Red.r, UiStyle.Red.g, UiStyle.Red.b, f.MessageAlpha);
+        }
+
+        static void Show(VisualElement e, bool on)
+        {
+            var d = on ? DisplayStyle.Flex : DisplayStyle.None;
+            if (e.style.display != d) e.style.display = d;
         }
 
         static string Short(ItemKind kind)
@@ -169,7 +284,7 @@ namespace Game.UI
                 case ItemKind.Glowsticks: return "GLOW";
                 case ItemKind.Camera: return "CAMERA";
                 case ItemKind.KeyFob: return "FOB";
-                default: return "";
+                default: return kind.ToString().ToUpperInvariant();
             }
         }
 
@@ -186,56 +301,6 @@ namespace Game.UI
                 case ItemKind.KeyFob: return "F: the car chirps";
                 default: return "";
             }
-        }
-
-        void DrawFade()
-        {
-            if (!Services.TryGet<ScreenFade>(out var fade) || fade.Alpha <= 0f) return;
-            var c = fade.Color;
-            c.a = fade.Alpha;
-            var full = GUI.matrix.inverse.MultiplyPoint(new Vector3(Screen.width, Screen.height, 0f));
-            var origin = GUI.matrix.inverse.MultiplyPoint(Vector3.zero);
-            Rect(new Rect(origin.x, origin.y, full.x - origin.x, full.y - origin.y), c);
-            if (fade.MessageAlpha > 0f && !string.IsNullOrEmpty(fade.Message))
-            {
-                var m = Red;
-                m.a = fade.MessageAlpha;
-                Label(new Rect(0, H / 2 - 30, W, 60), Spaced(fade.Message), message, m);
-            }
-        }
-
-        // ------------------------------------------------------------------ drawing helpers
-
-        void EnsureStyles()
-        {
-            if (prompt != null) return;
-            prompt = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Normal };
-            small = new GUIStyle { fontSize = 14, alignment = TextAnchor.MiddleLeft };
-            message = new GUIStyle { fontSize = 34, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-            tiny = new GUIStyle { fontSize = 11, alignment = TextAnchor.MiddleCenter };
-            tinyRight = new GUIStyle { fontSize = 12, alignment = TextAnchor.MiddleRight };
-        }
-
-        static void Rect(Rect r, Color c)
-        {
-            var old = GUI.color;
-            GUI.color = c;
-            GUI.DrawTexture(r, Texture2D.whiteTexture);
-            GUI.color = old;
-        }
-
-        static void Outline(Rect r, Color c)
-        {
-            Rect(new Rect(r.x, r.y, r.width, 1), c);
-            Rect(new Rect(r.x, r.yMax - 1, r.width, 1), c);
-            Rect(new Rect(r.x, r.y, 1, r.height), c);
-            Rect(new Rect(r.xMax - 1, r.y, 1, r.height), c);
-        }
-
-        static void Label(Rect r, string text, GUIStyle style, Color c)
-        {
-            style.normal.textColor = c;
-            GUI.Label(r, text, style);
         }
 
         /// <summary>"Crank" to "C R A N K".</summary>

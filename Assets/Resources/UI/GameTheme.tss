@@ -1,0 +1,3 @@
+@import url("unity-theme://default");
+
+/* The game's UI theme (UI Toolkit). Everything else is styled in code (Assets/Game/UI). */

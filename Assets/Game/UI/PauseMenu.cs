@@ -3,29 +3,23 @@ using Game.Core;
 using Game.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 
 namespace Game.UI
 {
     /// <summary>
-    /// Esc pauses (section 7): time and sound stop, letterbox bars come in, and the menu offers Return, Restart,
-    /// Options and Quit. Options: mouse sensitivity, volumes, motion blur and the difficulty (with a slider for
-    /// every Custom value). A plain first version, like the HUD, until the UI Toolkit one in milestone 7. Laid
-    /// out on a 1600 x 900 canvas, scaled.
+    /// Esc pauses (section 7), in UI Toolkit: time and sound stop, letterbox bars slide in, and the menu offers Return,
+    /// Restart, Options and Quit. Options: mouse sensitivity, volumes, motion blur and the difficulty (with a slider
+    /// for every Custom value). Choices are saved to the settings file.
     /// </summary>
     public sealed class PauseMenu : MonoBehaviour
     {
-        const float W = 1600f, H = 900f;
-        static readonly Color Ink = new Color(0.86f, 0.84f, 0.8f, 1f);
-        static readonly Color Muted = new Color(0.6f, 0.58f, 0.55f, 1f);
-        static readonly Color Red = new Color(0.85f, 0.08f, 0.05f, 1f);
-
-        enum Page { Main, Options, ConfirmRestart, ConfirmQuit }
-
-        Page page;
-        float bars;   // 0-1: the letterbox bars sliding in
-        Vector2 scroll;
-        GUIStyle title, button, label, small;
-        bool prefsChanged;
+        VisualElement root, dim, barTop, barBottom, main, options, confirm, custom;
+        Label confirmTitle, confirmDetail;
+        System.Action confirmYes;
+        readonly Button[] levelButtons = new Button[Difficulty.Levels.Length];
+        float bars;
+        bool prefsChanged, built;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
@@ -36,28 +30,259 @@ namespace Game.UI
         }
 
         bool Paused => Services.TryGet<PauseState>(out var p) && p.Paused;
+        /// <summary>The menu is up (other screens leave Esc alone while it is).</summary>
+        public bool Open => Paused && root != null && root.style.display == DisplayStyle.Flex;
+
+        void Start()
+        {
+            var ui = UiRoot.Get();
+            if (ui == null) return;
+            root = UiStyle.Fill(new VisualElement { name = "Pause" });
+            root.style.display = DisplayStyle.None;
+            ui.Menus.Add(root);
+            dim = UiStyle.Fill(UiStyle.Box(root, new Color(0f, 0f, 0f, 0.45f)));
+            barTop = UiStyle.Box(root, Color.black);
+            barTop.style.position = Position.Absolute;
+            barTop.style.left = barTop.style.right = 0;
+            barTop.style.top = 0;
+            barBottom = UiStyle.Box(root, Color.black);
+            barBottom.style.position = Position.Absolute;
+            barBottom.style.left = barBottom.style.right = 0;
+            barBottom.style.bottom = 0;
+            BuildMain();
+            BuildOptions();
+            BuildConfirm();
+            built = true;
+        }
+
+        VisualElement Page()
+        {
+            var page = UiStyle.Fill(new VisualElement());
+            page.style.alignItems = Align.Center;
+            page.style.justifyContent = Justify.Center;
+            page.style.display = DisplayStyle.None;
+            root.Add(page);
+            return page;
+        }
+
+        void BuildMain()
+        {
+            main = Page();
+            var title = UiStyle.Text(main, Hud.Spaced("Paused"), 40, UiStyle.Ink);
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.marginBottom = 30;
+            UiStyle.MenuButton(main, "Return", Close);
+            UiStyle.MenuButton(main, "Restart", () => Confirm("Start over?", "Lamps go out, everything goes back.", Restart));
+            UiStyle.MenuButton(main, "Options", () => Show(options));
+            UiStyle.MenuButton(main, "Quit", () => Confirm("Quit?", "This run will be lost.", Quit));
+        }
+
+        void BuildConfirm()
+        {
+            confirm = Page();
+            confirmTitle = UiStyle.Text(confirm, "", 40, UiStyle.Ink);
+            confirmTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
+            confirmDetail = UiStyle.Text(confirm, "", 15, UiStyle.Muted);
+            confirmDetail.style.marginTop = 10;
+            confirmDetail.style.marginBottom = 24;
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            confirm.Add(row);
+            var yes = UiStyle.MenuButton(row, "Yes", () => confirmYes?.Invoke(), 150f);
+            yes.style.marginRight = 20;
+            UiStyle.MenuButton(row, "No", () => Show(main), 150f);
+        }
+
+        void Confirm(string title, string detail, System.Action yes)
+        {
+            confirmTitle.text = Hud.Spaced(title);
+            confirmDetail.text = detail;
+            confirmYes = yes;
+            Show(confirm);
+        }
+
+        void BuildOptions()
+        {
+            options = Page();
+            var title = UiStyle.Text(options, Hud.Spaced("Options"), 34, UiStyle.Ink);
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.marginBottom = 16;
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.width = 680;
+            scroll.style.height = 540;
+            scroll.style.backgroundColor = UiStyle.Panel;
+            scroll.style.paddingLeft = scroll.style.paddingRight = 24;
+            scroll.style.paddingTop = scroll.style.paddingBottom = 12;
+            UiStyle.Rounded(scroll, 4f);
+            options.Add(scroll);
+            var prefs = Services.TryGet<PlayerPreferences>(out var p) ? p : new PlayerPreferences();
+
+            Header(scroll, "Controls");
+            Slider(scroll, "Mouse sensitivity", prefs.mouseSensitivity, 0.1f, 5f, "0.00", v => prefs.mouseSensitivity = v);
+
+            Header(scroll, "Sound");
+            Slider(scroll, "Master volume", prefs.masterVolume, 0f, 1f, "P0", v => { prefs.masterVolume = v; Volumes(prefs); });
+            Slider(scroll, "Effects volume", prefs.effectsVolume, 0f, 1f, "P0", v => { prefs.effectsVolume = v; Volumes(prefs); });
+            Slider(scroll, "Music volume", prefs.musicVolume, 0f, 1f, "P0", v => { prefs.musicVolume = v; Volumes(prefs); });
+
+            Header(scroll, "Picture");
+            Toggle(scroll, "Motion blur", prefs.motionBlur, v => prefs.motionBlur = v);
+            Slider(scroll, "Motion blur strength", prefs.motionBlurStrength, 0f, 1f, "P0", v => prefs.motionBlurStrength = v);
+
+            Header(scroll, "Difficulty");
+            var levels = new VisualElement();
+            levels.style.flexDirection = FlexDirection.Row;
+            levels.style.justifyContent = Justify.SpaceBetween;
+            scroll.Add(levels);
+            for (int i = 0; i < Difficulty.Levels.Length; i++)
+            {
+                string level = Difficulty.Levels[i];
+                levelButtons[i] = UiStyle.MenuButton(levels, level, () => PickLevel(level, prefs), 148f, 38f);
+            }
+            var note = UiStyle.Text(scroll, "Batteries in the forest change with the next world (Restart).", 13, UiStyle.Muted, TextAnchor.MiddleLeft);
+            note.style.marginTop = 6;
+
+            custom = new VisualElement();
+            scroll.Add(custom);
+            var d = prefs.customDifficulty ?? (prefs.customDifficulty = new DifficultySettings());
+            Slider(custom, "Flashlight battery life", d.batteryLife, 0.25f, 3f, "0.00x", v => prefs.customDifficulty.batteryLife = v);
+            Slider(custom, "Batteries in the forest", d.batteriesInForest, 0f, 3f, "0.00x", v => prefs.customDifficulty.batteriesInForest = v);
+            Slider(custom, "Time between extra scours", d.timeBetweenScours, 0.25f, 3f, "0.00x", v => prefs.customDifficulty.timeBetweenScours = v);
+            Slider(custom, "How many extra scours", d.extraScours, 0f, 3f, "0.00x", v => prefs.customDifficulty.extraScours = v);
+            Slider(custom, "Time to face a scour down", d.faceDownTime, 0.25f, 3f, "0.00x", v => prefs.customDifficulty.faceDownTime = v);
+            Slider(custom, "Lamp cranking speed", d.crankSpeed, 0.25f, 3f, "0.00x", v => prefs.customDifficulty.crankSpeed = v);
+            Slider(custom, "How far the blind one hears", d.blindHearing, 0.25f, 3f, "0.00x", v => prefs.customDifficulty.blindHearing = v);
+            Slider(custom, "Time for it to close in", d.blindCloseIn, 0.25f, 3f, "0.00x", v => prefs.customDifficulty.blindCloseIn = v);
+            Slider(custom, "How many crawlers", d.crawlers, 0f, 3f, "0.00x", v => prefs.customDifficulty.crawlers = v);
+            Slider(custom, "Crawlers from lamp", d.crawlersFromLamp, 1f, 10f, "0", v => prefs.customDifficulty.crawlersFromLamp = Mathf.RoundToInt(v));
+            Slider(custom, "Time for moths to gather", d.mothTime, 0.25f, 3f, "0.00x", v => prefs.customDifficulty.mothTime = v);
+            RefreshLevel();
+
+            var back = UiStyle.MenuButton(options, "Back", () => Show(main));
+            back.style.marginTop = 16;
+        }
+
+        void PickLevel(string level, PlayerPreferences prefs)
+        {
+            if (!Services.TryGet<Difficulty>(out var difficulty)) return;
+            // Custom starts from whatever was chosen before, so it's a tweak, not a blank slate.
+            if (level == "Custom" && difficulty.Level != "Custom") prefs.customDifficulty = difficulty.Current.Clone();
+            difficulty.Level = level;
+            prefsChanged = true;
+            // The sliders show the copied values.
+            options.RemoveFromHierarchy();
+            BuildOptions();
+            Show(options);
+        }
+
+        void RefreshLevel()
+        {
+            string level = Services.TryGet<Difficulty>(out var d) ? d.Level : "Normal";
+            for (int i = 0; i < levelButtons.Length; i++)
+            {
+                bool on = Difficulty.Levels[i] == level;
+                levelButtons[i].text = on ? $"[ {Hud.Spaced(Difficulty.Levels[i])} ]" : Hud.Spaced(Difficulty.Levels[i]);
+                levelButtons[i].style.color = on ? UiStyle.Red : UiStyle.Ink;
+            }
+            custom.style.display = level == "Custom" ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        void Header(VisualElement parent, string text)
+        {
+            var h = UiStyle.Text(parent, Hud.Spaced(text), 15, UiStyle.Red, TextAnchor.MiddleLeft);
+            h.style.unityFontStyleAndWeight = FontStyle.Bold;
+            h.style.marginTop = 16;
+            h.style.marginBottom = 6;
+        }
+
+        void Slider(VisualElement parent, string name, float value, float min, float max, string format, System.Action<float> changed)
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.height = 30;
+            parent.Add(row);
+            var label = UiStyle.Text(row, name, 15, UiStyle.Ink, TextAnchor.MiddleLeft);
+            label.style.width = 260;
+            var slider = new Slider(min, max) { value = value };
+            slider.style.width = 290;
+            row.Add(slider);
+            var shown = UiStyle.Text(row, Format(value, format), 14, UiStyle.Muted, TextAnchor.MiddleRight);
+            shown.style.width = 70;
+            slider.RegisterValueChangedCallback(e =>
+            {
+                changed(e.newValue);
+                shown.text = Format(e.newValue, format);
+                prefsChanged = true;
+            });
+        }
+
+        void Toggle(VisualElement parent, string name, bool value, System.Action<bool> changed)
+        {
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.height = 30;
+            parent.Add(row);
+            var label = UiStyle.Text(row, name, 15, UiStyle.Ink, TextAnchor.MiddleLeft);
+            label.style.width = 260;
+            var toggle = new Toggle { value = value };
+            row.Add(toggle);
+            toggle.RegisterValueChangedCallback(e =>
+            {
+                changed(e.newValue);
+                prefsChanged = true;
+            });
+        }
+
+        static string Format(float v, string format) => format.EndsWith("x") ? v.ToString(format.TrimEnd('x')) + "x" : v.ToString(format);
+
+        static void Volumes(PlayerPreferences prefs)
+        {
+            if (Services.TryGet<AudioStateController>(out var audio)) audio.ApplyVolumes(prefs);
+        }
+
+        // ------------------------------------------------------------------ open and shut
 
         void Update()
         {
+            if (!built) return;
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OtherScreenOpen())
             {
-                if (!Paused) Open();
-                else if (page != Page.Main) page = Page.Main;
+                if (!Paused) OpenMenu();
+                else if (main.style.display != DisplayStyle.Flex) Show(main);
                 else Close();
             }
             bars = Mathf.MoveTowards(bars, Paused ? 1f : 0f, Time.unscaledDeltaTime * 4f);
+            root.style.display = bars > 0f ? DisplayStyle.Flex : DisplayStyle.None;
+            float h = 110f * Mathf.SmoothStep(0f, 1f, bars);
+            barTop.style.height = h;
+            barBottom.style.height = h;
+            dim.style.opacity = bars;
+            float pages = Paused ? Mathf.Clamp01((bars - 0.5f) * 2f) : 0f;
+            main.style.opacity = options.style.opacity = confirm.style.opacity = pages;
+            root.pickingMode = Paused ? PickingMode.Position : PickingMode.Ignore;
         }
 
-        void Open()
+        // (The inventory screen and others handle Esc themselves while they're up.)
+        static bool OtherScreenOpen() => Services.TryGet<UiState>(out var ui) && ui.AnyOpen && !(Services.TryGet<PauseState>(out var p) && p.Paused);
+
+        void Show(VisualElement page)
+        {
+            foreach (var p in new[] { main, options, confirm }) p.style.display = p == page ? DisplayStyle.Flex : DisplayStyle.None;
+            if (page == options) RefreshLevel();
+        }
+
+        void OpenMenu()
         {
             // Not while being taken: the fade is already running.
             if (Services.TryGet<CatchFlow>(out var catchFlow) && catchFlow.Active) return;
             if (!Services.TryGet<PauseState>(out var pause)) return;
             pause.Pause();
-            page = Page.Main;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            Show(main);
+            UnityEngine.Cursor.lockState = CursorLockMode.None;
+            UnityEngine.Cursor.visible = true;
         }
 
         void Close()
@@ -72,54 +297,6 @@ namespace Game.UI
             if (!prefsChanged || !Services.TryGet<PlayerPreferences>(out var prefs)) return;
             prefs.Save(PlayerPreferences.DefaultPath);
             prefsChanged = false;
-        }
-
-        void OnGUI()
-        {
-            if (bars <= 0f) return;
-            GUI.depth = -10; // (over the HUD)
-            EnsureStyles();
-            float scale = Mathf.Min(Screen.width / W, Screen.height / H);
-            var old = GUI.matrix;
-            GUI.matrix = Matrix4x4.TRS(new Vector3((Screen.width - W * scale) * 0.5f, (Screen.height - H * scale) * 0.5f, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
-
-            // Dim everything, and the letterbox bars slide in from top and bottom.
-            var origin = GUI.matrix.inverse.MultiplyPoint(Vector3.zero);
-            var full = GUI.matrix.inverse.MultiplyPoint(new Vector3(Screen.width, Screen.height, 0f));
-            Fill(new Rect(origin.x, origin.y, full.x - origin.x, full.y - origin.y), new Color(0f, 0f, 0f, 0.45f * bars));
-            float bar = 110f * Mathf.SmoothStep(0f, 1f, bars);
-            Fill(new Rect(origin.x, origin.y, full.x - origin.x, bar - origin.y), Color.black);
-            Fill(new Rect(origin.x, H - bar, full.x - origin.x, full.y - (H - bar)), Color.black);
-
-            if (Paused && bars > 0.5f)
-            {
-                switch (page)
-                {
-                    case Page.Main: DrawMain(); break;
-                    case Page.Options: DrawOptions(); break;
-                    case Page.ConfirmRestart: DrawConfirm("START OVER?", "Lamps go out, everything goes back.", Restart); break;
-                    case Page.ConfirmQuit: DrawConfirm("QUIT?", "This run will be lost.", Quit); break;
-                }
-            }
-            GUI.matrix = old;
-        }
-
-        void DrawMain()
-        {
-            Text(new Rect(0, 230, W, 60), "P A U S E D", title, Ink);
-            float y = 340;
-            if (Button(new Rect(W / 2 - 150, y, 300, 46), "RETURN")) Close();
-            if (Button(new Rect(W / 2 - 150, y += 60, 300, 46), "RESTART")) page = Page.ConfirmRestart;
-            if (Button(new Rect(W / 2 - 150, y += 60, 300, 46), "OPTIONS")) page = Page.Options;
-            if (Button(new Rect(W / 2 - 150, y += 60, 300, 46), "QUIT")) page = Page.ConfirmQuit;
-        }
-
-        void DrawConfirm(string question, string detail, System.Action yes)
-        {
-            Text(new Rect(0, 280, W, 60), question, title, Ink);
-            Text(new Rect(0, 340, W, 30), detail, small, Muted);
-            if (Button(new Rect(W / 2 - 160, 410, 150, 46), "YES")) yes();
-            if (Button(new Rect(W / 2 + 10, 410, 150, 46), "NO")) page = Page.Main;
         }
 
         void Restart()
@@ -137,136 +314,6 @@ namespace Game.UI
 #else
             Application.Quit();
 #endif
-        }
-
-        void DrawOptions()
-        {
-            if (!Services.TryGet<PlayerPreferences>(out var prefs)) return;
-            Text(new Rect(0, 130, W, 50), "O P T I O N S", title, Ink);
-            var area = new Rect(W / 2 - 330, 195, 660, 560);
-            GUILayout.BeginArea(area);
-            scroll = GUILayout.BeginScrollView(scroll, GUIStyle.none, GUI.skin.verticalScrollbar);
-
-            Header("CONTROLS");
-            prefs.mouseSensitivity = Slider("Mouse sensitivity", prefs.mouseSensitivity, 0.1f, 5f, "0.00");
-
-            Header("SOUND");
-            float master = Slider("Master volume", prefs.masterVolume, 0f, 1f, "P0");
-            float effects = Slider("Effects volume", prefs.effectsVolume, 0f, 1f, "P0");
-            float music = Slider("Music volume", prefs.musicVolume, 0f, 1f, "P0");
-            if (master != prefs.masterVolume || effects != prefs.effectsVolume || music != prefs.musicVolume)
-            {
-                prefs.masterVolume = master;
-                prefs.effectsVolume = effects;
-                prefs.musicVolume = music;
-                if (Services.TryGet<AudioStateController>(out var audio)) audio.ApplyVolumes(prefs);
-            }
-
-            Header("PICTURE");
-            prefs.motionBlur = Toggle("Motion blur", prefs.motionBlur);
-            if (prefs.motionBlur) prefs.motionBlurStrength = Slider("Motion blur strength", prefs.motionBlurStrength, 0f, 1f, "P0");
-
-            Header("DIFFICULTY");
-            if (Services.TryGet<Difficulty>(out var difficulty)) DrawDifficulty(difficulty, prefs);
-
-            GUILayout.EndScrollView();
-            GUILayout.EndArea();
-            if (GUI.changed) prefsChanged = true;
-            if (Button(new Rect(W / 2 - 150, 770, 300, 46), "BACK")) page = Page.Main;
-        }
-
-        void DrawDifficulty(Difficulty difficulty, PlayerPreferences prefs)
-        {
-            GUILayout.BeginHorizontal();
-            foreach (var level in Difficulty.Levels)
-            {
-                bool on = difficulty.Level == level;
-                var style = new GUIStyle(button) { normal = { textColor = on ? Red : Ink } };
-                if (GUILayout.Button(on ? $"[ {level.ToUpperInvariant()} ]" : level.ToUpperInvariant(), style, GUILayout.Height(38)))
-                {
-                    // Custom starts from whatever was chosen before, so it's a tweak, not a blank slate.
-                    if (level == "Custom" && difficulty.Level != "Custom") prefs.customDifficulty = difficulty.Current.Clone();
-                    difficulty.Level = level;
-                }
-            }
-            GUILayout.EndHorizontal();
-            Small("Batteries in the forest change with the next world (Restart).");
-
-            if (difficulty.Level != "Custom") return;
-            var d = prefs.customDifficulty;
-            d.batteryLife = Slider("Flashlight battery life", d.batteryLife, 0.25f, 3f, "0.00x");
-            d.batteriesInForest = Slider("Batteries in the forest", d.batteriesInForest, 0f, 3f, "0.00x");
-            d.timeBetweenScours = Slider("Time between extra scours", d.timeBetweenScours, 0.25f, 3f, "0.00x");
-            d.extraScours = Slider("How many extra scours", d.extraScours, 0f, 3f, "0.00x");
-            d.faceDownTime = Slider("Time to face a scour down", d.faceDownTime, 0.25f, 3f, "0.00x");
-            d.crankSpeed = Slider("Lamp cranking speed", d.crankSpeed, 0.25f, 3f, "0.00x");
-            Small("Later: the blind one, crawlers and moths (they arrive in milestones 5 and 6).");
-            d.blindHearing = Slider("How far the blind one hears", d.blindHearing, 0.25f, 3f, "0.00x");
-            d.blindCloseIn = Slider("Time for it to close in", d.blindCloseIn, 0.25f, 3f, "0.00x");
-            d.crawlers = Slider("How many crawlers", d.crawlers, 0f, 3f, "0.00x");
-            d.crawlersFromLamp = Mathf.RoundToInt(Slider("Crawlers from lamp", d.crawlersFromLamp, 1f, 10f, "0"));
-            d.mothTime = Slider("Time for moths to gather", d.mothTime, 0.25f, 3f, "0.00x");
-        }
-
-        // ------------------------------------------------------------------ drawing helpers
-
-        void Header(string text)
-        {
-            GUILayout.Space(14);
-            GUILayout.Label(Hud.Spaced(text), label);
-        }
-
-        void Small(string text) => GUILayout.Label(text, small);
-
-        float Slider(string name, float value, float min, float max, string format)
-        {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(name, small, GUILayout.Width(250));
-            float v = GUILayout.HorizontalSlider(value, min, max, GUILayout.Width(300));
-            string shown = format.EndsWith("x") ? v.ToString(format.TrimEnd('x')) + "x" : v.ToString(format);
-            GUILayout.Label(shown, small, GUILayout.Width(70));
-            GUILayout.EndHorizontal();
-            return v;
-        }
-
-        bool Toggle(string name, bool value)
-        {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(name, small, GUILayout.Width(250));
-            bool v = GUILayout.Toggle(value, value ? " ON" : " OFF", small);
-            GUILayout.EndHorizontal();
-            return v;
-        }
-
-        bool Button(Rect r, string text)
-        {
-            bool hover = r.Contains(Event.current.mousePosition);
-            Fill(r, new Color(0.05f, 0.05f, 0.06f, hover ? 0.95f : 0.7f));
-            if (hover) Fill(new Rect(r.x, r.yMax - 2, r.width, 2), Red);
-            return GUI.Button(r, Hud.Spaced(text), button);
-        }
-
-        void EnsureStyles()
-        {
-            if (title != null) return;
-            title = new GUIStyle { fontSize = 40, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-            button = new GUIStyle { fontSize = 18, alignment = TextAnchor.MiddleCenter, normal = { textColor = Ink }, hover = { textColor = Color.white } };
-            label = new GUIStyle { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = Red }, margin = new RectOffset(0, 0, 6, 4) };
-            small = new GUIStyle { fontSize = 15, normal = { textColor = Ink }, margin = new RectOffset(0, 0, 4, 4) };
-        }
-
-        static void Text(Rect r, string text, GUIStyle style, Color c)
-        {
-            style.normal.textColor = c;
-            GUI.Label(r, text, style);
-        }
-
-        static void Fill(Rect r, Color c)
-        {
-            var old = GUI.color;
-            GUI.color = c;
-            GUI.DrawTexture(r, Texture2D.whiteTexture);
-            GUI.color = old;
         }
     }
 }
