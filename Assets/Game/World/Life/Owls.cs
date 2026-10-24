@@ -43,7 +43,7 @@ namespace Game.World
                 float scale = tree.Matrix.lossyScale.y;
                 float a = rng.Angle();
                 Vector3 home = new Vector3(tree.Matrix.m03, tree.Matrix.m13, tree.Matrix.m23)
-                               + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.55f * scale + Vector3.up * rng.Range(4.5f, 6.5f) * scale;
+                               + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.62f * scale + Vector3.up * rng.Range(s.owlHeight.x, Mathf.Max(s.owlHeight.x, s.owlHeight.y));
                 var body = AnimalModels.Owl(o.transform).transform;
                 body.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
                 wrap.Add(body, home);

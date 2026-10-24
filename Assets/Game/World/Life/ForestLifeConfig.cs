@@ -57,6 +57,8 @@ namespace Game.World
         [Range(0, 200)] public int owls = 45;
         [Range(5f, 120f), Tooltip("Their heads turn to follow you within this.")]
         public float owlWatch = 45f;
+        [Tooltip("How high up the trunk they sit, in metres (lowest, highest). About eye level by default. Takes effect with the next world.")]
+        public Vector2 owlHeight = new Vector2(1.5f, 2.3f);
         [Range(5f, 300f), Tooltip("Each calls every this many seconds (shortest)...")]
         public float minOwlCall = 25f;
         [Range(5f, 300f), Tooltip("...and longest.")]
