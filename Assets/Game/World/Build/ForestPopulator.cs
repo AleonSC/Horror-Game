@@ -48,9 +48,10 @@ namespace Game.World.Build
             this.livingArt = livingArt;
             this.deadArt = deadArt;
             across = Mathf.CeilToInt(plan.Size / TerrainBuilder.ChunkSize);
-            Bark = Mat("Bark", new Color(0.1f, 0.08f, 0.07f), 0.2f, false);
-            Needles = Mat("Needles", new Color(0.05f, 0.07f, 0.05f), 0.1f, true);
-            DeadWood = Mat("Dead wood", new Color(0.14f, 0.12f, 0.1f), 0.15f, false);
+            // (Pale enough to catch a little of your light and the lamps': darker and the trees were flat black shapes.)
+            Bark = Mat("Bark", new Color(0.2f, 0.16f, 0.13f), 0.22f, false);
+            Needles = Mat("Needles", new Color(0.09f, 0.13f, 0.08f), 0.18f, true);
+            DeadWood = Mat("Dead wood", new Color(0.25f, 0.22f, 0.18f), 0.18f, false);
             bushA = Mat("Bush leaves", new Color(0.06f, 0.08f, 0.05f), 0.15f, false);
             bushB = Mat("Bush leaves (dry)", new Color(0.1f, 0.09f, 0.05f), 0.15f, false);
             grassDry = Mat("Dry grass", new Color(0.24f, 0.2f, 0.12f), 0.1f, true);
