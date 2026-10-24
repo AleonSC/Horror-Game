@@ -353,10 +353,26 @@ namespace Game.Player
                     break;
 
                 case ItemKind.KeyFob:
-                    Play(Sound.Click, 0.5f, 1.6f);
-                    if (Services.TryGet<EventBus>(out var events)) events.Publish(new KeyFobPressed());
+                    Fob(false);
                     break;
             }
+        }
+
+        /// <summary>
+        /// A mouse click with nothing in front of you to use: the button on what you hold. The key fob's left button
+        /// chirps the car; its right one sets its alarm off (or stops it).
+        /// </summary>
+        public void Click(bool right)
+        {
+            if (Items.HeldKind == ItemKind.KeyFob) Fob(right);
+        }
+
+        void Fob(bool alarm)
+        {
+            Play(Sound.Click, 0.5f, alarm ? 1.3f : 1.6f);
+            if (!Services.TryGet<EventBus>(out var events)) return;
+            if (alarm) events.Publish(new KeyFobAlarm());
+            else events.Publish(new KeyFobPressed());
         }
 
         // Used the last of what was held: back to the flashlight, rather than an empty hand.

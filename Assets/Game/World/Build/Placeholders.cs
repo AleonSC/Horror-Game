@@ -111,13 +111,7 @@ namespace Game.World.Build
                         Box(t, new Vector3(-2.15f, y, 0f), new Vector3(0.05f, 0.05f, 0.6f), darkWood, false);
                     break;
                 case StructureKind.Car:
-                    Box(t, new Vector3(0f, 0.65f, 0f), new Vector3(1.8f, 0.8f, 4.4f), paint);
-                    Box(t, new Vector3(0f, 1.35f, -0.2f), new Vector3(1.6f, 0.65f, 2.2f), paint);
-                    for (int i = 0; i < 4; i++)
-                    {
-                        var wheel = Shape(PrimitiveType.Cylinder, t, new Vector3(i % 2 == 0 ? -0.9f : 0.9f, 0.35f, i < 2 ? -1.4f : 1.4f), new Vector3(0.7f, 0.12f, 0.7f), metal, false);
-                        wheel.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-                    }
+                    new CarModel(made).Build(t, new System.Random(Mathf.RoundToInt(site.Position.x * 17f + site.Position.y * 7f)));
                     break;
                 case StructureKind.LandmarkTree:
                     LandmarkTree(t);

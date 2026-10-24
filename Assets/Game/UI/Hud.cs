@@ -490,7 +490,7 @@ namespace Game.UI
                 case ItemKind.Glowsticks: return $"x{held.Count}   F to crack and toss";
                 case ItemKind.Camera: return $"{Mathf.FloorToInt(held.Charge)} shots";
                 case ItemKind.FlareGun: return "one flare: F to fire it into the sky";
-                case ItemKind.KeyFob: return "F: the car chirps";
+                case ItemKind.KeyFob: return "LMB: the car chirps   RMB: its alarm";
                 case ItemKind.Map: return "F to hold it up";
                 case ItemKind.Drone: return held.Lit ? $"out there   F to fly it ({Mathf.CeilToInt((Drone.Current != null ? Drone.Current.Battery : held.Charge) * 100f)}%)" : $"battery {Mathf.CeilToInt(held.Charge * 100f)}%   F to set it down and fly";
                 case ItemKind.Radio: return "F to set it down, playing";

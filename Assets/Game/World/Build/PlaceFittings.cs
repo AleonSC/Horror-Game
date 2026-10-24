@@ -23,9 +23,9 @@ namespace Game.World.Build
         public const float TentYaw = 90f; // (opening toward the fire)
         public static readonly Vector3 BackpackSpot = new Vector3(0.3f, 0f, 1.5f);
         public static readonly Vector3 DeckSpot = new Vector3(1f, 12.13f, 1f); // (the watchtower's floor, by the button)
-        static readonly Vector3 GloveBoxSpot = new Vector3(0.95f, 1.05f, 0.45f);
-        static readonly Vector3 TrunkSpot = new Vector3(0f, 0.85f, -2.25f);
-        static readonly Vector3 BackSeatSpot = new Vector3(-0.95f, 1.05f, -0.75f); // (through the rear left door)
+        static readonly Vector3 GloveBoxSpot = new Vector3(0.42f, 0.95f, 0.92f);    // (behind its little door in the dash)
+        static readonly Vector3 TrunkSpot = new Vector3(0f, 0.8f, -1.85f);         // (under the trunk lid)
+        static readonly Vector3 BackSeatSpot = new Vector3(-0.4f, 0.65f, -0.85f);  // (on the back seat: open the rear left door)
 
         public static void Fit(Transform root, StructureKind kind, IList<Loot> loot)
         {
@@ -81,9 +81,9 @@ namespace Game.World.Build
 
         static Container MakeContainer(Transform root, LootPlace place)
         {
-            string label = place == LootPlace.GloveBox ? "Open glove box" : place == LootPlace.Trunk ? "Open trunk" : place == LootPlace.BackSeat ? "Search back seat" : "Search backpack";
+            string label = place == LootPlace.GloveBox ? "Search the glove box" : place == LootPlace.Trunk ? "Search the trunk" : place == LootPlace.BackSeat ? "Search the back seat" : "Search backpack";
             Vector3 fallback = place == LootPlace.GloveBox ? GloveBoxSpot : place == LootPlace.Trunk ? TrunkSpot : place == LootPlace.BackSeat ? BackSeatSpot : BackpackSpot + Vector3.up * 0.3f;
-            Vector3 size = place == LootPlace.GloveBox ? new Vector3(0.12f, 0.4f, 0.6f) : place == LootPlace.Trunk ? new Vector3(1.2f, 0.4f, 0.12f) : place == LootPlace.BackSeat ? new Vector3(0.12f, 0.45f, 0.8f) : new Vector3(0.42f, 0.56f, 0.3f);
+            Vector3 size = place == LootPlace.GloveBox ? new Vector3(0.34f, 0.14f, 0.2f) : place == LootPlace.Trunk ? new Vector3(1.3f, 0.3f, 0.8f) : place == LootPlace.BackSeat ? new Vector3(0.5f, 0.3f, 0.45f) : new Vector3(0.42f, 0.56f, 0.3f);
             var named = Find(root, place.ToString());
             Vector3 local = named != null ? root.InverseTransformPoint(named.position) : fallback;
             return Container.Create(label, local, size, root);

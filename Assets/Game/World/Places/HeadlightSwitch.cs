@@ -7,7 +7,7 @@ namespace Game.World
     public sealed class HeadlightSwitch : MonoBehaviour, IInteractable
     {
         public Car car;
-        public string Prompt => car != null && car.BatteryLeft <= 0f ? "Flat battery" : "Headlights";
+        public string Prompt => car == null ? "" : car.BatteryLeft <= 0f ? "Flat battery" : $"Headlights  {Mathf.CeilToInt(car.BatteryLeft * 100f)}%";
         public bool CanInteract => car != null;
         public Vector3 FocusPoint => transform.position;
         public void Interact()

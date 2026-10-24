@@ -591,6 +591,31 @@ namespace Game.Audio
             return Loop(s, 0.4f);
         }
 
+        /// <summary>
+        /// An old car's alarm, to loop: the horn blaring on and off, two flat, harsh notes together (a buzzy saw
+        /// pair a third apart through a nasal resonance), four blasts in 2.4 s.
+        /// </summary>
+        public static float[] CarAlarm(int seed)
+        {
+            var s = Make(2.4f);
+            double p1 = 0, p2 = 0;
+            float y1 = 0f, y2 = 0f;
+            const float r = 0.95f;
+            float c = 2f * r * (float)Math.Cos(2 * Math.PI * 1500f / SampleRate);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float phase = t % 0.6f;
+                float on = phase < 0.38f ? Math.Min(1f, phase / 0.01f) * Math.Min(1f, (0.38f - phase) / 0.01f) : 0f;
+                p1 += 415.0 / SampleRate;
+                p2 += 520.0 / SampleRate;
+                float buzz = (float)((p1 % 1.0) * 2 - 1) + (float)((p2 % 1.0) * 2 - 1);
+                float res = c * y1 - r * r * y2 + buzz; y2 = y1; y1 = res;
+                s[i] = (buzz * 0.6f + res * 0.05f) * on;
+            }
+            return Loop(s, 0.85f);
+        }
+
         /// <summary>The forest's low bed: a faint, wavering drone under everything (12 s, to loop).</summary>
         public static float[] Drone(int seed)
         {

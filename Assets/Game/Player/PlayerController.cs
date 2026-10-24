@@ -136,8 +136,16 @@ namespace Game.Player
 
             Hotbar.HandleSelection(keysTaken, uiOpen);
             if (!keysTaken && input.Use.WasPressedThisFrame()) Hotbar.Use();
-            if (!uiOpen && input.Interact.WasPressedThisFrame() && Cursor.lockState == CursorLockMode.Locked) Interactor.TryInteract();
-            if (!keysTaken && input.Door.WasPressedThisFrame()) Interactor.TryUseDoor();
+            bool clicking = !uiOpen && Cursor.lockState == CursorLockMode.Locked;
+            // A click uses what you're aiming at; with nothing there, the button on what you hold (the key fob).
+            if (clicking && input.Interact.WasPressedThisFrame() && !Interactor.TryInteract()) Hotbar.Click(false);
+            if (clicking && UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.rightButton.wasPressedThisFrame) Hotbar.Click(true);
+            // Seated, E gets you out (rather than reaching for a door).
+            if (!keysTaken && input.Door.WasPressedThisFrame())
+            {
+                if (Seat != null) GetOut();
+                else Interactor.TryUseDoor();
+            }
 
             if (!keysTaken && input.Sit.WasPressedThisFrame()) ToggleSeat();
             if (Seat != null) KeepSeated();
@@ -216,16 +224,18 @@ namespace Game.Player
                 events.Publish(new NoiseEmitted(transform.position, s.pantNoise, "panting"));
         }
 
-        // Y: in or out of a seat (the car).
+        // Y: into a seat (the car); in one, along to the next (or, if it has no others, out again).
         void ToggleSeat()
         {
             if (Seat != null)
             {
-                var exit = Seat.ExitPoint;
-                Seat.Sat(false);
-                Seat = null;
-                Teleport(exit, Quaternion.Euler(0f, yaw, 0f));
-                body.enabled = true;
+                if (Seat is ISeatSwitcher switcher)
+                {
+                    switcher.NextSeat();
+                    if (Hotbar != null) Hotbar.Say($"{switcher.SeatName}.   E to get out", 2f);
+                    return;
+                }
+                GetOut();
                 return;
             }
             var seat = Seats.Near(transform.position);
@@ -234,6 +244,18 @@ namespace Game.Player
             body.enabled = false;
             velocity = Vector3.zero;
             seat.Sat(true);
+            if (Hotbar != null) Hotbar.Say(seat is ISeatSwitcher sw ? $"{sw.SeatName}.   Y to move over   ·   E to get out" : "E to get out", 3f);
+        }
+
+        // Out of the seat you're in, by its door.
+        void GetOut()
+        {
+            if (Seat == null) return;
+            var exit = Seat.ExitPoint;
+            Seat.Sat(false);
+            Seat = null;
+            Teleport(exit, Quaternion.Euler(0f, yaw, 0f));
+            body.enabled = true;
         }
 
         void KeepSeated()

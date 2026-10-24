@@ -165,6 +165,12 @@ namespace Game.Core
         public override string ToString() => "Key fob pressed";
     }
 
+    /// <summary>The key fob's other button: the car's alarm, on or off.</summary>
+    public readonly struct KeyFobAlarm : IGameEvent
+    {
+        public override string ToString() => "Key fob: alarm";
+    }
+
     /// <summary>All ten lamps are lit: the lone door unlocks (a heavy clunk heard everywhere).</summary>
     public readonly struct DoorUnlocked : IGameEvent
     {

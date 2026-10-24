@@ -71,6 +71,16 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>Glass: lit, very smooth, see-through by the colour's alpha (tinted car windows, dirty panes).</summary>
+        public static Material Glass(string name, Color tint)
+        {
+            var m = Lit(name, tint, 0.95f, true);
+            HDMaterial.SetSurfaceType(m, true);
+            m.SetColor("_BaseColor", tint);
+            HDMaterial.ValidateMaterial(m);
+            return m;
+        }
+
         /// <summary>Give a lit material a normal map (bumps for the lighting), this strong.</summary>
         public static void SetNormalMap(Material m, Texture2D normals, float scale)
         {

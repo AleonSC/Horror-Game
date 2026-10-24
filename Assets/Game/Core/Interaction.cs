@@ -33,6 +33,15 @@ namespace Game.Core
         void Sat(bool seated);
     }
 
+    /// <summary>A seat with others beside it (the car): Y moves you along to the next.</summary>
+    public interface ISeatSwitcher
+    {
+        /// <summary>Move to the next seat (its point and way out change).</summary>
+        void NextSeat();
+        /// <summary>Which seat you're in, for the hint ("the driver's seat").</summary>
+        string SeatName { get; }
+    }
+
     /// <summary>Every seat in the world (they add themselves).</summary>
     public static class Seats
     {
