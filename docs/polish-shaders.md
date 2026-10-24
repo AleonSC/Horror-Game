@@ -215,3 +215,14 @@ chain starts fading 30% of the way up its length and is gone by 90% (`GiantConfi
   the long wavering hoo-hoo-hooo; the barn owl's screech (the owls give one now and then); and the crow's
   rasping caw.
 
+## The forest floor
+
+- **The soil:** the ground is fine, dark soil now, made in code (`GroundTexture`, tiling about every 3 m). It
+  has thousands of little lumpy crumbs, the odd clod, little pits, and a scatter of pale grit.
+- **Bumps for the lighting:** a normal map is made from the same surface. The crumbs and pits catch the
+  flashlight and throw tiny shadows.
+- **Grass patches:** thick, ragged patches of grass, thinning at their edges, lie about the forest floor
+  (`WorldGenConfig` > Grass patches: 220 of them, 2 to 5.5 m across, 8 clumps a square metre in the middle). 60%
+  of them sit on the trails, so the paths run through them with grass either side and none on the trodden earth.
+  This applies to new worlds.
+

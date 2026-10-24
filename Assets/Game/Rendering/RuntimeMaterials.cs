@@ -71,6 +71,14 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>Give a lit material a normal map (bumps for the lighting), this strong.</summary>
+        public static void SetNormalMap(Material m, Texture2D normals, float scale)
+        {
+            m.SetTexture("_NormalMap", normals);
+            m.SetFloat("_NormalScale", scale);
+            HDMaterial.ValidateMaterial(m);
+        }
+
         /// <summary>
         /// Lay HDRP's detail map over a lit material (fine grain and bumps), read from the mesh's UV set
         /// <paramref name="uvSet"/> (0-3) so it can run in a different space to the main texture.

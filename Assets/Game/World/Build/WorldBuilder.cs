@@ -111,8 +111,11 @@ namespace Game.World.Build
             else
             {
                 var groundTex = GroundTexture.Build(seed);
+                var groundBumps = GroundTexture.Normals(seed);
                 made.Add(groundTex);
-                made.Add(ground = RuntimeMaterials.LitTextured("Ground", Color.white, 0.1f, groundTex, Vector2.one));
+                made.Add(groundBumps);
+                made.Add(ground = RuntimeMaterials.LitTextured("Ground", Color.white, 0.12f, groundTex, Vector2.one));
+                RuntimeMaterials.SetNormalMap(ground, groundBumps, 1f);
             }
             if (art != null && art.trail != null) trail = fixer.Fix(art.trail);
             else

@@ -86,6 +86,16 @@ namespace Game.World.Generation
         [Range(0f, 2f), Tooltip("Tall grass clumps along each side, per metre.")]
         public float trailVergeTallGrass = 0.3f;
 
+        [Header("Grass patches")]
+        [Range(0, 600), Tooltip("Patches of thick grass about the forest floor.")]
+        public int grassPatches = 220;
+        [Range(0f, 1f), Tooltip("Share of them on the trails, so the paths run through them.")]
+        public float grassPatchesOnTrails = 0.6f;
+        [Tooltip("How wide a patch is (radius, metres: smallest, largest).")]
+        public Vector2 grassPatchSize = new Vector2(2f, 5.5f);
+        [Range(0.5f, 15f), Tooltip("Grass clumps per square metre in a patch's middle (thinning to its edge).")]
+        public float grassPatchDensity = 8f;
+
         [Header("Vegetation")]
         public int trees = 2800;
         public float treeSpacing = 2.2f;

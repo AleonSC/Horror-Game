@@ -2,36 +2,101 @@ using UnityEngine;
 
 namespace Game.World.Build
 {
-    /// <summary>The forest floor's texture, made in code (it tiles): dark earth with leaf litter; and the trails'.</summary>
+    /// <summary>The forest floor's textures, made in code (they tile): fine dark soil and its bumps; and the trails'.</summary>
     public static class GroundTexture
     {
-        // Dark earth with leaf litter: specks and blotches of brown, ochre and near-black.
-        public static Texture2D Build(int seed)
+        const int SoilSize = 512;
+        static int heightSeed = int.MinValue;
+        static float[] soilHeight;
+
+        // The soil's surface, tiling: a rolling base of earth, fine grain over everything, thousands of little
+        // lumpy crumbs, the odd clod, and little pits. (Kept for the last seed, as the colour and the bumps both use it.)
+        static float[] SoilHeight(int seed)
         {
+            if (soilHeight != null && heightSeed == seed) return soilHeight;
             var rng = new System.Random(seed);
-            const int size = 256;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Ground Litter", wrapMode = TextureWrapMode.Repeat };
-            var px = new Color[size * size];
-            Color soil = new Color(0.11f, 0.085f, 0.065f), dark = new Color(0.05f, 0.04f, 0.035f), leaf = new Color(0.26f, 0.17f, 0.09f);
+            const int size = SoilSize;
+            var h = new float[size * size];
+            float o = (float)rng.NextDouble() * 50f;
             for (int y = 0; y < size; y++)
             for (int x = 0; x < size; x++)
             {
                 float u = x / (float)size, v = y / (float)size;
-                float n = Tileable(u, v, 4, 2f) * 0.6f + Tileable(u, v, 16, 9f) * 0.4f;
-                px[y * size + x] = Color.Lerp(dark, soil, Mathf.SmoothStep(0.2f, 0.8f, n));
+                h[y * size + x] = Tileable(u, v, 6, o) * 0.25f + Tileable(u, v, 20, o + 3f) * 0.2f + Tileable(u, v, 64, o + 7f) * 0.18f
+                                  + Tileable(u, v, 170, o + 13f) * 0.17f + (float)rng.NextDouble() * 0.2f;
             }
-            for (int i = 0; i < 900; i++) // leaves
+            // A crumb: a little lump of earth with a lumpy outline (a few lobes), added on (or, lift below 0, a pit).
+            void Crumb(int cx, int cy, float r, float lift)
             {
-                int cx = rng.Next(size), cy = rng.Next(size);
-                float r = 1.5f + (float)rng.NextDouble() * 3f;
-                Color c = Color.Lerp(leaf, soil, (float)rng.NextDouble() * 0.7f);
-                for (int dy = -4; dy <= 4; dy++)
-                for (int dx = -4; dx <= 4; dx++)
+                int ri = Mathf.CeilToInt(r * 1.3f);
+                float phase = (float)rng.NextDouble() * 6.28f, jag = 0.25f + (float)rng.NextDouble() * 0.2f;
+                int lobes = rng.Next(3, 6);
+                for (int dy = -ri; dy <= ri; dy++)
+                for (int dx = -ri; dx <= ri; dx++)
                 {
-                    if (dx * dx + dy * dy * 2f > r * r) continue;
-                    int xx = (cx + dx + size) % size, yy = (cy + dy + size) % size;
-                    px[yy * size + xx] = Color.Lerp(px[yy * size + xx], c, 0.8f);
+                    float edge = r * (1f + jag * Mathf.Sin(Mathf.Atan2(dy, dx) * lobes + phase));
+                    float d = Mathf.Sqrt(dx * dx + dy * dy) / edge;
+                    if (d >= 1f) continue;
+                    int k = ((cy + dy + size) % size) * size + (cx + dx + size) % size;
+                    h[k] += lift * Mathf.Pow(1f - d * d, 0.7f);
                 }
+            }
+            for (int i = 0; i < 9000; i++) Crumb(rng.Next(size), rng.Next(size), 0.8f + (float)rng.NextDouble() * 1.8f, 0.12f + (float)rng.NextDouble() * 0.2f); // crumbs
+            for (int i = 0; i < 120; i++) Crumb(rng.Next(size), rng.Next(size), 3f + (float)rng.NextDouble() * 4f, 0.25f + (float)rng.NextDouble() * 0.2f);    // clods
+            for (int i = 0; i < 1500; i++) Crumb(rng.Next(size), rng.Next(size), 0.8f + (float)rng.NextDouble() * 1.5f, -0.18f);                              // pits
+            heightSeed = seed;
+            soilHeight = h;
+            return h;
+        }
+
+        /// <summary>
+        /// The forest floor's colour, made in code (it tiles, about 3 m across): dark, fine soil, crumbs and clods a
+        /// shade lighter on top, darker in the hollows, and a scatter of pale grit.
+        /// </summary>
+        public static Texture2D Build(int seed)
+        {
+            var h = SoilHeight(seed);
+            var rng = new System.Random(seed * 3 + 1);
+            const int size = SoilSize;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Ground Soil", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4 };
+            var px = new Color[size * size];
+            Color low = new Color(0.04f, 0.03f, 0.022f), high = new Color(0.13f, 0.095f, 0.068f);
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float u = x / (float)size, v = y / (float)size;
+                float tint = Tileable(u, v, 4, 11f);
+                Color c = Color.Lerp(low, high, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.25f, 1f, h[y * size + x])));
+                px[y * size + x] = Color.Lerp(c, new Color(c.r * 0.85f, c.g * 0.9f, c.b * 0.95f), tint); // (patches a touch greyer)
+            }
+            for (int i = 0; i < 9000; i++) // grit: single pale grains
+            {
+                int k = rng.Next(size * size);
+                px[k] = Color.Lerp(px[k], new Color(0.26f, 0.21f, 0.15f), 0.3f + (float)rng.NextDouble() * 0.5f);
+            }
+            tex.SetPixels(px);
+            tex.Apply(true);
+            return tex;
+        }
+
+        /// <summary>
+        /// The forest floor's bumps for the lighting (a tangent-space normal map, linear, matching <see cref="Build"/>):
+        /// the crumbs, clods and pits catch the flashlight and throw tiny shadows.
+        /// </summary>
+        public static Texture2D Normals(int seed, float strength = 3.5f)
+        {
+            var h = SoilHeight(seed);
+            const int size = SoilSize;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true, true) { name = "Ground Soil Normals", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4 };
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float hx = h[y * size + (x + 1) % size] - h[y * size + (x + size - 1) % size];
+                float hy = h[((y + 1) % size) * size + x] - h[((y + size - 1) % size) * size + x];
+                var n = new Vector3(-hx * strength, -hy * strength, 1f).normalized;
+                // (HDRP reads X from red times alpha, Y from green.)
+                px[y * size + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, 1f, 1f);
             }
             tex.SetPixels(px);
             tex.Apply(true);

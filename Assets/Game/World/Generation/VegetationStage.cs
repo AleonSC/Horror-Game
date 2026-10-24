@@ -19,6 +19,7 @@ namespace Game.World.Generation
             PlantGrass(plan, s, rng.Fork(3), mask);
             PlantTallGrass(plan, s, rng.Fork(4), mask);
             PlantVerges(plan, s, rng.Fork(5), mask);
+            PlantGrassPatches(plan, s, rng.Fork(6), mask);
         }
 
         static SpatialGrid PlantTrees(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)
@@ -139,6 +140,37 @@ namespace Game.World.Generation
                     float a = (i + rng.Value()) / around * Mathf.PI * 2f;
                     var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
                     Verge(patch.Centre + dir * (patch.RadiusAt(a) - half), dir, 1f, false); // (no tall grass by the lamp)
+                }
+            }
+        }
+
+        // Patches of thick grass, ragged at the edges and thinning out, about the forest floor; most of them on the
+        // trails, so a path runs through them with grass either side (none on the trodden earth itself).
+        static void PlantGrassPatches(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)
+        {
+            var onTrails = new System.Collections.Generic.List<Vector2>();
+            foreach (var t in plan.Trails)
+                for (int i = 0; i < t.Points.Count; i += 3)
+                    if (t.Worn[i]) onTrails.Add(t.Points[i]);
+            float small = Mathf.Min(s.grassPatchSize.x, s.grassPatchSize.y), big = Mathf.Max(s.grassPatchSize.x, s.grassPatchSize.y);
+            for (int n = 0; n < s.grassPatches; n++)
+            {
+                Vector2 centre = onTrails.Count > 0 && rng.Chance(s.grassPatchesOnTrails)
+                    ? onTrails[rng.Range(0, onTrails.Count)] + new Vector2(rng.Range(-1f, 1f), rng.Range(-1f, 1f))
+                    : rng.InsideSquare(plan.Size);
+                if (plan.InWater(centre) || plan.InStructure(centre, 1f)) continue;
+                float radius = rng.Range(small, big);
+                int seed = rng.Range(0, 100000);
+                int count = Mathf.RoundToInt(Mathf.PI * radius * radius * s.grassPatchDensity * 0.6f);
+                for (int i = 0; i < count; i++)
+                {
+                    float a = rng.Angle();
+                    float edge = radius * (0.7f + 0.3f * PeriodicNoise.Around(a, 5, seed) * 2f); // (a ragged outline)
+                    float d = Mathf.Sqrt(rng.Value()) * edge;
+                    if (!rng.Chance(1f - Mathf.SmoothStep(0.5f, 1f, d / edge) * 0.8f)) continue; // thinning to the edge
+                    var p = Wrap.Into(centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d, plan.Size);
+                    if (!mask.Free(p, 0.02f)) continue;
+                    plan.Grass.Add(new Spot { Position = p, Size = rng.Range(0.4f, 1f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
                 }
             }
         }
