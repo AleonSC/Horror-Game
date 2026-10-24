@@ -157,8 +157,11 @@ namespace Game.UI
                     m.Vel *= 1f - dt * 1.2f;
                     m.From += m.Vel * dt;
                     p = m.From;
-                    alpha = 1f - t;
-                    size = m.Size * (1f - t * t);
+                    // Going black as it goes, then fading out.
+                    alpha = 1f - Mathf.Clamp01((t - 0.55f) / 0.45f);
+                    size = m.Size * (1f - 0.5f * t * t);
+                    float k = Mathf.Clamp01(t / 0.55f);
+                    d.style.backgroundColor = Color.Lerp(UiStyle.Ink, Color.black, k * k * (3f - 2f * k));
                 }
                 if (d.style.display != DisplayStyle.Flex) d.style.display = DisplayStyle.Flex;
                 Vector2 local = layer.WorldToLocal(p);
@@ -184,6 +187,7 @@ namespace Game.UI
                     // From upwind and scattered, as if blown together.
                     Vector2 from = to - wind * Random.Range(80f, 320f) + Random.insideUnitCircle * 90f;
                     motes[i] = new Mote { From = from, To = to, Start = now + delay, Life = Arrive - delay * 0.5f, Size = Random.Range(2f, 5f) };
+                    dots[i].style.backgroundColor = UiStyle.Ink;
                 }
                 else
                 {

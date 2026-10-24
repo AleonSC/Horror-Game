@@ -53,7 +53,16 @@ namespace Game.DevTools
         void Section<TConfig>(TConfig config, string title, System.Func<TConfig, object> settings, System.Func<object> defaults) where TConfig : Object
         {
             if (config == null) return;
-            if (SettingsDrawer.Draw(title, settings(config), defaults(), search)) LookTools.MarkChanged(config);
+            var current = settings(config);
+            var fresh = defaults();
+            if (SettingsDrawer.Draw(title, current, fresh, search)) LookTools.MarkChanged(config);
+            if (string.IsNullOrEmpty(search) && GUILayout.Button($"Reset {title.ToLowerInvariant()} to defaults", DevStyle.Button))
+            {
+                // Every value back to the built-in one (and so saved in its config asset).
+                foreach (var f in current.GetType().GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+                    f.SetValue(current, f.GetValue(fresh));
+                LookTools.MarkChanged(config);
+            }
         }
     }
 }
