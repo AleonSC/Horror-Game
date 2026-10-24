@@ -183,3 +183,14 @@ a camp someone left in a hurry:
 - **Steps:** each step is louder, with a deep sub-bass weight and a low boom under it that swell as it nears.
   The shake is stronger (`stepShake` 4.5, and a third of that even when it's far off).
 
+## The chains
+
+- **Links:** every chain is real heavy oval links now, each turned a quarter from the last so they interlock,
+  instead of a plain bar. Each chain is made of runs of eight links, as many runs as it needs to reach up into the
+  dark (`Entities/Giant/ChainMeshes.cs`).
+- **Empty chains:** each one ends in an open neck shackle, hanging. It's a great iron ring hinged at the top,
+  with its two halves swung apart and a lock eye on each free end, sized for a neck as big as the giant's.
+- **The giant:** it wears a closed collar round its neck, bolted at the front, and its chain hangs from an eye on
+  the back. When the chain snaps, the collar stays on, with a few broken links hanging straight down from it as
+  it walks.
+

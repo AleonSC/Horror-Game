@@ -88,7 +88,7 @@ namespace Game.Entities
             bodyRoot.SetParent(transform, false);
             body = GiantBody.Create(bodyRoot, config);
             chainMat = RuntimeMaterials.Silhouette("Giant chain");
-            chain = Bar("Chain", chainMat);
+            chain = MakeChain("Chain", false);
             eyeMat = RuntimeMaterials.Haze("The eye", Color.red);
             pupilMat = RuntimeMaterials.Haze("The eye's pupil", Color.black);
             RuntimeMaterials.DrawAfter(eyeMat, 1);  // (over the body, which darkens what's behind it)
@@ -152,7 +152,7 @@ namespace Game.Entities
             emptyBearings.Clear();
             for (int i = 0; i < s.emptyChains; i++)
             {
-                emptyChains.Add(Bar("Empty chain", chainMat));
+                emptyChains.Add(MakeChain("Empty chain", true));
                 emptyBearings.Add(bearing + 50f + (float)rng.NextDouble() * 260f);
             }
         }
@@ -467,9 +467,10 @@ namespace Game.Entities
 
             if (chain.gameObject.activeSelf)
             {
-                Vector3 neck = bodyRoot.TransformPoint(body.NeckLocal);
-                PlaceBar(chain, neck, ChainTop(p, neck, r * 1.5f), s.height * k * 0.008f);
+                Vector3 neck = body.ChainAnchor != null ? body.ChainAnchor.position : bodyRoot.TransformPoint(body.NeckLocal);
+                PlaceChain(chain, neck, ChainTop(p, neck, r * 1.5f), s.height * k * 0.008f);
             }
+            body.ShowBrokenChain(!chain.gameObject.activeSelf);
             for (int i = 0; i < emptyChains.Count; i++)
             {
                 Vector3 baseDir = Bearing(emptyBearings[i]);
@@ -477,7 +478,7 @@ namespace Game.Entities
                 float el = (25f + 8f * Mathf.Sin(i * 2.3f)) * Mathf.Deg2Rad;
                 Vector3 bottom = p + baseDir * rr * Mathf.Cos(el) + Vector3.up * rr * Mathf.Sin(el);
                 bottom += Vector3.Cross(Vector3.up, baseDir) * Mathf.Sin(Time.time * 0.21f + i) * rr * 0.004f;
-                PlaceBar(emptyChains[i], bottom, ChainTop(p, bottom, rr * 1.5f), rr * 0.006f);
+                PlaceChain(emptyChains[i], bottom, ChainTop(p, bottom, rr * 1.5f), rr * 0.006f);
             }
             if (eye.gameObject.activeSelf)
             {
@@ -681,6 +682,55 @@ namespace Game.Entities
             return go.transform;
         }
 
+        // A chain of heavy links (in runs, as many as its length needs), and for an empty one the open shackle
+        // hanging from its end.
+        Transform MakeChain(string name, bool emptyShackle)
+        {
+            var root = new GameObject(name) { layer = Layers.Effects }.transform;
+            root.SetParent(transform, false);
+            if (emptyShackle)
+            {
+                var shackle = ChainPart(root, "Open shackle", ChainMeshes.OpenShackle);
+                shackle.localScale = Vector3.one * 2f; // (it held a neck as big as the giant's)
+                shackle.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            }
+            return root;
+        }
+
+        Transform ChainPart(Transform parent, string name, Mesh mesh)
+        {
+            var go = new GameObject(name) { layer = Layers.Effects };
+            go.transform.SetParent(parent, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = chainMat;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            return go.transform;
+        }
+
+        // Lay a chain from its bottom up to its top: its links are <paramref name="thickness"/> x 1.6 wide.
+        void PlaceChain(Transform root, Vector3 from, Vector3 to, float thickness)
+        {
+            Vector3 d = to - from;
+            float length = d.magnitude;
+            float unit = thickness * 1.6f;
+            root.position = from;
+            root.rotation = Quaternion.FromToRotation(Vector3.up, length > 1e-3f ? d / length : Vector3.up);
+            root.localScale = Vector3.one * unit;
+            int runs = Mathf.CeilToInt(length / Mathf.Max(1e-3f, unit) / ChainMeshes.RunLength);
+            int have = 0;
+            foreach (Transform c in root)
+            {
+                if (c.name != "Links") continue;
+                bool on = have < runs;
+                if (c.gameObject.activeSelf != on) c.gameObject.SetActive(on);
+                have++;
+            }
+            for (; have < runs; have++)
+                ChainPart(root, "Links", ChainMeshes.Run).localPosition = Vector3.up * (have * ChainMeshes.RunLength);
+        }
+
         Transform Ball(string name, Material m)
         {
             var t = Bar(name, m);
@@ -691,12 +741,5 @@ namespace Game.Entities
             return t;
         }
 
-        static void PlaceBar(Transform bar, Vector3 from, Vector3 to, float thickness)
-        {
-            Vector3 d = to - from;
-            bar.position = (from + to) * 0.5f;
-            bar.rotation = Quaternion.FromToRotation(Vector3.up, d.normalized);
-            bar.localScale = new Vector3(thickness, d.magnitude * 0.5f, thickness);
-        }
     }
 }

@@ -143,6 +143,23 @@ namespace Game.Entities
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 eyes[e] = eye.transform;
             }
+            // The collar round its neck, an eye at the back for the chain; and the few links left hanging from it
+            // once the chain's snapped.
+            var collar = new GameObject("Collar") { layer = Game.Core.Layers.Effects }.transform;
+            collar.SetParent(neck, false);
+            collar.localPosition = new Vector3(0f, 0.035f, 0f);
+            collar.localScale = Vector3.one * 0.03f;
+            AddMesh(collar, ChainMeshes.Collar);
+            chainAnchor = new GameObject("Chain anchor").transform;
+            chainAnchor.SetParent(collar, false);
+            chainAnchor.localPosition = new Vector3(0f, 0.45f, -1.2f);
+            brokenChain = new GameObject("Broken chain") { layer = Game.Core.Layers.Effects }.transform;
+            brokenChain.SetParent(collar, false);
+            brokenChain.localPosition = new Vector3(0f, 0.2f, -1.2f);
+            brokenChain.localRotation = Quaternion.Euler(180f, 0f, 0f); // (hanging down)
+            brokenChain.localScale = Vector3.one * (0.0125f / 0.03f);
+            AddMesh(brokenChain, ChainMeshes.Stub);
+            brokenChain.gameObject.SetActive(false);
             NeckLocal = new Vector3(0f, 0.86f, -0.03f);
             EyesLocal = new Vector3(0f, 0.95f, 0.055f);
         }
@@ -177,6 +194,29 @@ namespace Game.Entities
                 nail.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             }
             return ankle;
+        }
+
+        Transform chainAnchor, brokenChain;
+
+        /// <summary>Where its chain holds it (the eye on the back of its collar), or null for your own model.</summary>
+        public Transform ChainAnchor => chainAnchor;
+
+        /// <summary>The broken end of the chain hanging from its collar (after it falls), or not.</summary>
+        public void ShowBrokenChain(bool shown)
+        {
+            if (brokenChain == null) return;
+            if (brokenChain.gameObject.activeSelf != shown) brokenChain.gameObject.SetActive(shown);
+            // (Hanging straight down whatever its neck's doing.)
+            if (shown) brokenChain.rotation = Quaternion.LookRotation(transform.forward, Vector3.down);
+        }
+
+        void AddMesh(Transform t, Mesh mesh)
+        {
+            t.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r = t.gameObject.AddComponent<MeshRenderer>();
+            r.sharedMaterial = haze;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
         }
 
         Transform[] eyes = new Transform[0];
