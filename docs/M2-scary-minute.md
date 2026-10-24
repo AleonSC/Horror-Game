@@ -32,7 +32,8 @@ until it is.
   - **Some creeps take it behind a tree** on its way to you (35%): it hides behind the trunk and peeks out when you look away.
   - **Get near it in the dark** (within 14 m, the light not on it) and it grows and comes for you, with a pounding beat.
   - **Face it down**: walk at it with the beam on it. Its eyes turn blue, you slow to a stop 2.5 m away, it
-    shudders to a crescendo and is drawn back through a red-edged hole. That costs 10% battery. It's back 7-12 s later.
+    shudders to a crescendo, then shrinks back into a smear and dissipates (its appearing, backwards). That costs
+    10% battery. It's back 7-12 s later.
   - **Flash the light on and off at it 4 times quickly** and it shrieks and charges your face, then vanishes.
     It comes back sooner and angrier.
   - **Taken**: you're held, it walks up to you, a hole tears open behind it, it drags you through, and the

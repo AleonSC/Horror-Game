@@ -33,7 +33,6 @@ namespace Game.Entities
         int aggression;
         int seenToggles = -1;
         readonly Queue<float> flashes = new Queue<float>();
-        Vector3 retreatFrom, retreatDir;
         Collider peekTree;
         bool ducker;
         float peekOut = 1f;
@@ -451,31 +450,25 @@ namespace Game.Entities
             if (c >= 1f) Dispel();
         }
 
-        // Driven off: a hole tears open behind it and it's drawn back in. The light pays for it.
+        // Driven off: it comes apart the way it came, shrinking into a smear and dissipating. The light pays for it.
         void Dispel()
         {
             if (player.Flashlight != null) player.Flashlight.Battery.Spend(s.dismissCost);
-            Vector3 toPlayer = player.transform.position - transform.position;
-            toPlayer.y = 0f;
-            retreatDir = toPlayer.sqrMagnitude > 0.001f ? -toPlayer.normalized : -transform.forward;
-            retreatFrom = transform.position;
-            Vector3 centre = transform.position + retreatDir * 0.45f + Vector3.up * s.height * 0.52f;
-            portal = ScourPortal.Open(centre, -retreatDir, new Vector2(0.8f, 1.45f) * (s.height / 2.4f), 0.35f);
             body.ShutMouth();
-            Play(Sound.Portal, 1f, 1f, 35f);
+            Play(Sound.Appear, 0.9f, 0.75f, 35f);
             SetState(ScourState.Retreating, "driven off");
         }
 
         void UpdateRetreating()
         {
-            const float delay = 0.35f, pullTime = 1.3f;
+            const float settle = 0.3f; // (the crescendo's shudder dies away first)
             timer += Time.deltaTime;
-            float t = Mathf.Clamp01((timer - delay) / pullTime);
-            float pull = t * t * t; // slow to give, then snatched away
-            transform.position = retreatFrom + retreatDir * pull * 2.2f;
-            body.Shudder(Mathf.Lerp(s.crescendoVibration, s.vibration, t), 1f - t);
-            body.SetEyes(Mathf.Lerp(4f, 0.3f, pull), s.spawnEyeGlow * (1f - pull), 1f - t * 0.5f, 0f, s.eyeLight, s.eyeLightRange);
-            player.AddShake(s.cameraShake * 0.5f * (1f - t));
+            float time = Mathf.Max(0.1f, s.dissipateTime);
+            float t = Mathf.Clamp01((timer - settle) / time);
+            if (timer < settle) body.Shudder(Mathf.Lerp(s.crescendoVibration, s.vibration, timer / settle), 1f - timer / settle);
+            else body.SetMaterialize(1f - t); // (the appearing, backwards)
+            body.SetEyes(Mathf.Lerp(3f, 0.3f, t), s.spawnEyeGlow * (1f - t), 1f - t * 0.5f, 0f, s.eyeLight * (1f - t), s.eyeLightRange);
+            player.AddShake(s.cameraShake * 0.5f * (1f - Mathf.Clamp01(timer / settle)));
             if (t >= 1f) Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
         }
 
