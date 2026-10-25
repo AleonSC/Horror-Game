@@ -39,16 +39,21 @@ namespace Game.Entities
             return tree != null;
         }
 
-        // Behind the trunk from the player; 'out' 1 leans out to one side, 0 tucked fully behind.
+        // Right behind the trunk from the player, whether tucked in or peeking: it stays put and only cranes its
+        // head round (the pose does that; see PoseShape's Peek). On a thicker or thinner trunk than the pose was
+        // made for, it stands that much further to the side it peeks round, so its head still clears the edge and
+        // the rest of it stays hidden. (Facing the player, its left is the world's Cross(up, away).)
         Vector3 PeekSpot(float outAmount)
         {
             Vector3 trunk = peekTree.transform.position;
             Vector3 away = trunk - player.transform.position;
             away.y = 0f;
             away = away.sqrMagnitude > 0.01f ? away.normalized : Vector3.forward;
-            Vector3 side = Vector3.Cross(Vector3.up, away);
-            float r = peekTree is CapsuleCollider c ? c.radius * peekTree.transform.lossyScale.x : 0.35f;
-            Vector3 spot = trunk + away * (r + 0.3f) + side * (r + 0.1f) * outAmount;
+            Vector3 left = Vector3.Cross(Vector3.up, away);
+            float r = peekTree is CapsuleCollider c ? c.radius * peekTree.transform.lossyScale.x : 0.32f;
+            float k = Mathf.Max(0.5f, s.height / 2.4f); // (the pose was made for a 2.4 m scour)
+            float shift = Mathf.Clamp(r - 0.32f * k, -0.08f, 0.2f);
+            Vector3 spot = trunk + away * (r + 0.25f * k) + left * peekSide * shift;
             spot.y = PlayerSense.GroundHeight(spot);
             return spot;
         }
@@ -60,6 +65,9 @@ namespace Game.Entities
                            PlayerSense.IsLookedAt(player, peekTree.transform.position + Vector3.up * 1.6f, s.lookAngle * 0.6f);
             // Ducks back quickly (a sharp creep, not a jump), leans out again slowly.
             peekOut = Mathf.MoveTowards(peekOut, watched ? 0f : 1f, dt * (watched ? 3f : 0.6f));
+            // (Craning out slow and smooth, snapping back in fast.)
+            float shown = watched ? peekOut : Mathf.SmoothStep(0f, 1f, peekOut);
+            body.SetPeek(shown, peekSide, false);
             transform.position = Vector3.MoveTowards(transform.position, PeekSpot(peekOut), 2.5f * dt);
         }
     }

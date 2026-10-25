@@ -36,6 +36,7 @@ namespace Game.Entities
         Collider peekTree;
         bool ducker;
         float peekOut = 1f;
+        int peekSide = 1; // (1: it peeks round the trunk on its left)
         float eyesSeen = 1f;
         float appearedAt;
         bool everAppeared;
@@ -186,7 +187,7 @@ namespace Game.Entities
             body.Face(player.transform.position);
             body.SetVisible(true);
             body.SetMaterialize(0f);
-            if (ducker) body.SetPose(ScourPose.Peek, 1, true);
+            if (ducker) body.SetPeek(peekOut, peekSide, true);
             else body.SetPose(CreepPose(), RandomSide(), true);
             huntProgress = 0f;
             eyeFlare = 1f;
@@ -232,6 +233,7 @@ namespace Game.Entities
                 ducker = Random.value < s.duckerChance && FindTreeNear(p, out peekTree);
                 if (!ducker) peekTree = null;
                 peekOut = PeekOnAppear;
+                peekSide = Random.value < 0.5f ? -1 : 1;
                 spot = ducker ? PeekSpot(peekOut) : p;
                 return true;
             }
@@ -350,6 +352,7 @@ namespace Game.Entities
                 peekTree = tree;
                 ducker = true;
                 peekOut = 0f;            // arrives tucked right behind the trunk, out of sight
+                peekSide = Random.value < 0.5f ? -1 : 1;
                 appearedAt = -DuckGrace; // (no grace: it's hiding, not showing itself)
                 Vector3 spot = PeekSpot(peekOut);
                 if (zones == null || !zones.Contains(spot, s.ringMargin))
@@ -358,7 +361,7 @@ namespace Game.Entities
                     {
                         transform.position = spot;
                         body.Face(target);
-                        body.SetPose(ScourPose.Peek, 1, true);
+                        body.SetPeek(peekOut, peekSide, true);
                         if (Services.TryGet<EventBus>(out var ev)) ev.Publish(new EntityStateChanged(EntityKind.Scour, id, $"crept behind a tree at {PlayerSense.FlatDistance(transform.position, target):0.0} m"));
                     });
                     return;

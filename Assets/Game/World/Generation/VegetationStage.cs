@@ -1,3 +1,4 @@
+using Game.Core;
 using UnityEngine;
 
 namespace Game.World.Generation
@@ -79,7 +80,7 @@ namespace Game.World.Generation
             {
                 var p = rng.InsideSquare(plan.Size);
                 float meadow = PeriodicNoise.Fractal(p.x, p.y, plan.Size, s.meadowCells, meadowSeed);
-                if (!rng.Chance(Mathf.SmoothStep(0.42f, 0.65f, meadow)) || !mask.Free(p)) continue;
+                if (!rng.Chance(MathUtil.SmoothThreshold(0.42f, 0.65f, meadow)) || !mask.Free(p)) continue;
                 plan.Grass.Add(new Spot { Position = p, Size = rng.Range(0.3f, 0.9f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
             }
             // Tufts round the foot of each tree.
@@ -167,7 +168,7 @@ namespace Game.World.Generation
                     float a = rng.Angle();
                     float edge = radius * (0.7f + 0.3f * PeriodicNoise.Around(a, 5, seed) * 2f); // (a ragged outline)
                     float d = Mathf.Sqrt(rng.Value()) * edge;
-                    if (!rng.Chance(1f - Mathf.SmoothStep(0.5f, 1f, d / edge) * 0.8f)) continue; // thinning to the edge
+                    if (!rng.Chance(1f - MathUtil.SmoothThreshold(0.5f, 1f, d / edge) * 0.8f)) continue; // thinning to the edge
                     var p = Wrap.Into(centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d, plan.Size);
                     if (!mask.Free(p, 0.02f)) continue;
                     plan.Grass.Add(new Spot { Position = p, Size = rng.Range(0.4f, 1f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
@@ -188,7 +189,7 @@ namespace Game.World.Generation
                 {
                     float a = rng.Angle();
                     float d = Mathf.Sqrt(rng.Range(inner * inner, c.Radius * c.Radius));
-                    if (!lamp && !rng.Chance(1f - Mathf.SmoothStep(0.55f, 1f, d / c.Radius))) continue; // thinning to the glade's edge
+                    if (!lamp && !rng.Chance(1f - MathUtil.SmoothThreshold(0.55f, 1f, d / c.Radius))) continue; // thinning to the glade's edge
                     var p = Wrap.Into(c.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d, plan.Size);
                     if (!mask.Free(p, 0.2f)) continue;
                     plan.TallGrass.Add(new Spot { Position = p, Size = rng.Range(s.tallGrassHeight.x, s.tallGrassHeight.y), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });

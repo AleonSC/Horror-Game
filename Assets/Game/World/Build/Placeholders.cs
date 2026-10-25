@@ -518,13 +518,13 @@ namespace Game.World.Build
             {
                 float u = x / (float)size, v = y / (float)size;
                 float blotch = Mathf.PerlinNoise(u * 5f + o, v * 5f) * 0.6f + Mathf.PerlinNoise(u * 19f + o, v * 19f) * 0.4f;
-                Color c = Color.Lerp(dark, baseC * 1.15f, Mathf.SmoothStep(0.15f, 0.85f, blotch));
+                Color c = Color.Lerp(dark, baseC * 1.15f, MathUtil.SmoothThreshold(0.15f, 0.85f, blotch));
                 // Rain streaks: running down from the top, fading as they go.
                 float run = streak[x] * Mathf.Lerp(1f, 0.3f, 1f - v) * (0.6f + 0.4f * Mathf.PerlinNoise(u * 40f, v * 3f + o));
                 c = Color.Lerp(c, dark * 0.8f, Mathf.Clamp01(run * 1.4f));
                 // Moss low down.
                 float m = Mathf.Clamp01((0.35f - v) / 0.35f) * Mathf.PerlinNoise(u * 12f + o, v * 12f + 7f);
-                c = Color.Lerp(c, moss, Mathf.SmoothStep(0.25f, 0.6f, m));
+                c = Color.Lerp(c, moss, MathUtil.SmoothThreshold(0.25f, 0.6f, m));
                 c *= 0.9f + 0.2f * (float)rng.NextDouble(); // (grain)
                 c.a = 1f;
                 px[y * size + x] = c;

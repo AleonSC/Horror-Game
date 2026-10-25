@@ -77,6 +77,12 @@ namespace Game.Entities
         /// <summary>Hold a pose. Snap (when it can't be seen, after a creep) or ease into it.</summary>
         public abstract void SetPose(ScourPose pose, int side, bool snap, float rate = 4f);
 
+        /// <summary>
+        /// Behind a trunk: tucked right in (0) to craning round its edge (1) on this side (1: its left). A model
+        /// look holds its Peek pose when mostly out, else PeekHidden.
+        /// </summary>
+        public virtual void SetPeek(float amount, int side, bool snap) => SetPose(amount > 0.5f ? ScourPose.Peek : ScourPose.PeekHidden, side, snap, 6f);
+
         /// <summary>Each frame while visible: animate (pose, mouth, legs...). <paramref name="open"/> is the mouth, 0-1.6.</summary>
         protected abstract void Animate(float dt, float open);
 

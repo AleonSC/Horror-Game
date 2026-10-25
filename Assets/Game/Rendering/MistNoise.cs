@@ -1,3 +1,4 @@
+using Game.Core;
 using UnityEngine;
 
 namespace Game.Rendering
@@ -16,7 +17,7 @@ namespace Game.Rendering
         public static float Density(float u, float v, float w, float patchiness, int seed)
         {
             float n = 0.65f * TileNoise(u, w, v, Cells, seed) + 0.35f * TileNoise(u, w, v * 2f, Cells * 2, seed + 17);
-            float patches = Mathf.Lerp(1f, Mathf.SmoothStep(0.25f, 0.8f, n), Mathf.Clamp01(patchiness));
+            float patches = Mathf.Lerp(1f, MathUtil.SmoothThreshold(0.25f, 0.8f, n), Mathf.Clamp01(patchiness));
             // Thickest at the ground, thinning with height and gone at the top of the box.
             float height = 1f - Mathf.SmoothStep(0f, 1f, v);
             return Mathf.Clamp01(patches * height * height);

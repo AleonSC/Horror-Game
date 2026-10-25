@@ -1,3 +1,4 @@
+using Game.Core;
 using UnityEngine;
 
 namespace Game.World.Generation
@@ -68,7 +69,7 @@ namespace Game.World.Generation
             float top = plan.HillTop(p);
             f *= 1f - 0.75f * top * top; // hilltops: few trees, lookouts over the canopy
             float patch = PeriodicNoise.Fractal(p.x, p.y, plan.Size, patchCells, patchSeed);
-            return f * Mathf.Lerp(0.35f, 1f, Mathf.SmoothStep(0.3f, 0.7f, patch));
+            return f * Mathf.Lerp(0.35f, 1f, MathUtil.SmoothThreshold(0.3f, 0.7f, patch));
         }
 
         /// <summary>Is the ground here free for a plant or prop (not water, not a building, not a worn trail)?</summary>

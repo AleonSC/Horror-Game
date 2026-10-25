@@ -1,3 +1,4 @@
+using Game.Core;
 using UnityEngine;
 
 namespace Game.Player
@@ -18,7 +19,7 @@ namespace Game.Player
             float spill = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(inner, 0.98f, r));
             float hot = Mathf.Exp(-Mathf.Pow(r / 0.28f, 2f));
             float v = spill * 0.42f + hot * 0.58f;
-            v *= 1f + 0.07f * Mathf.Sin(r * 46f) * Mathf.SmoothStep(0.1f, 0.4f, r);   // reflector rings
+            v *= 1f + 0.07f * Mathf.Sin(r * 46f) * MathUtil.SmoothThreshold(0.1f, 0.4f, r);   // reflector rings
             v *= 1f - 0.12f * Mathf.Exp(-Mathf.Pow((r - 0.2f) / 0.025f, 2f));       // darker ring round the hot spot
             v *= 0.94f + 0.06f * Mathf.PerlinNoise(dx * 6f + 3.1f, dy * 6f + 7.7f);  // the lens
             return r >= 1f ? 0f : Mathf.Clamp01(v);

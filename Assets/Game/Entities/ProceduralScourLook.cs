@@ -91,6 +91,14 @@ namespace Game.Entities
             if (snap) pose = target;
         }
 
+        public override void SetPeek(float amount, int side, bool snap)
+        {
+            Pose = ScourPose.Peek;
+            target = PoseShape.Lerp(PoseShape.For(ScourPose.PeekHidden, side), PoseShape.For(ScourPose.Peek, side), Mathf.Clamp01(amount));
+            poseRate = 8f;
+            if (snap) pose = target;
+        }
+
         protected override void OnVisibilityChanged(bool visible)
         {
             if (visible) lastPosition = transform.position;
@@ -98,7 +106,7 @@ namespace Game.Entities
 
         protected override void Animate(float dt, float open)
         {
-            pose = Lerp(pose, target, 1f - Mathf.Exp(-poseRate * dt));
+            pose = PoseShape.Lerp(pose, target, 1f - Mathf.Exp(-poseRate * dt));
             UpdateTwitch(dt);
             UpdateLegs(dt);
             ApplyPose();
@@ -156,18 +164,6 @@ namespace Game.Entities
             }
             twitchHead = Vector3.Lerp(twitchHead, Vector3.zero, 1f - Mathf.Exp(-9f * dt));
             twitchFingers = Vector3.Lerp(twitchFingers, Vector3.zero, 1f - Mathf.Exp(-6f * dt));
-        }
-
-        static PoseShape Lerp(PoseShape a, PoseShape b, float t)
-        {
-            return new PoseShape
-            {
-                Hips = Vector3.Lerp(a.Hips, b.Hips, t), Spine = Vector3.Lerp(a.Spine, b.Spine, t), Chest = Vector3.Lerp(a.Chest, b.Chest, t),
-                Neck = Vector3.Lerp(a.Neck, b.Neck, t), Head = Vector3.Lerp(a.Head, b.Head, t),
-                ShoulderL = Vector3.Lerp(a.ShoulderL, b.ShoulderL, t), ShoulderR = Vector3.Lerp(a.ShoulderR, b.ShoulderR, t),
-                ElbowL = Vector3.Lerp(a.ElbowL, b.ElbowL, t), ElbowR = Vector3.Lerp(a.ElbowR, b.ElbowR, t),
-                Drop = Mathf.Lerp(a.Drop, b.Drop, t), Curl = Mathf.Lerp(a.Curl, b.Curl, t), Extra = Vector3.Lerp(a.Extra, b.Extra, t),
-            };
         }
     }
 }

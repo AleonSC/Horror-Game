@@ -194,11 +194,7 @@ namespace Game.World.Build
     public static class Noise
     {
         /// <summary>0 below <paramref name="from"/>, 1 above <paramref name="to"/>, easing between (a smooth threshold).</summary>
-        public static float Step(float from, float to, float x)
-        {
-            float t = Mathf.Clamp01((x - from) / (to - from));
-            return t * t * (3f - 2f * t);
-        }
+        public static float Step(float from, float to, float x) => Game.Core.MathUtil.SmoothThreshold(from, to, x);
 
         public static float Hash(int x, int y, int seed)
         {

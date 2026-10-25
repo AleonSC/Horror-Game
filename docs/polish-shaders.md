@@ -416,3 +416,19 @@ is worked out, once per session (`ForestTextures`); about a second.
   layer under the grey, deep fissures with rust-brown walls and a dark floor, weathering and lichen. **Dead
   wood**: silver-grey wood with long cracks up the grain and streaks, with patches of bark still clinging on.
 - **Your own**: `WorldArtConfig` now has **Bark** and **Dead Wood** materials alongside Ground and Trail.
+
+## SmoothStep fix, and scours peeking round trunks properly
+
+- **SmoothStep:** Unity's `Mathf.SmoothStep(a, b, t)` blends between a and b; several places used it as a
+  threshold, so they barely varied. They now use `MathUtil.SmoothThreshold` (Game.Core). What changes: grass now
+  grows in real meadows and is sparse between them (about 30% more grass overall, much less evenly spread); tree
+  patches and glade/edge thinning follow their noise properly; the ground mist is properly patchy; the
+  flashlight's reflector rings start where they should; and the placeholder rock texture's blotches and moss.
+- **Peeking scours:** before, a scour behind a trunk slid sideways and leaned its whole body out, and its
+  hanging arms swung out past the far side of the trunk. Now it stands right behind the trunk, narrow, arms
+  in close (`PeekHidden`), and to peek it only cranes its tilted head and near shoulder round the edge, the
+  long fingers of that hand curled round the bark at head height, while the far arm (and the extra arms) are
+  held straight down inside the trunk's outline (`Peek`). It blends between the two by how far out it is,
+  creeping out slowly and snapping back in when you look. It picks a side at random, and on thicker or thinner
+  trunks it stands to one side to match. (The pose was worked out against the rig's bones offline; model looks
+  get `Peek` / `PeekHidden` as animator poses.)
