@@ -18,6 +18,8 @@ namespace Game.World
         Rain rain;
         AudioSource rainSound, tornadoSound;
         Light flash;
+        LightningBolt bolt;
+        bool boltShown;
         float nextLightning, flashLeft, thunderAt = -1f, thunderVolume, rainAmount;
         readonly List<Tornado> tornadoes = new List<Tornado>();
         System.IDisposable resetSub;
@@ -50,6 +52,7 @@ namespace Game.World
             flash.color = new Color(0.8f, 0.85f, 1f);
             flash.shadows = LightShadows.None;
             flash.enabled = false;
+            bolt = LightningBolt.Create(transform);
             nextLightning = Time.time + Random.Range(config.settings.minLightning, config.settings.maxLightning);
             Services.Register(this);
         }
@@ -128,7 +131,12 @@ namespace Game.World
                 nextLightning = Time.time + Random.Range(s.minLightning, Mathf.Max(s.minLightning, s.maxLightning));
                 float d = Random.Range(s.minLightningDistance, Mathf.Max(s.minLightningDistance, s.maxLightningDistance));
                 flashLeft = Random.Range(0.25f, 0.6f);
-                flash.transform.rotation = Quaternion.Euler(Random.Range(25f, 70f), Random.Range(0f, 360f), 0f);
+                float bearing = Random.Range(0f, 360f);
+                // (the flash lights the forest from where the bolt is)
+                flash.transform.rotation = Quaternion.Euler(Random.Range(25f, 70f), bearing + 180f, 0f);
+                // Most strikes show a bolt down through the sky; some are only a flicker in the cloud.
+                boltShown = Random.value < s.boltChance && Camera.main != null;
+                if (boltShown) bolt.Strike(Camera.main.transform.position, bearing, d, s.boltBrightness);
                 thunderAt = Time.time + d / 343f;
                 thunderVolume = Mathf.Lerp(1f, 0.35f, Mathf.InverseLerp(s.minLightningDistance, s.maxLightningDistance, d));
             }
@@ -139,8 +147,13 @@ namespace Game.World
                 float f = Mathf.PerlinNoise(Time.time * 30f, 0.4f) > 0.45f ? 1f : 0.15f;
                 flash.enabled = flashLeft > 0f;
                 flash.intensity = s.lightningBrightness * f;
+                if (boltShown) bolt.Level(f);
             }
-            else flash.enabled = false;
+            else
+            {
+                flash.enabled = false;
+                if (boltShown) { bolt.Hide(); boltShown = false; }
+            }
             if (thunderAt > 0f && Time.time >= thunderAt)
             {
                 thunderAt = -1f;

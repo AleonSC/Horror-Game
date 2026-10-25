@@ -488,3 +488,13 @@ sitting on the ground under its own middle. Their soft edges fade linearly from 
 neighbours add up to exactly one even layer of mist: no seams, and it lies along the hill, rising and falling
 with the land rather than with you. Each box's ground height eases toward new readings, so it doesn't jump
 over a rock or log. The patches still stay put in the world as you walk.
+
+## Lightning bolts
+
+Most lightning strikes now show a bolt (`LightningBolt`): a jagged streak from the cloud base down toward the
+horizon in the direction the flash comes from, with forks splitting off it and forking again, thinner each
+time, a glow in the cloud where it starts, flickering with the flash and gone with it; its thunder follows as
+before (later the further off). Each strike is a new bolt. It's drawn 340 m off and scaled to look as big as
+one at its real distance would (nearer strikes tower over you; far ones are low on the horizon), and the fog
+dims it with distance. `WeatherConfig` > `boltChance` (0.75: the rest flicker only in the cloud),
+`boltBrightness` (30).
