@@ -35,7 +35,7 @@ namespace Game.UI
         [Range(0, 20), Tooltip("Lines shown over black before you wake in the forest; you can move during the rest.")]
         public int linesBeforeWaking = 1;
         [Range(0f, 15f), Tooltip("Seconds you wake groggy for: slow, swaying, blurred vision clearing.")]
-        public float wakeGroggyTime = 5f;
+        public float wakeGroggyTime = 9f;
         [Range(0.2f, 6f), Tooltip("Seconds for the forest to fade in when you wake.")]
         public float wakeFadeTime = 4f;
 

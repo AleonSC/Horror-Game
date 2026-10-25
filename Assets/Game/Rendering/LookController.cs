@@ -254,7 +254,7 @@ namespace Game.Rendering
             colorAdjustments.saturation.Override(s.saturation);
             colorAdjustments.colorFilter.Override(s.colorFilter);
             float b = Mathf.Clamp01(Blur);
-            vignette.intensity.Override(Mathf.Clamp01(s.vignette + 0.3f * b));
+            vignette.intensity.Override(Mathf.Clamp01(s.vignette));
             grain.intensity.Override(s.grain);
             grain.type.Override(FilmGrainLookup.Medium3);
             // Motion blur is the player's choice (options), not part of the look.
@@ -269,8 +269,9 @@ namespace Game.Rendering
             blur.focusMode.Override(blurring ? DepthOfFieldMode.Manual : DepthOfFieldMode.Off);
             if (blurring)
             {
-                blur.farFocusStart.Override(Mathf.Lerp(farStart, 0.3f, b));
-                blur.farFocusEnd.Override(Mathf.Lerp(farEnd, 4f, b));
+                // (Groggy: everything past arm's length soft.)
+                blur.farFocusStart.Override(Mathf.Lerp(farStart, 0.2f, b));
+                blur.farFocusEnd.Override(Mathf.Lerp(farEnd, 3f, b));
             }
 
             bool rt = prefs != null && prefs.rayTracing && RayTracingSupported;

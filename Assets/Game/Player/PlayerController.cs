@@ -186,10 +186,10 @@ namespace Game.Player
             if (shake > 0f) wobble += Random.insideUnitSphere * shake;
             if (groggy > 0f)
             {
-                // Coming round: a slow sway, and a tremble, both settling.
-                float g = Groggy;
+                // Coming round: the head lolls and sways, settling as it clears (slowly at first, then quickly).
+                float g = Ease(Groggy);
                 float t = Time.time;
-                wobble += new Vector3(Mathf.Sin(t * 0.9f) * 0.6f, Mathf.Sin(t * 0.7f + 1f) * 0.8f, Mathf.Sin(t * 0.5f)) * (s.groggySway * g);
+                wobble += new Vector3(Mathf.Sin(t * 0.9f) * 2f, Mathf.Sin(t * 0.6f + 1f) * 2.5f, Mathf.Sin(t * 0.7f + 2f) * 4f) * (s.groggySway * g);
                 wobble += new Vector3(Mathf.PerlinNoise(t * 9f, 0.3f) - 0.5f, Mathf.PerlinNoise(1.7f, t * 9f) - 0.5f, Mathf.PerlinNoise(t * 7f, 4.1f) - 0.5f) * (2f * s.groggyShake * g * g);
             }
             head.localRotation = Quaternion.Euler(pitch, 0f, 0f) * Quaternion.Euler(wobble);
@@ -341,7 +341,7 @@ namespace Game.Player
             body.center = new Vector3(0f, height * 0.5f, 0f);
 
             int lamps = Services.TryGet<GameRun>(out var run) ? run.LampsLit : 0;
-            bool wantSprint = !keysTaken && input.Sprint.IsPressed() && !Crouching && move.y > 0.1f && Groggy < 0.3f; // (too groggy to run)
+            bool wantSprint = !keysTaken && input.Sprint.IsPressed() && !Crouching && move.y > 0.1f && Ease(Groggy) < 0.3f; // (too groggy to run)
             Running = Stamina.Tick(dt, wantSprint, Moving, s, lamps);
 
             float speed = Crouching ? s.crouchSpeed : Running ? s.runSpeed : s.walkSpeed;
@@ -353,7 +353,7 @@ namespace Game.Player
             wish = ApplyApproachLimit(wish);
 
             Vector3 flat = new Vector3(velocity.x, 0f, velocity.z);
-            float accel = s.acceleration * (body.isGrounded ? 1f : s.airControl);
+            float accel = s.acceleration * (body.isGrounded ? 1f : s.airControl) * Mathf.Lerp(1f, s.groggyAcceleration, Ease(Groggy)); // (sluggish to start and stop, waking)
             flat = Vector3.MoveTowards(flat, wish, accel * dt);
             velocity.x = flat.x;
             velocity.z = flat.z;

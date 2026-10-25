@@ -76,15 +76,17 @@ namespace Game.Player
         [Range(0f, 15f), Tooltip("Seconds of grogginess after being taken.")]
         public float groggyTime = 5f;
         [Range(0.1f, 1f), Tooltip("Speed while groggy.")]
-        public float groggySpeed = 0.3f;
-        [Range(0f, 10f), Tooltip("Degrees of slow head sway at the start of it.")]
-        public float groggySway = 1.5f;
-        [Range(0f, 5f), Tooltip("Degrees of trembling shake at the start of it (coming round).")]
-        public float groggyShake = 0.6f;
+        public float groggySpeed = 0.35f;
+        [Range(0f, 3f), Tooltip("How much the head lolls and sways at the start of it (1: about 2 degrees up and down, 2.5 side to side, 4 of roll).")]
+        public float groggySway = 1f;
+        [Range(0f, 5f), Tooltip("Degrees of trembling shake at the start of it (coming round). 0: none.")]
+        public float groggyShake = 0f;
+        [Range(0.1f, 1f), Tooltip("How quickly you speed up and slow down at the start of it (heavy, sluggish).")]
+        public float groggyAcceleration = 0.35f;
         [Range(0.1f, 1f), Tooltip("Mouse look speed at the start of it (it comes back as it wears off).")]
-        public float groggyLook = 0.45f;
+        public float groggyLook = 0.5f;
         [Range(0f, 1f), Tooltip("How blurred your vision is at the start of it (it clears as it wears off).")]
-        public float groggyBlur = 1f;
+        public float groggyBlur = 0.7f;
 
         [Header("Interaction")]
         [Range(1f, 5f), Tooltip("How far you can reach (metres).")]

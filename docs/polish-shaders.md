@@ -546,3 +546,14 @@ it to the first spot with room to stand).
 - **The crown** breaks up at that moment into a cloud of about 1,100 needle tufts and leaves hanging in the air
   where it was, which drift apart and flutter slowly down over half a minute or so (falling at about 0.4 m/s),
   carried off on the wind, then settle and fade.
+
+## Waking up as in the HDRP build
+
+The intro's waking now matches the old HDRP build's: **9 s** of grogginess (`PresentationConfig` >
+`wakeGroggyTime`), which only starts to wear off once the black has lifted past 70%, clearing slowly at first
+and then quickly. The head **lolls and sways** (about 2 degrees up and down, 2.5 side to side, 4 of roll, on
+slow waves; no tremble now), the **blur** softens everything past arm's length (0.2 to 3 m) at 70% strength,
+mouse look starts at half speed, walking at 35%, you speed up and slow down sluggishly (35%), and you can't run
+until it's mostly worn off. The extra vignette while groggy is gone. (`PlayerConfig` > Waking up: groggySway 1,
+groggyShake 0, groggyAcceleration, groggyLook 0.5, groggySpeed 0.35, groggyBlur 0.7.) Waking after being taken
+uses the same.

@@ -221,11 +221,18 @@ namespace Game.UI
             if (Services.TryGet<PlayerController>(out var player)) player.StartGroggy(config.wakeGroggyTime);
             if (narration != null) narration.StartCoroutine(narration.Intro(wake));
             float fade = Mathf.Max(0.2f, config.wakeFadeTime);
+            bool coming = false;
             for (float t = 0f; t < fade && black != null; t += Time.unscaledDeltaTime)
             {
                 // Eyes opening: slow to start, a little lift, slow to finish.
                 float x = t / fade;
                 black.style.opacity = 1f - x * x * x * (x * (x * 6f - 15f) + 10f);
+                // The grogginess only starts to wear off once you can see (as the black lifts past 70%).
+                if (!coming && black.style.opacity.value < 0.3f && player != null)
+                {
+                    coming = true;
+                    player.StartGroggy(config.wakeGroggyTime);
+                }
                 yield return null;
             }
             if (black != null) black.RemoveFromHierarchy();
