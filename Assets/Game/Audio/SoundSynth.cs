@@ -1239,6 +1239,109 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// A tree giving way (about 3 s): a first loud crack of fibres going, then the trunk tearing, a run of
+        /// splintering cracks, sparse and then quicker and quicker, rung through the wood's own hollow body, a deep
+        /// groaning creak under them as it leans; ringing off the forest.
+        /// </summary>
+        public static float[] TreeBreak(int seed)
+        {
+            var rng = new Random(seed);
+            const float length = 1.9f;
+            var s = Make(length);
+            // When each crack goes: the first, then quickening.
+            var at = new System.Collections.Generic.List<(float t, float loud)> { (0f, 2.2f), (0.035f, 1.3f), (0.08f, 0.8f) };
+            for (float t = 0.28f; t < length - 0.15f; t += 0.03f + 0.22f * (float)Math.Pow(1f - t / length, 2f) * (0.5f + (float)rng.NextDouble()))
+                at.Add((t, 0.12f + 0.3f * (float)rng.NextDouble() * (0.4f + 0.6f * t / length)));
+            float r1 = 0f, r2 = 0f, r3 = 0f, r4 = 0f, creakPhase = 0f, creakLp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float x = 0f;
+                foreach (var (ct, loud) in at)
+                {
+                    float d = t - ct;
+                    if (d < 0f || d > 0.08f) continue;
+                    x += Noise(rng) * Decay(d, 120f) * loud;
+                }
+                // The wood's body: two resonances it rings through (a hollow knock and a woody mid).
+                r1 += (x - r1) * 0.05f; r2 += (r1 - r2) * 0.05f;   // (low)
+                r3 += (x - r3) * 0.25f; r4 += (r3 - r4) * 0.4f;    // (mid)
+                float wood = (r2 * 3.5f) + (r3 - r4) * 1.2f + x * 0.35f;
+                // The groan: stick-slip pulses at a low wandering rate, smoothed, swelling as it leans.
+                float f = 70f + 25f * (float)Math.Sin(t * 3.1f) + 30f * t / length + 10f * Noise(rng);
+                creakPhase += f / SampleRate;
+                float pulse = (creakPhase % 1f) < 0.1f ? 1f : 0f;
+                creakLp += (pulse - creakLp) * 0.2f;
+                float groan = (creakLp - 0.1f) * Env(t, 0.5f, length, 0.4f) * 0.5f;
+                s[i] = wood + groan;
+            }
+            return Normalize(Reverb(s, 1.6f, 0.45f, 0.55f), 0.95f);
+        }
+
+        /// <summary>
+        /// A tree going over (2.5 s): the rush of its crown through the air, building as it falls faster and faster
+        /// (as the fall does: slow, then all at once), brushing and snapping through the branches of its
+        /// neighbours on the way. It cuts off where it lands (the crash covers that).
+        /// </summary>
+        public static float[] TreeRush(int seed)
+        {
+            var rng = new Random(seed);
+            const float length = 2.5f;
+            var s = Make(length);
+            float lowA = 0f, bandA = 0f, hp = 0f, last = 0f, lp = 0f, brush = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float u = t / 2.4f;
+                float speed = Math.Min(1f, u * u * 1.1f);
+                float n = Noise(rng);
+                // The rush: band-limited air rising in pitch with the speed.
+                Band(n, 250f + 900f * speed, 0.8f, ref lowA, ref bandA);
+                // Leaves and twigs brushing: hiss in bursts.
+                hp = 0.95f * (hp + n - last); last = n;
+                lp += (hp - lp) * 0.3f;
+                if (rng.NextDouble() < (2.0 + 14.0 * speed) / SampleRate) brush = Math.Max(brush, 0.5f + 0.5f * (float)rng.NextDouble());
+                brush *= 0.9993f;
+                float snap = rng.NextDouble() < 4.0 * speed / SampleRate ? Noise(rng) * 2f : 0f;
+                float cut = t > 2.4f ? Math.Max(0f, 1f - (t - 2.4f) / 0.08f) : 1f;
+                s[i] = (bandA * speed * 1.6f + lp * (0.15f + brush) * speed + snap) * cut;
+            }
+            return Normalize(s, 0.75f);
+        }
+
+        /// <summary>
+        /// A tree hitting the ground (about 4 s): a heavy, deep thud you feel, the crash of its branches breaking
+        /// under it (a burst of cracks thick at first, thinning), the trunk bouncing once, and the leaves and twigs
+        /// raining down and settling; rolling away through the forest.
+        /// </summary>
+        public static float[] TreeImpact(int seed)
+        {
+            var rng = new Random(seed);
+            const float length = 1.8f;
+            var s = Make(length);
+            float lp = 0f, hp = 0f, last = 0f, r1 = 0f, r2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float thud = (float)Math.Sin(2 * Math.PI * (42f + 30f * Decay(t, 12f)) * t) * Decay(t, 5f) * Math.Min(1f, t / 0.004f);
+                float b = t - 0.32f; // (the bounce)
+                if (b > 0f) thud += (float)Math.Sin(2 * Math.PI * (50f + 20f * Decay(b, 12f)) * b) * Decay(b, 8f) * 0.4f;
+                float n = Noise(rng);
+                lp += (n - lp) * 0.04f;
+                float rumble = lp * 3f * Decay(t, 3f);
+                // Branches breaking: cracks, dense at first, thinning out.
+                float rate = 260f * Decay(t, 3.5f) + 6f;
+                float crack = rng.NextDouble() < rate / SampleRate ? Noise(rng) * (1.5f + (float)rng.NextDouble()) * Decay(t, 1.5f) : 0f;
+                r1 += (crack - r1) * 0.3f; r2 += (r1 - r2) * 0.5f;
+                // Leaves and twigs settling: a hiss that falls away.
+                hp = 0.93f * (hp + n - last); last = n;
+                float settle = hp * 0.12f * Env(t, 0.05f, length, 1.2f) * Decay(t, 1.4f);
+                s[i] = thud * 1.1f + rumble + (r1 - r2 * 0.5f) * 1.6f + crack * 0.25f + settle;
+            }
+            return Normalize(Reverb(s, 2.2f, 0.5f, 0.6f), 0.95f);
+        }
+
+        /// <summary>
         /// A dry sound with reverb added (a forest at night: the sound ringing off trunks): this many seconds of tail
         /// added on, decaying to silence; <paramref name="wet"/> how loud the echo is against the dry sound, and
         /// <paramref name="dark"/> (0-1) how much the echo loses its highs as it goes. Four combs into two

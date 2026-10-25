@@ -108,10 +108,18 @@ namespace Game.Entities
         public float faceDownShake = 0.9f;
 
         [Header("Clicking")]
-        [Range(1f, 60f), Tooltip("Seconds between its runs of clicks when it's far off...")]
-        public float clickFarInterval = 14f;
+        [Range(1f, 60f), Tooltip("Seconds between its runs of clicks when it's far off (calling to the others)...")]
+        public float clickFarInterval = 5f;
+        [Range(1f, 60f), Tooltip("...middling close (quieter: stalking)...")]
+        public float clickMidInterval = 13f;
         [Range(0.3f, 20f), Tooltip("...and when it's close (they quicken as it closes in).")]
         public float clickNearInterval = 1.4f;
+        [Range(0f, 1f), Tooltip("While it is no further in than this (0: as far off as it appears, 1: right on you), its clicks are calls that the others answer.")]
+        public float callBelow = 0.4f;
+        [Range(0f, 1f), Tooltip("Chance each other scour out there answers a call.")]
+        public float answerChance = 0.8f;
+        [Range(0f, 1f), Tooltip("With no other scours out, chance something answers from further off in the dark.")]
+        public float phantomAnswerChance = 0.45f;
         [Range(0f, 1f)] public float clickVolume = 0.9f;
         [Range(0f, 1f), Tooltip("The loud clicks as it lands where it crept to: one the first time it creeps at you, two the second, and so on.")]
         public float snapVolume = 1f;

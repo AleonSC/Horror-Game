@@ -69,12 +69,14 @@ namespace Game.Entities
         void OnEnable()
         {
             Threats.Add(this);
+            all.Add(this);
             heat = Heat.Add(transform, 2.4f, 0.35f, () => Visible); // (the drone's thermal view)
         }
 
         void OnDisable()
         {
             Threats.Remove(this);
+            all.Remove(this);
             Heat.Remove(heat);
         }
 
@@ -642,27 +644,59 @@ namespace Game.Entities
 
         // ------------------------------------------------------------------ Clicking
 
-        // Out there, now and then, a run of wet clicks from its throat: rare while it's far off, quickening as it
-        // closes in, until near you it hardly stops.
+        static readonly List<Scour> all = new List<Scour>();
+        bool answering;
+        float phantomAnswerAt = -1f;
+
+        bool Out => State == ScourState.Stalking || State == ScourState.Appearing || State == ScourState.FacedDown;
+        float Nearness => Mathf.Clamp01(Mathf.InverseLerp(s.maxSpawnDistance, s.stopDistance, DistanceToPlayer));
+
+        // Out there, runs of wet clicks from its throat. Far off, it calls: often, and the others out there answer
+        // it (and if none are out, now and then something answers from further off in the dark). Middling close
+        // it goes quieter, stalking; then close in, it quickens until it hardly stops.
         void Clicking()
         {
-            bool out_ = State == ScourState.Stalking || State == ScourState.Appearing || State == ScourState.FacedDown;
-            if (!out_)
+            if (phantomAnswerAt > 0f && Time.time >= phantomAnswerAt)
+            {
+                phantomAnswerAt = -1f;
+                Vector3 from = player.transform.position + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(50f, 75f) + Vector3.up * 1.6f;
+                if (Services.TryGet<SoundPlayer>(out var sounds))
+                    sounds.Play(Sound.ScourClick, from, MixerNames.Entities, s.clickVolume * 0.8f, Random.Range(0.8f, 1f), 90f);
+            }
+            if (!Out)
             {
                 nextClick = -1f;
+                answering = false;
                 return;
             }
-            float dist = DistanceToPlayer;
-            float near = Mathf.Clamp01(Mathf.InverseLerp(s.maxSpawnDistance, s.stopDistance, dist));
-            float gap = Mathf.Lerp(s.clickFarInterval, s.clickNearInterval, near * near) / (1f + 0.3f * aggression);
+            float near = Nearness;
+            float mid = 0.5f;
+            float gap = (near < mid
+                ? Mathf.Lerp(s.clickFarInterval, s.clickMidInterval, near / mid)
+                : Mathf.Lerp(s.clickMidInterval, s.clickNearInterval, Mathf.Pow((near - mid) / (1f - mid), 1.5f))) / (1f + 0.3f * aggression);
             if (nextClick < 0f) nextClick = Time.time + Random.Range(0.5f, 1f) * gap;
             // (closing in brings the next run sooner)
             nextClick = Mathf.Min(nextClick, Time.time + gap * 1.3f);
             if (Time.time < nextClick || blinkTime >= 0f || Time.time < clickingUntil) return; // (never over a creep or its clicks)
             nextClick = Time.time + gap * Random.Range(0.7f, 1.3f);
             float pitch = Random.Range(0.85f, 1.1f) / Mathf.Lerp(1f, 1.25f, Mathf.InverseLerp(1f, s.maxGrowth, growth));
-            Play(Sound.ScourClick, s.clickVolume * Mathf.Lerp(0.55f, 1f, near), pitch, 55f);
+            Play(Sound.ScourClick, s.clickVolume * Mathf.Lerp(0.55f, 1f, near), pitch, near < mid ? 80f : 55f);
             clickingUntil = Time.time + 1.4f / pitch; // (the clicks, and the worst of their echo)
+            // A call (not an answer): the others out there, far off too, answer it.
+            if (near < s.callBelow && !answering)
+            {
+                bool answered = false;
+                foreach (var other in all)
+                {
+                    if (other == this || other == null || !other.Out || other.Nearness > 0.6f) continue;
+                    if (Random.value > s.answerChance) continue;
+                    other.answering = true;
+                    other.nextClick = Time.time + Random.Range(1.6f, 3.2f);
+                    answered = true;
+                }
+                if (!answered && Random.value < s.phantomAnswerChance) phantomAnswerAt = Time.time + Random.Range(1.8f, 3.5f);
+            }
+            answering = false;
         }
 
         const float SnapGap = 0.42f;

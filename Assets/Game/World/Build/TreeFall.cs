@@ -42,13 +42,15 @@ namespace Game.World.Build
         {
             Vector3 axis = Vector3.Cross(Vector3.up, away);
             Quaternion start = transform.rotation;
-            Play(Sound.Crack, 1f, 0.5f);
+            // It gives way: the crack of the trunk going and its tearing and groaning as it starts to lean...
+            Play(Sound.TreeBreak, 1f, Random.Range(0.9f, 1.05f));
             for (float t = 0f; t < shudder; t += Time.deltaTime)
             {
                 transform.rotation = Quaternion.AngleAxis(Mathf.Sin(t * 55f) * 0.8f * (1f - t / shudder) + t / shudder * 2f, axis) * start;
                 yield return null;
             }
-            if (shudder > 0f) Play(Sound.Creak, 1f, 0.6f);
+            // ...then the rush of its crown through the air as it goes over.
+            Play(Sound.TreeRush, 0.8f, Random.Range(0.92f, 1.05f));
             var bodies = new List<Rigidbody>();
             bool cut = segments != null && segments.Count > 1;
             const float time = 2.4f;
@@ -132,7 +134,7 @@ namespace Game.World.Build
         {
             if (landed) return;
             landed = true;
-            Play(Sound.GiantStep, 0.6f, 1.6f);
+            Play(Sound.TreeImpact, 1f, Random.Range(0.9f, 1.05f));
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(transform.position, 25f, "tree falling"));
             if (crown != null && crown.Count > 0) LeafBurst.Burst(crown, momentum);
         }
@@ -141,7 +143,7 @@ namespace Game.World.Build
         // the axis through the stump), with a jolt along the trunk away from the others.
         void Snap(Vector3 axis, float spin, Vector3 away, List<Rigidbody> bodies)
         {
-            Play(Sound.Crack, 1f, 0.8f);
+            Play(Sound.Crack, 0.5f, 0.7f); // (the logs parting, under the crash)
             Vector3 pivot = transform.position, w = axis.normalized * spin;
             Vector3 tip = pivot;
             float middle = (segments.Count - 1) * 0.5f;

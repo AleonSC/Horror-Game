@@ -747,3 +747,22 @@ This replaces the breakable pine/oak described above.
 - **No moving while clicking:** a scour never creeps while it's clicking, whether that's its passive clicks or
   the clicks after a creep. It waits until they and the worst of their echo are done. It also never starts its
   passive clicks in the middle of a creep, or over the clicks after one.
+
+## Falling trees sound real; far-off scours call to each other
+
+- **A falling tree** now has three sounds of its own in place of the old crack, creak and thud. Each echoes off
+  the forest.
+  - As it gives way (`Sound.TreeBreak`): one loud crack, then the trunk tearing, with a run of splintering cracks
+    that quicken through the wood's hollow body, and a deep groaning creak as it leans.
+  - As it goes over (`Sound.TreeRush`): the rush of its crown through the air, building as the fall speeds up,
+    brushing and snapping through the neighbours' branches.
+  - As it lands (`Sound.TreeImpact`): a heavy, deep thud and the crash of branches breaking under it. The trunk
+    bounces once, then twigs and leaves settle.
+- **Scour clicks** now follow the distance.
+  - Far off, a scour calls: a run of clicks every ~5 s (`clickFarInterval`) that carries 80 m.
+  - Each other scour that's also far off answers 1.6–3.2 s later, with an 80% chance each (`answerChance`).
+  - With no other scour out, something answers from 50–75 m off in the dark 45% of the time
+    (`phantomAnswerChance`).
+  - Middling close it goes quiet, stalking (every ~13 s, `clickMidInterval`). Close in it quickens as before, down
+    to every ~1.4 s.
+  - How far out counts as calling is `callBelow` (0.4).
