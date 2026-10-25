@@ -103,8 +103,11 @@ namespace Game.World.Generation
         public float grassPatchDensity = 8f;
 
         [Header("Vegetation")]
-        public int trees = 2800;
-        public float treeSpacing = 2.2f;
+        public int trees = 2100;
+        [Tooltip("Trees stay at least this far apart (metres).")]
+        public float treeSpacing = 3f;
+        [Tooltip("The landmark: one giant tree, seven times the size of the rest.")]
+        public bool landmarkTree = false;
         [Tooltip("Cells of patchiness across the map (the plan's noise scale 0.05 over 320 m: 16).")]
         public int treePatchCells = 16;
         [Range(0f, 1f)] public float deadShare = 0.3f;

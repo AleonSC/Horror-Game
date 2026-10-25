@@ -123,7 +123,7 @@ namespace Game.World.Generation
             Place(plan, s, rng, StructureKind.Watchtower, 0f, StructureKind.Watchtower, StructureKind.Watchtower);
             Place(plan, s, rng, StructureKind.Car, 0f, StructureKind.Car, StructureKind.Car);
             for (int i = 0; i < s.bunkers; i++) Place(plan, s, rng, StructureKind.Bunker, 80f, StructureKind.Bunker, StructureKind.Bunker);
-            Place(plan, s, rng, StructureKind.LandmarkTree, 0f, StructureKind.LandmarkTree, StructureKind.LandmarkTree);
+            if (s.landmarkTree) Place(plan, s, rng, StructureKind.LandmarkTree, 0f, StructureKind.LandmarkTree, StructureKind.LandmarkTree);
         }
 
         // One structure: clear of the start, at least 7 m from any lamp, apart from its own kind (and 15 m

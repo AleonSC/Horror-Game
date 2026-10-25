@@ -602,3 +602,9 @@ and thinner (the same amount of mist), so the fog's slices don't band it. Two fo
   middle and round its shoulders), more and bigger cards in each (34 close up, 14 mid, 7 far), and a denser
   spray of leaves on each card (130). Its smaller mip levels (seen further off) are made to keep as much leaf
   past the cut-out as the full-size one (`ForestTextures.LeafCut`), so far canopies don't go thin and holey.
+
+## Thinner forest, no landmark tree
+
+The oaks' wide crowns closed the canopy over: now 2100 trees (was 2800), at least 3 m apart (was 2.2 m). The
+landmark (the one giant tree, seven times the size of the rest) is gone: `WorldGenConfig` > `landmarkTree`
+(off) brings it back.
