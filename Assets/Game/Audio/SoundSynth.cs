@@ -60,20 +60,94 @@ namespace Game.Audio
             return Normalize(s, 0.9f);
         }
 
-        /// <summary>Facing it down: a rising, shuddering whine that builds to a snap (2.5 s).</summary>
+        /// <summary>
+        /// Facing it down (2.5 s): a low, hollow swell, like breath drawn through a throat the size of a room, rising
+        /// slowly in pitch and fullness under a soft rushing of air. It builds without whining: no high tone.
+        /// </summary>
         public static float[] Crescendo(int seed)
         {
             var rng = new Random(seed);
             var s = Make(2.5f);
-            float lp = 0f;
+            float lp = 0f, bp = 0f;
+            double p1 = 0, p2 = 0, p3 = 0;
             for (int i = 0; i < s.Length; i++)
             {
                 float t = Time(i);
                 float u = t / 2.5f;
-                float f = 180f + 900f * u * u;
-                float trem = 1f + 0.5f * (float)Math.Sin(2 * Math.PI * (6 + 30 * u) * t);
-                lp += (Noise(rng) - lp) * 0.3f;
-                s[i] = ((float)Math.Sin(2 * Math.PI * f * t) * 0.4f + lp * 0.5f) * u * u * trem;
+                float f = 62f + 50f * u * u;
+                p1 += 2 * Math.PI * f / SampleRate;
+                p2 += 2 * Math.PI * f * 1.007 / SampleRate;
+                p3 += 2 * Math.PI * f * 1.5 / SampleRate;
+                float tone = (float)(Math.Sin(p1) + 0.6 * Math.Sin(p2) + 0.25 * Math.Sin(p3) * u);
+                float n = Noise(rng);
+                lp += (n - lp) * (0.02f + 0.06f * u);
+                bp += (n - lp - bp) * 0.05f;
+                float air = lp * 1.6f + bp * 0.25f * u;
+                float waver = 1f + 0.12f * (float)Math.Sin(2 * Math.PI * (3 + 4 * u) * t);
+                float swell = u * u * (3f - 2f * u) * Env(t, 0.05f, 2.5f, 0.12f);
+                s[i] = (tone * 0.45f + air) * swell * waver;
+            }
+            return Normalize(s, 0.7f);
+        }
+
+        /// <summary>
+        /// Driven off (1.6 s): a soft, deep thump as it gives, then a long airy sigh scattering away, like ash blown
+        /// off a fire. Nothing sharp in it.
+        /// </summary>
+        public static float[] Disperse(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.6f);
+            float lp = 0f, lp2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float thump = (float)Math.Sin(2 * Math.PI * (38f + 30f * Decay(t, 20f)) * t) * Decay(t, 7f) * 0.9f;
+                float n = Noise(rng);
+                lp += (n - lp) * (0.08f * Decay(t, 1.2f) + 0.01f);
+                lp2 += (lp - lp2) * 0.3f;
+                float sigh = (lp - lp2 * 0.5f) * 2.2f * Env(t, 0.08f, 1.6f, 1.2f);
+                s[i] = thump + sigh;
+            }
+            return Normalize(s, 0.65f);
+        }
+
+        /// <summary>
+        /// A scour clicking in the dark (about 1 s): a run of dry, wet clicks from deep in a throat, uneven, quickening,
+        /// each with a hollow knock under it, and a faint rattle between.
+        /// </summary>
+        public static float[] ScourClick(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.05f);
+            int clicks = 5 + rng.Next(4);
+            float at = 0.02f;
+            var starts = new float[clicks];
+            for (int k = 0; k < clicks; k++)
+            {
+                starts[k] = at;
+                at += (0.13f - 0.07f * k / clicks) * (0.7f + 0.6f * (float)rng.NextDouble());
+            }
+            float bp1 = 0f, bp2 = 0f, rattle = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float x = 0f;
+                for (int k = 0; k < clicks; k++)
+                {
+                    float d = t - starts[k];
+                    if (d < 0f || d > 0.06f) continue;
+                    float loud = 0.7f + 0.3f * (k % 3 == 0 ? 1f : 0.5f);
+                    x += Noise(rng) * Decay(d, 260f) * loud;                                                   // (the tick)
+                    x += (float)Math.Sin(2 * Math.PI * (420f - 900f * d) * d) * Decay(d, 70f) * 0.5f * loud;  // (the hollow knock)
+                }
+                // A resonance (the throat) on the ticks: two band-passes.
+                bp1 += (x - bp1) * 0.35f;
+                bp2 += (bp1 - bp2) * 0.6f;
+                float n = Noise(rng);
+                rattle += (n - rattle) * 0.08f;
+                float purr = rattle * 0.12f * (0.5f + 0.5f * (float)Math.Sin(2 * Math.PI * 28 * t)) * Env(t, 0.1f, at, 0.3f);
+                s[i] = (bp1 - bp2 * 0.6f) + x * 0.25f + purr;
             }
             return Normalize(s, 0.8f);
         }

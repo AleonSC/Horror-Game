@@ -134,6 +134,23 @@ namespace Game.Entities
         }
 
         Renderer[] halos = new Renderer[0];
+        float[] haloSeen = new float[0];
+
+        /// <summary>
+        /// Which eyes you can see from here. The glow round an eye is a soft disc wider than the eye: with the eye
+        /// just behind a trunk's edge, it would show past the bark, eyes through the tree. So each eye's glow fades
+        /// out while that eye is hidden from you. Call each frame it's out.
+        /// </summary>
+        public void SeeEyesFrom(Vector3 viewer)
+        {
+            if (haloSeen.Length != eyes.Length) { haloSeen = new float[eyes.Length]; for (int i = 0; i < haloSeen.Length; i++) haloSeen[i] = 1f; }
+            for (int i = 0; i < eyes.Length; i++)
+            {
+                if (eyes[i] == null) continue;
+                bool hidden = PlayerSense.Occluded(viewer, eyes[i].position);
+                haloSeen[i] = Mathf.MoveTowards(haloSeen[i], hidden ? 0f : 1f, Time.deltaTime * 8f);
+            }
+        }
 
         /// <summary>The red glow the eyes throw into the fog.</summary>
         protected void AddEyeLight(Transform bone, Vector3 localPoint)
@@ -220,7 +237,7 @@ namespace Game.Entities
         {
             Color c = Color.Lerp(Color.Lerp(Red, Warm, shine), Blue, blue);
             RuntimeMaterials.SetGlow(eyeMat, c * glow);
-            foreach (var h in halos) Effects.SetGlow(h, c * (glow * EyeHalo));
+            for (int i = 0; i < halos.Length; i++) Effects.SetGlow(halos[i], c * (glow * EyeHalo * (i < haloSeen.Length ? haloSeen[i] : 1f)));
             for (int i = 0; i < eyes.Length; i++)
                 eyes[i].localScale = new Vector3(eyeScales[i].x * widen, eyeScales[i].y * Mathf.Lerp(1f, widen, 0.6f), eyeScales[i].z);
             if (eyeLight == null) return;

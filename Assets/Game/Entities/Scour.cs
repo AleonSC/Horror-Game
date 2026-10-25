@@ -40,6 +40,8 @@ namespace Game.Entities
         float eyesSeen = 1f;
         float appearedAt;
         bool everAppeared;
+        float nextClick = -1f;
+        bool drivenOff;
 
         // A ducker appears tucked mostly behind its trunk, just an edge of it showing.
         const float PeekOnAppear = 0.35f;
@@ -110,6 +112,9 @@ namespace Game.Entities
                 BurnAway();
                 return;
             }
+
+            if (State != ScourState.Hidden) body.SeeEyesFrom(player.Head.position);
+            Clicking();
 
             switch (State)
             {
@@ -540,7 +545,8 @@ namespace Game.Entities
             blue = Mathf.SmoothStep(0f, 1f, c);
             // The blue stays in the eyes: they burn brighter, but the light they throw barely rises.
             body.SetEyes(Mathf.Lerp(1.6f, 3f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 0.5f, e), blue, 0f, s.eyeLight * (1f + 0.6f * blue), s.eyeLightRange);
-            player.AddShake(s.cameraShake * e);
+            player.AddShake(s.faceDownShake * e);
+            player.SlowThisFrame(s.faceDownSlow);
             if (c >= 1f) Dispel();
         }
 
@@ -549,7 +555,8 @@ namespace Game.Entities
         {
             if (player.Flashlight != null) player.Flashlight.Battery.Spend(s.dismissCost);
             body.ShutMouth();
-            Play(Sound.Appear, 0.9f, 0.6f, 35f);
+            Play(Sound.Disperse, 0.8f, Random.Range(0.92f, 1.05f), 35f);
+            drivenOff = true;
             SetState(ScourState.Retreating, "driven off");
         }
 
@@ -557,8 +564,9 @@ namespace Game.Entities
         void BurnAway()
         {
             body.ShutMouth();
-            Play(Sound.Appear, 0.85f, 0.75f, 35f);
-            Play(Sound.Portal, 0.5f, 1.3f, 30f);
+            Play(Sound.Disperse, 0.8f, 1.1f, 35f);
+            Play(Sound.Portal, 0.25f, 1.3f, 30f);
+            drivenOff = false;
             SetState(ScourState.Retreating, "burned off by the light");
         }
 
@@ -570,6 +578,8 @@ namespace Game.Entities
             body.Shudder(s.crescendoVibration * (1f - timer / last), 1f - timer / last);
             if (timer < last) return;
             ScourMotes.Burst(body, s.scatterTime, blue);
+            if (drivenOff && Random.value < s.leftEyeChance) ScourEyeball.Spawn(body.EyePoint, s.leftEyeTime, s.leftEyeDistance);
+            drivenOff = false;
             Hide(Random.Range(s.minReturnDelay, s.maxReturnDelay));
         }
 
@@ -606,6 +616,30 @@ namespace Game.Entities
             }
             float step = Mathf.Min(s.chargeSpeed * Time.deltaTime, dist - s.chargeStopDistance);
             MoveTo(transform.position + to / dist * step);
+        }
+
+        // ------------------------------------------------------------------ Clicking
+
+        // Out there, now and then, a run of wet clicks from its throat: rare while it's far off, quickening as it
+        // closes in, until near you it hardly stops.
+        void Clicking()
+        {
+            bool out_ = State == ScourState.Stalking || State == ScourState.Appearing || State == ScourState.FacedDown;
+            if (!out_)
+            {
+                nextClick = -1f;
+                return;
+            }
+            float dist = DistanceToPlayer;
+            float near = Mathf.Clamp01(Mathf.InverseLerp(s.maxSpawnDistance, s.stopDistance, dist));
+            float gap = Mathf.Lerp(s.clickFarInterval, s.clickNearInterval, near * near) / (1f + 0.3f * aggression);
+            if (nextClick < 0f) nextClick = Time.time + Random.Range(0.5f, 1f) * gap;
+            // (closing in brings the next run sooner)
+            nextClick = Mathf.Min(nextClick, Time.time + gap * 1.3f);
+            if (Time.time < nextClick) return;
+            nextClick = Time.time + gap * Random.Range(0.7f, 1.3f);
+            float pitch = Random.Range(0.85f, 1.1f) / Mathf.Lerp(1f, 1.25f, Mathf.InverseLerp(1f, s.maxGrowth, growth));
+            Play(Sound.ScourClick, s.clickVolume * Mathf.Lerp(0.45f, 1f, near), pitch, 40f);
         }
 
         // ------------------------------------------------------------------ Helpers

@@ -34,6 +34,8 @@ namespace Game.Player
         Vector3 limitPoint;
         float limitSlowFrom, limitStopAt;
         int limitFrame = -10;
+        float slowBy = 1f, slowNow = 1f;
+        int slowFrame = -10;
 
         public PlayerSettings Settings => config.settings;
         public Camera View => view;
@@ -350,6 +352,8 @@ namespace Game.Player
             if (Dream > 0f) speed *= Mathf.Lerp(1f, s.dreamSpeed, Dream);
             Wading = WaterAt != null && WaterAt(transform.position);
             if (Wading) speed *= WadeSpeed;
+            slowNow = Mathf.MoveTowards(slowNow, Time.frameCount - slowFrame <= 1 ? slowBy : 1f, dt * 2.5f); // (eased in and out)
+            speed *= slowNow;
             Vector3 wish = (transform.forward * move.y + transform.right * move.x) * speed;
             wish = ApplyApproachLimit(wish);
 
@@ -415,6 +419,14 @@ namespace Game.Player
             if (toward <= 0f) return wish;
             float factor = Mathf.Clamp01((dist - limitStopAt) / Mathf.Max(0.01f, limitSlowFrom - limitStopAt));
             return wish - dir * toward * (1f - factor);
+        }
+
+        /// <summary>Slow the player to this share of their speed (any direction) this frame. Call every frame.</summary>
+        public void SlowThisFrame(float factor)
+        {
+            if (slowFrame != Time.frameCount) slowBy = 1f;
+            slowBy = Mathf.Min(slowBy, Mathf.Clamp01(factor));
+            slowFrame = Time.frameCount;
         }
 
         /// <summary>Slow the player approaching a point from slowFrom metres, stopping at stopAt. Call every frame.</summary>

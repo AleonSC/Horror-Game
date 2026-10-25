@@ -638,3 +638,26 @@ these reasons:
 
 `RuntimeMaterials.SetWisp` turns those off for the smoke and breath materials. The puffs also no longer take
 shadows, or appear in ray tracing or motion vectors.
+
+## Scours: no eyes through trees, gentler dismissal, slowing, clicking, the eye left behind
+
+- **Eyes through trees:** the soft glow round each eye is a disc wider than the eye itself, so with the eye just
+  behind a trunk's edge it showed past the bark. Each eye's glow now fades out while that eye is hidden from you
+  (`ScourLook.SeeEyesFrom`).
+- **Dismissal:**
+  - It shakes the view far less (`ScourConfig` > `faceDownShake`, 0.9°, was 2.5°). `cameraShake` is now only for
+    a charge.
+  - Facing one down now plays a low, hollow swell of breath (`Sound.Crescendo`, remade, with no high whine).
+  - Driving it off plays a soft thump and an airy scatter (`Sound.Disperse`).
+- **Slowing:** while you hold one in your light, you move at half speed in any direction (`faceDownSlow`, 0.5).
+  It never stops you, so with others behind you, choose when to face one down.
+- **Clicking:** while one is out, it makes runs of wet throat clicks (`Sound.ScourClick`). They come every ~14 s
+  far off, quickening to ~1.4 s close by, and get louder and lower as it grows (`clickFarInterval`,
+  `clickNearInterval`, `clickVolume`).
+- **The eye left behind:** one you drive off has a 30% chance (`leftEyeChance`) of leaving an eye (`ScourEyeball`).
+  - It's a veined ball trailing a strand of nerve. It floats after you about 8 m off at head height
+    (`leftEyeDistance`), going slowly round you and steering clear of trunks.
+  - It never stops staring at you, with small darting flicks.
+  - After 30 s (`leftEyeTime`) it stops, its iris kindles red over 2 s, and it shoots up into the sky toward the
+    giant.
+  - It's harmless. At most 3 at once.

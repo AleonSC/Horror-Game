@@ -102,6 +102,25 @@ namespace Game.Entities
         public float scatterTime = 2.2f;
         [Range(0f, 1f), Tooltip("Share of the battery it costs to drive one off.")]
         public float dismissCost = 0.1f;
+        [Range(0.1f, 1f), Tooltip("While you hold one in your light you move at this share of your speed, whichever way you go (it never stops you): so with others behind you, choose when to face one down.")]
+        public float faceDownSlow = 0.5f;
+        [Range(0f, 10f), Tooltip("Degrees of camera shake as the crescendo peaks.")]
+        public float faceDownShake = 0.9f;
+
+        [Header("Clicking")]
+        [Range(1f, 60f), Tooltip("Seconds between its runs of clicks when it's far off...")]
+        public float clickFarInterval = 14f;
+        [Range(0.3f, 20f), Tooltip("...and when it's close (they quicken as it closes in).")]
+        public float clickNearInterval = 1.4f;
+        [Range(0f, 1f)] public float clickVolume = 0.65f;
+
+        [Header("The eye left behind")]
+        [Range(0f, 1f), Tooltip("Chance that one you drive off leaves an eye behind, floating after you and watching.")]
+        public float leftEyeChance = 0.3f;
+        [Range(5f, 120f), Tooltip("Seconds it watches you before it glows and flies off into the sky to the giant.")]
+        public float leftEyeTime = 30f;
+        [Range(3f, 25f), Tooltip("How far off it keeps (metres).")]
+        public float leftEyeDistance = 8f;
 
         [Header("Provoked")]
         [Range(1, 10), Tooltip("Flashing the light at it this many times...")]
@@ -178,7 +197,7 @@ namespace Game.Entities
         public bool creepPoses;
         [Range(0f, 0.2f)] public float vibration = 0.04f;
         [Range(0f, 1f)] public float crescendoVibration = 0.25f;
-        [Range(0f, 10f), Tooltip("Degrees of camera shake at the peak.")]
+        [Range(0f, 10f), Tooltip("Degrees of camera shake when it charges you.")]
         public float cameraShake = 2.5f;
 
         public ScourSettings Clone() => (ScourSettings)MemberwiseClone();
