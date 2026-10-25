@@ -111,6 +111,8 @@ namespace Game.World.Generation
         [Range(0f, 0.2f)] public float oldGiantShare = 0.03f;
         public Vector2 oldGiantScale = new Vector2(1.7f, 2.5f);
         public float treeScale = 0.85f;
+        [Range(0f, 1f), Tooltip("Share of the (tall enough) pines that are the breakable tree: the one model that can fall.")]
+        public float breakableTrees = 0.12f;
         [Range(0f, 0.5f), Tooltip("Share of planned tree spots left empty (natural gaps).")]
         public float emptyShare = 0.12f;
         public int bushes = 3200;

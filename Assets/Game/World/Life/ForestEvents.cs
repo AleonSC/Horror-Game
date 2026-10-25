@@ -82,7 +82,7 @@ namespace Game.World
             for (int i = 0; i < n; i++)
             {
                 var tree = nearby[i].GetComponent<ForestTree>();
-                if (tree == null || tree.Down || tree.HasOwl) continue;
+                if (tree == null || tree.Down || tree.HasOwl || !tree.Breakable) continue;
                 Vector3 trunk = nearby[i].bounds.center;
                 Vector3 to = trunk - eye.position;
                 float flat = new Vector2(to.x, to.z).magnitude;

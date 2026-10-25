@@ -129,6 +129,7 @@ namespace Game.World.Generation
         public byte Variant;
         public bool OldGiant;
         public bool Removed;   // cut by a later stage (sightlines, the sky above a lamp)
+        public bool Breakable; // the one tree that can fall (always the same model and size; see BreakableStage)
     }
 
     /// <summary>A plant, rock or log: where, how big, which way, and which kind.</summary>

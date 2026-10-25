@@ -107,28 +107,55 @@ namespace Game.World.Build
             float custom = art != null ? Mathf.Max(0.01f, art.treeSize) : 1f;
             foreach (var set in pine) foreach (int k in set) renderer.SetSway(k, TreeSway);
             foreach (var set in dead) foreach (int k in set) renderer.SetSway(k, DeadTreeSway);
+            var breakable = BuiltInBreakable();
+            foreach (int k in breakable) renderer.SetSway(k, TreeSway);
 
             foreach (var t in plan.Trees)
             {
                 if (t.Removed) continue;
                 bool isPine = t.Kind == TreeKind.Pine;
-                float size = t.Scale * ((isPine ? livingArt : deadArt) != null ? custom : 1f);
+                // (The breakable tree: its one model, always full size.)
+                float size = t.Breakable ? 1f : t.Scale * ((isPine ? livingArt : deadArt) != null ? custom : 1f);
                 var m = Matrix4x4.TRS(Ground(t.Position), Quaternion.Euler(0f, t.Yaw, 0f), Vector3.one * size);
                 var kinds = isPine ? pine : dead;
-                foreach (int k in kinds[t.Variant % kinds.Length]) renderer.Add(k, t.Position, m);
+                int[] drawn = t.Breakable ? breakable : kinds[t.Variant % kinds.Length];
+                foreach (int k in drawn) renderer.Add(k, t.Position, m);
 
                 var treeGo = Collider(t.Position, "Tree", Layers.Trees);
                 var marker = treeGo.AddComponent<ForestTree>();
                 Trees.Add(marker);
-                marker.Kinds = kinds[t.Variant % kinds.Length];
+                marker.Kinds = drawn;
                 marker.Home = t.Position;
                 marker.Matrix = m;
+                marker.Breakable = t.Breakable;
                 var col = treeGo.AddComponent<CapsuleCollider>();
-                col.radius = 0.3f * t.Scale;
-                col.height = 6f * t.Scale;
-                col.center = Vector3.up * 3f * t.Scale;
+                col.radius = 0.3f * size;
+                col.height = 6f * size;
+                col.center = Vector3.up * 3f * size;
             }
         }
+
+        // The breakable tree: one pine, always the same shape and size (its trunk the same thickness every time), so
+        // it breaks into the same logs wherever it stands. A trunk and a crown, like the others.
+        int[] BuiltInBreakable()
+        {
+            var trunks = new Mesh[3];
+            var crowns = new Mesh[3];
+            for (int lod = 0; lod < 3; lod++)
+            {
+                var (t, c) = ForestMeshes.Pine(new System.Random(BreakableSeed), BreakableStage.Height, lod, BreakableRadius);
+                trunks[lod] = Keep(t.ToMesh($"Breakable pine trunk LOD{lod}"));
+                crowns[lod] = Keep(c.ToMesh($"Breakable pine crown LOD{lod}"));
+            }
+            return new[]
+            {
+                renderer.AddKind(InstancedRenderer.Kind.Simple("Breakable pine trunk", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
+                renderer.AddKind(InstancedRenderer.Kind.Simple("Breakable pine crown", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
+            };
+        }
+
+        const int BreakableSeed = 4217;
+        const float BreakableRadius = 0.3f;
 
         int[][] BuiltInPines()
         {

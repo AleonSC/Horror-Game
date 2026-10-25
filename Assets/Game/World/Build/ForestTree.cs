@@ -17,6 +17,8 @@ namespace Game.World.Build
         public Matrix4x4 Matrix;
         /// <summary>An owl sits in it (falling trees leave it alone).</summary>
         public bool HasOwl;
+        /// <summary>The breakable tree (the one model that can fall): every other tree stands whatever happens.</summary>
+        public bool Breakable;
         bool down;
 
         public bool Down => down;
@@ -29,7 +31,7 @@ namespace Game.World.Build
         /// </summary>
         public bool KnockDown(InstancedRenderer forest, Vector3 pushedFrom, float shudder = 0f)
         {
-            if (down || forest == null || HasOwl) return false;
+            if (down || forest == null || HasOwl || !Breakable) return false;
             down = true;
             // Where the drawn copy is now (the world wraps: the collider's chunk may be at another copy of the map).
             Vector3 homeWorld = new Vector3(Matrix.m03, Matrix.m13, Matrix.m23);
@@ -124,7 +126,7 @@ namespace Game.World.Build
         // root, which sits on top of the stump: the tree pivots there as it goes over).
         Transform Cut(Vector3 at, List<(Mesh mesh, int sub, Matrix4x4 m, Material mat)> wood, out List<TreeFall.Segment> segments, out Collider stumpCollider)
         {
-            var rng = new System.Random(Home.GetHashCode());
+            var rng = new System.Random(Breakable ? 31 : Home.GetHashCode()); // (the breakable tree: cut the same way every time)
             float top = 0f;
             foreach (var w in wood)
             {

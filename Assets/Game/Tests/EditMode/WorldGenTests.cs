@@ -188,6 +188,26 @@ namespace Game.Tests
         }
 
         [Test]
+        public void BreakableTrees_AreTallEnoughPines()
+        {
+            foreach (int seed in new[] { 4, 5, 6 })
+            {
+                var plan = Plan(seed);
+                var s = new WorldGenSettings();
+                int count = 0;
+                foreach (var t in plan.Trees)
+                {
+                    if (!t.Breakable) continue;
+                    count++;
+                    Assert.AreEqual(TreeKind.Pine, t.Kind, $"seed {seed}: a breakable tree that isn't a pine");
+                    Assert.IsFalse(t.Removed || t.OldGiant, $"seed {seed}: a removed or old giant tree made breakable");
+                    Assert.GreaterOrEqual(t.Scale * TreeShapes.Height(TreeKind.Pine, t.Variant, s), BreakableStage.Height, $"seed {seed}: a breakable tree in place of a shorter one");
+                }
+                Assert.Greater(count, 20, $"seed {seed}: hardly any breakable trees");
+            }
+        }
+
+        [Test]
         public void ThePlaces_AreAlwaysAllThere()
         {
             for (int seed = 1; seed <= 20; seed++)

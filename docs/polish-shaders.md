@@ -564,3 +564,12 @@ The trodden earth round each lamp read as a stamped-on circle: a near-round disc
 grass planted along its edge. Now it's smaller (`lampPatchRadius` 2 m) and of no particular shape (big lobes
 and small ones, up to 60% out from round), and instead of the ring there's a loose scatter of clumps thinning
 out from its edge, which the forest floor's grass runs into.
+
+## The breakable tree
+
+Only one tree model can fall now: the **breakable pine**, one fixed model (15 m tall, its trunk always 0.3 m
+thick), scattered among the ordinary trees. A last world stage (`BreakableStage`) makes 12% of the pines that
+are at least as tall as it into one (`WorldGenConfig` > `breakableTrees`), so it never rises into a sightline the
+earlier stages kept clear. It's always cut the same way (stump, logs and caps identical every time). Falling
+trees (`ForestEvents`) pick only breakable ones, and the blind one barging through the forest knocks over only
+those; every other tree stands. A test checks every seed has plenty, all in place of tall enough pines.

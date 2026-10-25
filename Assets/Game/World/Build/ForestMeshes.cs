@@ -14,12 +14,13 @@ namespace Game.World.Build
         /// them. Each tier is an arched skirt, and up close each bough carries a couple of hanging sprays of needles
         /// that rag the edges. height &lt;= 0: random.
         /// </summary>
-        public static (MeshBuilder trunk, MeshBuilder needles) Pine(System.Random rng, float height = -1f, int lod = 0)
+        public static (MeshBuilder trunk, MeshBuilder needles) Pine(System.Random rng, float height = -1f, int lod = 0, float trunkRadius = -1f)
         {
             var trunk = new MeshBuilder();
             var needles = new MeshBuilder();
             if (height <= 0f) height = Range(rng, 14f, 22f);
             float radius = Range(rng, 0.22f, 0.36f);
+            if (trunkRadius > 0f) radius = trunkRadius; // (the breakable tree: always the same)
             trunk.AddTube(Vector3.down * 0.3f, Vector3.up * height, radius * 1.25f, 0.03f, lod == 0 ? 8 : lod == 1 ? 6 : 4);
 
             float crownStart = height * Range(rng, 0.4f, 0.55f);

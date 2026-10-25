@@ -19,7 +19,7 @@ namespace Game.World.Generation
         public static readonly IWorldStage[] Stages =
         {
             new TerrainStage(), new LayoutStage(), new PathStage(), new VegetationStage(), new SightlineStage(),
-            new PropStage(), new PickupStage(),
+            new PropStage(), new PickupStage(), new BreakableStage(),
         };
 
         /// <summary>Make the plan. <paramref name="stopAfter"/>: a stage name to stop after (tests), or null for all.</summary>
