@@ -113,8 +113,9 @@ namespace Game.Audio
         }
 
         /// <summary>
-        /// A scour clicking in the dark (about 1 s): a run of dry, wet clicks from deep in a throat, uneven, quickening,
-        /// each with a hollow knock under it, and a faint rattle between.
+        /// A scour clicking in the dark (about 3 s): a run of dry, wet clicks from deep in a throat, uneven,
+        /// quickening, each with a hollow knock under it, and a faint rattle between; ringing off the trees after,
+        /// a long dark tail of echo, so you can't quite tell where it came from.
         /// </summary>
         public static float[] ScourClick(int seed)
         {
@@ -149,7 +150,7 @@ namespace Game.Audio
                 float purr = rattle * 0.12f * (0.5f + 0.5f * (float)Math.Sin(2 * Math.PI * 28 * t)) * Env(t, 0.1f, at, 0.3f);
                 s[i] = (bp1 - bp2 * 0.6f) + x * 0.25f + purr;
             }
-            return Normalize(s, 0.8f);
+            return Normalize(Reverb(s, 2f, 0.9f, 0.55f), 0.85f);
         }
 
         /// <summary>The portal: a deep tearing whoosh.</summary>
@@ -573,6 +574,30 @@ namespace Game.Audio
         }
 
         /// <summary>Pushing through a bush: a dry, leafy swish.</summary>
+        /// <summary>
+        /// Pushing through a bush (0.5 s): a soft, low brush of leaves and twigs against you, swelling in and
+        /// fading, with nothing sharp in it.
+        /// </summary>
+        public static float[] BushRustle(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.5f);
+            float hp = 0f, last = 0f, lp = 0f, lp2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                hp = 0.9f * (hp + n - last);
+                last = n;
+                lp += (hp - lp) * 0.18f;
+                lp2 += (lp - lp2) * 0.35f;
+                float flutter = 0.75f + 0.25f * (float)Math.Sin(2 * Math.PI * 23 * t + Math.Sin(2 * Math.PI * 7 * t));
+                float swell = (float)Math.Sin(Math.PI * Math.Min(1f, t / 0.5f));
+                s[i] = lp2 * flutter * swell * swell;
+            }
+            return Normalize(s, 0.45f);
+        }
+
         public static float[] Rustle(int seed)
         {
             var rng = new Random(seed);
@@ -1191,6 +1216,59 @@ namespace Game.Audio
         static float Lerp(float a, float b, float t) => a + (b - a) * t;
 
         // Crossfade the end into the start so it loops without a click.
+        /// <summary>
+        /// A dry sound with reverb added (a forest at night: the sound ringing off trunks): this many seconds of tail
+        /// added on, decaying to silence; <paramref name="wet"/> how loud the echo is against the dry sound, and
+        /// <paramref name="dark"/> (0-1) how much the echo loses its highs as it goes. Four combs into two
+        /// all-passes (Schroeder), their delays chosen not to line up.
+        /// </summary>
+        public static float[] Reverb(float[] dry, float tail, float wet, float dark)
+        {
+            var o = new float[dry.Length + (int)(tail * SampleRate)];
+            int[] combs = { 1557, 1617, 1491, 1422 };
+            int[] passes = { 225, 556 };
+            // Feedback for each comb so it falls 60 dB over the tail.
+            var bufs = new float[combs.Length][];
+            var idx = new int[combs.Length];
+            var fb = new float[combs.Length];
+            var damp = new float[combs.Length];
+            for (int c = 0; c < combs.Length; c++)
+            {
+                int d = combs[c] * 2; // (twice the classic lengths: a bigger space)
+                bufs[c] = new float[d];
+                fb[c] = (float)Math.Pow(10.0, -3.0 * d / (tail * SampleRate));
+            }
+            var ap = new float[passes.Length][];
+            var apIdx = new int[passes.Length];
+            for (int a = 0; a < passes.Length; a++) ap[a] = new float[passes[a]];
+            for (int i = 0; i < o.Length; i++)
+            {
+                float x = i < dry.Length ? dry[i] : 0f;
+                float sum = 0f;
+                for (int c = 0; c < combs.Length; c++)
+                {
+                    var buf = bufs[c];
+                    float y = buf[idx[c]];
+                    damp[c] = y * (1f - dark) + damp[c] * dark;
+                    buf[idx[c]] = x + damp[c] * fb[c];
+                    idx[c] = (idx[c] + 1) % buf.Length;
+                    sum += y;
+                }
+                sum *= 0.25f;
+                for (int a = 0; a < passes.Length; a++)
+                {
+                    var buf = ap[a];
+                    float b = buf[apIdx[a]];
+                    float y = -sum * 0.5f + b;
+                    buf[apIdx[a]] = sum + b * 0.5f;
+                    apIdx[a] = (apIdx[a] + 1) % buf.Length;
+                    sum = y;
+                }
+                o[i] = x + sum * wet;
+            }
+            return o;
+        }
+
         static float[] Loop(float[] s, float peak)
         {
             int fade = Math.Min(s.Length / 4, SampleRate / 3);

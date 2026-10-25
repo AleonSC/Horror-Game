@@ -15,6 +15,6 @@ namespace Game.Audio
         DeerGrunt, DeerBleat, DeerSnort, DeerAlarm, Gallop,
         Step2, Step3, Step4, Step5, Step6,
         Screech, LeavesLoop, CarAlarm, FireLoop,
-        Disperse, ScourClick, RadioCreep,
+        Disperse, ScourClick, RadioCreep, BushRustle,
     }
 }

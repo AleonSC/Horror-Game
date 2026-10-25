@@ -71,9 +71,10 @@ namespace Game.World.Build
             float every = player.Running ? 0.25f : player.Crouching ? 0.9f : 0.45f;
             if (Time.time - lastRustle < every) return;
             lastRustle = Time.time;
-            float loud = player.Running ? 1f : player.Crouching ? 0.25f : 0.6f;
+            // (a soft brush of leaves: there to hear, not to grate)
+            float loud = player.Running ? 0.5f : player.Crouching ? 0.12f : 0.28f;
             if (Services.TryGet<SoundPlayer>(out var sounds))
-                sounds.Play(Sound.Rustle, player.transform.position + Vector3.up * 0.6f, MixerNames.Player, loud * Mathf.Clamp(size, 0.5f, 1.2f), Random.Range(0.85f, 1.2f), 14f);
+                sounds.Play(Sound.BushRustle, player.transform.position + Vector3.up * 0.6f, MixerNames.Player, loud * Mathf.Clamp(size, 0.5f, 1.2f), Random.Range(0.85f, 1.1f), 14f);
             if (Services.TryGet<EventBus>(out var events))
                 events.Publish(new NoiseEmitted(player.transform.position, player.Running ? 14f : player.Crouching ? 1.5f : 6f, "rustling"));
         }

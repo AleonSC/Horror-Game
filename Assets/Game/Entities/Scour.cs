@@ -639,7 +639,7 @@ namespace Game.Entities
             if (Time.time < nextClick) return;
             nextClick = Time.time + gap * Random.Range(0.7f, 1.3f);
             float pitch = Random.Range(0.85f, 1.1f) / Mathf.Lerp(1f, 1.25f, Mathf.InverseLerp(1f, s.maxGrowth, growth));
-            Play(Sound.ScourClick, s.clickVolume * Mathf.Lerp(0.45f, 1f, near), pitch, 40f);
+            Play(Sound.ScourClick, s.clickVolume * Mathf.Lerp(0.55f, 1f, near), pitch, 55f);
         }
 
         // ------------------------------------------------------------------ Helpers

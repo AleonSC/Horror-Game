@@ -724,3 +724,15 @@ This replaces the breakable pine/oak described above.
   - The wind's upper rush is lower and quieter, with less of the hollow moan.
   - The leaves are a low hush (filtered twice, where before they were a bright hiss), and the rustles swell and
     die slowly instead of bursting in.
+
+## Softer bushes; louder, echoing scour clicks
+
+- **Walking through bushes:** it now plays a sound of its own (`Sound.BushRustle`).
+  - It's a soft, low brush of leaves that swells in and fades, with nothing sharp in it. Before, it used the same
+    crackly rustle as everything else.
+  - It's about half as loud as before: 0.28 walking, 0.5 running, 0.12 crouched.
+  - How far it carries to the monsters is unchanged.
+- **Scour clicks:**
+  - They're louder (`clickVolume` 0.9, was 0.65) and carry further (55 m, was 40 m).
+  - They now have reverb: a dark echo off the trees, about a second long, baked into the sound (`SoundSynth.Reverb`,
+    a small Schroeder reverb anything can use).
