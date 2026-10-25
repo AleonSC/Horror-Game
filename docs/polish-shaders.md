@@ -530,4 +530,6 @@ the bunker, the watchtower, the landmark tree, lamps (lit or not), the lone door
 one, crawlers, the flier), each with how many there are now. Each one's marked on the screen in its colour, a
 diamond with its name and distance, through trees and walls; off the screen or behind you, a diamond at the
 screen's edge points the way. The marks stay with the window shut, and update twice a second (things picked
-up, hunters coming and going).
+up, hunters coming and going). Under each ticked category, every one found is listed nearest first with a
+**Go** button: it puts you a couple of metres short of it on the ground, facing it (out of any seat, and round
+it to the first spot with room to stand).

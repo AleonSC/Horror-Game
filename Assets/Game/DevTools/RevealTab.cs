@@ -35,8 +35,27 @@ namespace Game.DevTools
                     GUILayout.Label(group, DevStyle.Section);
                 }
                 c.On = DevStyle.Switch($"{c.Name}   ({c.Count} found)", c.On);
+                if (c.On) List(c);
             }
             Reveal.EnsureOverlay();
+        }
+
+        // Each one found, nearest first, with a button to go there.
+        static void List(Reveal.Category c)
+        {
+            if (!Services.TryGet<PlayerController>(out var player) || c.Found.Count == 0) return;
+            Vector3 me = player.transform.position;
+            var found = new List<(Transform At, string Label, float Lift)>(c.Found);
+            found.RemoveAll(f => f.At == null);
+            found.Sort((a, b) => (a.At.position - me).sqrMagnitude.CompareTo((b.At.position - me).sqrMagnitude));
+            foreach (var f in found)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Space(24f);
+                GUILayout.Label($"{f.Label}   {Vector3.Distance(me, f.At.position):0} m", DevStyle.MutedLabel);
+                if (GUILayout.Button("Go", DevStyle.Button, GUILayout.Width(70f))) Reveal.TeleportTo(player, f.At.position);
+                GUILayout.EndHorizontal();
+            }
         }
     }
 
@@ -120,6 +139,30 @@ namespace Game.DevTools
                 foreach (var h in Object.FindObjectsByType<T>(FindObjectsSortMode.None)) if (h.isActiveAndEnabled) c.Found.Add((h.transform, label, 2f));
             },
         };
+
+        /// <summary>
+        /// Put the player a couple of metres short of a point, on the ground, facing it (out of any seat first).
+        /// From the side nearest where they are now, so they don't land inside the thing.
+        /// </summary>
+        public static void TeleportTo(PlayerController player, Vector3 target)
+        {
+            if (player.Seat != null) player.LeaveSeat();
+            Vector3 from = player.transform.position - target;
+            from.y = 0f;
+            if (from.sqrMagnitude < 0.01f) from = Vector3.back;
+            from.Normalize();
+            for (int i = 0; i < 8; i++)
+            {
+                // Round the point till there's room to stand (not in a wall, a tree or a rock).
+                Vector3 spot = target + Quaternion.Euler(0f, i * 45f, 0f) * from * 2.5f;
+                if (Physics.Raycast(spot + Vector3.up * 30f, Vector3.down, out var hit, 80f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore)) spot.y = hit.point.y + 0.05f;
+                if (Physics.CheckCapsule(spot + Vector3.up * 0.4f, spot + Vector3.up * 1.6f, 0.3f, Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Props), QueryTriggerInteraction.Ignore) && i < 7) continue;
+                Vector3 look = target - spot;
+                look.y = 0f;
+                player.Teleport(spot, Quaternion.LookRotation(look.sqrMagnitude > 0.01f ? look : Vector3.forward));
+                return;
+            }
+        }
 
         /// <summary>Make sure the overlay's running (it lives on, drawing, with the window shut).</summary>
         public static void EnsureOverlay()
