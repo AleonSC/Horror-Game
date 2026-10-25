@@ -14,7 +14,7 @@ namespace Game.Entities
     /// under its storm, with its theme. It roams near you, stopping to cock its head and click. It hunts by sound:
     /// a noise it hears (running carries far, walking a little, crouching barely; very close it hears anything)
     /// sends it rushing to the spot, where it searches. Close enough, it takes you (it leans its face down to
-    /// yours; a hard cut). Lights stop it. It shoulders through trees and knocks them down; rocks and buildings
+    /// yours; a hard cut). Lights stop it. It tramples through trees, which burst into splinters; rocks and buildings
     /// it steps round. Get far away for long and it catches up.
     /// </summary>
     public sealed class BlindOne : MonoBehaviour, IThreat
@@ -428,7 +428,7 @@ namespace Game.Entities
             Steps();
         }
 
-        // It barges through the forest: trees in its way go over.
+        // It barges through the forest: trees in its way burst into splinters.
         void Shoulder(Vector3 dir)
         {
             if (!Services.TryGet<WorldBuilder>(out var world)) return;
@@ -436,7 +436,7 @@ namespace Game.Entities
             for (int i = 0; i < n; i++)
             {
                 var tree = nearby[i].GetComponent<ForestTree>();
-                if (tree != null) tree.KnockDown(world.Forest, transform.position);
+                if (tree != null) tree.Shatter(world.Forest, transform.position);
             }
         }
 

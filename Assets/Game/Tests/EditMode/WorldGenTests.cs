@@ -201,7 +201,7 @@ namespace Game.Tests
         }
 
         [Test]
-        public void BreakableTrees_AreTallEnoughPines()
+        public void BreakableTrees_AreTallEnoughDeadTrees()
         {
             foreach (int seed in new[] { 4, 5, 6 })
             {
@@ -212,9 +212,9 @@ namespace Game.Tests
                 {
                     if (!t.Breakable) continue;
                     count++;
-                    Assert.AreEqual(TreeKind.Pine, t.Kind, $"seed {seed}: a breakable tree that isn't a pine");
+                    Assert.AreEqual(TreeKind.Dead, t.Kind, $"seed {seed}: a breakable tree that isn't a dead tree");
                     Assert.IsFalse(t.Removed || t.OldGiant, $"seed {seed}: a removed or old giant tree made breakable");
-                    Assert.GreaterOrEqual(t.Scale * TreeShapes.Height(TreeKind.Pine, t.Variant, s), BreakableStage.Height, $"seed {seed}: a breakable tree in place of a shorter one");
+                    Assert.GreaterOrEqual(t.Scale * TreeShapes.Height(TreeKind.Dead, t.Variant, s), BreakableStage.Height, $"seed {seed}: a breakable tree in place of a shorter one");
                 }
                 Assert.Greater(count, 20, $"seed {seed}: hardly any breakable trees");
             }

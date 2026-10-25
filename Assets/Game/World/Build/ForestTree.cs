@@ -87,6 +87,51 @@ namespace Game.World.Build
             return true;
         }
 
+        /// <summary>
+        /// Trampled (the blind one barging through): the whole tree bursts at once into splinters of bark and pale
+        /// wood, and a spray of leaves if it has any, flung away from <paramref name="from"/>; they fall, scatter
+        /// and are gone in a couple of seconds. Nothing is left standing. Any tree (not only the breakable one),
+        /// save one with an owl in it. False if it's already down.
+        /// </summary>
+        public bool Shatter(InstancedRenderer forest, Vector3 from)
+        {
+            if (down || forest == null || HasOwl) return false;
+            down = true;
+            Vector3 homeWorld = new Vector3(Matrix.m03, Matrix.m13, Matrix.m23);
+            Vector3 offset = transform.position - homeWorld;
+            offset.y = 0f;
+            Vector3 at = homeWorld + offset;
+            // How big it is, and what it's made of.
+            var bounds = new Bounds(Vector3.up, Vector3.one);
+            bool any = false;
+            Material bark = null, leaf = null;
+            foreach (int k in Kinds)
+            {
+                forest.Remove(k, Home, Matrix);
+                var kind = forest.GetKind(k);
+                if (kind.Lods == null || kind.Lods.Length == 0) continue;
+                foreach (var part in kind.Lods[0])
+                {
+                    if (part.Mesh == null) continue;
+                    Matrix4x4 m = Matrix4x4.Translate(-homeWorld) * Matrix * (part.HasLocal ? part.Local : Matrix4x4.identity);
+                    var b = part.Mesh.bounds;
+                    for (int c = 0; c < 8; c++)
+                    {
+                        Vector3 p = m.MultiplyPoint3x4(b.center + Vector3.Scale(b.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1)));
+                        if (any) bounds.Encapsulate(p); else { bounds = new Bounds(p, Vector3.zero); any = true; }
+                    }
+                    if (IsLeafy(kind.Name, part.Material)) { if (leaf == null) leaf = part.Material; }
+                    else if (bark == null) bark = part.Material;
+                }
+            }
+            gameObject.SetActive(false);
+            Vector3 away = at - from;
+            away.y = 0f;
+            if (away.sqrMagnitude < 0.01f) away = Vector3.forward;
+            TreeSplinters.Burst(at, bounds, away.normalized, bark, FreshWood, leaf);
+            return true;
+        }
+
         // Needles and leaves (they burst), rather than wood (it's cut into logs).
         static bool IsLeafy(string kindName, Material m)
         {

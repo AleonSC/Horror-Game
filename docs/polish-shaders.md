@@ -686,3 +686,18 @@ shadows, or appear in ray tracing or motion vectors.
     number station.
   - The dial glows amber while it's on. Click it to switch it off or on.
   - From out on the balcony it's muffled, more so with the door shut.
+
+## The breakable tree is a small dead tree; the blind one shatters trees
+
+This replaces the breakable pine/oak described above.
+
+- **The breakable tree** is now one small dead tree: 6.5 m tall, always the same shape and trunk.
+  - `BreakableStage` puts it in place of 30% of the dead trees that are at least that tall
+    (`WorldGenConfig` > `breakableTrees`).
+  - It's the only tree that falls: snapping above a stump, breaking into logs, as before.
+- **The blind one** now tramples every tree it walks into, except one with an owl in it.
+  - The tree bursts at once into splinters of bark and pale wood up its whole height (`ForestTree.Shatter`,
+    `TreeSplinters`), plus a spray of leaves from a living tree's crown.
+  - The pieces fly away from it, tumble, bounce, skitter, shrink away and are gone in 1–3 s. Nothing is left
+    standing and no logs fall.
+  - There's a crack, a crash of wood and a rustle. The blind one ignores the noise, as it did a falling tree.
