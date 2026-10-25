@@ -9,7 +9,10 @@ namespace Game.Entities
 {
     /// <summary>
     /// What a scour sometimes leaves when you drive it off: one of its eyes, a wet, veined ball trailing a strand
-    /// of nerve, hanging in the air. It drifts after you at a distance, about head height, bobbing a little, and
+    /// of nerve, hanging in the air. It arrives out of the motes the scour came apart into: they swirl back in to
+    /// a point and the eye condenses out of them, lids shut, swells to its size with a shudder, its strand
+    /// unfurling, and then the lids snap open with a wet click and a flash of red, the pupil a slit that widens
+    /// as it finds you. It drifts after you at a distance, about head height, bobbing a little, and
     /// never stops looking at you, turning with your every move (with small darting flicks, as eyes do). It
     /// can't hurt you. Shine your light on it and it blinks, its lids snapping shut over it, again and again while
     /// the beam stays on it, squinting between (and now and then it blinks by itself). After a while (ScourConfig
@@ -23,9 +26,12 @@ namespace Game.Entities
         const float Height = 2.1f;          // how high over the ground it floats
         const float KindleTime = 2.2f;      // glowing up before it flies
         const float FlyTime = 7f;
+        const float Arrive = 2.1f;          // its entrance (see Arrival)
+        const float OpenAt = 0.72f;         // (share of the entrance when its lids snap open)
+        const int MoteCount = 46;
 
         static int alive;
-        static Material sclera, pupil, nerve, lidSkin;
+        static Material sclera, pupil, nerve, lidSkin, moteBlack;
         static Mesh lidMesh;
         const float LidUpOpen = -82f, LidDownOpen = 62f; // (degrees about the eye's side axis: drawn back over the ball)
         static Texture2D veins;
@@ -42,7 +48,13 @@ namespace Game.Entities
         float blinkAt = -1f; // when the blink under way started (-1: none)
         float nextBlink;
         bool wasLit;
-        Transform ball;
+        Transform ball, pupilPart;
+        Vector3 pupilSize;
+        Transform[] motes;
+        Vector3[] moteFrom;
+        float[] moteSpin, moteSize;
+        Light flash;
+        bool snapped;
         Material irisGlow;
         MeshRenderer halo;
         Light glow;
@@ -80,7 +92,8 @@ namespace Game.Entities
             ball.SetParent(transform, false);
             Part(PrimitiveType.Sphere, ball, Vector3.zero, Vector3.one * Size, sclera);
             Part(PrimitiveType.Sphere, ball, new Vector3(0f, 0f, Size * 0.4f), new Vector3(Size * 0.55f, Size * 0.55f, Size * 0.22f), irisGlow);
-            Part(PrimitiveType.Sphere, ball, new Vector3(0f, 0f, Size * 0.475f), new Vector3(Size * 0.26f, Size * 0.3f, Size * 0.06f), pupil); // (a little tall: not quite a man's)
+            pupilSize = new Vector3(Size * 0.26f, Size * 0.3f, Size * 0.06f); // (a little tall: not quite a man's)
+            pupilPart = Part(PrimitiveType.Sphere, ball, new Vector3(0f, 0f, Size * 0.475f), pupilSize, pupil).transform;
             // Lids: each a quarter of a shell round the front of the ball, swung back out of the way when open.
             upperLid = Lid(false);
             lowerLid = Lid(true);
@@ -97,9 +110,29 @@ namespace Game.Entities
 
             angle = Random.Range(0f, Mathf.PI * 2f);
             angleDrift = Random.Range(0.08f, 0.16f) * (Random.value < 0.5f ? -1f : 1f);
+
+            // The motes it gathers out of.
+            if (moteBlack == null) moteBlack = RuntimeMaterials.Unlit("Eye motes", Color.black, true);
+            motes = new Transform[MoteCount];
+            moteFrom = new Vector3[MoteCount];
+            moteSpin = new float[MoteCount];
+            moteSize = new float[MoteCount];
+            for (int i = 0; i < MoteCount; i++)
+            {
+                var m = Part(PrimitiveType.Cube, transform, Vector3.zero, Vector3.one, moteBlack);
+                m.layer = Layers.Effects;
+                m.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                motes[i] = m.transform;
+                float a = Random.Range(0f, Mathf.PI * 2f);
+                moteFrom[i] = new Vector3(Mathf.Cos(a), Random.Range(-0.8f, 0.8f), Mathf.Sin(a)) * Random.Range(0.5f, 1.3f);
+                moteSpin[i] = Random.Range(2.5f, 6f) * (Random.value < 0.5f ? -1f : 1f);
+                moteSize[i] = Random.Range(0.02f, 0.05f);
+            }
+            ball.localScale = Vector3.zero;
         }
 
-        void Start() => Play(Sound.ScourClick, 0.4f, 1.6f, 15f); // (a last wet click as it's left)
+        // A wet gathering as it starts to form.
+        void Start() => Play(Sound.Creep, 0.6f, 0.55f, 18f);
 
         void OnDestroy()
         {
@@ -127,16 +160,91 @@ namespace Game.Entities
             age += dt;
             Vector3 head = player.Head != null ? player.Head.position : player.transform.position + Vector3.up * 1.6f;
 
-            if (age < watchTime) Follow(head, dt);
-            else if (age < watchTime + KindleTime) Kindle(head, (age - watchTime) / KindleTime);
-            else if (age < watchTime + KindleTime + FlyTime) Fly(dt, (age - watchTime - KindleTime) / FlyTime);
+            if (age < Arrive)
+            {
+                Arrival(head, age / Arrive, dt);
+                Strand(dt, Mathf.Clamp01((age / Arrive - 0.35f) / 0.5f));
+                return;
+            }
+            float t = age - Arrive;
+            if (motes != null) ClearMotes();
+            if (t < watchTime) Follow(head, dt);
+            else if (t < watchTime + KindleTime) Kindle(head, (t - watchTime) / KindleTime);
+            else if (t < watchTime + KindleTime + FlyTime) Fly(dt, (t - watchTime - KindleTime) / FlyTime);
             else
             {
                 Destroy(gameObject);
                 return;
             }
-            Lids(dt, age < watchTime && PlayerSense.InBeam(player, ball.position, 1f));
-            Strand(dt);
+            Lids(dt, t < watchTime && PlayerSense.InBeam(player, ball.position, 1f));
+            Strand(dt, 1f);
+            if (flash != null)
+            {
+                flash.intensity = Mathf.MoveTowards(flash.intensity, 0f, dt * 6f);
+                if (flash.intensity <= 0f) { Destroy(flash.gameObject); flash = null; }
+            }
+        }
+
+        // Its entrance (u from 0 to 1): the motes swirl in and the eye condenses out of them, lids shut, a dim red
+        // pulse in it; it swells to its size, overshooting, shuddering; then the lids snap open (a click, a flash
+        // of red), the pupil a slit widening as it finds you.
+        void Arrival(Vector3 head, float u, float dt)
+        {
+            // The motes: spiralling in, faster as they close, shrinking into it.
+            float gather = Mathf.Clamp01(u / 0.55f);
+            float g = gather * gather * (3f - 2f * gather);
+            if (motes != null)
+                for (int i = 0; i < motes.Length; i++)
+                {
+                    float r = 1f - g;
+                    float spin = moteSpin[i] * (gather + gather * gather * 2f);
+                    Vector3 from = moteFrom[i];
+                    Vector3 p = new Vector3(from.x * Mathf.Cos(spin) - from.z * Mathf.Sin(spin), from.y, from.x * Mathf.Sin(spin) + from.z * Mathf.Cos(spin)) * r;
+                    motes[i].localPosition = p;
+                    motes[i].localRotation = Quaternion.Euler(spin * 90f, spin * 57f, 0f);
+                    motes[i].localScale = Vector3.one * moteSize[i] * (r > 0.02f ? Mathf.Lerp(0.3f, 1f, r) : 0f);
+                }
+            // The eye: a speck as they gather, swelling with an overshoot, shuddering.
+            float form = Mathf.Clamp01((u - 0.3f) / 0.4f);
+            float swell = form < 1f ? Mathf.Sin(form * Mathf.PI * 0.5f) * (1f + 0.25f * Mathf.Sin(form * Mathf.PI)) : 1f;
+            ball.localScale = Vector3.one * Mathf.Max(0.05f * g, swell);
+            ball.localPosition = Random.insideUnitSphere * 0.01f * (1f - Mathf.Clamp01((u - OpenAt) / 0.25f));
+            Watch(head, dt, 0f);
+            // Lids shut until they snap open; the pupil a slit, widening.
+            float open = Mathf.Clamp01((u - OpenAt) / 0.06f);
+            float e = 1f - open;
+            upperLid.localRotation = Quaternion.Euler(Mathf.Lerp(LidUpOpen, 4f, e), 0f, 0f);
+            lowerLid.localRotation = Quaternion.Euler(Mathf.Lerp(LidDownOpen, -4f, e), 0f, 0f);
+            float widen = Mathf.Clamp01((u - OpenAt) / (1f - OpenAt));
+            pupilPart.localScale = new Vector3(pupilSize.x * Mathf.Lerp(0.15f, 1f, widen * widen), pupilSize.y * Mathf.Lerp(1.15f, 1f, widen), pupilSize.z);
+            if (!snapped && u >= OpenAt)
+            {
+                snapped = true;
+                Play(Sound.ScourSnap, 0.55f, 1.35f, 30f);
+                var go = new GameObject("Eye flash");
+                go.transform.SetParent(ball, false);
+                go.transform.localPosition = new Vector3(0f, 0f, Size * 0.8f);
+                flash = go.AddHDLight(LightType.Point).GetComponent<Light>();
+                flash.color = new Color(1f, 0.18f, 0.06f);
+                flash.range = 5f;
+                flash.shadows = LightShadows.None;
+                flash.intensity = 4f;
+            }
+            // The red in it: a dim pulse while it forms, a flash as it opens, dying to nothing.
+            float pulse = u < OpenAt ? 0.4f + 0.3f * Mathf.Sin(u * 40f) : Mathf.Lerp(9f, 0f, Mathf.Clamp01((u - OpenAt) / (1f - OpenAt)));
+            Color c = new Color(1f, 0.16f, 0.06f);
+            RuntimeMaterials.SetGlow(irisGlow, c * pulse * 0.6f * g);
+            if (halo != null) Effects.SetGlow(halo, c * pulse * 0.25f * g);
+            if (flash != null) flash.intensity = Mathf.MoveTowards(flash.intensity, 0f, dt * 5f);
+        }
+
+        void ClearMotes()
+        {
+            foreach (var m in motes) if (m != null) Destroy(m.gameObject);
+            motes = null;
+            ball.localScale = Vector3.one;
+            pupilPart.localScale = pupilSize;
+            SetGlow(0f);
         }
 
         // Drifting after you, about this far off, going slowly round you; never inside a trunk if it can help it.
@@ -295,9 +403,9 @@ namespace Game.Entities
         }
 
         // The strand: each point trails the one before it, sagging, so it swings and drags behind.
-        void Strand(float dt)
+        void Strand(float dt, float grown)
         {
-            const float link = 0.045f;
+            float link = 0.045f * Mathf.Max(0.02f, grown); // (unfurling as it forms)
             strandAt[0] = ball.position - ball.forward * Size * 0.45f;
             for (int i = 1; i < strandAt.Length; i++)
             {
@@ -308,7 +416,7 @@ namespace Game.Entities
             for (int i = 0; i < strand.Length; i++)
             {
                 Vector3 a = strandAt[i], b = strandAt[i + 1];
-                float r = Mathf.Lerp(0.022f, 0.006f, i / (float)(strand.Length - 1));
+                float r = Mathf.Lerp(0.022f, 0.006f, i / (float)(strand.Length - 1)) * Mathf.Clamp01(grown * 2f);
                 strand[i].position = (a + b) * 0.5f;
                 strand[i].rotation = Quaternion.FromToRotation(Vector3.up, b - a);
                 strand[i].localScale = new Vector3(r, link * 0.5f, r);

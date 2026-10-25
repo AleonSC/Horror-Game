@@ -917,3 +917,15 @@ Measured: about 89% of it is below 100 Hz, 10% is 100–1000 Hz (the body you he
   - After the last line you wake as usual, and the giant groans.
 - **Under the eye:** while the giant's eye is open in the sky, the depth-of-field blur on the far distance clears
   over 2 s, so nothing softens it (`LookController.FarSharp`). It comes back once the eye closes.
+
+## The left-behind eye's entrance
+
+The eye a driven-off scour leaves no longer just appears. Over about 2 s (`ScourEyeball.Arrival`):
+1. **Gathering:** about 46 dark motes, like the ones the scour came apart into, spiral back in to a point, faster
+   as they close and shrinking into it. The eye condenses out of them as a speck, lids shut, with a dim red pulse
+   in it, and there's a low, wet gathering sound.
+2. **Forming:** it swells to its size with an overshoot and a shudder, and its nerve strand unfurls behind it.
+3. **Opening:** the lids snap open with a loud wet click and a flash of red light from the iris. The pupil starts
+   as a thin slit and widens as it locks onto you, while the red dies away.
+
+Then it drifts after you as before. Its 30 s of watching start once it's open.
