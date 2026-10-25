@@ -165,14 +165,20 @@ namespace Game.World.Build
             foreach (var g in gathers) foreach (var lod in g) lod.Count = 0;
 
             float half = chunkSize * 0.5f;
+            // (Behind the main menu, the copies all round too, so the forest looks endless: see Panorama.)
+            bool panorama = Panorama.On;
+            int rings = panorama ? Mathf.CeilToInt(Panorama.Reach / Mathf.Max(1f, mapSize)) : 0;
+            float reach = panorama ? Mathf.Max(farthest, Panorama.Reach) : farthest;
             for (int cz = 0; cz < across; cz++)
             for (int cx = 0; cx < across; cx++)
+            for (int oz = -rings; oz <= rings; oz++)
+            for (int ox = -rings; ox <= rings; ox++)
             {
                 var centre = new Vector2(cx * chunkSize + half, cz * chunkSize + half);
-                Vector2 offset = Wrap.NearestCopyOffset(centre, eye2, mapSize);
+                Vector2 offset = Wrap.NearestCopyOffset(centre, eye2, mapSize) + new Vector2(ox, oz) * mapSize;
                 Vector2 c = centre + offset;
                 float dist = Mathf.Max(0f, Vector2.Distance(c, eye2) - half * 1.414f);
-                if (dist > farthest) continue;
+                if (dist > reach) continue;
                 var box = new Bounds(new Vector3(c.x, (minHeight + maxHeight) * 0.5f + 15f, c.y), new Vector3(chunkSize + 8f, maxHeight - minHeight + 60f, chunkSize + 8f));
                 if (!GeometryUtility.TestPlanesAABB(planes, box)) continue;
 
@@ -182,7 +188,8 @@ namespace Game.World.Build
                     var list = homes[k][chunk];
                     if (list == null) continue;
                     var kind = kinds[k];
-                    if (dist > kind.MaxDistance) continue;
+                    float most = panorama && kind.Layer == Layers.Trees ? Mathf.Max(kind.MaxDistance, Panorama.Reach) : kind.MaxDistance;
+                    if (dist > most) continue;
                     int lod = 0;
                     while (lod < kind.LodDistances.Length && lod < kind.Lods.Length - 1 && dist > kind.LodDistances[lod]) lod++;
                     var gather = gathers[k][lod];
@@ -200,7 +207,7 @@ namespace Game.World.Build
 
             DrawCalls = 0;
             DrawnInstances = 0;
-            var bounds = new Bounds(eye, Vector3.one * (farthest * 2f + 100f));
+            var bounds = new Bounds(eye, Vector3.one * (reach * 2f + 100f));
             for (int k = 0; k < kinds.Count; k++)
             {
                 var kind = kinds[k];

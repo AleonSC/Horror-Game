@@ -159,7 +159,7 @@ namespace Game.UI
             {
                 filmCam.fieldOfView = 55f;
                 filmCam.nearClipPlane = 0.1f;
-                filmCam.farClipPlane = playerCam.farClipPlane;
+                filmCam.farClipPlane = Mathf.Max(playerCam.farClipPlane, 750f); // (out over the endless forest)
                 filmCam.cullingMask = playerCam.cullingMask;
                 playerCam.enabled = false;
                 playerEars = playerCam.GetComponent<AudioListener>();
@@ -169,11 +169,13 @@ namespace Game.UI
             go.AddComponent<AudioListener>();
             film = new MenuFilm(filmCam, config.shotTime);
             Game.Rendering.LookController.MenuLift = 1f;
+            Game.World.Panorama.On = true;
         }
 
         void StopFilm()
         {
             Game.Rendering.LookController.MenuLift = 0f;
+            Game.World.Panorama.On = false;
             if (filmCam != null) Destroy(filmCam.gameObject);
             if (playerCam != null) playerCam.enabled = true;
             if (playerEars != null) playerEars.enabled = true;

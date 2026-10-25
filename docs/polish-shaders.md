@@ -508,3 +508,16 @@ dims it with distance. `WeatherConfig` > `boltChance` (0.75: the rest flicker on
   each in two crooked, tapering lengths sunk into the soil at the end (6 close up, 4 further off).
 - **More grass**: `grass` 16000 (was 10000) about the meadows, and twice the tufts round each tree's foot
   (`tuftsPerTree` 8-16, was 4-10), spread a little further out (to 1.6 m).
+
+## Smoother mist from above, and an endless forest behind the menu
+
+- **Mist ripple**: HDRP stores volumetric fog in depth slices (64 by default, spread over the whole far clip,
+  about 9 m each), and a 2 m layer of mist seen from above fell between them, showing as bands. Now the fog
+  uses its own quality (budget 0.45, more of it to depth, slices packed nearer the camera), both of HDRP's
+  denoisers, and volumetrics only out to 400 m (beyond, the fog carries on without them); and the higher the
+  camera is above the ground, the taller and thinner the mist is made (the same amount of it), up to 4x at
+  38 m up.
+- **Endless forest behind the menu** (`Panorama`): the map wraps every 320 m and only its nearest copy was
+  drawn. While the menu's film plays, the trees are also drawn at the copies all round out to 480 m, each
+  ground chunk shows its copies one map-width away (`PanoramaGround`, no colliders), and the film camera sees
+  out to 750 m, so the forest runs on into the fog in every direction.

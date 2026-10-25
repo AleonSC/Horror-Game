@@ -36,6 +36,7 @@ namespace Game.World.Build
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
                 go.AddComponent<MeshRenderer>().sharedMaterial = ground;
                 go.AddComponent<MeshCollider>().sharedMesh = mesh;
+                go.AddComponent<PanoramaGround>().mapSize = plan.Size;
 
                 var trailMesh = trailParts[cz * across + cx];
                 if (trailMesh != null)

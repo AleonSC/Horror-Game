@@ -150,6 +150,14 @@ namespace Game.Rendering
             fog.baseHeight.Override(400f); // (it only thins far above the forest: the same all through it)
             fog.maximumHeight.Override(800f);
             fog.maxFogDistance.Override(5000f);
+            // Finer volumetric slices, packed nearer the camera, and both of HDRP's smoothings: a thin layer of
+            // ground mist seen from above would otherwise show the slices as bands.
+            fog.quality.Override(ScalableSettingLevelParameter.LevelCount); // (our own values, not the quality level's)
+            fog.fogControlMode = FogControl.Balance;
+            fog.volumetricFogBudget = 0.45f;
+            fog.resolutionDepthRatio = 0.75f;
+            fog.sliceDistributionUniformity.Override(0.35f);
+            fog.denoisingMode.Override(FogDenoisingMode.Both);
 
             colorAdjustments = profile.Add<ColorAdjustments>(true);
             vignette = profile.Add<Vignette>(true);
@@ -237,7 +245,9 @@ namespace Game.Rendering
             fog.anisotropy.Override(s.fogAnisotropy);
             // At least as far as the camera sees, or there's a hard line where the lit fog gives way to plain fog.
             var cam = Camera.main;
-            fog.depthExtent.Override(Mathf.Max(s.fogReach, cam != null ? cam.farClipPlane : 0f));
+            // (Volumetric only out to 400 m: beyond it HDRP carries the fog on without it, and fewer metres per slice
+            // keeps the mist smooth.)
+            fog.depthExtent.Override(Mathf.Max(s.fogReach, Mathf.Min(cam != null ? cam.farClipPlane : 0f, 400f)));
 
             colorAdjustments.postExposure.Override(s.postExposure);
             colorAdjustments.contrast.Override(s.contrast);

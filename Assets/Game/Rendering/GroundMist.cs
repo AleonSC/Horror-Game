@@ -69,6 +69,12 @@ namespace Game.Rendering
 
             float top = Mathf.Max(0.1f, s.mistHeight);
             var p = cam.transform.position;
+            // Seen from high above (the menu's views), a layer this thin falls between the fog's slices and shows
+            // as bands: so the higher you are, the taller it's made and the thinner, the same amount of mist.
+            float high = 0f;
+            if (Physics.Raycast(p + Vector3.up, Vector3.down, out var under, 500f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore))
+                high = Mathf.Clamp01((p.y - under.point.y - 8f) / 30f);
+            float stretch = 1f + 3f * high;
             int cx = Mathf.RoundToInt(p.x / step), cz = Mathf.RoundToInt(p.z / step), half = across / 2;
             transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             stale.Clear();
@@ -83,12 +89,12 @@ namespace Game.Rendering
                 var key = new Vector2Int(cx + gx, cz + gz);
                 Vector3 centre = new Vector3(key.x * step, 0f, key.y * step);
                 float floor = GroundAt(key, centre, p);
-                v.transform.SetPositionAndRotation(new Vector3(centre.x, floor + top * 0.5f - 0.2f, centre.z), Quaternion.identity);
-                v.parameters.size = new Vector3(step * 2f, top, step * 2f);
+                v.transform.SetPositionAndRotation(new Vector3(centre.x, floor + top * stretch * 0.5f - 0.2f, centre.z), Quaternion.identity);
+                v.parameters.size = new Vector3(step * 2f, top * stretch, step * 2f);
                 v.parameters.textureTiling = new Vector3(PatchesPerStep * 2f, 1f, PatchesPerStep * 2f);
                 v.parameters.textureScrollingSpeed = new Vector3(s.mistDrift / tile, 0f, s.mistDrift * 0.6f / tile);
                 v.parameters.albedo = s.mistColor * (1f - gone); // (no glow while the world goes)
-                v.parameters.meanFreePath = Mathf.Max(0.05f, s.mistThickness);
+                v.parameters.meanFreePath = Mathf.Max(0.05f, s.mistThickness * stretch);
                 // Halfway in from every side: each box a tent, rising from nothing at its edge to full at its
                 // middle, so neighbours (one step apart) add up to one even layer. The top fade is in the texture.
                 v.parameters.positiveFade = new Vector3(0.5f, 0.01f, 0.5f);
