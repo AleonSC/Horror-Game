@@ -86,7 +86,7 @@ namespace Game.Player
         [Range(0.1f, 1f), Tooltip("Mouse look speed at the start of it (it comes back as it wears off).")]
         public float groggyLook = 0.5f;
         [Range(0f, 1f), Tooltip("How blurred your vision is at the start of it (it clears as it wears off).")]
-        public float groggyBlur = 0.7f;
+        public float groggyBlur = 0.9f;
 
         [Header("Interaction")]
         [Range(1f, 5f), Tooltip("How far you can reach (metres).")]

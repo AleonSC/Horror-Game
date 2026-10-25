@@ -555,5 +555,5 @@ and then quickly. The head **lolls and sways** (about 2 degrees up and down, 2.5
 slow waves; no tremble now), the **blur** softens everything past arm's length (0.2 to 3 m) at 70% strength,
 mouse look starts at half speed, walking at 35%, you speed up and slow down sluggishly (35%), and you can't run
 until it's mostly worn off. The extra vignette while groggy is gone. (`PlayerConfig` > Waking up: groggySway 1,
-groggyShake 0, groggyAcceleration, groggyLook 0.5, groggySpeed 0.35, groggyBlur 0.7.) Waking after being taken
+groggyShake 0, groggyAcceleration, groggyLook 0.5, groggySpeed 0.35, groggyBlur 0.9: a little stronger than the HDRP build's 0.7.) Waking after being taken
 uses the same.
