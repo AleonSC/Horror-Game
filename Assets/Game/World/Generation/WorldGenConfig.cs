@@ -30,6 +30,10 @@ namespace Game.World.Generation
         public float smallAmplitude = 0.06f;
         [Tooltip("Multiplies every wave's height.")]
         public float bumpiness = 1.5f;
+        [Range(0f, 1.5f), Tooltip("Hummocks: low mounds and dips all over the forest floor, up to this high (metres), so it's never flat.")]
+        public float hummocks = 0.35f;
+        [Range(2f, 30f), Tooltip("About how far apart the hummocks are (metres).")]
+        public float hummockSize = 7f;
         public int hills = 4;
         public Vector2 hillHeight = new Vector2(7f, 13f);
         public Vector2 hillRadius = new Vector2(30f, 50f);
@@ -111,10 +115,10 @@ namespace Game.World.Generation
         public float emptyShare = 0.12f;
         public int bushes = 3200;
         public Vector2 bushSize = new Vector2(0.45f, 1.4f);
-        public int grass = 10000;
+        public int grass = 16000;
         [Tooltip("Cells of meadow patchiness across the map (noise scale 0.03 over 320 m: about 10).")]
         public int meadowCells = 10;
-        public Vector2Int tuftsPerTree = new Vector2Int(4, 10);
+        public Vector2Int tuftsPerTree = new Vector2Int(8, 16);
         [Tooltip("Tall grass clumps per square metre in a glade's middle.")]
         public float gladeGrassDensity = 0.55f;
         public Vector2 tallGrassHeight = new Vector2(1f, 1.5f);

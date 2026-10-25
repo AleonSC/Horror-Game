@@ -498,3 +498,13 @@ before (later the further off). Each strike is a new bolt. It's drawn 340 m off 
 one at its real distance would (nearer strikes tower over you; far ones are low on the horizon), and the fog
 dims it with distance. `WeatherConfig` > `boltChance` (0.75: the rest flicker only in the cloud),
 `boltBrightness` (30).
+
+## More grass, root flares and hummocks
+
+- **Hummocks** (`WorldGenConfig` > `hummocks` 0.35 m, `hummockSize` 7 m): low mounds and dips over the whole
+  forest floor, with a finer lumpiness on them, so it's never flat. They have their own seed (the rest of the
+  plan is unchanged), and the ground's still flattened under buildings as before.
+- **Root flares**: every pine (and dead tree) has roots spreading from the foot of its trunk out into the ground,
+  each in two crooked, tapering lengths sunk into the soil at the end (6 close up, 4 further off).
+- **More grass**: `grass` 16000 (was 10000) about the meadows, and twice the tufts round each tree's foot
+  (`tuftsPerTree` 8-16, was 4-10), spread a little further out (to 1.6 m).

@@ -35,6 +35,7 @@ namespace Game.World.Build
                 AddSkirt(needles, rng, y, reach, droop, segments, lod < 2);
                 if (sprays > 0) AddBoughs(needles, rng, y, reach, droop, segments, sprays);
             }
+            AddRoots(trunk, rng, radius * 1.25f, lod == 0 ? 6 : lod == 1 ? 4 : 0, lod == 0 ? 5 : 4);
             return (trunk, needles);
         }
 
@@ -67,6 +68,7 @@ namespace Game.World.Build
                     b.AddTube(s, s + d * length * 0.45f, r * 0.35f, 0.005f, 4);
                 }
             }
+            AddRoots(b, rng, radius, lod == 0 ? 5 : lod == 1 ? 3 : 0, lod == 0 ? 5 : 4);
             return b;
         }
 
@@ -214,6 +216,26 @@ namespace Game.World.Build
                 b.AddTube(bend, end, 0.006f, 0.002f, 3);
             }
             return b;
+        }
+
+        // Roots flaring out from the foot of the trunk into the ground: each from up the trunk a little, out and down
+        // in two crooked lengths, tapering, the last of it sunk under the soil.
+        static void AddRoots(MeshBuilder b, System.Random rng, float trunkRadius, int count, int sides)
+        {
+            float turn = Range(rng, 0f, Mathf.PI * 2f);
+            for (int i = 0; i < count; i++)
+            {
+                float a = turn + (i + Range(rng, -0.25f, 0.25f)) / Mathf.Max(1, count) * Mathf.PI * 2f;
+                Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                Vector3 side = new Vector3(-dir.z, 0f, dir.x);
+                float reach = Range(rng, 0.5f, 1.1f) + trunkRadius;
+                Vector3 from = dir * trunkRadius * 0.55f + Vector3.up * Range(0.3f, 0.55f, rng);
+                Vector3 bend = dir * (trunkRadius + reach * 0.35f) + side * Range(rng, -0.12f, 0.12f) + Vector3.up * 0.06f;
+                Vector3 end = dir * (trunkRadius + reach) + side * Range(rng, -0.25f, 0.25f) + Vector3.down * 0.12f;
+                float r = trunkRadius * Range(rng, 0.38f, 0.55f);
+                b.AddTube(from, bend, r, r * 0.6f, sides);
+                b.AddTube(bend, end, r * 0.6f, 0.02f, sides);
+            }
         }
 
         // One tier of boughs: a ragged skirt from the trunk out and down. Arched: it rises a little from the trunk

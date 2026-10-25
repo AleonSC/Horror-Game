@@ -89,7 +89,7 @@ namespace Game.World.Generation
                 int n = rng.Range(s.tuftsPerTree.x, s.tuftsPerTree.y + 1);
                 for (int i = 0; i < n; i++)
                 {
-                    float a = rng.Angle(), r = rng.Range(0.35f, 1.1f) * Mathf.Max(1f, t.Scale);
+                    float a = rng.Angle(), r = rng.Range(0.3f, 1.6f) * Mathf.Max(1f, t.Scale);
                     var p = t.Position + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
                     if (!mask.Free(p)) continue;
                     plan.Grass.Add(new Spot { Position = Wrap.Into(p, plan.Size), Size = rng.Range(0.25f, 0.6f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });

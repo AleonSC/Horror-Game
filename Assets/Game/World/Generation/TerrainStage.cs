@@ -39,6 +39,10 @@ namespace Game.World.Generation
 
             var h = plan.Height;
             int n = h.Resolution;
+            // Hummocks: low mounds and dips everywhere (a seed of their own, so the rest of the plan's draws are
+            // unchanged), with a finer, smaller lumpiness on them.
+            int hummockSeed = plan.Seed * 91 + 7;
+            int hummockCells = Mathf.Max(2, Mathf.RoundToInt(size / Mathf.Max(2f, s.hummockSize)));
             for (int z = 0; z < n; z++)
             for (int x = 0; x < n; x++)
             {
@@ -46,6 +50,9 @@ namespace Game.World.Generation
                 float y = 0f;
                 foreach (var w in waves) y += w.Amplitude * Mathf.Sin((w.Kx * wx + w.Kz * wz) / size * Mathf.PI * 2f + w.Phase);
                 foreach (var hill in plan.Hills) y += hill.Height * hill.Profile(new Vector2(wx, wz), size);
+                if (s.hummocks > 0f)
+                    y += (PeriodicNoise.Fractal(wx, wz, size, hummockCells, hummockSeed) - 0.5f) * 2f * s.hummocks
+                       + (PeriodicNoise.Fractal(wx, wz, size, hummockCells * 3, hummockSeed + 1, 2) - 0.5f) * 0.6f * s.hummocks;
                 h[x, z] = y;
             }
 
