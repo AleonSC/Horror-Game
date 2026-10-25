@@ -766,3 +766,29 @@ This replaces the breakable pine/oak described above.
   - Middling close it goes quiet, stalking (every ~13 s, `clickMidInterval`). Close in it quickens as before, down
     to every ~1.4 s.
   - How far out counts as calling is `callBelow` (0.4).
+
+## Phantoms: more detailed, and some with sound
+
+There are seven phantoms now (`World/Life/Phantoms.cs`).
+1. **A kitchen chair:** splayed legs, stretchers, a seat worn through to the wood, a curved top rail and
+   spindles. It sits a little crooked.
+2. **A stop sign:** on a galvanised post with holes up it, leaning. A white-edged red octagon with STOP in white
+   letters, bolts, a bare metal back and a rust stain.
+3. **A gurney:** a tubular frame on scissor legs and castors, side rails and a raised head end. Someone's shape
+   lies under the sheet, with a toe tag on a string, and an empty IV bag hangs on a pole at its head.
+4. **An old TV:** a wooden cabinet on splayed legs with rabbit ears, knobs, a speaker grille and a flex trailing
+   off.
+   - Its bulging screen shows moving snow and throws a flickering grey-blue light (`TvStatic`).
+   - It hisses with static and mains hum (`Sound.TvStatic`).
+5. **A rotary telephone** on a little round side table, replacing the mailbox. It has a dial with finger holes,
+   a handset on the cradle, a coiled cord and a flex.
+   - It rings (`Sound.PhoneRing`): two bells struck by a hammer, ringing for 2 s, then 4 s silent.
+   - The handset rattles on its cradle while it rings.
+6. **The CB radio** from the watchtowers, on an old slatted crate, always on.
+   - It has a glowing amber dial, a whip aerial and the handset lying on its cord.
+   - It plays the watchtower radio's sound (`Sound.RadioCreep`).
+7. **A tricycle:** a spoked front wheel with pedals, two back wheels, a step, a saddle, handlebars with white
+   grips and streamers, and a bell.
+
+**Fading:** a phantom's sound fades in over 1.5 s as it appears (`PhantomSound`). When it vanishes it's gone at
+once, but its sound fades out over 1.8 s. The sound is muffled when you're under cover.

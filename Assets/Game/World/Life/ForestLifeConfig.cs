@@ -8,7 +8,7 @@ namespace Game.World
     [CreateAssetMenu(menuName = "Game/Config/Forest Life", fileName = "ForestLifeConfig")]
     public sealed class ForestLifeConfig : GameConfig
     {
-        [Tooltip("Your own out-of-place things for the phantoms (any models, standing at their pivot). Empty: the built-in ones (a chair, a stop sign, a gurney, a TV, a mailbox, a tricycle).")]
+        [Tooltip("Your own out-of-place things for the phantoms (any models, standing at their pivot). Empty: the built-in ones (a chair, a stop sign, a gurney, a TV showing static, a ringing telephone, a CB radio left on, a tricycle).")]
         public GameObject[] phantoms = new GameObject[0];
 
         public ForestLifeSettings settings = new ForestLifeSettings();

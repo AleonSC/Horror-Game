@@ -154,7 +154,8 @@ namespace Game.World
 
         void ClearPhantom()
         {
-            if (phantom != null) Destroy(phantom);
+            // (one with a sound vanishes at once but lets its sound fade away)
+            if (phantom != null && !PhantomSound.Vanish(phantom)) Destroy(phantom);
             phantom = null;
         }
     }

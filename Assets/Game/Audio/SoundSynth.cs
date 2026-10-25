@@ -1342,6 +1342,68 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// An old telephone ringing, to loop (6 s): two seconds of its bells (two of them, a little apart in pitch,
+        /// struck turn about by the hammer twenty times a second, each ringing with a bell's uneven overtones and
+        /// a faint rattle of the works), then four of silence.
+        /// </summary>
+        public static float[] PhoneRing(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(6f);
+            float[] f0 = { 940f, 1010f };
+            float[] partial = { 1f, 2.76f, 5.4f };
+            float[] weight = { 1f, 0.45f, 0.18f };
+            var amp = new float[2];
+            var ph = new double[2, 3];
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                bool ringing = t < 2f;
+                // The hammer: a strike every 1/40 s, each bell in turn.
+                int strike = (int)(t * 40f);
+                float sinceStrike = t * 40f - strike;
+                if (ringing && sinceStrike < 1f / (SampleRate / 40f) * 1.5f) amp[strike % 2] = 1f;
+                float x = 0f;
+                for (int b = 0; b < 2; b++)
+                {
+                    for (int p = 0; p < 3; p++)
+                    {
+                        ph[b, p] += 2 * Math.PI * f0[b] * partial[p] / SampleRate;
+                        x += (float)Math.Sin(ph[b, p]) * weight[p] * amp[b] * (p == 0 ? 1f : (float)Math.Exp(-p * 0.8));
+                    }
+                    amp[b] *= 0.99965f; // (a bell's ring dying away, but struck again before it's gone)
+                }
+                float rattle = ringing ? Noise(rng) * 0.04f * (sinceStrike < 0.2f ? 1f : 0.3f) : 0f;
+                s[i] = x * 0.5f + rattle;
+            }
+            return Normalize(s, 0.7f);
+        }
+
+        /// <summary>
+        /// An old TV left on with no signal, to loop (4 s): the bright hiss of snow, a low mains hum under it, a
+        /// faint flutter at the frame rate, and now and then a crackle.
+        /// </summary>
+        public static float[] TvStatic(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(4.4f);
+            float hp = 0f, last = 0f, lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                hp = 0.6f * (hp + n - last);
+                last = n;
+                lp += (hp - lp) * 0.6f;
+                float flutter = 0.85f + 0.15f * (float)Math.Sin(2 * Math.PI * 60 * t);
+                float hum = (float)(Math.Sin(2 * Math.PI * 60 * t) * 0.05 + Math.Sin(2 * Math.PI * 120 * t) * 0.03);
+                float crackle = rng.NextDouble() < 0.0004 ? Noise(rng) * 0.5f : 0f;
+                s[i] = lp * 0.5f * flutter + hum + crackle;
+            }
+            return Loop(s, 0.5f);
+        }
+
+        /// <summary>
         /// A dry sound with reverb added (a forest at night: the sound ringing off trunks): this many seconds of tail
         /// added on, decaying to silence; <paramref name="wet"/> how loud the echo is against the dry sound, and
         /// <paramref name="dark"/> (0-1) how much the echo loses its highs as it goes. Four combs into two

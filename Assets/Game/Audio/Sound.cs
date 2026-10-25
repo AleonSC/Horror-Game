@@ -16,6 +16,6 @@ namespace Game.Audio
         Step2, Step3, Step4, Step5, Step6,
         Screech, LeavesLoop, CarAlarm, FireLoop,
         Disperse, ScourClick, RadioCreep, BushRustle, ScourSnap,
-        TreeBreak, TreeRush, TreeImpact,
+        TreeBreak, TreeRush, TreeImpact, PhoneRing, TvStatic,
     }
 }
