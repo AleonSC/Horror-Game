@@ -930,12 +930,11 @@ The eye a driven-off scour leaves no longer just appears. Over about 2 s (`Scour
 
 Then it drifts after you as before. Its 30 s of watching start once it's open.
 
-## The breath sound, gone
+## The player's breathing, gone
 
-The hiss was `Sound.Breath`. It was played in four places, and they're all removed:
-- every 3.6 s while something's near (the threat monitor's "dread"), the one heard most;
-- panting when winded;
-- and twice as a scour takes you.
+The hiss was the player's own breathing (`Sound.Breath`, played in your head). Removed:
+- the breathing every 3.6 s while something's near (the threat monitor's "dread"), the one heard most;
+- panting when winded.
 
 Panting is now only seen, in your breath's steam. It still makes the noise that monsters close by can hear, as
-before.
+before. The two breaths as a scour takes you stay.
