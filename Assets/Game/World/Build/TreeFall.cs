@@ -24,14 +24,19 @@ namespace Game.World.Build
         List<Renderer> crown;
 
         /// <param name="shudder">Seconds it cracks and shudders before it goes (0: straight over, as when shouldered).</param>
-        /// <param name="segments">The logs, to come apart once it's down (null: it lies whole).</param>
-        /// <param name="crown">The needles and leaves, to burst as it lands.</param>
-        public void Begin(Vector3 away, float shudder = 0f, List<Segment> segments = null, List<Renderer> crown = null)
+        /// <param name="segments">The logs: the moment any of them touches anything as it falls, they snap apart (null: it falls whole).</param>
+        /// <param name="crown">The needles and leaves, to burst into a flurry as it breaks (or lands).</param>
+        /// <param name="ignore">Its own stump (touching that doesn't count).</param>
+        public void Begin(Vector3 away, float shudder = 0f, List<Segment> segments = null, List<Renderer> crown = null, Collider ignore = null)
         {
             this.segments = segments;
             this.crown = crown;
+            this.ignore = ignore;
             StartCoroutine(Fall(away, shudder));
         }
+
+        Collider ignore;
+        readonly Collider[] touching = new Collider[8];
 
         IEnumerator Fall(Vector3 away, float shudder)
         {
@@ -44,30 +49,36 @@ namespace Game.World.Build
                 yield return null;
             }
             if (shudder > 0f) Play(Sound.Creak, 1f, 0.6f);
+            var bodies = new List<Rigidbody>();
+            bool cut = segments != null && segments.Count > 1;
             const float time = 2.4f;
+            float angle = 0f;
             for (float t = 0f; t < time; t += Time.deltaTime)
             {
                 float u = t / time;
-                transform.rotation = Quaternion.AngleAxis(86f * u * u, axis) * start;
+                float was = angle;
+                angle = 86f * u * u;
+                transform.rotation = Quaternion.AngleAxis(angle, axis) * start;
+                // Cut into logs: the moment one touches anything (the ground, another tree, a rock), they snap
+                // apart there and then, each carrying on as it was going.
+                if (cut && angle > 6f && Touching())
+                {
+                    float spin = (angle - was) / Mathf.Max(0.0001f, Time.deltaTime) * Mathf.Deg2Rad; // (how fast it's swinging over)
+                    Snap(axis, spin, away, bodies);
+                    break;
+                }
                 yield return null;
             }
-            Play(Sound.GiantStep, 0.6f, 1.6f);
-            if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(transform.position, 25f, "tree falling"));
-            // The crown bursts as it hits.
-            if (crown != null && crown.Count > 0) LeafBurst.Burst(crown, away * 2.5f);
-            // A little bounce as it settles.
-            for (float t = 0f; t < 0.5f; t += Time.deltaTime)
+            if (bodies.Count == 0)
             {
-                transform.rotation = Quaternion.AngleAxis(86f + Mathf.Sin(t / 0.5f * Mathf.PI) * 3f, axis) * start;
-                yield return null;
-            }
-
-            var bodies = new List<Rigidbody>();
-            if (segments != null && segments.Count > 1)
-            {
-                yield return new WaitForSeconds(Random.Range(2.5f, 3.5f));
-                Play(Sound.Crack, 0.7f, 0.85f);
-                BreakApart(away, bodies);
+                // (Whole, or it never touched: down it thuds, with a little bounce.)
+                Landed(away, away * 2.5f);
+                for (float t = 0f; t < 0.5f; t += Time.deltaTime)
+                {
+                    transform.rotation = Quaternion.AngleAxis(86f + Mathf.Sin(t / 0.5f * Mathf.PI) * 3f, axis) * start;
+                    yield return null;
+                }
+                if (cut) Snap(axis, 0f, away, bodies);
             }
 
             yield return new WaitForSeconds(25f);
@@ -100,9 +111,39 @@ namespace Game.World.Build
             return n > 0 ? sum / n : transform.position;
         }
 
-        // The logs come apart: each its own body, nudged off along the trunk from the others and set rolling.
-        void BreakApart(Vector3 away, List<Rigidbody> bodies)
+        // Is any log touching something (not its own stump, nor a trigger)?
+        bool Touching()
         {
+            int mask = Layers.Mask(Layers.Ground) | Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Props);
+            foreach (var s in segments)
+            {
+                if (s.Piece == null) continue;
+                Vector3 along = s.Piece.up * Mathf.Max(0f, s.Length * 0.5f - s.Radius);
+                int n = Physics.OverlapCapsuleNonAlloc(s.Piece.position - along, s.Piece.position + along, s.Radius * 0.9f, touching, mask, QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < n; i++)
+                    if (touching[i] != ignore && !touching[i].transform.IsChildOf(transform)) return true;
+            }
+            return false;
+        }
+
+        // The thud and the crown's flurry (once).
+        bool landed;
+        void Landed(Vector3 away, Vector3 momentum)
+        {
+            if (landed) return;
+            landed = true;
+            Play(Sound.GiantStep, 0.6f, 1.6f);
+            if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(transform.position, 25f, "tree falling"));
+            if (crown != null && crown.Count > 0) LeafBurst.Burst(crown, momentum);
+        }
+
+        // The logs snap apart: each its own body, going on the way it was swinging (spin: radians a second about
+        // the axis through the stump), with a jolt along the trunk away from the others.
+        void Snap(Vector3 axis, float spin, Vector3 away, List<Rigidbody> bodies)
+        {
+            Play(Sound.Crack, 1f, 0.8f);
+            Vector3 pivot = transform.position, w = axis.normalized * spin;
+            Vector3 tip = pivot;
             float middle = (segments.Count - 1) * 0.5f;
             for (int i = 0; i < segments.Count; i++)
             {
@@ -119,12 +160,15 @@ namespace Game.World.Build
                 body.maxDepenetrationVelocity = 1.5f; // (one half sunk in the slope eases out, rather than leaping)
                 body.interpolation = RigidbodyInterpolation.Interpolate;
                 Vector3 along = s.Piece.up;
-                Vector3 side = Vector3.Cross(along, Vector3.up).normalized;
-                Vector3 push = along * (i - middle) * Random.Range(0.4f, 0.9f) + side * Random.Range(-0.7f, 0.7f) + Vector3.up * Random.Range(0.3f, 1f);
-                body.AddForce(push, ForceMode.VelocityChange);
-                body.AddTorque(along * Random.Range(-3f, 3f) + Random.insideUnitSphere * 0.4f, ForceMode.VelocityChange);
+                Vector3 swing = Vector3.Cross(w, s.Piece.position - pivot);
+                Vector3 jolt = along * (i - middle) * Random.Range(0.3f, 0.7f) + Random.insideUnitSphere * 0.3f;
+                body.AddForce(swing + jolt, ForceMode.VelocityChange);
+                body.AddTorque(w + along * Random.Range(-2f, 2f) + Random.insideUnitSphere * 0.4f, ForceMode.VelocityChange);
                 bodies.Add(body);
+                if ((s.Piece.position - pivot).sqrMagnitude > (tip - pivot).sqrMagnitude) tip = s.Piece.position;
             }
+            // The crown goes with the top: its flurry carries on the way the top was moving.
+            Landed(away, Vector3.Cross(w, tip - pivot) * 0.5f + away);
         }
 
         void Play(Sound sound, float volume, float pitch)

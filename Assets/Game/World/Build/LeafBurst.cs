@@ -7,8 +7,9 @@ using UnityEngine;
 namespace Game.World.Build
 {
     /// <summary>
-    /// A felled tree's crown bursting as it hits the ground: hundreds of needle tufts and leaves flung up and out
-    /// from where the crown was, fluttering down, settling on the ground, and fading away. Drawn instanced.
+    /// A felled tree's crown breaking up: in a moment it's a cloud of a thousand needle tufts and leaves hanging in
+    /// the air where it was, which drift slowly apart and flutter down over half a minute or so, carried off on
+    /// the wind, settling on the ground and fading away. Drawn instanced.
     /// </summary>
     public sealed class LeafBurst : MonoBehaviour
     {
@@ -22,6 +23,7 @@ namespace Game.World.Build
 
         Bit[] bits;
         float age;
+        Vector3 centre;
         static Mesh mesh;
         static Material green, brown;
         static Color greenColour;
@@ -31,7 +33,7 @@ namespace Game.World.Build
         /// Burst the crown: hide its renderers, and fling its bits out from points on their meshes.
         /// <paramref name="momentum"/> is the way the tree was falling (they carry on that way a little).
         /// </summary>
-        public static void Burst(List<Renderer> crown, Vector3 momentum, int count = 600)
+        public static void Burst(List<Renderer> crown, Vector3 momentum, int count = 1100)
         {
             var points = new List<Vector3>();
             Color colour = new Color(0.09f, 0.13f, 0.08f);
@@ -73,6 +75,7 @@ namespace Game.World.Build
         void Make(List<Vector3> points, Vector3 centre, Vector3 momentum, Color colour, int count)
         {
             Ensure(colour);
+            this.centre = centre;
             bits = new Bit[count];
             for (int i = 0; i < count; i++)
             {
@@ -84,11 +87,11 @@ namespace Game.World.Build
                 bits[i] = new Bit
                 {
                     Pos = at,
-                    Vel = outward * Random.Range(1.5f, 5f) + Vector3.up * Random.Range(1.5f, 5.5f) + momentum * Random.Range(0f, 3f),
-                    Spin = Random.onUnitSphere * Random.Range(200f, 700f),
+                    Vel = outward * Random.Range(0.15f, 0.6f) + Vector3.up * Random.Range(-0.1f, 0.4f) + momentum * Random.Range(0f, 0.3f),
+                    Spin = Random.onUnitSphere * Random.Range(60f, 250f),
                     Rot = Random.rotation,
                     Ground = ground,
-                    Life = Random.Range(7f, 12f),
+                    Life = Random.Range(25f, 40f),
                     Size = Random.Range(0.07f, 0.16f),
                     Seed = Random.value * 100f,
                     Brown = Random.value < 0.3f,
@@ -127,6 +130,13 @@ namespace Game.World.Build
         void Update()
         {
             float dt = Time.deltaTime;
+            // The wind where it is (steady speed: as fast as the breeze pushes, up to a metre and a half a second).
+            Vector3 drift = Vector3.zero;
+            if (Services.TryGet<Wind>(out var wind))
+            {
+                Vector2 push = wind.At(centre.x, centre.z, Time.time);
+                drift = Vector3.ClampMagnitude(new Vector3(push.x, 0f, push.y), 1.5f);
+            }
             age += dt;
             int nA = 0, nB = 0;
             bool alive = false, framed = false;
@@ -139,9 +149,11 @@ namespace Game.World.Build
                 if (!b.Down)
                 {
                     // Fluttering: light, dragged, swaying side to side as it falls.
-                    b.Vel += Vector3.down * 4.5f * dt;
+                    // Light as anything: it drifts down at a walking pace's tenth (gravity against the air), swaying
+                    // side to side as it flutters, and the wind carries it off.
+                    b.Vel += Vector3.down * 0.9f * dt;
                     b.Vel *= Mathf.Exp(-2.2f * dt);
-                    b.Vel += new Vector3(Mathf.Sin(age * 3.1f + b.Seed), 0f, Mathf.Cos(age * 2.7f + b.Seed * 1.3f)) * (2.5f * dt);
+                    b.Vel += new Vector3(Mathf.Sin(age * 1.7f + b.Seed), 0f, Mathf.Cos(age * 1.4f + b.Seed * 1.3f)) * (1.2f * dt) + drift * (2.2f * dt);
                     b.Pos += b.Vel * dt;
                     b.Rot = Quaternion.Normalize(Quaternion.Euler(b.Spin * dt) * b.Rot); // (kept unit length: spun on every frame it drifts, and Unity refuses it)
                     if (b.Pos.y <= b.Ground)
@@ -152,7 +164,8 @@ namespace Game.World.Build
                     }
                 }
                 float fade = 1f - Mathf.Clamp01((age - b.Life) / 1.5f);
-                var m = Matrix4x4.TRS(b.Pos, b.Rot, Vector3.one * (b.Size * fade));
+                float appear = Mathf.Clamp01(age / 0.4f); // (each one coming out of the crown as it goes)
+                var m = Matrix4x4.TRS(b.Pos, b.Rot, Vector3.one * (b.Size * fade * appear));
                 if (!framed) { bounds = new Bounds(b.Pos, Vector3.one); framed = true; }
                 else bounds.Encapsulate(b.Pos);
                 if (b.Brown) { if (nB < batchB.Length) batchB[nB++] = m; }

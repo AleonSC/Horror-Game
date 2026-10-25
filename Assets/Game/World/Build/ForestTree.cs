@@ -69,7 +69,8 @@ namespace Game.World.Build
             foreach (var w in wood) if (!w.mesh.isReadable) cuttable = false;
             List<TreeFall.Segment> segments = null;
             Transform root;
-            if (cuttable) root = Cut(at, wood, out segments);
+            Collider stump = null;
+            if (cuttable) root = Cut(at, wood, out segments, out stump);
             else
             {
                 // (Art whose meshes can't be read: it goes over whole, as it is.)
@@ -80,7 +81,7 @@ namespace Game.World.Build
             var leaves = new List<Renderer>();
             Vector3 pivot = root.position - at;
             foreach (var pair in crown) leaves.Add(Show(root, pair.Key, pair.Value.m, pair.Value.mats, pair.Value.name, pivot));
-            root.gameObject.AddComponent<TreeFall>().Begin(away.normalized, shudder, segments, leaves);
+            root.gameObject.AddComponent<TreeFall>().Begin(away.normalized, shudder, segments, leaves, stump);
             return true;
         }
 
@@ -121,7 +122,7 @@ namespace Game.World.Build
 
         // Cut the wood into a stump (left standing, beside the chunk's other trees) and logs (under the returned
         // root, which sits on top of the stump: the tree pivots there as it goes over).
-        Transform Cut(Vector3 at, List<(Mesh mesh, int sub, Matrix4x4 m, Material mat)> wood, out List<TreeFall.Segment> segments)
+        Transform Cut(Vector3 at, List<(Mesh mesh, int sub, Matrix4x4 m, Material mat)> wood, out List<TreeFall.Segment> segments, out Collider stumpCollider)
         {
             var rng = new System.Random(Home.GetHashCode());
             float top = 0f;
@@ -176,6 +177,7 @@ namespace Game.World.Build
             stumpCol.height = Mathf.Max(stump, stumpCol.radius * 2f + 0.01f);
             stumpCol.center = new Vector3(centres[0].x, stump * 0.5f, centres[0].z);
             stumpGo.AddComponent<MeshCleanup>().Mesh = stumpMesh;
+            stumpCollider = stumpCol;
 
             // The logs, under a root on top of the stump.
             var root = new GameObject("Falling tree") { layer = Layers.Trees }.transform;

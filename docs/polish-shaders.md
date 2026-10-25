@@ -533,3 +533,16 @@ screen's edge points the way. The marks stay with the window shut, and update tw
 up, hunters coming and going). Under each ticked category, every one found is listed nearest first with a
 **Go** button: it puts you a couple of metres short of it on the ground, facing it (out of any seat, and round
 it to the first spot with room to stand).
+
+## Logs on slopes, felled trees snapping on contact, a slow flurry of leaves
+
+- **Fallen logs** (the forest's own) now lie along the ground: tilted to the slope between their ends, and
+  raised just enough that no part is under the ground along their length (on a hump the ends lift clear). Their
+  colliders match.
+- **Felled trees** snap into their logs the moment any log touches anything as it goes over (the ground, another
+  tree, a rock or a building; not its own stump): each log becomes a physics body carrying on the way it was
+  swinging, with a jolt apart, so they tumble and roll from where they hit. Trees that fall whole still thud
+  down with a bounce.
+- **The crown** breaks up at that moment into a cloud of about 1,100 needle tufts and leaves hanging in the air
+  where it was, which drift apart and flutter slowly down over half a minute or so (falling at about 0.4 m/s),
+  carried off on the wind, then settle and fade.

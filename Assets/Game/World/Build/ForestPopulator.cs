@@ -257,9 +257,24 @@ namespace Game.World.Build
             }
             foreach (var l in plan.Logs)
             {
-                var rot = Quaternion.Euler(0f, l.Yaw, 0f);
-                renderer.Add(logs[l.Variant % logs.Length], l.Position, Matrix4x4.TRS(Ground(l.Position), rot, new Vector3(1f, 1f, l.Size)));
+                // Lying along the ground: tilted to the slope between its ends, and raised just enough that no
+                // part of it is under the ground along its length (resting on a hump, its ends lift clear).
+                Vector2 along = new Vector2(Mathf.Sin(l.Yaw * Mathf.Deg2Rad), Mathf.Cos(l.Yaw * Mathf.Deg2Rad));
+                float half = l.Size * 0.5f;
+                float h0 = plan.GroundAt(l.Position - along * half), h1 = plan.GroundAt(l.Position + along * half);
+                float lift = 0f;
+                for (int i = 0; i <= 6; i++)
+                {
+                    float t = i / 6f;
+                    float line = Mathf.Lerp(h0, h1, t);
+                    lift = Mathf.Max(lift, plan.GroundAt(l.Position + along * Mathf.Lerp(-half, half, t)) - line);
+                }
+                float pitch = -Mathf.Atan2(h1 - h0, Mathf.Max(0.1f, l.Size)) * Mathf.Rad2Deg;
+                var rot = Quaternion.Euler(pitch, l.Yaw, 0f);
+                var at = new Vector3(l.Position.x, (h0 + h1) * 0.5f + lift - 0.04f, l.Position.y); // (settled a touch into the litter)
+                renderer.Add(logs[l.Variant % logs.Length], l.Position, Matrix4x4.TRS(at, rot, new Vector3(1f, 1f, l.Size)));
                 var go = Collider(l.Position, "Log", Layers.Props);
+                go.transform.localPosition += Vector3.up * (at.y - plan.GroundAt(l.Position));
                 go.transform.localRotation = rot;
                 var c = go.AddComponent<CapsuleCollider>();
                 c.direction = 2;
