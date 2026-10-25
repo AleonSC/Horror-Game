@@ -36,6 +36,12 @@ namespace Game.World
         public float phantomGap = 40f;
         [Range(30f, 400f), Tooltip("Turning faster than this (degrees a second) counts.")]
         public float phantomTurnSpeed = 120f;
+        [Tooltip("As the night goes on (lamps lit, 0 to all 10) they come more often: the chance rises to this...")]
+        [Range(0f, 1f)] public float phantomChanceLate = 0.6f;
+        [Range(0f, 600f), Tooltip("...the least time between them falls to this...")]
+        public float phantomGapLate = 12f;
+        [Range(30f, 400f), Tooltip("...and a slower turn does it.")]
+        public float phantomTurnSpeedLate = 80f;
 
         [Header("Door knocks")]
         [Range(0f, 1f), Tooltip("Chance that shutting a door is answered by three slow knocks from the trees.")]

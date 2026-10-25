@@ -127,9 +127,13 @@ namespace Game.World
                 else if (phantomSeen || Time.time - lastPhantom > 6f) ClearPhantom();
                 return;
             }
-            if (Mathf.Abs(turn) < s.phantomTurnSpeed || Time.time - lastPhantom < s.phantomGap) return;
+            // More of them as the night goes on (as the lamps are lit).
+            float late = Services.TryGet<GameRun>(out var run) ? Mathf.Clamp01(run.LampsLit / 10f) : 0f;
+            float turnSpeed = Mathf.Lerp(s.phantomTurnSpeed, s.phantomTurnSpeedLate, late);
+            float gap = Mathf.Lerp(s.phantomGap, s.phantomGapLate, late);
+            if (Mathf.Abs(turn) < turnSpeed || Time.time - lastPhantom < gap) return;
             lastPhantom = Time.time;
-            if (Random.value > s.phantomChance) return;
+            if (Random.value > Mathf.Lerp(s.phantomChance, s.phantomChanceLate, late)) return;
 
             // Just past the edge of the view, on the side you're turning toward.
             float half = cam != null ? Camera.VerticalToHorizontalFieldOfView(cam.fieldOfView, cam.aspect) * 0.5f : 50f;

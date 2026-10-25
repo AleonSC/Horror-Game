@@ -25,7 +25,7 @@ namespace Game.World
         float glowStrength;
         float phase;
 
-        public string Prompt => snack ? "Eat" : "Take";
+        public string Prompt => snack ? "Eat the snack" : count > 1 ? $"Take {Inventory.NameOf(kind)} ×{count}" : $"Take {Inventory.NameOf(kind)}";
         public bool CanInteract => true;
         public Vector3 FocusPoint => transform.position + Vector3.up * 0.05f;
 

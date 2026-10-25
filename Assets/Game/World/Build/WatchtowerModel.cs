@@ -30,7 +30,7 @@ namespace Game.World.Build
 
         readonly List<Object> made;
         readonly System.Random rng;
-        readonly Material timber, darkTimber, plank, concrete, metal, tin, glass, brass, rope;
+        readonly Material timber, darkTimber, plank, concrete, metal, tin, glass, brass, rope, cloth;
 
         public WatchtowerModel(List<Object> made, System.Random rng)
         {
@@ -48,6 +48,7 @@ namespace Game.World.Build
             brass = Keep(RuntimeMaterials.Lit("Tower brass", new Color(0.45f, 0.33f, 0.14f), 0.6f));
             brass.SetFloat("_Metallic", 0.8f);
             rope = Keep(RuntimeMaterials.Lit("Tower cable", new Color(0.05f, 0.05f, 0.05f), 0.3f));
+            cloth = Keep(RuntimeMaterials.Lit("Blind cloth", new Color(0.36f, 0.31f, 0.22f), 0.1f, true));
         }
 
         Material Keep(Material m)
@@ -178,8 +179,6 @@ namespace Game.World.Build
                     for (int sgn = -1; sgn <= 1; sgn += 2)
                         Box(t, edge + along * sgn * Gap + Vector3.up * (Deck + 0.125f + railH * 0.5f), new Vector3(0.1f, railH, 0.1f), darkTimber, false);
             }
-            // The drone waits out here, in a corner.
-            Marker(t, "Drone", new Vector3(B - 0.6f, Deck + 0.135f, -B + 0.6f));
         }
 
         // ------------------------------------------------------------------ the lookout room
@@ -236,8 +235,9 @@ namespace Game.World.Build
                 for (int bay = 0; bay < 2; bay++)
                 {
                     float u0 = bay == 0 ? -C : 0f, u1 = bay == 0 ? 0f : C, uc = (u0 + u1) * 0.5f;
-                    if (rng.Next(8) == 0) continue; // (gone)
                     float cy = (WallTop + Eaves) * 0.5f;
+                    RollerBlind(t, mid - outward * 0.09f + along * uc + Vector3.up * (Eaves - 0.17f), -outward, u1 - u0 - 0.14f, Eaves - WallTop - 0.22f);
+                    if (rng.Next(8) == 0) continue; // (gone)
                     Box(t, mid + along * uc + Vector3.up * (cy + 0.05f), Vector3.Scale(along, Vector3.one * (u1 - u0 - 0.06f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.05f) + Vector3.up * 0.04f, timber, false);
                     var pane = Box(t, mid + along * uc + Vector3.up * cy, Vector3.Scale(along, Vector3.one * (u1 - u0 - 0.08f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.01f) + Vector3.up * (Eaves - WallTop - 0.14f), glass, false);
                     pane.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -396,6 +396,10 @@ namespace Game.World.Build
             }
             var log = Box(t, desk + new Vector3(-0.02f, 0.795f, 0.3f), new Vector3(0.2f, 0.025f, 0.28f), Keep(RuntimeMaterials.Lit("Logbook", new Color(0.18f, 0.08f, 0.06f), 0.2f)), false);
             log.transform.localRotation = Quaternion.Euler(0f, 14f, 0f);
+            // The drone, waiting on the map table (whichever tower you come to first); the map on the floor.
+            Marker(t, "Drone", table + Vector3.up * 1.02f);
+            Marker(t, "Deck", new Vector3(0f, Deck + 0.13f, -1.05f));
+            Arcade(t);
             // A lantern hanging from the ridge (click it on and off).
             LanternModel.Hanging(t, new Vector3(-0.15f, Eaves + 0.25f, 0.15f), 0.55f, metal, metal, made, 5f, 2.4f);
         }
@@ -468,6 +472,106 @@ namespace Game.World.Build
             box.isTrigger = true;
             box.size = new Vector3(0.8f, top + 0.6f, 1.0f);
             Marker(t, "LadderTop", new Vector3(-B + 0.55f, Deck + 0.15f, 0f));
+        }
+
+        // A roller blind at the top of a window, inside: the roller in its brackets, the cloth (rolled up till you
+        // click it), a bar along its bottom and a pull cord with a ring. Clicking anywhere on the window works it.
+        void RollerBlind(Transform t, Vector3 at, Vector3 inward, float width, float drop)
+        {
+            var root = new GameObject("Blind") { layer = Layers.Props }.transform;
+            root.SetParent(t, false);
+            root.localPosition = at;
+            root.localRotation = Quaternion.LookRotation(inward, Vector3.up);
+            var rollerTube = Shape(PrimitiveType.Cylinder, root, Vector3.zero, new Vector3(0.05f, width * 0.5f + 0.02f, 0.05f), cloth);
+            rollerTube.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            foreach (float x in new[] { -1f, 1f }) Box(root, new Vector3(x * (width * 0.5f + 0.03f), 0.01f, -0.02f), new Vector3(0.02f, 0.07f, 0.06f), metal, false);
+            var clothPart = Box(root, Vector3.zero, Vector3.one, cloth, false).transform;
+            var bar = new GameObject("Bar").transform;
+            bar.SetParent(root, false);
+            Box(bar, Vector3.zero, new Vector3(width, 0.025f, 0.015f), darkTimber, false);
+            Rod(bar, new Vector3(0f, -0.01f, 0.01f), new Vector3(0f, -0.2f, 0.01f), 0.002f, rope);
+            var ring = Shape(PrimitiveType.Cylinder, bar, new Vector3(0f, -0.22f, 0.01f), new Vector3(0.035f, 0.003f, 0.035f), brass);
+            ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var hit = root.gameObject.AddComponent<BoxCollider>();
+            hit.isTrigger = true;
+            hit.center = new Vector3(0f, -drop * 0.5f, -0.02f);
+            hit.size = new Vector3(width, drop, 0.05f);
+            var blind = root.gameObject.AddComponent<Blind>();
+            blind.cloth = clothPart;
+            blind.bar = bar;
+            blind.width = width;
+            blind.drop = drop;
+        }
+
+        // An arcade cabinet in the north-east corner, facing into the room, playing Snake: side panels with a
+        // stripe, the marquee lit at the top, the screen set back under its bezel, a control panel with a stick
+        // and two buttons, the coin door with its slots glowing, a kick plate.
+        void Arcade(Transform t)
+        {
+            var root = new GameObject("Arcade cabinet") { layer = Layers.Props }.transform;
+            root.SetParent(t, false);
+            root.localPosition = new Vector3(C - 0.55f, Deck + 0.125f, C - 0.56f); // (clear of the walls, turned)
+            root.localRotation = Quaternion.Euler(0f, 180f + 20f, 0f); // (facing into the room, a little toward the middle)
+            var r = root;
+            var body = Keep(RuntimeMaterials.Lit("Cabinet", new Color(0.05f, 0.05f, 0.07f), 0.35f));
+            var art = Keep(RuntimeMaterials.Lit("Cabinet stripe", new Color(0.05f, 0.35f, 0.12f), 0.4f));
+            var trim = Keep(RuntimeMaterials.Lit("T-molding", new Color(0.1f, 0.5f, 0.2f), 0.6f));
+            const float w = 0.64f, d = 0.68f, h = 1.78f;
+            foreach (float x in new[] { -1f, 1f })
+            {
+                Box(r, new Vector3(x * (w * 0.5f - 0.01f), h * 0.5f, 0f), new Vector3(0.02f, h, d), body, false);
+                var stripe = Box(r, new Vector3(x * (w * 0.5f + 0.001f), 0.95f, 0.05f), new Vector3(0.004f, 0.08f, d * 0.9f), art, false);
+                stripe.transform.localRotation = Quaternion.Euler(-30f, 0f, 0f);
+                Box(r, new Vector3(x * (w * 0.5f + 0.004f), h * 0.5f, d * 0.5f - 0.005f), new Vector3(0.008f, h, 0.012f), trim, false);
+            }
+            Box(r, new Vector3(0f, h - 0.01f, 0f), new Vector3(w, 0.02f, d), body, false);
+            Box(r, new Vector3(0f, h * 0.5f, -d * 0.5f + 0.01f), new Vector3(w, h, 0.02f), body, false);
+            Box(r, new Vector3(0f, 0.4f, d * 0.5f - 0.03f), new Vector3(w - 0.04f, 0.8f, 0.02f), body, false);       // (the front below)
+            Box(r, new Vector3(0f, 0.06f, d * 0.5f - 0.02f), new Vector3(w - 0.04f, 0.12f, 0.01f), metal, false);     // (kick plate)
+            // The coin door: two slots glowing red.
+            Box(r, new Vector3(0f, 0.48f, d * 0.5f - 0.015f), new Vector3(0.24f, 0.22f, 0.01f), metal, false);
+            var coin = Keep(RuntimeMaterials.LitGlow("Coin slot", new Color(0.3f, 0.02f, 0.02f), new Color(1f, 0.08f, 0.04f) * 1.2f));
+            foreach (float x in new[] { -0.05f, 0.05f }) Box(r, new Vector3(x, 0.52f, d * 0.5f - 0.008f), new Vector3(0.025f, 0.05f, 0.006f), coin, false);
+            // The control panel, sloped toward you: a stick and two buttons.
+            var panel = new GameObject("Controls").transform;
+            panel.SetParent(r, false);
+            panel.localPosition = new Vector3(0f, 0.92f, d * 0.5f - 0.02f);
+            panel.localRotation = Quaternion.Euler(14f, 0f, 0f);
+            Box(panel, new Vector3(0f, 0f, 0f), new Vector3(w - 0.04f, 0.04f, 0.26f), body, false);
+            Box(panel, new Vector3(0f, 0.021f, 0f), new Vector3(w - 0.06f, 0.002f, 0.24f), art, false);
+            Cyl(panel, new Vector3(-0.12f, 0.03f, 0.02f), 0.025f, 0.012f, metal);
+            Rod(panel, new Vector3(-0.12f, 0.03f, 0.02f), new Vector3(-0.12f, 0.1f, 0.02f), 0.006f, metal);
+            Sphere(panel, new Vector3(-0.12f, 0.11f, 0.02f), 0.02f, Keep(RuntimeMaterials.Lit("Ball top", new Color(0.6f, 0.04f, 0.03f), 0.7f)));
+            var button = Keep(RuntimeMaterials.LitGlow("Arcade button", new Color(0.05f, 0.3f, 0.1f), new Color(0.2f, 1f, 0.35f) * 0.5f));
+            foreach (float x in new[] { 0.06f, 0.14f }) Cyl(panel, new Vector3(x, 0.026f, 0.03f), 0.022f, 0.014f, button);
+            // The screen, set back and tilted under its bezel, and the marquee over it.
+            var screenGo = Box(r, new Vector3(0f, 1.3f, d * 0.5f - 0.17f), new Vector3(0.46f, 0.36f, 0.01f), glass, false);
+            screenGo.transform.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+            foreach (float y in new[] { 1.1f, 1.5f }) Box(r, new Vector3(0f, y, d * 0.5f - 0.13f), new Vector3(w - 0.04f, 0.04f, 0.1f), body, false);
+            var bezelSide = new[] { -1f, 1f };
+            foreach (float x in bezelSide) Box(r, new Vector3(x * 0.26f, 1.3f, d * 0.5f - 0.13f), new Vector3(0.06f, 0.42f, 0.1f), body, false);
+            var marquee = Keep(RuntimeMaterials.LitGlow("Marquee", new Color(0.05f, 0.25f, 0.1f), new Color(0.3f, 1f, 0.45f) * 0.9f));
+            var mq = Box(r, new Vector3(0f, 1.66f, d * 0.5f - 0.06f), new Vector3(w - 0.04f, 0.16f, 0.01f), marquee, false);
+            mq.transform.localRotation = Quaternion.Euler(8f, 0f, 0f);
+            for (int i = 0; i < 5; i++) // (the speaker grille under the marquee)
+                Box(r, new Vector3(0f, 1.55f + i * 0.01f, d * 0.5f - 0.075f), new Vector3(0.3f, 0.004f, 0.004f), metal, false);
+            // The power lead to the wall.
+            Rod(r, new Vector3(0.2f, 0.05f, -d * 0.5f), new Vector3(0.35f, 0.01f, -d * 0.5f - 0.05f), 0.006f, rope);
+            // What you bump into, where you stand to play, and the game.
+            var solid = r.gameObject.AddComponent<BoxCollider>();
+            solid.center = new Vector3(0f, h * 0.5f, 0f);
+            solid.size = new Vector3(w, h, d);
+            var stand = new GameObject("Stand here").transform;
+            stand.SetParent(r, false);
+            stand.localPosition = new Vector3(0f, 0f, d * 0.5f + 0.42f);
+            stand.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            var middle = new GameObject("Screen middle").transform;
+            middle.SetParent(r, false);
+            middle.localPosition = new Vector3(0f, 1.3f, d * 0.5f - 0.17f);
+            var cab = r.gameObject.AddComponent<ArcadeCabinet>();
+            cab.screen = screenGo.GetComponent<Renderer>();
+            cab.standAt = stand;
+            cab.screenCentre = middle;
         }
 
         void Hidden(Transform parent, Vector3 pos, Vector3 size)

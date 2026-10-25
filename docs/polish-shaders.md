@@ -792,3 +792,25 @@ There are seven phantoms now (`World/Life/Phantoms.cs`).
 
 **Fading:** a phantom's sound fades in over 1.5 s as it appears (`PhantomSound`). When it vanishes it's gone at
 once, but its sound fades out over 1.8 s. The sound is muffled when you're under cover.
+
+## More phantoms later; pickup names; the drone on the table; blinds; an arcade cabinet
+
+- **Phantoms come more often as the night goes on.** Going from no lamps lit to all ten:
+  - the chance on a quick turn rises from 25% to 60% (`ForestLifeConfig` > `phantomChanceLate`);
+  - the shortest time between them falls from 40 s to 12 s (`phantomGapLate`);
+  - a slower turn is enough: 80°/s instead of 120°/s (`phantomTurnSpeedLate`).
+- **Pickups name themselves** on the prompt: "Take Batteries ×2", "Take Flare gun", "Eat the snack".
+- **The drone** now waits on the watchtower's map table (the `Drone` marker). The map lies on the floor south of
+  the table (the `Deck` marker), out of the arcade cabinet's way.
+- **Blinds:** every watchtower window has a roller blind inside (`Blind`): a roller in brackets, cloth, a bottom bar
+  and a pull cord with a ring. Click the window and the blind rolls down over the glass; click again and it rolls
+  back up.
+- **Arcade cabinet:** it stands in the lookout room's north-east corner and plays Snake (`ArcadeCabinet`,
+  `SnakeGame`).
+  - The cabinet: a black body with green stripes and trim, a glowing marquee, the screen set back under its bezel,
+    a stick and two lit buttons, a coin door with red-glowing slots, and a kick plate.
+  - Its green screen lights the room.
+  - Left alone, it plays itself (attract mode) and flashes "CLICK TO PLAY".
+  - Click it to step up and play: arrows or WASD steer, it speeds up as you score, and Space (or a direction)
+    starts again after a game over. E steps away.
+  - It beeps, and keeps the best score for the session ("HI").
