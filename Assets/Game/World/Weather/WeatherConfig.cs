@@ -33,6 +33,8 @@ namespace Game.World
         public float rainAtStart = 0.2f;
         [Range(0f, 1f)] public float rainAtFifthLamp = 0.55f;
         [Range(0f, 1f)] public float rainAtSeventhLamp = 1f;
+        [Range(0f, 1f), Tooltip("How loud the rain is at its heaviest (lighter rain much quieter than that).")]
+        public float rainVolume = 0.4f;
         [Range(100, 8000), Tooltip("Drops round you at full rain.")]
         public int maxDrops = 3000;
         [Range(2f, 30f), Tooltip("How fast drops fall (metres a second).")]

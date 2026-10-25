@@ -51,6 +51,7 @@ namespace Game.DevTools
             AddTab(new LookTab());
             AddTab(new HuntersTab());
             AddTab(new RevealTab());
+            AddTab(new SoundsTab());
 
             if (Services.TryGet<PlayerPreferences>(out var prefs))
             {

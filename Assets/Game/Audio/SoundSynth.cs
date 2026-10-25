@@ -822,20 +822,24 @@ namespace Game.Audio
             return Loop(s, 0.4f);
         }
 
-        /// <summary>Rain in the forest, to loop: a soft hiss with drops pattering on leaves (6 s).</summary>
+        /// <summary>Rain in the forest, to loop: a soft, dark wash with drops tapping on the leaves (6 s).</summary>
         public static float[] RainLoop(int seed)
         {
             var rng = new Random(seed);
             var s = Make(6f);
-            float lp = 0f, hp = 0f, last = 0f;
+            float lp = 0f, lp2 = 0f, hp = 0f, last = 0f, drop = 0f, dropY = 0f;
             for (int i = 0; i < s.Length; i++)
             {
                 float n = Noise(rng);
                 hp = 0.9f * (hp + n - last);
                 last = n;
-                lp += (hp - lp) * 0.35f;
-                float patter = rng.NextDouble() < 0.004 ? Noise(rng) * 3f : 0f;
-                s[i] = lp * 0.6f + patter;
+                lp += (hp - lp) * 0.12f;            // (a soft, dark wash: not a hiss)
+                lp2 += (lp - lp2) * 0.3f;
+                // Drops on leaves: little soft taps, each its own, not clicks.
+                if (rng.NextDouble() < 0.0025) drop = 0.6f + 0.4f * (float)rng.NextDouble();
+                drop *= 0.996f;
+                dropY += (n * drop - dropY) * 0.25f;
+                s[i] = lp2 * 0.8f + dropY * 0.9f;
             }
             return Loop(s, 0.4f);
         }
@@ -1077,7 +1081,7 @@ namespace Game.Audio
                     float d = t - at;
                     if (d >= 0f && d < len) squelch = d < 0.02f || d > len - 0.02f ? 0.6f : 0.04f;
                 }
-                s[i] = ((hiss + crackle) * 0.5f + tone + voice * 0.9f + beep) * squelch;
+                s[i] = ((hiss + crackle) * 0.22f + tone + voice * 0.9f + beep) * squelch;
             }
             return Loop(s, 0.55f);
         }

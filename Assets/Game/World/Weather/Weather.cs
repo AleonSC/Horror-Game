@@ -117,7 +117,9 @@ namespace Game.World
             float wantRain = !outside ? 0f : lamps >= 7 ? s.rainAtSeventhLamp : lamps >= 5 ? s.rainAtFifthLamp : s.rainAtStart;
             rainAmount = Mathf.MoveTowards(rainAmount, wantRain, dt / 20f);
             rain.Update(cam, rainAmount, s, wind, mul);
-            if (rainSound != null) rainSound.volume = Mathf.Lerp(rainSound.volume, rainAmount * 0.6f, 1f - Mathf.Exp(-dt));
+            // (a drizzle hardly heard, a downpour clearly; under a roof, quieter still as well as muffled)
+            float rainVolume = Mathf.Pow(rainAmount, 1.6f) * s.rainVolume * (1f - 0.6f * SoundPlayer.Muffle);
+            if (rainSound != null) rainSound.volume = Mathf.Lerp(rainSound.volume, rainVolume, 1f - Mathf.Exp(-dt));
 
             Lightning(dt, s, outside);
             Tornadoes(dt, s, lamps, cam, look, mul, outside);

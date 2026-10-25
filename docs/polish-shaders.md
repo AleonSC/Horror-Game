@@ -819,3 +819,17 @@ once, but its sound fades out over 1.8 s. The sound is muffled when you're under
 
 The leaves rustling in the trees are now less than half as loud (`AudioConfig` > `leavesVolume` 0.15, was 0.35).
 They also swell less and more slowly with the gusts.
+
+## The constant hiss: rain, the radio, and a Sounds tab to find it
+
+- **Rain (the likeliest culprit):** a light drizzle runs from the start (`WeatherConfig` > `rainAtStart` 0.2), and
+  its sound was a bright hiss with drops pattering, never stopping and only muffled indoors. Now:
+  - the sound is a soft, dark wash with drops tapping on leaves;
+  - its volume follows the rain's strength to the power 1.6, so the starting drizzle is about a quarter as loud as
+    before and a downpour is still clear (`rainVolume` 0.4 at the heaviest);
+  - under a roof it's 60% quieter as well as muffled.
+- **The watchtower's CB radio:** its static is less than half as loud. The voice, carrier and beeps stay as they
+  were.
+- **Dev window > Sounds:** lists everything playing right now, loudest first. Each line shows the sound's name,
+  what it's on, whether it loops, its volume, how far off it is (or "everywhere") and its mixer group, with a
+  Mute box. It also shows how muffled you are.
