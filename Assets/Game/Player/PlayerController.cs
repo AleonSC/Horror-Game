@@ -229,13 +229,11 @@ namespace Game.Player
             return steps[i];
         }
 
-        // Winded: you pant, and something close by can hear it.
+        // Winded: you pant (seen in your breath, no longer heard), and something close by can hear it.
         void Pant(PlayerSettings s)
         {
             if (!Stamina.Winded || Time.time < nextPant) return;
             nextPant = Time.time + 1.4f;
-            if (Services.TryGet<Game.Audio.SoundPlayer>(out var sounds))
-                sounds.Play2D(Game.Audio.Sound.Breath, Game.Audio.MixerNames.Player, 0.5f, 1.6f);
             if (s.pantNoise > 0f && Services.TryGet<EventBus>(out var events))
                 events.Publish(new NoiseEmitted(transform.position, s.pantNoise, "panting"));
         }

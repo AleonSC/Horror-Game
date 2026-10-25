@@ -41,7 +41,6 @@ namespace Game.Entities
             body.SetPose(ScourPose.Neutral, 1, false, 2f);
             caughtSent = false;
             Play(Sound.Shriek, 0.5f, 0.7f, 20f); // low and quiet: it has you
-            if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Breath, MixerNames.Player, 0.9f, 0.8f);
             SetState(ScourState.Taking, "taking the player");
         }
 
@@ -117,7 +116,6 @@ namespace Game.Entities
             {
                 motes = WorldMotes.Begin(player.Head.position, s.dissolveReach, s.worldMotes, s.dissolveTime);
                 Play(Sound.Portal, 0.6f, 0.45f, 25f);
-                if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Breath, MixerNames.Player, 0.7f, 0.65f);
             }
             float d = Mathf.Clamp01((t - tDissolve) / Mathf.Max(0.5f, s.dissolveTime));
             if (look != null && motes != null)

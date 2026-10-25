@@ -20,7 +20,7 @@ namespace Game.Entities
         ThreatLevel level;
         MusicMood mood;
         float heldSince;
-        float nextBeat, nextBreath;
+        float nextBeat;
 
         public ThreatLevel Level => level;
 
@@ -76,11 +76,6 @@ namespace Game.Entities
             {
                 nextBeat = now + 0.75f;
                 sounds.Play2D(Sound.Heartbeat, MixerNames.Player, 0.9f);
-            }
-            else if (level == ThreatLevel.Dread && now >= nextBreath)
-            {
-                nextBreath = now + 3.6f;
-                sounds.Play2D(Sound.Breath, MixerNames.Player, 0.6f, Random.Range(0.9f, 1.05f));
             }
         }
     }
