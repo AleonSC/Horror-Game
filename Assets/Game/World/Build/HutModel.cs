@@ -382,6 +382,8 @@ namespace Game.World.Build
                 Box(t, "Table leg", at + new Vector3(i % 2 == 0 ? -0.52f : 0.52f, 0.36f, i < 2 ? -0.28f : 0.28f), new Vector3(0.07f, 0.72f, 0.07f), plankC);
             Chair(t, at + new Vector3(0f, 0f, 0.6f), 180f + R(-15f, 15f), false);
             if (cabin) Chair(t, at + new Vector3(-0.9f, 0f, -0.1f), 75f, true);
+            // The shack's lantern stands at the back corner of the table (click it on and off).
+            else LanternModel.Standing(t, at + new Vector3(0.46f, 0.77f, -0.2f), R(0f, 360f), tin, iron, made);
         }
 
         void Chair(Transform t, Vector3 at, float yaw, bool fallen)
@@ -494,10 +496,9 @@ namespace Game.World.Build
             }
             Shelf(t, new Vector3(-hw + 0.17f, 1.6f, -1.6f), Vector3.back, 6); // (over the bed, clear of the window)
             Shelf(t, new Vector3(1.8f, 1.6f, -hd + 0.17f), Vector3.right, 5);
-            // A ceiling beam across, and a lantern hanging from it (long out).
+            // A ceiling beam across, and a lantern hanging from it on a chain (click it on and off).
             Box(t, "Beam", new Vector3(0f, h - 0.1f, -0.3f), new Vector3(hw * 2f - 0.2f, 0.18f, 0.18f), plankC);
-            Rod(t, new Vector3(0.3f, h - 0.19f, -0.3f), new Vector3(0.3f, h - 0.6f, -0.3f), 0.006f, iron);
-            Cyl(t, "Lantern", new Vector3(0.3f, h - 0.72f, -0.3f), 0.07f, 0.2f, jar, Vector3.up);
+            LanternModel.Hanging(t, new Vector3(0.3f, h - 0.19f, -0.3f), 0.4f, tin, iron, made, 6f, 3f);
             Cyl(t, "Lantern cap", new Vector3(0.3f, h - 0.6f, -0.3f), 0.08f, 0.03f, iron, Vector3.up);
             Cyl(t, "Lantern base", new Vector3(0.3f, h - 0.83f, -0.3f), 0.08f, 0.03f, iron, Vector3.up);
             // A coat hook by the door, an old coat on it.

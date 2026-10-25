@@ -458,3 +458,14 @@ black. **Options > Picture > Brightness** (0-1, default 0.5) lifts that ambient 
 exactly as tuned), 2.25x at 0.5, 6x at 1. It lights the ground, trees and things, not the fog, so the night
 stays murky while what's round you shows. Behind the **main menu** the ambient light is tripled on top, so its
 views of the forest read (`LookController.MenuLift`).
+
+## Wind, hut lanterns and batteries
+
+- **Wind** (`Sound.WindLoop`, now 16 s): a deep, airy rush in two bands that swells and falls away in uneven
+  gusts (the higher band opening up as it gusts), a low rumble under it, and at each gust's height a faint,
+  hollow moan sliding up and down. The gusts are sums of waves that repeat in the loop, so it loops clean.
+- **Lanterns** (`Lantern`, made by `LanternModel`): a small hurricane lantern (tin base and cap, glass globe in
+  a wire guard, bail handle). Click it on and off: a warm, small light with soft shadows. One stands on each
+  shack's table; one hangs on a chain from the cabin's beam; and the tent's is the same lantern, hung by a cord.
+- **Batteries**: every shack's table now has 2 (and a 50% chance of a third); the cabin's table has 3.
+  `WorldGenConfig` > `batteriesInShack`, `batteriesInCabin`.

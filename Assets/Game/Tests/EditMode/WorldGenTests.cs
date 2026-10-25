@@ -159,6 +159,11 @@ namespace Game.Tests
                     if (kind == StructureKind.Shack)
                     {
                         Assert.IsTrue(Has(LootPlace.Table, LootKind.Torch) && Has(LootPlace.Table, LootKind.Lighter), $"seed {seed}: a shack without its torch and lighter");
+                        Assert.IsTrue(Has(LootPlace.Table, LootKind.Battery), $"seed {seed}: a shack without its batteries");
+                    }
+                    else if (kind == StructureKind.Cabin)
+                    {
+                        Assert.IsTrue(Has(LootPlace.Table, LootKind.Battery), $"seed {seed}: the cabin without its batteries");
                     }
                     else if (kind == StructureKind.Campsite)
                     {

@@ -131,8 +131,10 @@ namespace Game.World.Generation
         public float batteryFromStart = 8f;
         public float batteriesApart = 12f;
         public float batteryFromTrees = 1.2f;
-        [Range(0f, 1f), Tooltip("Chance of a battery on a shack's table.")]
+        [Range(0f, 1f), Tooltip("Chance of one more battery on a shack's table.")]
         public float shackBatteryChance = 0.5f;
+        [Tooltip("Batteries always on each shack's table, and on the cabin's.")]
+        public int batteriesInShack = 2, batteriesInCabin = 3;
         [Range(0f, 1f), Tooltip("Chance of the car's key fob on a shack's table, and in a campsite's backpack.")]
         public float keyFobChance = 0.2f;
         [Range(0f, 1f), Tooltip("Chance of a radio on a shack's table, and in a campsite's backpack (the car always has one).")]

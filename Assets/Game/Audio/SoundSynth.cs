@@ -549,21 +549,57 @@ namespace Game.Audio
             return Normalize(s, 0.4f);
         }
 
-        /// <summary>Wind in the trees, to loop: a breathing, hollow rush (8 s).</summary>
+        /// <summary>
+        /// Wind through the forest, to loop (16 s): a deep, airy rush in two bands that swells and falls away in
+        /// uneven gusts, a low rumble under it, and at the height of each gust a faint, hollow moan that slides up
+        /// and down (the wind finding a gap). Its gusts are sums of waves that repeat in 16 s, so it loops clean.
+        /// </summary>
         public static float[] WindLoop(int seed)
         {
             var rng = new Random(seed);
-            var s = Make(8f);
-            float lp = 0f, lp2 = 0f;
+            const float length = 16f;
+            var s = Make(length);
+            // The gusts: slow swells of different periods (all dividing the loop), each its own phase.
+            var periods = new[] { 16f, 8f, 16f / 3f, 4f, 16f / 7f };
+            var weights = new[] { 0.45f, 0.3f, 0.25f, 0.15f, 0.08f };
+            var phases = new float[periods.Length];
+            for (int k = 0; k < phases.Length; k++) phases[k] = (float)(rng.NextDouble() * Math.PI * 2);
+            float brown = 0f, pink1 = 0f, pink2 = 0f;
+            float lowA = 0f, bandA = 0f, lowB = 0f, bandB = 0f, lowM = 0f, bandM = 0f;
             for (int i = 0; i < s.Length; i++)
             {
                 float t = Time(i);
-                float swell = 0.65f + 0.35f * (float)Math.Sin(2 * Math.PI * t / 8f) * (float)Math.Sin(2 * Math.PI * t / 2.7f + 1f);
-                lp += (Noise(rng) - lp) * (0.03f + 0.02f * swell);
-                lp2 += (lp - lp2) * 0.2f;
-                s[i] = (lp - lp2 * 0.6f) * swell;
+                float g = 0f;
+                for (int k = 0; k < periods.Length; k++) g += weights[k] * (float)Math.Sin(2 * Math.PI * t / periods[k] + phases[k]);
+                float gust = Math.Max(0f, Math.Min(1f, 0.45f + g * 0.6f));
+                gust = gust * gust * (3f - 2f * gust);
+
+                float n = Noise(rng);
+                brown = brown * 0.998f + n * 0.015f;               // (the rumble)
+                pink1 = pink1 * 0.97f + n * 0.03f;
+                pink2 = pink2 * 0.6f + n * 0.4f;
+                float air = pink1 * 0.7f + pink2 * 0.3f;
+
+                // Two bands of rush, the higher one opening up as it gusts.
+                Band(air, 220f + 120f * gust, 0.9f, ref lowA, ref bandA);
+                Band(air, 650f + 900f * gust, 1.1f, ref lowB, ref bandB);
+                // The moan: a narrow resonance gliding with the gust, heard only near its peak.
+                float moanFreq = 280f + 260f * gust + 30f * (float)Math.Sin(2 * Math.PI * t / 2f + phases[1]);
+                Band(air, moanFreq, 0.06f, ref lowM, ref bandM);
+                float moan = bandM * Math.Max(0f, gust - 0.55f) * 2.2f;
+
+                s[i] = bandA * (0.35f + 0.65f * gust) * 1.2f + bandB * gust * gust * 0.8f + brown * (0.5f + 0.5f * gust) * 1.5f + moan * 0.35f;
             }
             return Loop(s, 0.5f);
+        }
+
+        // One step of a state-variable band-pass filter (centre frequency fc, damping q: low is narrow and ringing).
+        static void Band(float input, float fc, float q, ref float low, ref float band)
+        {
+            float f = 2f * (float)Math.Sin(Math.PI * Math.Min(fc, SampleRate / 6f) / SampleRate);
+            low += f * band;
+            float high = input - low - q * band;
+            band += f * high;
         }
 
         /// <summary>

@@ -33,9 +33,12 @@ namespace Game.World.Generation
                     case StructureKind.Shack:
                         Add(plan, i, LootPlace.Table, LootKind.Torch, 1);
                         Add(plan, i, LootPlace.Table, LootKind.Lighter, 1);
-                        if (loot.Chance(s.shackBatteryChance)) Add(plan, i, LootPlace.Table, LootKind.Battery, 1);
+                        Add(plan, i, LootPlace.Table, LootKind.Battery, s.batteriesInShack + (loot.Chance(s.shackBatteryChance) ? 1 : 0));
                         if (loot.Chance(s.keyFobChance)) Add(plan, i, LootPlace.Table, LootKind.KeyFob, 1);
                         if (loot.Chance(s.radioChance)) Add(plan, i, LootPlace.Table, LootKind.Radio, 1);
+                        break;
+                    case StructureKind.Cabin:
+                        Add(plan, i, LootPlace.Table, LootKind.Battery, s.batteriesInCabin);
                         break;
                     case StructureKind.Campsite:
                         Add(plan, i, LootPlace.Tent, LootKind.Snack, 1);

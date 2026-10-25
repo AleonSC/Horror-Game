@@ -480,34 +480,8 @@ namespace Game.World.Build
             go.AddComponent<MeshRenderer>().sharedMaterial = blanket;
         }
 
-        // A little camping lantern hung on a hook from the tent's ridge: a tin base and cap, a glass chimney, a
-        // wire handle. Click it on and off (TentLantern).
-        void HangingLantern(Transform parent, Vector3 ridgeAt)
-        {
-            var lamp = new GameObject("Lantern") { layer = Layers.Props }.transform;
-            lamp.SetParent(parent, false);
-            lamp.localPosition = ridgeAt + Vector3.down * 0.2f;
-            Rod(lamp, Vector3.up * 0.2f, Vector3.up * 0.1f, 0.003f, metal);                  // (the cord to the hook)
-            Rod(lamp, new Vector3(-0.045f, 0.0f, 0f), new Vector3(0f, 0.1f, 0f), 0.0025f, metal); // (the wire handle)
-            Rod(lamp, new Vector3(0f, 0.1f, 0f), new Vector3(0.045f, 0.0f, 0f), 0.0025f, metal);
-            Shape(PrimitiveType.Cylinder, lamp, Vector3.down * 0.005f, new Vector3(0.075f, 0.012f, 0.075f), pot, false);      // cap
-            var glass = Shape(PrimitiveType.Cylinder, lamp, Vector3.down * 0.075f, new Vector3(0.06f, 0.058f, 0.06f),
-                Keep(RuntimeMaterials.LitGlow("Lantern glass", new Color(0.5f, 0.45f, 0.35f), Color.black)), false);
-            glass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            for (int i = 0; i < 4; i++) // (the wire guard round the glass)
-            {
-                float a = i * Mathf.PI * 0.5f + 0.4f;
-                var at = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.033f;
-                Rod(lamp, at + Vector3.down * 0.015f, at + Vector3.down * 0.135f, 0.0018f, metal);
-            }
-            Shape(PrimitiveType.Cylinder, lamp, Vector3.down * 0.145f, new Vector3(0.08f, 0.015f, 0.08f), pot, false);       // base
-            var hit = lamp.gameObject.AddComponent<SphereCollider>(); // (what you click)
-            hit.isTrigger = true;
-            hit.center = Vector3.down * 0.075f;
-            hit.radius = 0.09f;
-            var lantern = lamp.gameObject.AddComponent<TentLantern>();
-            lantern.glass = glass.GetComponent<Renderer>();
-        }
+        // A little camping lantern hung on a hook from the tent's ridge: click it on and off.
+        void HangingLantern(Transform parent, Vector3 ridgeAt) => LanternModel.Hanging(parent, ridgeAt, 0.06f, pot, metal, made);
 
         // A rock (the forest's own shape), placed, sized and turned.
         void Rock(Transform parent, Vector3 at, Vector3 size, float yaw, Material mat, System.Random rng)
