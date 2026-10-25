@@ -100,7 +100,7 @@ namespace Game.World.Generation
         }
     }
 
-    /// <summary>A rough patch of trodden earth: a ragged disc.</summary>
+    /// <summary>A rough patch of trodden earth: worn ground of no particular shape, big lobes and small.</summary>
     public sealed class DirtPatch
     {
         public Vector2 Centre;
@@ -108,7 +108,8 @@ namespace Game.World.Generation
         public int Seed;
 
         /// <summary>Its edge's distance from the centre in this direction (radians).</summary>
-        public float RadiusAt(float angle) => Radius * (1f + 0.22f * (PeriodicNoise.Around(angle, 7, Seed) * 2f - 1f));
+        public float RadiusAt(float angle) => Radius * (1f + 0.42f * (PeriodicNoise.Around(angle, 3, Seed) * 2f - 1f)
+                                                           + 0.18f * (PeriodicNoise.Around(angle, 11, Seed + 1) * 2f - 1f));
     }
 
     public sealed class Trail

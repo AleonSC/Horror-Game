@@ -84,7 +84,7 @@ namespace Game.World.Generation
         public int extraLoops = 2;
         public float trailWidth = 1.4f;
         [Range(0.5f, 10f), Tooltip("Each lamp stands on a patch of trodden earth this wide (radius, metres); its trails run out of it.")]
-        public float lampPatchRadius = 2.8f;
+        public float lampPatchRadius = 2f;
         [Range(0f, 1f), Tooltip("Share of a trail that's worn (the rest peters out).")]
         public float trailWorn = 0.75f;
         [Range(0f, 10f), Tooltip("Grass clumps lining each side of a worn trail (and round the lamps' patches), per metre.")]

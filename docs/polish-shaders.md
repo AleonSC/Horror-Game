@@ -557,3 +557,10 @@ mouse look starts at half speed, walking at 35%, you speed up and slow down slug
 until it's mostly worn off. The extra vignette while groggy is gone. (`PlayerConfig` > Waking up: groggySway 1,
 groggyShake 0, groggyAcceleration, groggyLook 0.5, groggySpeed 0.35, groggyBlur 0.9: a little stronger than the HDRP build's 0.7.) Waking after being taken
 uses the same.
+
+## Lamps' worn patches
+
+The trodden earth round each lamp read as a stamped-on circle: a near-round disc 2.8 m across with a ring of
+grass planted along its edge. Now it's smaller (`lampPatchRadius` 2 m) and of no particular shape (big lobes
+and small ones, up to 60% out from round), and instead of the ring there's a loose scatter of clumps thinning
+out from its edge, which the forest floor's grass runs into.

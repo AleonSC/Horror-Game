@@ -133,14 +133,17 @@ namespace Game.World.Generation
                     Verge(mid, side, length, true);
                     Verge(mid, -side, length, true);
                 }
+            // Round the lamps' worn patches, no ring of grass tracing their edge (it showed them up as circles):
+            // just a loose scatter of clumps, thinning out from the edge, that the forest floor's grass runs into.
             foreach (var patch in plan.Patches)
             {
-                int around = Mathf.CeilToInt(patch.Radius * Mathf.PI * 2f);
+                int around = Mathf.CeilToInt(patch.Radius * Mathf.PI * 2f * 1.5f);
                 for (int i = 0; i < around; i++)
                 {
-                    float a = (i + rng.Value()) / around * Mathf.PI * 2f;
-                    var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
-                    Verge(patch.Centre + dir * (patch.RadiusAt(a) - half), dir, 1f, false); // (no tall grass by the lamp)
+                    float a = rng.Angle();
+                    var p = patch.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (patch.RadiusAt(a) + rng.Range(-0.2f, 1.6f) * rng.Value());
+                    if (!rng.Chance(0.7f)) continue;
+                    plan.Grass.Add(new Spot { Position = Wrap.Into(p, plan.Size), Size = rng.Range(0.25f, 0.7f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
                 }
             }
         }
