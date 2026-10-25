@@ -104,6 +104,19 @@ namespace Game.Rendering
 
         void LateUpdate() => Apply();
 
+        /// <summary>Set by the main menu while its film plays behind it (0-1): the forest lit a little more, to read.</summary>
+        public static float MenuLift;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetMenuLift() => MenuLift = 0f;
+
+        /// <summary>How much the Brightness option multiplies the ambient light: 1 at 0 (as tuned), 2.25 at 0.5, 6 at 1.</summary>
+        public static float AmbientLift(float brightness)
+        {
+            float b = Mathf.Clamp01(brightness);
+            return 1f + 5f * b * b;
+        }
+
         /// <summary>
         /// Whether ray tracing can be on: a card and driver that can (DirectX 12) and a quality level whose HDRP
         /// asset has it switched on (only High Fidelity does).
@@ -195,7 +208,11 @@ namespace Game.Rendering
 
             // The ambient light is a flat sky in the ambient colour (only updated when it changes: it re-bakes).
             // (Darkened in steps while the world goes: each change re-bakes the ambient light.)
-            Color ambient = s.ambient.linear * s.ambientStrength / mul * (1f - Mathf.Round(Mathf.Clamp01(Void) * 5f) / 5f);
+            // The player's Brightness lifts it (so the ground, trees and things show a little, while the fog stays
+            // as dark), and more behind the main menu, so its views of the forest read.
+            var lift = Services.TryGet<PlayerPreferences>(out var liftPrefs) ? liftPrefs : null;
+            float brighter = AmbientLift(lift != null ? lift.brightness : 0.5f) * Mathf.Lerp(1f, 3f, Mathf.Clamp01(MenuLift));
+            Color ambient = s.ambient.linear * s.ambientStrength * brighter / mul * (1f - Mathf.Round(Mathf.Clamp01(Void) * 5f) / 5f);
             if (ambient != lastAmbient)
             {
                 lastAmbient = ambient;

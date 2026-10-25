@@ -450,3 +450,11 @@ is worked out, once per session (`ForestTextures`); about a second.
 - A little **lantern** hangs from the ridge: click it on and off (a warm, small light that stays in the tent
   but for the doorway). A **wool blanket** (red and green check, its top turned back) and **two pillows** lie
   on the ground sheet, in place of the old sleeping bag.
+
+## Brightness option, and a lighter menu
+
+With the moon off, the forest is lit only by the soft ambient light (a dim sky), so the dark soil read as
+black. **Options > Picture > Brightness** (0-1, default 0.5) lifts that ambient light: 1x at 0 (the look
+exactly as tuned), 2.25x at 0.5, 6x at 1. It lights the ground, trees and things, not the fog, so the night
+stays murky while what's round you shows. Behind the **main menu** the ambient light is tripled on top, so its
+views of the forest read (`LookController.MenuLift`).

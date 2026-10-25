@@ -168,10 +168,12 @@ namespace Game.UI
             go.AddComponent<UnityEngine.Rendering.HighDefinition.HDAdditionalCameraData>();
             go.AddComponent<AudioListener>();
             film = new MenuFilm(filmCam, config.shotTime);
+            Game.Rendering.LookController.MenuLift = 1f;
         }
 
         void StopFilm()
         {
+            Game.Rendering.LookController.MenuLift = 0f;
             if (filmCam != null) Destroy(filmCam.gameObject);
             if (playerCam != null) playerCam.enabled = true;
             if (playerEars != null) playerEars.enabled = true;

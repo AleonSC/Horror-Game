@@ -21,6 +21,8 @@ namespace Game.Core
         [Range(0f, 1f)] public float motionBlurStrength = 0.5f;
         [Range(0f, 1f), Tooltip("Depth of field: how soon the distance goes soft (0 off; the default leaves the forest round you sharp and the giant blurred).")]
         public float depthOfField = 0.5f;
+        [Range(0f, 1f), Tooltip("How much the night's soft light picks out the ground, trees and things (not the fog). 0: the look exactly as tuned.")]
+        public float brightness = 0.5f;
         public bool classicLook;
         public bool rayTracing;
         public string difficulty = "Normal";
