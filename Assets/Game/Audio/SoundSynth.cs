@@ -504,23 +504,46 @@ namespace Game.Audio
             return Normalize(s, 0.38f);
         }
 
-        /// <summary>Thunder (and the giant's chain snapping): a crack, then a long rolling rumble.</summary>
+        /// <summary>
+        /// Thunder (about 8 s): no hiss in it. A first crack, sharp but deep (a burst of tearing cracks rung low,
+        /// not bright noise), then the long roll: rumble taken right down low (four poles of filtering, nothing
+        /// above a few hundred hertz), rolling in uneven surges as the sound comes back off the hills and clouds
+        /// one stretch after another, a darker growl in the middle of it, and a tail dying away into the distance.
+        /// </summary>
         public static float[] Thunder(int seed)
         {
             var rng = new Random(seed);
-            var s = Make(5f);
-            float lp = 0f, lp2 = 0f;
+            const float length = 6.5f;
+            var s = Make(length);
+            float a1 = 0f, a2 = 0f, a3 = 0f, a4 = 0f;   // (the rumble: four poles low)
+            float g1 = 0f, g2 = 0f;                     // (the growl, a little higher)
+            float c1 = 0f, c2 = 0f;                     // (the crack, rung low)
+            // The roll's surges: when each stretch of echo comes back, and how loud.
+            var surges = new (float t, float w, float a)[7];
+            for (int k = 0; k < surges.Length; k++)
+                surges[k] = (0.15f + k * 0.75f + (float)rng.NextDouble() * 0.5f, 0.5f + (float)rng.NextDouble() * 0.8f, (1f - k / 8f) * (0.6f + 0.4f * (float)rng.NextDouble()));
             for (int i = 0; i < s.Length; i++)
             {
                 float t = Time(i);
                 float n = Noise(rng);
-                lp += (n - lp) * 0.02f;
-                lp2 += (lp - lp2) * 0.05f;
-                float crack = n * Decay(t, 30f) * 0.8f;
-                float roll = lp * 8f * Env(t, 0.05f, 5f, 3f) * (0.6f + 0.4f * (float)Math.Sin(t * 5.3f + Math.Sin(t * 1.7f) * 3));
-                s[i] = crack + roll + lp2 * 6f * Decay(t, 0.5f);
+                a1 += (n - a1) * 0.016f; a2 += (a1 - a2) * 0.016f; a3 += (a2 - a3) * 0.025f; a4 += (a3 - a4) * 0.025f;
+                g1 += (n - g1) * 0.05f; g2 += (g1 - g2) * 0.05f;
+                // The crack: a quick run of impulses in the first fifth of a second, each rung through a low filter.
+                float imp = t < 0.22f && rng.NextDouble() < 0.02 * (1.0 - t / 0.22) ? Noise(rng) * 6f : 0f;
+                c1 += (imp - c1) * 0.16f; c2 += (c1 - c2) * 0.22f;
+                float crack = c2 * 14f * Decay(t, 3f);
+                float surge = 0f;
+                foreach (var (st, sw, sa) in surges)
+                {
+                    float d = (t - st) / sw;
+                    if (d > -1f && d < 3f) surge += sa * (float)Math.Exp(-d * d * (d < 0f ? 4f : 0.6f));
+                }
+                float tail = Env(t, 0.08f, length, 3f);
+                float rumble = a4 * 450f * (0.25f + surge) * tail;
+                float growl = g2 * 320f * surge * Decay(t, 0.25f);
+                s[i] = crack + rumble + growl;
             }
-            return Normalize(s, 0.9f);
+            return Normalize(Reverb(s, 2.5f, 0.35f, 0.85f), 0.9f);
         }
 
         /// <summary>The giant landing: an enormous low boom.</summary>

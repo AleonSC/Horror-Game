@@ -884,3 +884,19 @@ alphabetical. A row stays once it's been heard, and shows "quiet (N s ago)" when
 
 Mute works by name. It silences every copy of that sound, new ones too, and keeps doing so with the window shut
 (`SoundMutes`). Unmute all clears it.
+
+## Thunder without the static
+
+The thunder was the hiss. Its rumble was noise through a single gentle filter, turned up 8×, so it kept a lot of
+high hiss. With the weather's lightning, the blind one's storm and the giant all playing it, that sounded like
+static.
+
+`Sound.Thunder` is rebuilt (about 9 s):
+- a first crack: a quick burst of cracks rung through a low filter, not bright noise;
+- then the roll: rumble filtered four times over, rolling in seven uneven surges, as the sound comes back off the
+  hills and clouds one stretch after another;
+- a darker growl in the thick of it;
+- and a long, dark echo trailing off.
+
+Measured: about 89% of it is below 100 Hz, 10% is 100–1000 Hz (the body you hear on small speakers), 0.35% is
+1–4 kHz, and almost nothing is above 4 kHz.
