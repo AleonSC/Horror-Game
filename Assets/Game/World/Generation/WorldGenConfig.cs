@@ -62,6 +62,11 @@ namespace Game.World.Generation
         public int campsites = 3;
         [Tooltip("An old concrete bunker dug into an earth mound (0 or 1).")]
         public int bunkers = 1;
+        [Tooltip("Watchtowers: each in a small clearing of its own, this far apart at least (metres).")]
+        public int watchtowers = 5;
+        public float watchtowersApart = 55f;
+        [Tooltip("The clearing round each watchtower (radius, metres).")]
+        public float watchtowerClearing = 12f;
         public float campsitesApart = 50f;
         public float doorMinFromStart = 65f;
         public int doorAttempts = 600;

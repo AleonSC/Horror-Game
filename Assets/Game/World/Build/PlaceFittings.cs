@@ -37,9 +37,8 @@ namespace Game.World.Build
                 foreach (var l in loot)
                     if (l.Place == LootPlace.BackSeat) { backSeat = MakeContainer(root, LootPlace.BackSeat); break; }
             // The drone: at whichever of these you reach first.
-            if (kind == StructureKind.Cabin) DroneSpot.Add(root, root.InverseTransformPoint(Spot(root, "Table", CabinTableSpot)) + new Vector3(0.3f, 0.78f, 0f));
+            // The drone waits on the deck of whichever watchtower you come to first.
             if (kind == StructureKind.Watchtower) DroneSpot.Add(root, root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
-            if (kind == StructureKind.Car && backSeat != null) DroneSpot.Add(root, backSeat.transform.localPosition, backSeat);
             if (loot == null || loot.Count == 0) return;
 
             var onTable = new List<Loot>();

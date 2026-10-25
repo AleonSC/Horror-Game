@@ -120,7 +120,7 @@ namespace Game.World.Generation
         {
             // (The cabin and shacks come later, beside the trails: see PathStage.)
             for (int i = 0; i < s.campsites; i++) Place(plan, s, rng, StructureKind.Campsite, s.campsitesApart, StructureKind.Campsite, StructureKind.Campsite);
-            Place(plan, s, rng, StructureKind.Watchtower, 0f, StructureKind.Watchtower, StructureKind.Watchtower);
+            for (int i = 0; i < s.watchtowers; i++) Place(plan, s, rng, StructureKind.Watchtower, s.watchtowersApart, StructureKind.Watchtower, StructureKind.Watchtower);
             Place(plan, s, rng, StructureKind.Car, 0f, StructureKind.Car, StructureKind.Car);
             for (int i = 0; i < s.bunkers; i++) Place(plan, s, rng, StructureKind.Bunker, 80f, StructureKind.Bunker, StructureKind.Bunker);
             if (s.landmarkTree) Place(plan, s, rng, StructureKind.LandmarkTree, 0f, StructureKind.LandmarkTree, StructureKind.LandmarkTree);
@@ -158,10 +158,12 @@ namespace Game.World.Generation
                 if (clash) continue;
 
                 plan.Structures.Add(new StructureSite { Kind = kind, Position = p, Yaw = rng.Range(0f, 360f), HalfSize = half });
+                // (A watchtower stands in a small clearing of its own: you can see it from the trees round it.)
+                bool tower = kind == StructureKind.Watchtower;
                 plan.Clearings.Add(new Clearing
                 {
-                    Kind = ClearingKind.Structure, Centre = p, Radius = reach + 2f,
-                    Ragged = 0.2f, Thinning = 0.3f, Seed = rng.Range(0, 100000),
+                    Kind = ClearingKind.Structure, Centre = p, Radius = tower ? Mathf.Max(reach + 2f, s.watchtowerClearing) : reach + 2f,
+                    Ragged = tower ? 0.25f : 0.2f, Thinning = tower ? 0.35f : 0.3f, Seed = rng.Range(0, 100000),
                 });
                 if (kind == StructureKind.Bunker) Level(plan, p, 0f, new Vector2(6.5f, 6.5f), 1f, 5f); // (square: it's turned to face its path later)
                 return true;

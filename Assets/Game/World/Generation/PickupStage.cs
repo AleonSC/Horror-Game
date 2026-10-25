@@ -26,6 +26,7 @@ namespace Game.World.Generation
             }
 
             var loot = rng.Fork(7);
+            bool mapPlaced = false;
             for (int i = 0; i < plan.Structures.Count; i++)
             {
                 switch (plan.Structures[i].Kind)
@@ -60,7 +61,9 @@ namespace Game.World.Generation
                         if (loot.Chance(0.5f)) Add(plan, i, LootPlace.Table, LootKind.FlareGun, 1);
                         break;
                     case StructureKind.Watchtower:
-                        Add(plan, i, LootPlace.Deck, LootKind.Map, 1); // (the ranger's sketch of the trails)
+                        // The ranger's sketch of the trails, in one of them (the first placed).
+                        if (!mapPlaced) Add(plan, i, LootPlace.Deck, LootKind.Map, 1);
+                        mapPlaced = true;
                         break;
                 }
             }

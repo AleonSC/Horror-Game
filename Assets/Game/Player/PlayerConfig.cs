@@ -27,6 +27,8 @@ namespace Game.Player
         [Range(-50f, -5f)] public float gravity = -20f;
         [Range(0.5f, 8f), Tooltip("Climbing a ladder (metres a second).")]
         public float climbSpeed = 2.5f;
+        [Range(0f, 8f), Tooltip("Jumping off a ladder: how hard you push away from it (metres a second).")]
+        public float ladderJumpOut = 3.5f;
 
         [Header("Body")]
         [Range(1f, 2.5f)] public float standingHeight = 1.8f;

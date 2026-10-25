@@ -176,7 +176,8 @@ namespace Game.Tests
                     }
                     else if (kind == StructureKind.Watchtower)
                     {
-                        Assert.IsTrue(Has(LootPlace.Deck, LootKind.Map), $"seed {seed}: the watchtower without its map");
+                        // (The map's in one of them; the rest have nothing.)
+                        Assert.IsTrue(loot.TrueForAll(l => l.Place == LootPlace.Deck && l.Kind == LootKind.Map), $"seed {seed}: odd loot in a watchtower");
                     }
                     else if (kind == StructureKind.Bunker)
                     {
@@ -184,6 +185,18 @@ namespace Game.Tests
                     }
                     else Assert.AreEqual(0, loot.Count, $"seed {seed}: loot in a {kind}");
                 }
+            }
+        }
+
+        [Test]
+        public void FiveWatchtowers_OneMapBetweenThem()
+        {
+            foreach (int seed in new[] { 4, 5, 6 })
+            {
+                var plan = Plan(seed);
+                int towers = plan.Structures.FindAll(st => st.Kind == StructureKind.Watchtower).Count;
+                Assert.AreEqual(5, towers, $"seed {seed}: not five watchtowers");
+                Assert.AreEqual(1, plan.Loot.FindAll(l => l.Kind == LootKind.Map).Count, $"seed {seed}: not one map");
             }
         }
 

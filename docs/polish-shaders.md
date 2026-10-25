@@ -608,3 +608,21 @@ and thinner (the same amount of mist), so the fog's slices don't band it. Two fo
 The oaks' wide crowns closed the canopy over: now 2100 trees (was 2800), at least 3 m apart (was 2.2 m). The
 landmark (the one giant tree, seven times the size of the rest) is gone: `WorldGenConfig` > `landmarkTree`
 (off) brings it back.
+
+## Watchtowers: five of them, each in a clearing
+
+- **How many:** five watchtowers now (`WorldGenConfig` > `watchtowers`), at least 55 m apart (`watchtowersApart`).
+- **Clearings:** each stands in a small clearing of its own, 12 m across the radius (`watchtowerClearing`).
+- **The map:** only one tower has it, on its deck.
+- **The drone:** it waits on the deck of whichever tower you reach first, within 18 m of it measured flat. It's no
+  longer at the cabin or the car.
+- **The model** (`WatchtowerModel`): a proper fire lookout.
+  - Splayed timber legs on concrete footings, girts and X-braces with bolt plates.
+  - A planked deck on joists.
+  - A cab with board walls to waist height and windows above, some panes cracked or gone.
+  - A hipped corrugated tin roof with a finial, a lightning rod and an aerial.
+  - A floodlight on a bracket at each corner, with conduit to a switch box by the doorway (the button).
+  - A fire-finder table, a stool and a hanging lantern.
+  - A caged ladder up the west side.
+- **The ladder jump:** Space jumps you off a ladder, back away from it (or the way you face, if that's away), at
+  `PlayerConfig` > `ladderJumpOut` (3.5 m/s). The ladder can't catch you again for 0.6 s.

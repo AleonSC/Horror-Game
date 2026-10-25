@@ -136,20 +136,7 @@ namespace Game.World.Build
                     Campsite(t, new System.Random(Mathf.RoundToInt(site.Position.x * 31f + site.Position.y * 17f)));
                     break;
                 case StructureKind.Watchtower:
-                    for (int i = 0; i < 4; i++)
-                    {
-                        float x = (i % 2 == 0 ? -1.6f : 1.6f), z = (i < 2 ? -1.6f : 1.6f);
-                        Shape(PrimitiveType.Cylinder, t, new Vector3(x, 6f, z), new Vector3(0.2f, 6f, 0.2f), darkWood, true);
-                    }
-                    Box(t, new Vector3(0f, 12f, 0f), new Vector3(4f, 0.25f, 4f), wood);
-                    Box(t, new Vector3(0f, 12.6f, 1.95f), new Vector3(4f, 1f, 0.08f), wood);
-                    Box(t, new Vector3(0f, 12.6f, -1.95f), new Vector3(4f, 1f, 0.08f), wood);
-                    Box(t, new Vector3(0f, 14f, 0f), new Vector3(4.4f, 0.2f, 4.4f), darkWood, false);
-                    // The ladder up the west side (rails and rungs: you climb through them, not on them).
-                    for (int side = -1; side <= 1; side += 2)
-                        Box(t, new Vector3(-2.15f, 6.4f, side * 0.3f), new Vector3(0.07f, 12.8f, 0.07f), darkWood, false);
-                    for (float y = 0.35f; y < 12.6f; y += 0.35f)
-                        Box(t, new Vector3(-2.15f, y, 0f), new Vector3(0.05f, 0.05f, 0.6f), darkWood, false);
+                    new WatchtowerModel(made, Rng(site)).Build(t);
                     break;
                 case StructureKind.Car:
                     new CarModel(made).Build(t, new System.Random(Mathf.RoundToInt(site.Position.x * 17f + site.Position.y * 7f)));

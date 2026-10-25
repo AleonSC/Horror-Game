@@ -26,6 +26,7 @@ namespace Game.Player
         float bobPhase;
         float shake;
         float groggy, groggyFull = 1f;
+        float ladderFree; // (just jumped off a ladder: it doesn't catch you again till this time)
         bool blurred;
         float nextPant;
         Vector3 gazeTarget;
@@ -358,9 +359,22 @@ namespace Game.Player
             velocity.x = flat.x;
             velocity.z = flat.z;
 
-            // On a ladder: W climbs the way you look (down when you look down), Space lets go.
-            var ladder = Ladder.At(transform.position + Vector3.up * 0.9f);
-            Climbing = ladder != null && !(input.Jump.WasPressedThisFrame() && !keysTaken);
+            // On a ladder: W climbs the way you look (down when you look down), Space jumps off it: back away
+            // from it (or the way you're looking, if that's away from it) with a little hop, and it can't catch
+            // you again for a moment.
+            var ladder = Time.time < ladderFree ? null : Ladder.At(transform.position + Vector3.up * 0.9f);
+            if (ladder != null && !keysTaken && input.Jump.WasPressedThisFrame())
+            {
+                Vector3 away = transform.position - ladder.Centre;
+                away.y = 0f;
+                away = away.sqrMagnitude > 0.0001f ? away.normalized : -transform.forward;
+                Vector3 facing = transform.forward;
+                Vector3 dir = Vector3.Dot(facing, away) > 0.3f ? facing : away;
+                velocity = dir * s.ladderJumpOut + Vector3.up * Mathf.Sqrt(2f * s.jumpHeight * 0.6f * -s.gravity);
+                ladderFree = Time.time + 0.6f;
+                ladder = null;
+            }
+            Climbing = ladder != null;
             if (Climbing)
             {
                 float way = pitch > 35f ? -1f : 1f;
