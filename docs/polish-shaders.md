@@ -833,3 +833,34 @@ They also swell less and more slowly with the gusts.
 - **Dev window > Sounds:** lists everything playing right now, loudest first. Each line shows the sound's name,
   what it's on, whether it loops, its volume, how far off it is (or "everywhere") and its mixer group, with a
   Mute box. It also shows how muffled you are.
+
+## Watchtower room rework: one long desk, a TV playing Snake, a locker; luminescent spray
+
+This replaces the arcade cabinet and the fire-finder table.
+
+- **The desk** runs the whole east wall (3.2 m), with a shelf under it and a back rail. On it:
+  - the CB radio;
+  - a logbook;
+  - a small old TV with rabbit ears and knobs (`SnakeTv`), with a joystick in front of it on a cord;
+  - and a stool in front of the TV.
+- **Snake on the TV:**
+  - Click the TV to sit on the stool and play. Your view is held on the screen (`ILockedView`: the mouse does
+    nothing while you play).
+  - Arrows or WASD steer, and the joystick's stick leans the way you steer. Space starts again after a game over.
+    E gets up.
+  - Left alone it plays itself, and its green screen lights the desk.
+- **The locker** stands in the north-west corner: steel, with a louvred door, a handle, a name-card slot and a
+  shelf.
+  - Click it and the door swings open (`Container` now takes a `door`). You take what's inside.
+  - Every watchtower's locker has a can of luminescent spray. The drone waits in the locker of whichever tower you
+    come to first (`PlaceFittings` puts the drone in a `Locker` when there is one).
+  - The map still lies on the floor south of the middle.
+- **Luminescent spray** (`ItemKind.Spray`, `SprayPaint`): a spray can with a glowing green band.
+  - F shakes it (a rattle). Hold F to spray where you're looking, up to 3.5 m away.
+  - It leaves soft, speckled blots of pale green paint that glow faintly in the dark. Each one sticks to whatever
+    it landed on (trunk, rock, ground, wall) and moves and wraps with it.
+  - It hisses while it sprays. That carries a few metres to the monsters.
+  - A can lasts about 25 s of spraying. The hotbar shows a meter, and the held hint shows how much paint is left.
+  - At most 2500 blots at once (the oldest go), and they're cleared on a new run.
+  - Settings are in `ItemsConfig` > Luminescent spray: reach, rate, blot size, colour, glow, use per blot, most
+    blots.

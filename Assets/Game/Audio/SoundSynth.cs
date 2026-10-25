@@ -1407,6 +1407,24 @@ namespace Game.Audio
             return Loop(s, 0.5f);
         }
 
+        /// <summary>A spray can spraying, to loop (2 s): a soft, airy hiss, wavering a little with the hand.</summary>
+        public static float[] SprayHiss(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(2.3f);
+            float hp = 0f, last = 0f, lp = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                hp = 0.8f * (hp + n - last);
+                last = n;
+                lp += (hp - lp) * 0.45f;
+                s[i] = lp * (0.85f + 0.15f * (float)Math.Sin(2 * Math.PI * 3.1 * t));
+            }
+            return Loop(s, 0.4f);
+        }
+
         /// <summary>
         /// A dry sound with reverb added (a forest at night: the sound ringing off trunks): this many seconds of tail
         /// added on, decaying to silence; <paramref name="wet"/> how loud the echo is against the dry sound, and

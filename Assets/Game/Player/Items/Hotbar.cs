@@ -29,6 +29,7 @@ namespace Game.Player
         System.IDisposable resetSub;
         string hint;
         float hintUntil;
+        AudioSource sprayHiss;
 
         public Inventory Items { get; } = new Inventory();
         public ItemSettings Settings => config.settings;
@@ -144,6 +145,7 @@ namespace Game.Player
             hand.localPosition = config.settings.handOffset;
             if (shown != Items.HeldKind) ShowHeld();
             Burn(Time.deltaTime);
+            Spray(Time.deltaTime);
             UpdateLights();
             if (flashLeft > 0f)
             {
@@ -182,6 +184,43 @@ namespace Game.Player
                 Items.SetLit(slot, false);
                 Say("The lighter's out of fuel.");
             }
+        }
+
+        // The spray can: while F's held, paint where you look; it hisses, and runs out.
+        void Spray(float dt)
+        {
+            int slot = Items.Selected;
+            var held = Items[slot];
+            bool spraying = !held.Empty && held.Kind == ItemKind.Spray && held.Charge > 0f && player.UsingHeld;
+            if (spraying)
+            {
+                float used = SprayPaint.Spray(player.Head, config.settings, dt);
+                if (used > 0f)
+                {
+                    float left = held.Charge - used;
+                    if (left <= 0f)
+                    {
+                        Items.Clear(slot);
+                        Say("The can's empty.");
+                        BackToFlashlight();
+                        spraying = false;
+                    }
+                    else Items.SetCharge(slot, left);
+                }
+            }
+            if (sprayHiss == null)
+            {
+                if (!spraying || !Services.TryGet<SoundPlayer>(out var sounds)) return;
+                sprayHiss = hand.gameObject.AddComponent<AudioSource>();
+                sprayHiss.clip = sounds.Clip(Sound.SprayHiss);
+                sprayHiss.loop = true;
+                sprayHiss.spatialBlend = 0f;
+                sprayHiss.volume = 0f;
+                sprayHiss.outputAudioMixerGroup = sounds.Group(MixerNames.Player);
+                sprayHiss.Play();
+            }
+            sprayHiss.volume = Mathf.MoveTowards(sprayHiss.volume, spraying ? 0.35f : 0f, dt * (spraying ? 8f : 4f));
+            if (spraying && Time.frameCount % 30 == 0) Noise(3f, "spraying");
         }
 
         void UpdateLights()
@@ -355,6 +394,12 @@ namespace Game.Player
                 case ItemKind.KeyFob:
                     Fob(false);
                     break;
+
+                case ItemKind.Spray:
+                    // (a shake of the can, the ball rattling in it; holding F sprays)
+                    Play(Sound.Click, 0.35f, 2.4f);
+                    if (held.Charge <= 0f) Say("The can's empty.");
+                    break;
             }
         }
 
@@ -460,6 +505,7 @@ namespace Game.Player
             Items.Reset();
             player.Stamina.Bonus = 0f;
             ThrownGlowstick.ClearAll();
+            SprayPaint.ClearAll();
             if (player.Flashlight != null)
             {
                 player.Flashlight.Battery.Add(1f);

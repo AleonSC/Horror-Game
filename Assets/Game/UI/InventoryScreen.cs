@@ -324,6 +324,7 @@ namespace Game.UI
                 case ItemKind.Glowsticks: return $"x{stack.Count}";
                 case ItemKind.Torch: return stack.Lit ? $"burning, {Mathf.CeilToInt(stack.Charge * s.torchBurnTime)} s" : $"{Mathf.CeilToInt(stack.Charge * 100f)}% left";
                 case ItemKind.Lighter: return $"fuel {Mathf.CeilToInt(stack.Charge * 100f)}%";
+                case ItemKind.Spray: return $"paint {Mathf.CeilToInt(stack.Charge * 100f)}% left";
                 case ItemKind.Camera:
                     int shots = Mathf.FloorToInt(stack.Charge);
                     return shots == 1 ? "1 shot" : $"{shots} shots";

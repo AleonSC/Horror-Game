@@ -6,10 +6,17 @@ using UnityEngine;
 
 namespace Game.World
 {
-    /// <summary>Something to search with a left click (the car's glove box and trunk, a backpack): you take what's inside.</summary>
+    /// <summary>
+    /// Something to search with a left click (the car's glove box and trunk, a backpack, a locker): you take what's
+    /// inside. With a door, it swings open the first time (and stays open).
+    /// </summary>
     public sealed class Container : MonoBehaviour, IInteractable
     {
         public string label = "Search";
+        [Tooltip("A door that swings open about its pivot (its Y) when it's first searched, by this many degrees.")]
+        public Transform door;
+        public float doorAngle = -105f;
+        bool opened;
         readonly List<(ItemKind kind, int count)> contents = new List<(ItemKind, int)>();
 
         public string Prompt => contents.Count > 0 ? label : "Empty";
@@ -35,6 +42,12 @@ namespace Game.World
         public void Interact()
         {
             if (!Services.TryGet<PlayerController>(out var player) || player.Hotbar == null) return;
+            if (door != null && !opened)
+            {
+                opened = true;
+                StartCoroutine(Swing());
+                if (Services.TryGet<SoundPlayer>(out var creak)) creak.Play(Sound.DoorOpen, transform.position, MixerNames.World, 0.5f, 1.5f, 10f);
+            }
             for (int i = 0; i < contents.Count; i++)
             {
                 var (kind, count) = contents[i];
@@ -42,6 +55,18 @@ namespace Game.World
                 contents.RemoveAt(i--);
             }
             if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.DoorShut, transform.position, MixerNames.World, 0.3f, 1.6f, 8f);
+        }
+
+        System.Collections.IEnumerator Swing()
+        {
+            Quaternion shut = door.localRotation;
+            for (float t = 0f; t < 0.6f; t += Time.deltaTime)
+            {
+                float e = Mathf.SmoothStep(0f, 1f, t / 0.6f);
+                door.localRotation = shut * Quaternion.Euler(0f, doorAngle * e, 0f);
+                yield return null;
+            }
+            door.localRotation = shut * Quaternion.Euler(0f, doorAngle, 0f);
         }
     }
 }

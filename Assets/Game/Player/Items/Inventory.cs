@@ -3,7 +3,7 @@ using System;
 namespace Game.Player
 {
     /// <summary>The things you can carry (section 6.3). Snacks aren't here: they're eaten on the spot.</summary>
-    public enum ItemKind { None, Flashlight, Batteries, Torch, Lighter, FlareGun, Glowsticks, Camera, KeyFob, Map, Drone, Radio }
+    public enum ItemKind { None, Flashlight, Batteries, Torch, Lighter, FlareGun, Glowsticks, Camera, KeyFob, Map, Drone, Radio, Spray }
 
     /// <summary>One hotbar slot: what's in it, how many, and its own charge (fuel, burn time left, shots).</summary>
     public struct ItemStack
@@ -187,6 +187,7 @@ namespace Game.Player
             {
                 case ItemKind.FlareGun: return "Flare gun";
                 case ItemKind.KeyFob: return "Key fob";
+                case ItemKind.Spray: return "Luminescent spray";
                 case ItemKind.None: return "";
                 default: return kind.ToString();
             }

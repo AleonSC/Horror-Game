@@ -186,6 +186,21 @@ namespace Game.Player
         [Range(0.5f, 10f), Tooltip("Within this, the blind one smashes it (metres).")]
         public float radioSmashDistance = 3f;
 
+        [Header("Luminescent spray")]
+        [Range(0.5f, 10f), Tooltip("How far it reaches (metres).")]
+        public float sprayReach = 3.5f;
+        [Range(0.01f, 0.3f), Tooltip("Seconds between blots while you hold F.")]
+        public float sprayInterval = 0.035f;
+        [Range(0.0005f, 0.05f), Tooltip("Share of the can each blot uses (1/700: about 25 s of spraying).")]
+        public float sprayPerMark = 1f / 700f;
+        [Range(0.03f, 0.6f), Tooltip("How big each blot is (metres).")]
+        public float spraySize = 0.16f;
+        public Color sprayColor = new Color(0.55f, 1f, 0.6f);
+        [Range(0f, 3f), Tooltip("How much the paint glows in the dark.")]
+        public float sprayGlow = 0.35f;
+        [Range(100, 10000), Tooltip("Most blots in the world at once (the oldest go).")]
+        public int maxSprayMarks = 2500;
+
         [Header("Camera")]
         [Range(1, 20)] public int cameraShots = 3;
         [Range(5f, 100f), Tooltip("The flash drives off anything in frame this close, with a clear line to it (metres).")]

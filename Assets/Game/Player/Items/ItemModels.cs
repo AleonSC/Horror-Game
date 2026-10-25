@@ -40,6 +40,8 @@ namespace Game.Player
             return root;
         }
 
+        static Material sprayBand;
+
         static GameObject BuiltIn(ItemKind kind, Transform parent)
         {
             var root = new GameObject(Inventory.NameOf(kind));
@@ -100,6 +102,19 @@ namespace Game.Player
                     Cyl(t, new Vector3(0.06f, 0.07f, 0.032f), 0.022f, 0.006f, metal).transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                     var aerial = Cyl(t, new Vector3(0.08f, 0.2f, 0f), 0.003f, 0.2f, metal);
                     aerial.transform.localRotation = Quaternion.Euler(0f, 0f, -15f);
+                    break;
+                }
+                case ItemKind.Spray:
+                {
+                    // A spray can: the can, its pale green label with a glowing band, the shoulder, the nozzle.
+                    var can = Mat("Spray can", new Color(0.55f, 0.56f, 0.58f), 0.8f);
+                    Cyl(t, new Vector3(0f, 0.08f, 0f), 0.032f, 0.16f, can);
+                    Cyl(t, new Vector3(0f, 0.075f, 0f), 0.0325f, 0.1f, Mat("Spray label", new Color(0.12f, 0.2f, 0.14f), 0.35f));
+                    sprayBand ??= Game.Rendering.RuntimeMaterials.LitGlow("Spray glow band", new Color(0.4f, 0.8f, 0.45f), new Color(0.55f, 1f, 0.6f) * 0.4f);
+                    Part(PrimitiveType.Cylinder, t, new Vector3(0f, 0.09f, 0f), new Vector3(0.0655f, 0.008f, 0.0655f), sprayBand);
+                    Part(PrimitiveType.Sphere, t, new Vector3(0f, 0.163f, 0f), new Vector3(0.062f, 0.03f, 0.062f), can);
+                    Cyl(t, new Vector3(0f, 0.18f, 0f), 0.009f, 0.016f, black);
+                    Part(PrimitiveType.Cube, t, new Vector3(0f, 0.185f, 0.008f), new Vector3(0.006f, 0.006f, 0.008f), black);
                     break;
                 }
                 case ItemKind.KeyFob:

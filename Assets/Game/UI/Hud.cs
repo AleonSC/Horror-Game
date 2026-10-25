@@ -444,7 +444,7 @@ namespace Game.UI
                 Show(slotGlow[i], !s.Empty && s.Lit);
                 if (!s.Empty && s.Lit) slotGlow[i].style.opacity = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 6f + i);
                 slotCount[i].text = !s.Empty && Inventory.Stacks(s.Kind) && s.Count > 1 ? $"x{s.Count}" : "";
-                bool hasMeter = !s.Empty && (s.Kind == ItemKind.Torch || s.Kind == ItemKind.Lighter);
+                bool hasMeter = !s.Empty && (s.Kind == ItemKind.Torch || s.Kind == ItemKind.Lighter || s.Kind == ItemKind.Spray);
                 Show(slotMeter[i], hasMeter);
                 if (hasMeter) slotMeter[i].style.width = (SlotSize - 12f) * Mathf.Clamp01(s.Charge);
             }
@@ -494,6 +494,7 @@ namespace Game.UI
                 case ItemKind.Map: return "F to hold it up";
                 case ItemKind.Drone: return held.Lit ? $"out there   F to fly it ({Mathf.CeilToInt((Drone.Current != null ? Drone.Current.Battery : held.Charge) * 100f)}%)" : $"battery {Mathf.CeilToInt(held.Charge * 100f)}%   F to set it down and fly";
                 case ItemKind.Radio: return "F to set it down, playing";
+                case ItemKind.Spray: return $"paint {Mathf.CeilToInt(held.Charge * 100f)}%   hold F to spray (it glows)";
                 default: return "";
             }
         }

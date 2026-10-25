@@ -158,6 +158,7 @@ namespace Game.Audio
             Add(Sound.TreeImpact, SoundSynth.TreeImpact(66));
             Add(Sound.PhoneRing, SoundSynth.PhoneRing(67));
             Add(Sound.TvStatic, SoundSynth.TvStatic(68));
+            Add(Sound.SprayHiss, SoundSynth.SprayHiss(69));
         }
 
         void Add(Sound sound, float[] samples)

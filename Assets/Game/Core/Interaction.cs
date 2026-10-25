@@ -47,6 +47,12 @@ namespace Game.Core
         string CantLeave { get; }
     }
 
+    /// <summary>A seat that holds your view on one point while you're in it (playing the game on a TV).</summary>
+    public interface ILockedView
+    {
+        Vector3 LookAt { get; }
+    }
+
     /// <summary>A seat with others beside it (the car): Y moves you along to the next.</summary>
     public interface ISeatSwitcher
     {

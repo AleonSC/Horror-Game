@@ -40,8 +40,12 @@ namespace Game.World.Build
             // The drone waits on the deck of whichever watchtower you come to first.
             if (kind == StructureKind.Watchtower)
             {
+                // (in its locker, if it has one; or at a spot named "Drone"; or by the map)
+                var locker = Find(root, "Locker");
+                var inLocker = locker != null ? locker.GetComponent<Container>() : null;
                 var drone = Find(root, "Drone");
-                DroneSpot.Add(root, drone != null ? root.InverseTransformPoint(drone.position) : root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
+                Vector3 at = inLocker != null ? root.InverseTransformPoint(locker.position) : drone != null ? root.InverseTransformPoint(drone.position) : root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f);
+                DroneSpot.Add(root, at, inLocker);
             }
             if (loot == null || loot.Count == 0) return;
 

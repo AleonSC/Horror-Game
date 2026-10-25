@@ -116,11 +116,12 @@ namespace Game.World
     }
 
     /// <summary>
-    /// An arcade cabinet playing Snake (in the watchtower's lookout room, of all places). Its screen glows green in
-    /// the dark, the game playing itself; click it to step up and play: arrows or WASD steer, Space starts again
-    /// after a game over, E steps away. It remembers the best score.
+    /// A small old TV on the watchtower's desk, a joystick plugged into it, playing Snake. Its screen glows green
+    /// in the dark, the game playing itself; click it to sit down and play (your eyes held on the screen): arrows
+    /// or WASD steer (the stick moves with you), Space starts again after a game over, E gets up. It remembers
+    /// the best score.
     /// </summary>
-    public sealed class ArcadeCabinet : MonoBehaviour, IInteractable, IDoorwaySeat
+    public sealed class SnakeTv : MonoBehaviour, IInteractable, IDoorwaySeat, ILockedView
     {
         const int GridW = 20, GridH = 13, Cell = 3;
         const int TexW = 64, TexH = 48;
@@ -130,8 +131,12 @@ namespace Game.World
         public Renderer screen;
         [Tooltip("Where you stand to play, facing the screen.")]
         public Transform standAt;
-        [Tooltip("The middle of the screen (where your eyes go as you step up).")]
+        [Tooltip("The middle of the screen (where your eyes stay while you play).")]
         public Transform screenCentre;
+        [Tooltip("The joystick's stick (it leans the way you steer).")]
+        public Transform stick;
+        [Tooltip("How high your eyes are while you play (sitting at the desk).")]
+        public float eyeHeight = 1.15f;
 
         SnakeGame game;
         Texture2D tex;
@@ -147,7 +152,8 @@ namespace Game.World
 
         public Transform SeatPoint => standAt;
         public Vector3 ExitPoint => standAt != null ? standAt.position : transform.position + transform.forward;
-        public float EyeHeight => 1.55f;
+        public float EyeHeight => eyeHeight;
+        public Vector3 LookAt => FocusPoint;
         public bool CanLeave => true;
         public string CantLeave => "";
         public bool CanSit(Vector3 from) => false; // (a click starts it, not Y)
@@ -159,7 +165,7 @@ namespace Game.World
             px = new Color32[TexW * TexH];
             if (screen != null)
             {
-                mat = RuntimeMaterials.Lit("Arcade screen", Color.black, 0.9f);
+                mat = RuntimeMaterials.Lit("Snake screen", Color.black, 0.9f);
                 mat.SetTexture("_EmissiveColorMap", tex);
                 HDMaterial.SetEmissiveColor(mat, Color.white * 2.2f);
                 HDMaterial.ValidateMaterial(mat);
@@ -169,8 +175,8 @@ namespace Game.World
                 go.transform.position = screen.transform.position + transform.forward * 0.35f;
                 glow = go.AddHDLight(LightType.Point).GetComponent<Light>();
                 glow.color = new Color(0.35f, 1f, 0.5f);
-                glow.range = 3.5f;
-                glow.intensity = 0.5f;
+                glow.range = 3f;
+                glow.intensity = 0.35f;
                 glow.shadows = LightShadows.None;
             }
             Draw();
@@ -185,8 +191,7 @@ namespace Game.World
         public void Interact()
         {
             if (playing || !Services.TryGet<PlayerController>(out var player)) return;
-            player.SitIn(this, "Arrows or WASD to steer   ·   E to step away");
-            if (screenCentre != null) player.DrawGazeTo(screenCentre.position, 0.8f);
+            player.SitIn(this, "Arrows or WASD to steer   ·   E to get up");
         }
 
         public void Sat(bool now)
@@ -202,6 +207,13 @@ namespace Game.World
         {
             if (game == null) return;
             if (playing) ReadKeys();
+            if (stick != null)
+            {
+                // The stick leans the way you're steering (upright when it's playing itself).
+                Vector2Int h = playing && !game.Over ? game.Heading : Vector2Int.zero;
+                Quaternion want = Quaternion.Euler(h.y * 18f, 0f, -h.x * 18f);
+                stick.localRotation = Quaternion.Slerp(stick.localRotation, want, 1f - Mathf.Exp(-20f * Time.deltaTime));
+            }
             if (Time.time < nextStep) return;
             if (game.Over)
             {
@@ -253,7 +265,7 @@ namespace Game.World
         void Beep(float pitch)
         {
             if (Services.TryGet<SoundPlayer>(out var sounds))
-                sounds.Play(Sound.Click, transform.position + Vector3.up * 1.2f, MixerNames.World, 0.5f, pitch, 8f);
+                sounds.Play(Sound.Click, transform.position + Vector3.up * 0.2f, MixerNames.World, 0.5f, pitch, 8f);
         }
 
         // ------------------------------------------------------------------ the screen

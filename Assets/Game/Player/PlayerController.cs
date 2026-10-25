@@ -63,6 +63,8 @@ namespace Game.Player
 
         /// <summary>The seat you're in (the car), or null.</summary>
         public ISeat Seat { get; private set; }
+        /// <summary>F held down this frame (the spray can sprays while it is).</summary>
+        public bool UsingHeld { get; private set; }
         /// <summary>On a ladder right now.</summary>
         public bool Climbing { get; private set; }
         /// <summary>Space pressed this frame, even while held (struggling free of a crawler).</summary>
@@ -130,11 +132,12 @@ namespace Game.Player
 
             if (Held || Piloting || !GameFlow.IsPlaying)
             {
-                Moving = Running = false;
+                Moving = Running = UsingHeld = false;
                 return;
             }
 
             UpdateCursor(uiOpen);
+            UsingHeld = !keysTaken && !uiOpen && Seat == null && input.Use.IsPressed();
             if (Cursor.lockState == CursorLockMode.Locked && !uiOpen) Look(s);
 
             Hotbar.HandleSelection(keysTaken, uiOpen);
@@ -310,6 +313,18 @@ namespace Game.Player
 
         void Look(PlayerSettings s)
         {
+            // In a seat that holds the view (a game on a TV): eyes on it, the mouse does nothing.
+            if (Seat is ILockedView locked)
+            {
+                Vector3 to = locked.LookAt - head.position;
+                float wantYaw = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
+                float wantPitch = -Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg;
+                float k = 1f - Mathf.Exp(-8f * Time.deltaTime);
+                yaw = Mathf.LerpAngle(yaw, wantYaw, k);
+                pitch = Mathf.Lerp(pitch, wantPitch, k);
+                transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+                return;
+            }
             float sensitivity = Services.TryGet<PlayerPreferences>(out var prefs) ? prefs.mouseSensitivity : 1f;
             Vector2 d = input.Look.ReadValue<Vector2>() * s.mouseSpeed * sensitivity * Mathf.Lerp(1f, s.groggyLook, Ease(Groggy));
             yaw += d.x;

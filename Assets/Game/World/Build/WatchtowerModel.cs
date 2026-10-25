@@ -12,8 +12,9 @@ namespace Game.World.Build
     /// boarded to the sill with windows above (old glass, some panes cracked or gone) on three sides, the west side
     /// boarded up with the door in it, a hipped tin roof with a finial, a lightning rod and the radio's aerial; a
     /// floodlight on a bracket at each corner under the eaves, wired to a switch box inside by the door (the
-    /// button). Inside (a shelter: sounds from outside muffled), a round fire-finder table with its sighting
-    /// ring, a desk with a CB radio left on, a stool, a logbook and a lantern hanging from the roof. The ladder
+    /// button). Inside (a shelter: sounds from outside muffled), a desk the length of one wall with a CB radio left
+    /// on, a logbook and a little TV playing Snake, a stool, a steel locker (the drone, luminescent spray), roller
+    /// blinds and a lantern hanging from the roof. The ladder
     /// goes up the west side, its rails running up past the balcony to grab. What you can stand on and bump into
     /// has simple colliders; the details have none.
     /// </summary>
@@ -364,44 +365,135 @@ namespace Game.World.Build
 
         void Inside(Transform t)
         {
-            // The fire finder: a round table on a post, the map disc on it under a brass sighting ring.
-            Vector3 table = new Vector3(-0.15f, Deck + 0.125f, 0.15f);
-            Cyl(t, table + Vector3.up * 0.48f, 0.08f, 0.96f, darkTimber);
-            Cyl(t, table + Vector3.up * 0.03f, 0.3f, 0.06f, darkTimber);
-            Cyl(t, table + Vector3.up * 0.98f, 0.45f, 0.05f, plank);
-            Cyl(t, table + Vector3.up * 1.01f, 0.38f, 0.01f, Keep(RuntimeMaterials.Lit("Map paper", new Color(0.5f, 0.47f, 0.38f), 0.1f)));
-            for (int i = 0; i < 16; i++)
-            {
-                float a0 = i / 16f * Mathf.PI * 2f, a1 = (i + 1) / 16f * Mathf.PI * 2f;
-                Rod(t, table + new Vector3(Mathf.Cos(a0) * 0.41f, 1.05f, Mathf.Sin(a0) * 0.41f), table + new Vector3(Mathf.Cos(a1) * 0.41f, 1.05f, Mathf.Sin(a1) * 0.41f), 0.012f, brass);
-            }
-            Rod(t, table + new Vector3(-0.41f, 1.06f, 0f), table + new Vector3(-0.41f, 1.2f, 0f), 0.006f, brass);
-            Rod(t, table + new Vector3(0.41f, 1.06f, 0f), table + new Vector3(0.41f, 1.16f, 0f), 0.006f, brass);
-            Hidden(t, table + Vector3.up * 0.5f, new Vector3(0.7f, 1f, 0.7f));
-
-            // The radio desk against the east wall: a plank top on legs, the set on it, its handset hung on a hook.
-            Vector3 desk = new Vector3(C - 0.32f, Deck + 0.125f, -0.75f);
-            Box(t, desk + Vector3.up * 0.76f, new Vector3(0.5f, 0.04f, 1.0f), plank, true);
-            foreach (float dz in new[] { -0.45f, 0.45f })
-                Box(t, desk + new Vector3(-0.2f, 0.37f, dz), new Vector3(0.05f, 0.74f, 0.05f), darkTimber, false);
-            Box(t, desk + new Vector3(0.05f, 0.4f, 0f), new Vector3(0.36f, 0.02f, 0.9f), darkTimber, false); // (a shelf under it)
-            Radio(t, desk + Vector3.up * 0.78f);
-            // A stool at it, and a battered logbook.
-            Vector3 stool = new Vector3(C - 0.95f, Deck + 0.125f, -0.8f);
-            Cyl(t, stool + Vector3.up * 0.62f, 0.2f, 0.05f, plank);
+            // A desk the length of the east wall: a plank top on legs, a shelf under it. On it the radio, a
+            // logbook, and a little TV with a joystick (Snake), a stool in front of that.
+            float len = C * 2f - 0.2f;
+            Vector3 desk = new Vector3(C - 0.32f, Deck + 0.125f, 0f);
+            Box(t, desk + Vector3.up * 0.76f, new Vector3(0.5f, 0.04f, len), plank, true);
+            foreach (float dz in new[] { -0.5f, 0f, 0.5f })
+                Box(t, desk + new Vector3(-0.2f, 0.37f, dz * (len - 0.1f)), new Vector3(0.05f, 0.74f, 0.05f), darkTimber, false);
+            Box(t, desk + new Vector3(0.05f, 0.4f, 0f), new Vector3(0.36f, 0.02f, len - 0.1f), darkTimber, false);
+            Box(t, desk + new Vector3(0.22f, 0.6f, 0f), new Vector3(0.02f, 0.3f, len), darkTimber, false); // (the back rail)
+            Radio(t, desk + new Vector3(0f, 0.78f, -1.0f));
+            var log = Box(t, desk + new Vector3(-0.04f, 0.795f, -0.35f), new Vector3(0.2f, 0.025f, 0.28f), Keep(RuntimeMaterials.Lit("Logbook", new Color(0.18f, 0.08f, 0.06f), 0.2f)), false);
+            log.transform.localRotation = Quaternion.Euler(0f, 14f, 0f);
+            Vector3 tv = desk + new Vector3(0.02f, 0.78f, 0.75f);
+            Vector3 stool = new Vector3(C - 0.95f, Deck + 0.125f, 0.75f);
+            SnakeTelly(t, tv, stool);
+            Cyl(t, stool + Vector3.up * 0.5f, 0.18f, 0.05f, plank);
             for (int i = 0; i < 3; i++)
             {
                 float a = i / 3f * Mathf.PI * 2f;
-                Rod(t, stool + Vector3.up * 0.6f + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.12f, stool + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.22f, 0.02f, darkTimber);
+                Rod(t, stool + Vector3.up * 0.48f + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.1f, stool + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.2f, 0.02f, darkTimber);
             }
-            var log = Box(t, desk + new Vector3(-0.02f, 0.795f, 0.3f), new Vector3(0.2f, 0.025f, 0.28f), Keep(RuntimeMaterials.Lit("Logbook", new Color(0.18f, 0.08f, 0.06f), 0.2f)), false);
-            log.transform.localRotation = Quaternion.Euler(0f, 14f, 0f);
-            // The drone, waiting on the map table (whichever tower you come to first); the map on the floor.
-            Marker(t, "Drone", table + Vector3.up * 1.02f);
+            // The map on the floor; the locker (the drone in it, in whichever tower you come to first, and a can
+            // of luminescent spray in every one).
             Marker(t, "Deck", new Vector3(0f, Deck + 0.13f, -1.05f));
-            Arcade(t);
+            Locker(t);
             // A lantern hanging from the ridge (click it on and off).
             LanternModel.Hanging(t, new Vector3(-0.15f, Eaves + 0.25f, 0.15f), 0.55f, metal, metal, made, 5f, 2.4f);
+        }
+
+        // A small old TV on the desk facing into the room, its screen bulging, rabbit ears, knobs; a joystick in
+        // front of it on a cord (its stick leans as you steer). Click it to sit on the stool and play Snake.
+        void SnakeTelly(Transform t, Vector3 at, Vector3 stool)
+        {
+            var root = new GameObject("Snake TV") { layer = Layers.Props }.transform;
+            root.SetParent(t, false);
+            root.localPosition = at;
+            root.localRotation = Quaternion.Euler(0f, -90f, 0f); // (its face west, into the room)
+            var r = root;
+            var shell = Keep(RuntimeMaterials.Lit("TV plastic", new Color(0.42f, 0.4f, 0.36f), 0.35f));
+            Box(r, new Vector3(0f, 0.15f, -0.02f), new Vector3(0.36f, 0.3f, 0.3f), shell, false);
+            Box(r, new Vector3(0f, 0.15f, -0.2f), new Vector3(0.28f, 0.22f, 0.1f), shell, false); // (the tube's back)
+            Box(r, new Vector3(0f, 0.15f, 0.132f), new Vector3(0.34f, 0.28f, 0.01f), Keep(RuntimeMaterials.Lit("TV bezel", new Color(0.1f, 0.1f, 0.1f), 0.4f)), false);
+            var screen = Shape(PrimitiveType.Sphere, r, new Vector3(-0.03f, 0.16f, 0.135f), new Vector3(0.24f, 0.19f, 0.03f), glass);
+            for (int i = 0; i < 2; i++)
+            {
+                var knob = Shape(PrimitiveType.Cylinder, r, new Vector3(0.13f, 0.21f - i * 0.07f, 0.142f), new Vector3(0.03f, 0.008f, 0.03f), metal);
+                knob.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            }
+            for (int i = 0; i < 4; i++) Box(r, new Vector3(0.13f, 0.06f + i * 0.015f, 0.14f), new Vector3(0.05f, 0.005f, 0.004f), metal, false);
+            for (int i = 0; i < 5; i++) Box(r, new Vector3(-0.1f + i * 0.05f, 0.302f, -0.05f), new Vector3(0.03f, 0.004f, 0.12f), rope, false); // (vents)
+            Rod(r, new Vector3(0f, 0.3f, -0.05f), new Vector3(-0.15f, 0.55f, -0.1f), 0.003f, metal);
+            Rod(r, new Vector3(0f, 0.3f, -0.05f), new Vector3(0.18f, 0.52f, -0.08f), 0.003f, metal);
+            // The joystick, in front, on its cord.
+            Vector3 pad = new Vector3(0.05f, 0f, 0.3f);
+            Box(r, pad + new Vector3(0f, 0.02f, 0f), new Vector3(0.12f, 0.035f, 0.12f), Keep(RuntimeMaterials.Lit("Joystick base", new Color(0.05f, 0.05f, 0.05f), 0.4f)), false);
+            var stickPivot = new GameObject("Stick").transform;
+            stickPivot.SetParent(r, false);
+            stickPivot.localPosition = pad + new Vector3(-0.02f, 0.04f, 0f);
+            Rod(stickPivot, Vector3.zero, Vector3.up * 0.07f, 0.005f, metal);
+            Sphere(stickPivot, Vector3.up * 0.075f, 0.014f, Keep(RuntimeMaterials.Lit("Stick top", new Color(0.55f, 0.04f, 0.03f), 0.7f)));
+            Cyl(r, pad + new Vector3(0.035f, 0.04f, 0.03f), 0.012f, 0.01f, Keep(RuntimeMaterials.Lit("Fire button", new Color(0.6f, 0.05f, 0.03f), 0.6f)));
+            Vector3 prev = pad + new Vector3(0f, 0.02f, -0.06f);
+            for (int k = 1; k <= 6; k++)
+            {
+                float u = k / 6f;
+                Vector3 q = Vector3.Lerp(pad + new Vector3(0f, 0.02f, -0.06f), new Vector3(0.12f, 0.03f, 0.13f), u) + new Vector3(Mathf.Sin(u * 5f) * 0.03f, 0f, 0f);
+                Rod(r, prev, q, 0.003f, rope);
+                prev = q;
+            }
+            var hit = r.gameObject.AddComponent<BoxCollider>();
+            hit.center = new Vector3(0f, 0.15f, 0f);
+            hit.size = new Vector3(0.38f, 0.32f, 0.36f);
+            var middle = new GameObject("Screen middle").transform;
+            middle.SetParent(r, false);
+            middle.localPosition = new Vector3(-0.03f, 0.16f, 0.14f);
+            var seat = new GameObject("Stool").transform;
+            seat.SetParent(t, false);
+            seat.localPosition = stool;
+            seat.localRotation = Quaternion.Euler(0f, 90f, 0f); // (facing the TV, east)
+            var game = r.gameObject.AddComponent<SnakeTv>();
+            game.screen = screen.GetComponent<Renderer>();
+            game.standAt = seat;
+            game.screenCentre = middle;
+            game.stick = stickPivot;
+            game.eyeHeight = 1.15f;
+        }
+
+        // A steel locker in the north-west corner: louvred door with a handle, a name card slot, on short feet.
+        // Search it and its door swings open. The drone waits in it (in whichever tower you come to first); a can
+        // of luminescent spray in every one.
+        void Locker(Transform t)
+        {
+            const float w = 0.55f, d = 0.5f, h = 1.85f;
+            var root = new GameObject("Locker") { layer = Layers.Props }.transform;
+            root.SetParent(t, false);
+            root.localPosition = new Vector3(-C + 0.6f, Deck + 0.125f, C - 0.33f);
+            root.localRotation = Quaternion.Euler(0f, 180f, 0f); // (its door south, into the room)
+            var steel = Keep(RuntimeMaterials.Lit("Locker steel", new Color(0.2f, 0.26f, 0.24f), 0.45f));
+            steel.SetFloat("_Metallic", 0.5f);
+            Box(root, new Vector3(-w * 0.5f + 0.01f, h * 0.5f + 0.05f, 0f), new Vector3(0.02f, h, d), steel, false);
+            Box(root, new Vector3(w * 0.5f - 0.01f, h * 0.5f + 0.05f, 0f), new Vector3(0.02f, h, d), steel, false);
+            Box(root, new Vector3(0f, h * 0.5f + 0.05f, -d * 0.5f + 0.01f), new Vector3(w, h, 0.02f), steel, false);
+            Box(root, new Vector3(0f, h + 0.04f, 0f), new Vector3(w, 0.02f, d), steel, false);
+            Box(root, new Vector3(0f, 0.06f, 0f), new Vector3(w, 0.02f, d), steel, false);
+            Box(root, new Vector3(0f, 1.45f, 0f), new Vector3(w - 0.04f, 0.015f, d - 0.04f), steel, false); // (the shelf)
+            foreach (float x in new[] { -1f, 1f })
+            foreach (float z in new[] { -1f, 1f })
+                Box(root, new Vector3(x * (w * 0.5f - 0.03f), 0.025f, z * (d * 0.5f - 0.03f)), new Vector3(0.03f, 0.05f, 0.03f), rope, false);
+            // The door, hinged on its left: louvres, a handle, the card slot.
+            var door = new GameObject("Locker door").transform;
+            door.SetParent(root, false);
+            door.localPosition = new Vector3(-w * 0.5f, 0.05f, d * 0.5f);
+            Box(door, new Vector3(w * 0.5f, h * 0.5f, 0.005f), new Vector3(w, h, 0.012f), steel, false);
+            for (int i = 0; i < 6; i++)
+            {
+                var vent = Box(door, new Vector3(w * 0.5f, h - 0.15f - i * 0.03f, 0.013f), new Vector3(w * 0.6f, 0.008f, 0.01f), rope, false);
+                vent.transform.localRotation = Quaternion.Euler(30f, 0f, 0f);
+                Box(door, new Vector3(w * 0.5f, 0.2f + i * 0.03f, 0.013f), new Vector3(w * 0.6f, 0.008f, 0.01f), rope, false).transform.localRotation = Quaternion.Euler(30f, 0f, 0f);
+            }
+            Box(door, new Vector3(w - 0.06f, h * 0.52f, 0.02f), new Vector3(0.02f, 0.12f, 0.02f), metal, false);
+            Box(door, new Vector3(w * 0.5f, h - 0.4f, 0.013f), new Vector3(0.1f, 0.05f, 0.004f), brass, false);
+            // What you bump into, and the search (it is the locker).
+            var solid = root.gameObject.AddComponent<BoxCollider>();
+            solid.center = new Vector3(0f, h * 0.5f + 0.05f, 0f);
+            solid.size = new Vector3(w, h, d);
+            var box = root.gameObject.AddComponent<Container>();
+            box.label = "Search the locker";
+            box.door = door;
+            box.Put(Game.Player.ItemKind.Spray, 1);
         }
 
         // A CB radio set: a steel case, a glowing dial, knobs, a meter, a speaker grille; its handset on a coiled
@@ -501,77 +593,6 @@ namespace Game.World.Build
             blind.bar = bar;
             blind.width = width;
             blind.drop = drop;
-        }
-
-        // An arcade cabinet in the north-east corner, facing into the room, playing Snake: side panels with a
-        // stripe, the marquee lit at the top, the screen set back under its bezel, a control panel with a stick
-        // and two buttons, the coin door with its slots glowing, a kick plate.
-        void Arcade(Transform t)
-        {
-            var root = new GameObject("Arcade cabinet") { layer = Layers.Props }.transform;
-            root.SetParent(t, false);
-            root.localPosition = new Vector3(C - 0.55f, Deck + 0.125f, C - 0.56f); // (clear of the walls, turned)
-            root.localRotation = Quaternion.Euler(0f, 180f + 20f, 0f); // (facing into the room, a little toward the middle)
-            var r = root;
-            var body = Keep(RuntimeMaterials.Lit("Cabinet", new Color(0.05f, 0.05f, 0.07f), 0.35f));
-            var art = Keep(RuntimeMaterials.Lit("Cabinet stripe", new Color(0.05f, 0.35f, 0.12f), 0.4f));
-            var trim = Keep(RuntimeMaterials.Lit("T-molding", new Color(0.1f, 0.5f, 0.2f), 0.6f));
-            const float w = 0.64f, d = 0.68f, h = 1.78f;
-            foreach (float x in new[] { -1f, 1f })
-            {
-                Box(r, new Vector3(x * (w * 0.5f - 0.01f), h * 0.5f, 0f), new Vector3(0.02f, h, d), body, false);
-                var stripe = Box(r, new Vector3(x * (w * 0.5f + 0.001f), 0.95f, 0.05f), new Vector3(0.004f, 0.08f, d * 0.9f), art, false);
-                stripe.transform.localRotation = Quaternion.Euler(-30f, 0f, 0f);
-                Box(r, new Vector3(x * (w * 0.5f + 0.004f), h * 0.5f, d * 0.5f - 0.005f), new Vector3(0.008f, h, 0.012f), trim, false);
-            }
-            Box(r, new Vector3(0f, h - 0.01f, 0f), new Vector3(w, 0.02f, d), body, false);
-            Box(r, new Vector3(0f, h * 0.5f, -d * 0.5f + 0.01f), new Vector3(w, h, 0.02f), body, false);
-            Box(r, new Vector3(0f, 0.4f, d * 0.5f - 0.03f), new Vector3(w - 0.04f, 0.8f, 0.02f), body, false);       // (the front below)
-            Box(r, new Vector3(0f, 0.06f, d * 0.5f - 0.02f), new Vector3(w - 0.04f, 0.12f, 0.01f), metal, false);     // (kick plate)
-            // The coin door: two slots glowing red.
-            Box(r, new Vector3(0f, 0.48f, d * 0.5f - 0.015f), new Vector3(0.24f, 0.22f, 0.01f), metal, false);
-            var coin = Keep(RuntimeMaterials.LitGlow("Coin slot", new Color(0.3f, 0.02f, 0.02f), new Color(1f, 0.08f, 0.04f) * 1.2f));
-            foreach (float x in new[] { -0.05f, 0.05f }) Box(r, new Vector3(x, 0.52f, d * 0.5f - 0.008f), new Vector3(0.025f, 0.05f, 0.006f), coin, false);
-            // The control panel, sloped toward you: a stick and two buttons.
-            var panel = new GameObject("Controls").transform;
-            panel.SetParent(r, false);
-            panel.localPosition = new Vector3(0f, 0.92f, d * 0.5f - 0.02f);
-            panel.localRotation = Quaternion.Euler(14f, 0f, 0f);
-            Box(panel, new Vector3(0f, 0f, 0f), new Vector3(w - 0.04f, 0.04f, 0.26f), body, false);
-            Box(panel, new Vector3(0f, 0.021f, 0f), new Vector3(w - 0.06f, 0.002f, 0.24f), art, false);
-            Cyl(panel, new Vector3(-0.12f, 0.03f, 0.02f), 0.025f, 0.012f, metal);
-            Rod(panel, new Vector3(-0.12f, 0.03f, 0.02f), new Vector3(-0.12f, 0.1f, 0.02f), 0.006f, metal);
-            Sphere(panel, new Vector3(-0.12f, 0.11f, 0.02f), 0.02f, Keep(RuntimeMaterials.Lit("Ball top", new Color(0.6f, 0.04f, 0.03f), 0.7f)));
-            var button = Keep(RuntimeMaterials.LitGlow("Arcade button", new Color(0.05f, 0.3f, 0.1f), new Color(0.2f, 1f, 0.35f) * 0.5f));
-            foreach (float x in new[] { 0.06f, 0.14f }) Cyl(panel, new Vector3(x, 0.026f, 0.03f), 0.022f, 0.014f, button);
-            // The screen, set back and tilted under its bezel, and the marquee over it.
-            var screenGo = Box(r, new Vector3(0f, 1.3f, d * 0.5f - 0.17f), new Vector3(0.46f, 0.36f, 0.01f), glass, false);
-            screenGo.transform.localRotation = Quaternion.Euler(-12f, 0f, 0f);
-            foreach (float y in new[] { 1.1f, 1.5f }) Box(r, new Vector3(0f, y, d * 0.5f - 0.13f), new Vector3(w - 0.04f, 0.04f, 0.1f), body, false);
-            var bezelSide = new[] { -1f, 1f };
-            foreach (float x in bezelSide) Box(r, new Vector3(x * 0.26f, 1.3f, d * 0.5f - 0.13f), new Vector3(0.06f, 0.42f, 0.1f), body, false);
-            var marquee = Keep(RuntimeMaterials.LitGlow("Marquee", new Color(0.05f, 0.25f, 0.1f), new Color(0.3f, 1f, 0.45f) * 0.9f));
-            var mq = Box(r, new Vector3(0f, 1.66f, d * 0.5f - 0.06f), new Vector3(w - 0.04f, 0.16f, 0.01f), marquee, false);
-            mq.transform.localRotation = Quaternion.Euler(8f, 0f, 0f);
-            for (int i = 0; i < 5; i++) // (the speaker grille under the marquee)
-                Box(r, new Vector3(0f, 1.55f + i * 0.01f, d * 0.5f - 0.075f), new Vector3(0.3f, 0.004f, 0.004f), metal, false);
-            // The power lead to the wall.
-            Rod(r, new Vector3(0.2f, 0.05f, -d * 0.5f), new Vector3(0.35f, 0.01f, -d * 0.5f - 0.05f), 0.006f, rope);
-            // What you bump into, where you stand to play, and the game.
-            var solid = r.gameObject.AddComponent<BoxCollider>();
-            solid.center = new Vector3(0f, h * 0.5f, 0f);
-            solid.size = new Vector3(w, h, d);
-            var stand = new GameObject("Stand here").transform;
-            stand.SetParent(r, false);
-            stand.localPosition = new Vector3(0f, 0f, d * 0.5f + 0.42f);
-            stand.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            var middle = new GameObject("Screen middle").transform;
-            middle.SetParent(r, false);
-            middle.localPosition = new Vector3(0f, 1.3f, d * 0.5f - 0.17f);
-            var cab = r.gameObject.AddComponent<ArcadeCabinet>();
-            cab.screen = screenGo.GetComponent<Renderer>();
-            cab.standAt = stand;
-            cab.screenCentre = middle;
         }
 
         void Hidden(Transform parent, Vector3 pos, Vector3 size)
