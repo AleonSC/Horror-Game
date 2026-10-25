@@ -383,6 +383,24 @@ namespace Game.Player
             if (flashlight >= 0) Items.Select(flashlight);
         }
 
+        /// <summary>
+        /// Strike a lighter to light something in the world (a campfire): uses this much of its fuel. False (and it
+        /// says why) if you've no lighter, or none with fuel enough.
+        /// </summary>
+        public bool StrikeLighter(float fuel)
+        {
+            int lighter = FindLighterWithFuel(fuel);
+            if (lighter < 0)
+            {
+                Say(Items.Find(ItemKind.Lighter) >= 0 ? "The lighter hasn't enough fuel." : "You need a lighter to light it.");
+                Play(Sound.Click, 0.4f, 0.6f);
+                return false;
+            }
+            Items.SetCharge(lighter, Items[lighter].Charge - fuel);
+            Play(Sound.Lighter, 0.6f, 1f);
+            return true;
+        }
+
         int FindLighterWithFuel(float need)
         {
             for (int i = 0; i < Inventory.SlotCount; i++)

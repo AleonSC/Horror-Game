@@ -432,3 +432,21 @@ is worked out, once per session (`ForestTextures`); about a second.
   creeping out slowly and snapping back in when you look. It picks a side at random, and on thicker or thinner
   trunks it stands to one side to match. (The pose was worked out against the rig's bones offline; model looks
   get `Peek` / `PeekHidden` as animator poses.)
+
+## Campfires you light, and tents you crawl into
+
+- **Campfire** (`Campfire`): the fire is out and laid ready, in a fancy pit: a ring of big rocks with a lower
+  ring of smaller sooted stones inside it, a bed of old ash and charcoal, kindling and a twist of birch bark
+  under a teepee of split logs, and an iron tripod over it with a kettle hung on a chain. Click it with a
+  lighter on you (it uses a little fuel) and it catches over a few seconds: flames licking up through the logs,
+  a flickering warm light with soft shadows, a crackling sound (new `Sound.FireLoop`), smoke rising to the
+  skyline, and a **safe circle of 8 m for 10 minutes**. Over its last minute it dies down and the circle shrinks
+  with it; the logs char; the embers glow a while and fade. It lights once. Settings: `LampConfig` > Campfires.
+  (No smoke now until a fire's lit.)
+- **Tent**: the door flaps open and shut with **E** (from inside or out); shut, they block the doorway. With
+  them open, **E** on the doorway crawls you in to sit on the blanket, low, facing the door. Inside, E on the
+  flap opens or shuts it, and E anywhere else crawls you out (if the flap's open). Outside sounds come through
+  muffled while you're inside (the tent's a shelter, and its refuge circle still keeps you safe).
+- A little **lantern** hangs from the ridge: click it on and off (a warm, small light that stays in the tent
+  but for the doorway). A **wool blanket** (red and green check, its top turned back) and **two pillows** lie
+  on the ground sheet, in place of the old sleeping bag.

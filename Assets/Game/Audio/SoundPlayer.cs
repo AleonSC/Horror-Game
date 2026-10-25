@@ -147,6 +147,7 @@ namespace Game.Audio
             Add(Sound.Screech, SoundSynth.Screech(55));
             Add(Sound.LeavesLoop, SoundSynth.LeavesLoop(56));
             Add(Sound.CarAlarm, SoundSynth.CarAlarm(57));
+            Add(Sound.FireLoop, SoundSynth.FireLoop(58));
         }
 
         void Add(Sound sound, float[] samples)

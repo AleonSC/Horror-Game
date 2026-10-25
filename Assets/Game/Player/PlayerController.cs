@@ -143,11 +143,20 @@ namespace Game.Player
             // Seated, E gets you out (rather than reaching for a door).
             if (!keysTaken && input.Door.WasPressedThisFrame())
             {
-                if (Seat != null) GetOut();
+                if (Seat is IDoorwaySeat doorway)
+                {
+                    // In a tent: E on the flap opens or shuts it; anywhere else, out you crawl (if it's open).
+                    if (!Interactor.TryUseDoor())
+                    {
+                        if (doorway.CanLeave) GetOut();
+                        else if (Hotbar != null) Hotbar.Say(doorway.CantLeave, 2f);
+                    }
+                }
+                else if (Seat != null) GetOut();
                 else Interactor.TryUseDoor();
             }
 
-            if (!keysTaken && input.Sit.WasPressedThisFrame()) ToggleSeat();
+            if (!keysTaken && input.Sit.WasPressedThisFrame() && !(Seat is IDoorwaySeat)) ToggleSeat();
             if (Seat != null) KeepSeated();
             else Move(s, dt, keysTaken);
             Pant(s);
@@ -247,6 +256,26 @@ namespace Game.Player
             if (Hotbar != null) Hotbar.Say(seat is ISeatSwitcher sw ? $"{sw.SeatName}.   Y to move over   ·   E to get out" : "E to get out", 3f);
         }
 
+        /// <summary>Into a seat that you get into some other way than Y (a tent's doorway). Facing the way its point faces.</summary>
+        public void SitIn(ISeat seat, string hint = null)
+        {
+            if (seat == null || Seat != null) return;
+            Seat = seat;
+            body.enabled = false;
+            velocity = Vector3.zero;
+            seat.Sat(true);
+            if (seat.SeatPoint != null)
+            {
+                yaw = seat.SeatPoint.eulerAngles.y;
+                pitch = 0f;
+                transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            }
+            if (Hotbar != null && hint != null) Hotbar.Say(hint, 3f);
+        }
+
+        /// <summary>Out of the seat you're in (a tent's doorway uses this).</summary>
+        public void LeaveSeat() => GetOut();
+
         // Out of the seat you're in, by its door.
         void GetOut()
         {
@@ -264,7 +293,8 @@ namespace Game.Player
             var p = Seat.SeatPoint;
             transform.position = p.position;
             // Seated: a lower eye, and the body turns with the view.
-            height = Mathf.MoveTowards(height, config.settings.crouchingHeight + 0.2f, Time.deltaTime * 4f);
+            float seated = Seat is IDoorwaySeat low ? low.EyeHeight + config.settings.eyeBelowTop : config.settings.crouchingHeight + 0.2f;
+            height = Mathf.MoveTowards(height, seated, Time.deltaTime * 4f);
         }
 
         /// <summary>Gently draw the view toward a point over a few seconds (the mouse still works).</summary>

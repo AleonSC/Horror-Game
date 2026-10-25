@@ -14,6 +14,6 @@ namespace Game.Audio
         Rotors, Static, RadioSong,
         DeerGrunt, DeerBleat, DeerSnort, DeerAlarm, Gallop,
         Step2, Step3, Step4, Step5, Step6,
-        Screech, LeavesLoop, CarAlarm,
+        Screech, LeavesLoop, CarAlarm, FireLoop,
     }
 }

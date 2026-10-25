@@ -33,6 +33,20 @@ namespace Game.Core
         void Sat(bool seated);
     }
 
+    /// <summary>
+    /// A seat you get into and out of by its own doorway (inside a tent): E on the doorway gets you in; inside,
+    /// E on its flap opens or shuts it, and E anywhere else gets you out (if the way's open). Y does nothing.
+    /// </summary>
+    public interface IDoorwaySeat : ISeat
+    {
+        /// <summary>How high your eye sits above the seat point (sitting on a tent's floor: low).</summary>
+        float EyeHeight { get; }
+        /// <summary>Can you get out now (is the flap open)?</summary>
+        bool CanLeave { get; }
+        /// <summary>What to say when you can't.</summary>
+        string CantLeave { get; }
+    }
+
     /// <summary>A seat with others beside it (the car): Y moves you along to the next.</summary>
     public interface ISeatSwitcher
     {

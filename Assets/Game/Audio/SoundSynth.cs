@@ -592,6 +592,41 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// A campfire, to loop (8 s): the low breathy roar of the flames, a soft hiss, and the crackle and pop of
+        /// the wood, each pop a little knock of resonant noise at its own pitch, with now and then a sharp snap.
+        /// </summary>
+        public static float[] FireLoop(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(8f);
+            float brown = 0f, hp = 0f, last = 0f, pop = 0f, popY1 = 0f, popY2 = 0f, popC = 0f, popR = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                brown = brown * 0.995f + n * 0.02f;                 // (the roar)
+                hp = 0.9f * (hp + n - last);                        // (the hiss)
+                last = n;
+                float breathe = 0.75f + 0.25f * (float)Math.Sin(2 * Math.PI * t / 2.7f) * (float)Math.Sin(2 * Math.PI * t / 1.3f + 1.1f);
+                // A crackle: a knock of noise rung through a resonance at its own pitch, dying away fast.
+                if (rng.NextDouble() < 9.0 / SampleRate)
+                {
+                    pop = (rng.NextDouble() < 0.12 ? 1f : 0.35f) * (float)(0.5 + rng.NextDouble() * 0.5);
+                    float f = 600f + (float)rng.NextDouble() * 3400f;
+                    popR = 0.96f + (float)rng.NextDouble() * 0.025f;
+                    popC = 2f * popR * (float)Math.Cos(2 * Math.PI * f / SampleRate);
+                }
+                float excite = pop * n;
+                pop *= 0.992f;
+                float y = popC * popY1 - popR * popR * popY2 + excite;
+                popY2 = popY1;
+                popY1 = y;
+                s[i] = brown * 1.6f * breathe + hp * 0.05f * breathe + y * 0.12f + excite * 0.3f;
+            }
+            return Loop(s, 0.7f);
+        }
+
+        /// <summary>
         /// An old car's alarm, to loop: the horn blaring on and off, two flat, harsh notes together (a buzzy saw
         /// pair a third apart through a nasal resonance), four blasts in 2.4 s.
         /// </summary>

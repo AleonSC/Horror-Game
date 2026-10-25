@@ -37,6 +37,21 @@ namespace Game.World
         [Range(0.2f, 8f), Tooltip("How wide that glow is (metres).")]
         public float glassHaloSize = 1.4f;
 
+        [Header("Campfires")]
+        [Range(10f, 3600f), Tooltip("How long a campfire burns once you light it (seconds).")]
+        public float campfireTime = 600f;
+        [Range(0f, 300f), Tooltip("Over its last this-many seconds it dies down, and its safe circle shrinks with it.")]
+        public float campfireDieDown = 60f;
+        [Range(0f, 30f), Tooltip("Radius of the safe circle round a burning campfire (metres).")]
+        public float campfireSafeRadius = 8f;
+        [Range(0f, 1f), Tooltip("Lighting it uses this much of the lighter's fuel.")]
+        public float campfireLighterFuel = 0.05f;
+        public Color campfireColor = new Color(1f, 0.5f, 0.2f);
+        [Range(0f, 200f)] public float campfireIntensity = 10f;
+        [Range(1f, 40f)] public float campfireRange = 12f;
+        [Range(0f, 1f), Tooltip("How much the fire lights the fog round it.")]
+        public float campfireFogGlow = 0.25f;
+
         [Header("Unlit")]
         [Tooltip("The blinking marker on top of a dark lamp.")]
         public Color markerColor = new Color(1f, 0.05f, 0.02f);

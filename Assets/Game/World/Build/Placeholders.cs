@@ -13,7 +13,7 @@ namespace Game.World.Build
     public sealed class Placeholders
     {
         readonly Material wood, darkWood, canvas, metal, paint, stone, bark, needles;
-        readonly Material tentCanvas, groundSheet, rope, ash, charcoal, ember, pot;
+        readonly Material tentCanvas, groundSheet, rope, ash, charcoal, ember, pot, sooty, birch, blanket, pillow;
         readonly Material ground;
         Material concrete, concreteDark, rust;
         readonly List<Object> made;
@@ -33,7 +33,11 @@ namespace Game.World.Build
             canvas = Keep(RuntimeMaterials.Lit("Canvas", new Color(0.24f, 0.21f, 0.15f), 0.1f));
             metal = Keep(RuntimeMaterials.Lit("Rusty metal", new Color(0.12f, 0.09f, 0.07f), 0.35f));
             paint = Keep(RuntimeMaterials.Lit("Car paint", new Color(0.14f, 0.03f, 0.03f), 0.55f));
-            stone = Keep(RuntimeMaterials.Lit("Fire stones", new Color(0.16f, 0.16f, 0.15f), 0.2f));
+            stone = Keep(RuntimeMaterials.Lit("Fire stones", new Color(0.2f, 0.195f, 0.18f), 0.22f));
+            sooty = Keep(RuntimeMaterials.Lit("Sooted stones", new Color(0.06f, 0.055f, 0.05f), 0.15f));
+            birch = Keep(RuntimeMaterials.Lit("Birch bark", new Color(0.55f, 0.52f, 0.46f), 0.2f));
+            blanket = Keep(RuntimeMaterials.LitTextured("Blanket", Color.white, 0.05f, Keep(PlaidTexture()), new Vector2(3f, 3f), true));
+            pillow = Keep(RuntimeMaterials.Lit("Pillow", new Color(0.5f, 0.47f, 0.4f), 0.08f));
             tentCanvas = Keep(RuntimeMaterials.Lit("Tent canvas", new Color(0.17f, 0.18f, 0.12f), 0.12f, true)); // (faded olive)
             groundSheet = Keep(RuntimeMaterials.Lit("Ground sheet", new Color(0.06f, 0.07f, 0.06f), 0.3f));
             rope = Keep(RuntimeMaterials.Lit("Rope", new Color(0.33f, 0.3f, 0.23f), 0.1f));
@@ -48,6 +52,39 @@ namespace Game.World.Build
         {
             made.Add(m);
             return m;
+        }
+
+        Texture2D Keep(Texture2D t)
+        {
+            made.Add(t);
+            return t;
+        }
+
+        // A wool blanket's check: deep red and dark green bands crossing on brown, with a thin pale stripe.
+        static Texture2D PlaidTexture()
+        {
+            const int size = 64;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Blanket check", wrapMode = TextureWrapMode.Repeat };
+            Color Band(int i)
+            {
+                int k = i % 32;
+                if (k < 10) return new Color(0.32f, 0.05f, 0.04f);       // red
+                if (k < 12) return new Color(0.45f, 0.4f, 0.3f);         // pale stripe
+                if (k < 20) return new Color(0.05f, 0.1f, 0.06f);        // green
+                return new Color(0.14f, 0.08f, 0.05f);                   // brown
+            }
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                // Woven: alternate threads show the warp or the weft.
+                bool warp = ((x + y) & 1) == 0;
+                Color c = Color.Lerp(Band(x), Band(y), warp ? 0.35f : 0.65f);
+                px[y * size + x] = c * (0.9f + 0.1f * ((x * 7 + y * 13) % 5) / 4f);
+            }
+            tex.SetPixels(px);
+            tex.Apply(true);
+            return tex;
         }
 
         GameObject PrefabFor(StructureKind kind)
@@ -170,44 +207,93 @@ namespace Game.World.Build
                 Box(t, at + new Vector3(i % 2 == 0 ? -0.52f : 0.52f, 0.36f, i < 2 ? -0.28f : 0.28f), new Vector3(0.06f, 0.72f, 0.06f), darkWood, false);
         }
 
-        // A camp someone left in a hurry: an A-frame tent with its door flaps tied back, facing a dead fire in a ring
-        // of stones (ash, charred logs, a few embers still glowing), two logs to sit on and a stump, a pot by the
-        // fire, a lantern by the tent, a pile of firewood, and the backpack slumped where it was dropped.
+        // A camp someone left in a hurry: an A-frame tent (crawl in with E; its flap opens and shuts, and a little
+        // lantern hangs inside), and a fire laid ready but never lit, in a fancy pit: a ring of big rocks with a
+        // lower ring of smaller, sooted stones inside it, a bed of old ash and charcoal, a teepee of split logs
+        // over kindling and a twist of birch bark, and an iron tripod over it with a kettle hung on a chain. Light
+        // it with a lighter (the Campfire). Two logs to sit on and a stump, a mug, a pile of firewood, and the
+        // backpack slumped where it was dropped.
         void Campsite(Transform t, System.Random rng)
         {
             float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
             Tent(t, PlaceFittings.TentSpot, PlaceFittings.TentYaw);
 
             var fire = new Vector3(1.5f, 0f, 0f);
-            // The ring of stones, each its own size and turned its own way.
-            int stones = 11;
-            for (int i = 0; i < stones; i++)
+            var pit = new GameObject("Campfire") { layer = Layers.Props }.transform;
+            pit.SetParent(t, false);
+            pit.localPosition = fire;
+            // The ring: big rounded rocks, each its own size and turned its own way, and inside them a lower ring
+            // of smaller stones, blackened by old fires.
+            int big = 12;
+            for (int i = 0; i < big; i++)
             {
-                float a = (i + R(-0.2f, 0.2f)) / stones * Mathf.PI * 2f;
-                float size = R(0.17f, 0.27f);
-                var st = Shape(PrimitiveType.Sphere, t, fire + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.58f + Vector3.up * size * 0.25f,
-                    new Vector3(size, size * R(0.5f, 0.75f), size * R(0.8f, 1.1f)), stone, false);
-                st.transform.localRotation = Quaternion.Euler(R(-10f, 10f), R(0f, 360f), R(-10f, 10f));
+                float a = (i + R(-0.15f, 0.15f)) / big * Mathf.PI * 2f;
+                float size = R(0.24f, 0.32f);
+                Rock(pit, new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.68f + Vector3.up * size * 0.18f,
+                    new Vector3(size, size * R(0.55f, 0.75f), size * R(0.8f, 1f)), R(0f, 360f), stone, rng);
             }
-            Shape(PrimitiveType.Cylinder, t, fire + Vector3.up * 0.008f, new Vector3(1f, 0.008f, 1f), ash, false);
-            // Charred logs fallen in on each other, and the embers among them.
-            for (int i = 0; i < 4; i++)
+            int small = 16;
+            for (int i = 0; i < small; i++)
             {
-                float a = i * 95f + R(-15f, 15f);
-                var log = Shape(PrimitiveType.Cylinder, t, fire + Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0.07f, 0.12f), new Vector3(0.1f, 0.28f, 0.1f), charcoal, false);
-                log.transform.localRotation = Quaternion.Euler(0f, a, 0f) * Quaternion.Euler(80f, 0f, 0f);
+                float a = (i + 0.5f + R(-0.2f, 0.2f)) / small * Mathf.PI * 2f;
+                float size = R(0.11f, 0.15f);
+                Rock(pit, new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.5f + Vector3.up * size * 0.15f,
+                    new Vector3(size, size * 0.6f, size), R(0f, 360f), sooty, rng);
             }
+            // The bed of the pit: old ash, sunk a touch, with lumps of charcoal in it.
+            Shape(PrimitiveType.Cylinder, pit, Vector3.up * 0.006f, new Vector3(0.95f, 0.006f, 0.95f), ash, false);
+            for (int i = 0; i < 14; i++)
+            {
+                Vector2 o = Random2(rng) * 0.36f;
+                var lump = Shape(PrimitiveType.Cube, pit, new Vector3(o.x, 0.015f, o.y), new Vector3(R(0.03f, 0.07f), R(0.02f, 0.04f), R(0.03f, 0.06f)), charcoal, false);
+                lump.transform.localRotation = Quaternion.Euler(R(-20f, 20f), R(0f, 360f), R(-20f, 20f));
+            }
+            // Kindling criss-crossed in the middle, a twist of birch bark on it, and the teepee of split logs over.
+            for (int i = 0; i < 8; i++)
+            {
+                float a = i * 47f + R(-10f, 10f);
+                Vector3 d = Quaternion.Euler(0f, a, 0f) * Vector3.forward * R(0.12f, 0.17f);
+                Stick(pit, -d + Vector3.up * (0.025f + i * 0.006f), d + Vector3.up * (0.03f + i * 0.006f), 0.012f, wood);
+            }
+            var tinder = Shape(PrimitiveType.Sphere, pit, Vector3.up * 0.07f, new Vector3(0.09f, 0.05f, 0.07f), birch, false);
+            tinder.transform.localRotation = Quaternion.Euler(0f, R(0f, 360f), 0f);
+            var logs = new List<Renderer>();
+            Vector3 apex = Vector3.up * 0.62f;
             for (int i = 0; i < 7; i++)
             {
-                Vector2 o = new Vector2(R(-0.25f, 0.25f), R(-0.25f, 0.25f));
-                Shape(PrimitiveType.Sphere, t, fire + new Vector3(o.x, 0.025f, o.y), Vector3.one * R(0.03f, 0.06f), ember, false);
+                float a = (i + R(-0.15f, 0.15f)) / 7f * Mathf.PI * 2f;
+                Vector3 foot = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * R(0.3f, 0.36f) + Vector3.up * 0.03f;
+                Vector3 top = apex + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.04f;
+                logs.Add(Stick(pit, foot, top, R(0.035f, 0.05f), bark));
             }
-            Effects.Glow(t, fire + Vector3.up * 0.15f, 0.9f, new Color(1f, 0.3f, 0.08f) * 0.25f, 0.6f, 2.5f, "Embers glow");
-            // Smoke still curling up off it.
-            var smoke = new GameObject("Smoke") { layer = Layers.Effects };
-            smoke.transform.SetParent(t, false);
-            smoke.transform.localPosition = fire + Vector3.up * 0.15f;
-            smoke.AddComponent<CampSmoke>();
+            // The tripod over it, and a kettle hanging from its chain.
+            Vector3 crown = Vector3.up * 1.35f;
+            for (int i = 0; i < 3; i++)
+            {
+                float a = (i / 3f + 0.08f) * Mathf.PI * 2f;
+                Stick(pit, new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.95f, crown + new Vector3(Mathf.Cos(a), 0.06f, Mathf.Sin(a)) * 0.06f, 0.013f, metal);
+            }
+            Vector3 kettle = Vector3.up * 0.88f;
+            for (int i = 0; i < 6; i++) // (the chain: little links, each turned to the last)
+            {
+                var link = Shape(PrimitiveType.Capsule, pit, Vector3.Lerp(crown, kettle + Vector3.up * 0.2f, (i + 0.5f) / 6f), new Vector3(0.014f, 0.022f, 0.006f), metal, false);
+                link.transform.localRotation = Quaternion.Euler(0f, i * 90f, 0f);
+            }
+            Shape(PrimitiveType.Sphere, pit, kettle, new Vector3(0.24f, 0.2f, 0.24f), pot, false);
+            Shape(PrimitiveType.Cylinder, pit, kettle + Vector3.up * 0.095f, new Vector3(0.12f, 0.012f, 0.12f), pot, false);
+            Shape(PrimitiveType.Sphere, pit, kettle + Vector3.up * 0.115f, Vector3.one * 0.025f, darkWood, false); // (the knob on its lid)
+            Rod(pit, kettle + new Vector3(-0.11f, 0.05f, 0f), kettle + Vector3.up * 0.2f, 0.004f, metal);
+            Rod(pit, kettle + Vector3.up * 0.2f, kettle + new Vector3(0.11f, 0.05f, 0f), 0.004f, metal);
+            var spout = Shape(PrimitiveType.Cylinder, pit, kettle + new Vector3(0.13f, 0.02f, 0f), new Vector3(0.03f, 0.06f, 0.03f), pot, false);
+            spout.transform.localRotation = Quaternion.Euler(0f, 0f, -55f);
+
+            var campfire = pit.gameObject.AddComponent<Campfire>();
+            campfire.logs = logs.ToArray();
+            campfire.charred = charcoal;
+            var aim = pit.gameObject.AddComponent<SphereCollider>(); // (what you click to light it)
+            aim.isTrigger = true;
+            aim.center = Vector3.up * 0.3f;
+            aim.radius = 0.5f;
 
             // Somewhere to sit: two logs round the far side of the fire, and a stump.
             foreach (float deg in new[] { 25f + R(-8f, 8f), -45f + R(-8f, 8f) })
@@ -219,21 +305,9 @@ namespace Game.World.Build
             Shape(PrimitiveType.Cylinder, t, new Vector3(0.8f, 0.2f, -1.4f), new Vector3(0.42f, 0.2f, 0.42f), bark, true);
             Shape(PrimitiveType.Cylinder, t, new Vector3(0.8f, 0.405f, -1.4f), new Vector3(0.38f, 0.005f, 0.38f), wood, false); // (its cut top)
 
-            // A pot sitting on the stones, a mug knocked over.
-            var potAt = fire + new Vector3(-0.15f, 0.2f, 0.55f);
-            Shape(PrimitiveType.Cylinder, t, potAt, new Vector3(0.22f, 0.08f, 0.22f), pot, false);
-            Rod(t, potAt + new Vector3(-0.1f, 0.08f, 0f), potAt + new Vector3(0f, 0.18f, 0f), 0.006f, pot);
-            Rod(t, potAt + new Vector3(0f, 0.18f, 0f), potAt + new Vector3(0.1f, 0.08f, 0f), 0.006f, pot);
-            var mug = Shape(PrimitiveType.Cylinder, t, fire + new Vector3(0.9f, 0.04f, 0.9f), new Vector3(0.08f, 0.05f, 0.08f), pot, false);
+            // A mug knocked over by the fire.
+            var mug = Shape(PrimitiveType.Cylinder, t, fire + new Vector3(0.95f, 0.04f, 0.95f), new Vector3(0.08f, 0.05f, 0.08f), pot, false);
             mug.transform.localRotation = Quaternion.Euler(0f, R(0f, 360f), 90f);
-
-            // A camping lantern by the tent's door, long out.
-            var lamp = new Vector3(-0.55f, 0f, 0.75f);
-            Shape(PrimitiveType.Cylinder, t, lamp + Vector3.up * 0.03f, new Vector3(0.12f, 0.03f, 0.12f), pot, false);
-            Shape(PrimitiveType.Cylinder, t, lamp + Vector3.up * 0.13f, new Vector3(0.09f, 0.07f, 0.09f), groundSheet, false);
-            Shape(PrimitiveType.Cylinder, t, lamp + Vector3.up * 0.22f, new Vector3(0.11f, 0.02f, 0.11f), pot, false);
-            Rod(t, lamp + new Vector3(-0.05f, 0.24f, 0f), lamp + new Vector3(0f, 0.3f, 0f), 0.005f, pot);
-            Rod(t, lamp + new Vector3(0f, 0.3f, 0f), lamp + new Vector3(0.05f, 0.24f, 0f), 0.005f, pot);
 
             // Firewood stacked by the tent.
             for (int i = 0; i < 6; i++)
@@ -297,13 +371,6 @@ namespace Game.World.Build
             // The back, closed; the front flaps, folded back against the sides and tied.
             float back = -length * 0.5f, front = length * 0.5f;
             Tri(cloth, new Vector3(-halfWidth, 0f, back), new Vector3(0f, RidgeAt(back), back), new Vector3(halfWidth, 0f, back));
-            for (int side = -1; side <= 1; side += 2)
-            {
-                var top = new Vector3(0f, RidgeAt(front), front);
-                var foot = new Vector3(side * halfWidth, 0f, front);
-                var tied = new Vector3(side * (halfWidth * 0.62f + 0.1f), ridge * 0.42f, front - 0.3f);
-                Tri(cloth, top, foot, tied);
-            }
             var clothMesh = cloth.ToMesh("Tent canvas");
             made.Add(clothMesh);
             var canvasGo = new GameObject("Canvas") { layer = Layers.Props };
@@ -344,11 +411,123 @@ namespace Game.World.Build
                     Rod(tent, from, stake + Vector3.up * 0.05f, 0.004f, rope);
                     Rod(tent, stake + Vector3.down * 0.05f, stake + Vector3.up * 0.08f, 0.01f, darkWood);
                 }
-            // Inside: the ground sheet, and a sleeping bag along one side (the loot lies down the middle).
+            // The door flaps (E opens and shuts them), and the doorway you crawl in by.
+            var flapGo = new GameObject("Flaps") { layer = Layers.Props };
+            flapGo.transform.SetParent(tent, false);
+            flapGo.transform.localPosition = new Vector3(0f, 0f, front);
+            var flap = flapGo.AddComponent<TentFlap>();
+            flap.Build(halfWidth, RidgeAt(front), tentCanvas);
+            var doorwayGo = new GameObject("Doorway") { layer = Layers.Props };
+            doorwayGo.transform.SetParent(tent, false);
+            var doorway = doorwayGo.AddComponent<TentDoorway>();
+            doorway.flap = flap;
+            doorway.sitAt = new Vector3(0f, 0.03f, -0.3f);
+            doorway.outAt = new Vector3(0f, 0.05f, front + 0.85f);
+
+            // Inside: the ground sheet, a wool blanket spread over it (folded back at the head), two pillows, and a
+            // little lantern hanging from the ridge (click it on and off). The loot lies down the middle.
             Box(tent, new Vector3(0f, 0.01f, 0f), new Vector3(halfWidth * 2f - 0.1f, 0.02f, length - 0.05f), groundSheet, false);
-            var bag = Shape(PrimitiveType.Capsule, tent, new Vector3(-halfWidth * 0.5f, 0.07f, -0.1f), new Vector3(0.38f, 0.9f, 0.12f), canvas, false);
-            bag.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            Blanket(tent, new Vector3(0f, 0.022f, 0.05f), 1.25f, 1.7f);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var p = Shape(PrimitiveType.Sphere, tent, new Vector3(side * 0.3f, 0.07f, -0.88f), new Vector3(0.46f, 0.12f, 0.28f), pillow, false);
+                p.transform.localRotation = Quaternion.Euler(0f, side * 6f, side * 3f);
+            }
+            HangingLantern(tent, new Vector3(0f, RidgeAt(0.3f), 0.3f));
             PlaceFittings.AddShelter(tent, "Tent", new Bounds(new Vector3(0f, 0.55f, 0f), new Vector3(halfWidth * 1.4f, 1.1f, length)));
+        }
+
+        // A wool blanket lying a little rumpled on the tent floor, its top edge turned back over itself.
+        void Blanket(Transform parent, Vector3 centre, float width, float length)
+        {
+            var m = new MeshBuilder();
+            const int nx = 10, nz = 14;
+            float Wrinkle(float x, float z) => 0.012f * Mathf.Sin(x * 9f + z * 3f) * Mathf.Sin(z * 7f - x * 2f) + 0.008f * Mathf.Sin(x * 23f + z * 17f);
+            for (int layer = 0; layer < 2; layer++)
+            {
+                int start = m.VertexCount;
+                // The main sheet, and the turned-back strip lying on top of its far end.
+                float z0 = layer == 0 ? -length * 0.5f : -length * 0.5f, z1 = layer == 0 ? length * 0.5f : -length * 0.5f + 0.28f;
+                float lift = layer == 0 ? 0f : 0.018f;
+                for (int j = 0; j <= nz; j++)
+                for (int i = 0; i <= nx; i++)
+                {
+                    float x = (i / (float)nx - 0.5f) * width, z = Mathf.Lerp(z0, z1, j / (float)nz);
+                    float edgeDrop = Mathf.Max(0f, Mathf.Abs(x) - width * 0.45f) * 0.3f; // (sagging at its sides)
+                    m.AddVertex(centre + new Vector3(x, Wrinkle(x, z) + lift - edgeDrop + 0.012f, z), new Vector2(x, z));
+                }
+                for (int j = 0; j < nz; j++)
+                for (int i = 0; i < nx; i++)
+                {
+                    int a = start + j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+                    m.AddTriangle(a, c, b);
+                    m.AddTriangle(b, c, d);
+                }
+            }
+            var mesh = m.ToMesh("Blanket");
+            made.Add(mesh);
+            var go = new GameObject("Blanket") { layer = Layers.Props };
+            go.transform.SetParent(parent, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = blanket;
+        }
+
+        // A little camping lantern hung on a hook from the tent's ridge: a tin base and cap, a glass chimney, a
+        // wire handle. Click it on and off (TentLantern).
+        void HangingLantern(Transform parent, Vector3 ridgeAt)
+        {
+            var lamp = new GameObject("Lantern") { layer = Layers.Props }.transform;
+            lamp.SetParent(parent, false);
+            lamp.localPosition = ridgeAt + Vector3.down * 0.2f;
+            Rod(lamp, Vector3.up * 0.2f, Vector3.up * 0.1f, 0.003f, metal);                  // (the cord to the hook)
+            Rod(lamp, new Vector3(-0.045f, 0.0f, 0f), new Vector3(0f, 0.1f, 0f), 0.0025f, metal); // (the wire handle)
+            Rod(lamp, new Vector3(0f, 0.1f, 0f), new Vector3(0.045f, 0.0f, 0f), 0.0025f, metal);
+            Shape(PrimitiveType.Cylinder, lamp, Vector3.down * 0.005f, new Vector3(0.075f, 0.012f, 0.075f), pot, false);      // cap
+            var glass = Shape(PrimitiveType.Cylinder, lamp, Vector3.down * 0.075f, new Vector3(0.06f, 0.058f, 0.06f),
+                Keep(RuntimeMaterials.LitGlow("Lantern glass", new Color(0.5f, 0.45f, 0.35f), Color.black)), false);
+            glass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            for (int i = 0; i < 4; i++) // (the wire guard round the glass)
+            {
+                float a = i * Mathf.PI * 0.5f + 0.4f;
+                var at = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.033f;
+                Rod(lamp, at + Vector3.down * 0.015f, at + Vector3.down * 0.135f, 0.0018f, metal);
+            }
+            Shape(PrimitiveType.Cylinder, lamp, Vector3.down * 0.145f, new Vector3(0.08f, 0.015f, 0.08f), pot, false);       // base
+            var hit = lamp.gameObject.AddComponent<SphereCollider>(); // (what you click)
+            hit.isTrigger = true;
+            hit.center = Vector3.down * 0.075f;
+            hit.radius = 0.09f;
+            var lantern = lamp.gameObject.AddComponent<TentLantern>();
+            lantern.glass = glass.GetComponent<Renderer>();
+        }
+
+        // A rock (the forest's own shape), placed, sized and turned.
+        void Rock(Transform parent, Vector3 at, Vector3 size, float yaw, Material mat, System.Random rng)
+        {
+            var mesh = ForestMeshes.Rock(rng).ToMesh("Fire stone");
+            made.Add(mesh);
+            var go = new GameObject("Stone") { layer = Layers.Props };
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = at;
+            go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            go.transform.localScale = size;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+
+        // A round stick or log between two points (casting shadows, unlike a rod).
+        static Renderer Stick(Transform parent, Vector3 from, Vector3 to, float radius, Material mat)
+        {
+            Vector3 d = to - from;
+            var go = Shape(PrimitiveType.Cylinder, parent, (from + to) * 0.5f, new Vector3(radius * 2f, d.magnitude * 0.5f, radius * 2f), mat, false);
+            go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, d);
+            return go.GetComponent<Renderer>();
+        }
+
+        static Vector2 Random2(System.Random rng)
+        {
+            float a = (float)rng.NextDouble() * Mathf.PI * 2f, r = Mathf.Sqrt((float)rng.NextDouble());
+            return new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
         }
 
         static void Tri(MeshBuilder m, Vector3 a, Vector3 b, Vector3 c)
