@@ -986,6 +986,76 @@ namespace Game.Audio
             return Loop(s, 0.35f);
         }
 
+        /// <summary>
+        /// A CB radio left on in an empty lookout (24 s, to loop): hiss through a small speaker, the squelch
+        /// breaking it off into dead air now and then; a carrier tone drifting under it; a voice coming and going
+        /// that never quite makes words (syllables of a man's voice, too slow, ring-modulated into a warble); and,
+        /// once, three flat beeps like a number station.
+        /// </summary>
+        public static float[] RadioCreep(int seed)
+        {
+            var rng = new Random(seed);
+            const float length = 24.5f;
+            var s = Make(length);
+            // Where the voice speaks (start, length) and where the squelch cuts out (start, length).
+            var said = new System.Collections.Generic.List<(float, float)>();
+            for (float t = 1.5f; t < length - 3f; t += 2.5f + (float)rng.NextDouble() * 4f)
+                said.Add((t, 1.2f + (float)rng.NextDouble() * 2.2f));
+            var dead = new System.Collections.Generic.List<(float, float)>();
+            for (float t = 4f; t < length - 2f; t += 5f + (float)rng.NextDouble() * 6f)
+                dead.Add((t, 0.25f + (float)rng.NextDouble() * 0.9f));
+            float beeps = 13f + (float)rng.NextDouble() * 4f;
+            float hp = 0f, lp = 0f, f1a = 0f, f1b = 0f, f2a = 0f, f2b = 0f;
+            double voicePhase = 0, carrier = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                // The hiss, band-limited like a cheap speaker.
+                float n = Noise(rng);
+                lp += (n - lp) * 0.35f;
+                hp += (lp - hp) * 0.04f;
+                float hiss = (lp - hp) * 0.55f;
+                float crackle = rng.NextDouble() < 0.0006 ? Noise(rng) * 0.9f : 0f;
+                // The carrier, wandering.
+                float cf = 610f + 90f * (float)Math.Sin(2 * Math.PI * 0.05 * t) + 25f * (float)Math.Sin(2 * Math.PI * 0.31 * t);
+                carrier += 2 * Math.PI * cf / SampleRate;
+                float tone = (float)Math.Sin(carrier) * 0.06f * (0.5f + 0.5f * (float)Math.Sin(2 * Math.PI * 0.08 * t));
+                // The voice: a buzz at a slow, sinking pitch through two moving formants, in syllables.
+                float voice = 0f;
+                foreach (var (at, len) in said)
+                {
+                    float d = t - at;
+                    if (d < 0f || d > len) continue;
+                    float syll = Math.Max(0f, (float)Math.Sin(Math.PI * d * (2.2f + 0.6f * (float)Math.Sin(at)))) * Env(d, 0.1f, len, 0.4f);
+                    float pitch = 118f - 22f * d / len + 6f * (float)Math.Sin(2 * Math.PI * 3 * d);
+                    voicePhase += pitch / SampleRate;
+                    float buzz = (float)(voicePhase - Math.Floor(voicePhase)) * 2f - 1f;
+                    float input = buzz * syll;
+                    // (formants sliding between vowels)
+                    float k1 = 0.06f + 0.03f * (float)Math.Sin(d * 5.1f + at), k2 = 0.16f + 0.06f * (float)Math.Sin(d * 3.3f + at * 2f);
+                    f1a += (input - f1a - 0.6f * f1b) * k1; f1b += f1a * k1;
+                    f2a += (input - f2a - 0.6f * f2b) * k2; f2b += f2a * k2;
+                    voice = (f1b * 0.6f + f2b * 0.4f) * (1f + 0.6f * (float)Math.Sin(2 * Math.PI * 37 * t)); // (the warble)
+                }
+                // Three flat beeps, once.
+                float bd = t - beeps;
+                float beep = 0f;
+                for (int b = 0; b < 3; b++)
+                {
+                    float x = bd - b * 0.7f;
+                    if (x >= 0f && x < 0.32f) beep = (float)Math.Sin(2 * Math.PI * 880 * t) * 0.22f * Env(x, 0.01f, 0.32f, 0.02f);
+                }
+                float squelch = 1f;
+                foreach (var (at, len) in dead)
+                {
+                    float d = t - at;
+                    if (d >= 0f && d < len) squelch = d < 0.02f || d > len - 0.02f ? 0.6f : 0.04f;
+                }
+                s[i] = ((hiss + crackle) * 0.5f + tone + voice * 0.9f + beep) * squelch;
+            }
+            return Loop(s, 0.55f);
+        }
+
         /// <summary>An old song through a small speaker: a slow waltz in a minor key, thin and crackling (16 s, to loop).</summary>
         public static float[] RadioSong(int seed)
         {

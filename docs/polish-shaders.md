@@ -663,3 +663,26 @@ shadows, or appear in ray tracing or motion vectors.
   - After 30 s (`leftEyeTime`) it stops, its iris kindles red over 2 s, and it shoots up into the sky toward the
     giant.
   - It's harmless. At most 3 at once.
+
+## Watchtower top: balcony, a lookout room with a door, a CB radio; quicker climbing
+
+- **The ladder:** the safety cage is gone. The ladder now comes up to a gap in the railing of a balcony that runs
+  all the way round (6 m across).
+  - Climbing holds you to the ladder, so you can't slide under the deck.
+  - At the top (the `LadderTop` marker), keep climbing and it steps you up and across onto the balcony.
+  - From the balcony, walk into the gap and W takes you down, whichever way you're facing.
+- **Climbing faster:** hold Shift to climb at 5 m/s (`PlayerConfig` > `climbSprintSpeed`; normal is still 2.5).
+  It uses stamina like running.
+- **The lookout room:** it sits in the middle of the balcony, 3.4 m across.
+  - The west wall is boarded up, with a hinged door in it (E opens and shuts it, the same door as the cabins').
+    The other walls have windows above the sill.
+  - It's a shelter: outside sounds come through muffled while you're in it.
+  - Inside: the fire-finder table, the floodlight switch box by the door, the map on the floor, a hanging lantern,
+    and a desk with a stool, a logbook and a CB radio left on.
+  - The drone waits out on the balcony now (the `Drone` marker).
+- **The CB radio** (`CbRadio`, `Sound.RadioCreep`): a 24 s loop.
+  - It plays hiss, with the squelch cutting it off into dead air now and then, and a carrier tone drifting under it.
+  - A slow, warbling voice comes and goes but never quite makes words, and once there are three flat beeps like a
+    number station.
+  - The dial glows amber while it's on. Click it to switch it off or on.
+  - From out on the balcony it's muffled, more so with the door shut.

@@ -382,9 +382,34 @@ namespace Game.Player
             if (Climbing)
             {
                 float way = pitch > 35f ? -1f : 1f;
-                velocity.y = move.y * way * s.climbSpeed;
-                velocity.x *= 0.5f;
-                velocity.z *= 0.5f;
+                // Held to the ladder off the ground (and always near its top): no sliding round it, or under a deck.
+                bool nearTop = ladder.hasTop && transform.position.y > ladder.TopWorld.y - 1.2f;
+                // At the top with your back to it (having just stepped on from the deck), W takes you down.
+                if (nearTop && pitch > -25f && Vector3.Dot(transform.forward, ladder.TopWorld - transform.position) < 0f) way = -1f;
+                velocity.y = move.y * way * (Running ? s.climbSprintSpeed : s.climbSpeed);
+                if (!body.isGrounded || nearTop)
+                {
+                    Vector3 hold = ladder.Centre - transform.position;
+                    velocity.x = hold.x * 5f;
+                    velocity.z = hold.z * 5f;
+                }
+                else
+                {
+                    velocity.x *= 0.5f;
+                    velocity.z *= 0.5f;
+                }
+                // Over the top: up to the top's level, then across onto it.
+                if (ladder.hasTop && velocity.y > 0f && transform.position.y > ladder.TopWorld.y - 0.6f)
+                {
+                    Vector3 top = ladder.TopWorld;
+                    if (transform.position.y < top.y + 0.05f) velocity = Vector3.up * Mathf.Max(velocity.y, 1.5f);
+                    else
+                    {
+                        Vector3 across = top - transform.position;
+                        across.y = 0f;
+                        velocity = across.sqrMagnitude > 0.0001f ? across.normalized * 2.4f : Vector3.zero;
+                    }
+                }
                 body.Move(velocity * dt);
                 return;
             }

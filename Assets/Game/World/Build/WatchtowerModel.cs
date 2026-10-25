@@ -7,21 +7,26 @@ namespace Game.World.Build
 {
     /// <summary>
     /// An old fire lookout tower (section 6.5), 12 m to its deck: four timber legs splayed out to concrete footings,
-    /// tied with girts and X-braced on every face, bolted at the joints; a planked deck on joists; a lookout cab with
-    /// plank walls to waist height and windows all round above (old glass, some panes cracked or gone), corner
-    /// posts, a hipped tin roof with a finial, a lightning rod and an aerial; a floodlight on a bracket at each
-    /// corner under the eaves, with their conduit down to a switch box by the door (the button); inside, a round
-    /// fire-finder table with its sighting ring, a stool, and a lantern hanging from the roof. The ladder goes up
-    /// the west side through a hooped safety cage, its rails running up past the deck to grab. What you can stand
-    /// on and bump into has simple colliders; the details have none.
+    /// tied with girts and X-braced on every face, bolted at the joints; a planked balcony all round on joists and
+    /// knee braces, railed, with a gap on the west where the ladder comes up; in the middle, the lookout room:
+    /// boarded to the sill with windows above (old glass, some panes cracked or gone) on three sides, the west side
+    /// boarded up with the door in it, a hipped tin roof with a finial, a lightning rod and the radio's aerial; a
+    /// floodlight on a bracket at each corner under the eaves, wired to a switch box inside by the door (the
+    /// button). Inside (a shelter: sounds from outside muffled), a round fire-finder table with its sighting
+    /// ring, a desk with a CB radio left on, a stool, a logbook and a lantern hanging from the roof. The ladder
+    /// goes up the west side, its rails running up past the balcony to grab. What you can stand on and bump into
+    /// has simple colliders; the details have none.
     /// </summary>
     public sealed class WatchtowerModel
     {
         public const float Deck = 12f;                     // the deck's underside (its top is 12.125)
         const float Leg = 2.45f, LegTop = 1.85f;           // the legs' corners, at the ground and under the deck
-        const float Half = 2.15f;                          // the deck's half-width
-        const float WallTop = Deck + 1.15f, Eaves = Deck + 2.45f, Apex = Deck + 3.7f;
-        public const float LadderX = -2.75f;               // the ladder's rails (west of the tower)
+        const float B = 3f;                                // the balcony's half-width
+        const float C = 1.7f;                              // the lookout room's half-width
+        const float Gap = 0.55f;                           // half the gap in the railing where the ladder comes up
+        const float DoorHalf = 0.45f, DoorH = 2.05f;       // the room's door (in its west wall, facing the ladder)
+        const float WallTop = Deck + 1.0f, Eaves = Deck + 2.5f, Apex = Deck + 3.6f;
+        public const float LadderX = -B - 0.55f;           // the ladder's rails (west of the balcony)
 
         readonly List<Object> made;
         readonly System.Random rng;
@@ -63,7 +68,8 @@ namespace Game.World.Build
         public void Build(Transform t)
         {
             Frame(t);
-            DeckAndCab(t);
+            Balcony(t);
+            Room(t);
             Roof(t);
             Floodlights(t);
             Inside(t);
@@ -116,116 +122,185 @@ namespace Game.World.Build
         static Vector3 Outward(int face) => face switch { 0 => Vector3.back, 1 => Vector3.right, 2 => Vector3.forward, _ => Vector3.left };
         static Vector3 Abs(Vector3 v) => new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
 
-        // ------------------------------------------------------------------ the deck and the cab
+        // ------------------------------------------------------------------ the balcony
 
-        void DeckAndCab(Transform t)
+        void Balcony(Transform t)
         {
-            // Joists under the deck, then planks across them (a few warped or short), and one solid floor to stand on.
-            for (int i = 0; i < 5; i++)
-                Box(t, new Vector3(Mathf.Lerp(-Half + 0.15f, Half - 0.15f, i / 4f), Deck - 0.1f, 0f), new Vector3(0.12f, 0.2f, Half * 2f), darkTimber, false);
-            int planks = 15;
-            for (int i = 0; i < planks; i++)
+            // Joists out past the legs (on knee braces), a rim round the edge, planks across, one floor to stand on.
+            for (int i = 0; i < 7; i++)
+                Box(t, new Vector3(Mathf.Lerp(-B + 0.1f, B - 0.1f, i / 6f), Deck - 0.1f, 0f), new Vector3(0.12f, 0.2f, B * 2f), darkTimber, false);
+            for (int side = 0; side < 4; side++)
             {
-                float z = Mathf.Lerp(-Half + 0.14f, Half - 0.14f, i / (planks - 1f));
-                var p = Box(t, new Vector3(R(-0.02f, 0.02f), Deck + 0.06f + R(-0.008f, 0.008f), z), new Vector3(Half * 2f, 0.05f, 0.27f), plank, false);
-                p.transform.localRotation = Quaternion.Euler(0f, 0f, R(-0.6f, 0.6f));
+                Vector3 outward = Outward(side), along = side % 2 == 0 ? Vector3.right : Vector3.forward;
+                Box(t, outward * (B - 0.05f) + Vector3.up * (Deck - 0.05f), Vector3.Scale(along, Vector3.one * B * 2f) + Vector3.Scale(Abs(outward), Vector3.one * 0.1f) + Vector3.up * 0.26f, timber, false);
             }
-            var floor = Box(t, new Vector3(0f, Deck + 0.06f, 0f), new Vector3(Half * 2f, 0.13f, Half * 2f), plank, true);
-            floor.GetComponent<Renderer>().enabled = false;
-
-            // Corner posts to the eaves.
             foreach (int sx in new[] { -1, 1 })
             foreach (int sz in new[] { -1, 1 })
-                Box(t, new Vector3(sx * (Half - 0.07f), (Deck + Eaves) * 0.5f, sz * (Half - 0.07f)), new Vector3(0.15f, Eaves - Deck, 0.15f), timber, false);
+            {
+                Vector3 under = LegAt(sx, sz, Deck - 1.7f);
+                Beam(t, under, new Vector3(sx * (B - 0.15f), Deck - 0.2f, sz * LegTop), 0.1f, 0.14f, timber, false);
+                Beam(t, under, new Vector3(sx * LegTop, Deck - 0.2f, sz * (B - 0.15f)), 0.1f, 0.14f, timber, false);
+            }
+            int planks = 21;
+            for (int i = 0; i < planks; i++)
+            {
+                float z = Mathf.Lerp(-B + 0.14f, B - 0.14f, i / (planks - 1f));
+                var p = Box(t, new Vector3(R(-0.02f, 0.02f), Deck + 0.06f + R(-0.008f, 0.008f), z), new Vector3(B * 2f, 0.05f, 0.27f), plank, false);
+                p.transform.localRotation = Quaternion.Euler(0f, 0f, R(-0.5f, 0.5f));
+            }
+            Hidden(t, new Vector3(0f, Deck + 0.06f, 0f), new Vector3(B * 2f, 0.13f, B * 2f));
 
-            // The walls: boards to waist height (the west wall with the gap the ladder comes up through), a sill,
-            // windows above in three bays a side, the head rail over them.
+            // The railing: posts, a top rail and a middle one, the gap on the west where the ladder comes up; and
+            // what stops you going over it.
+            const float railH = 1.05f;
+            for (int side = 0; side < 4; side++)
+            {
+                Vector3 outward = Outward(side), along = side % 2 == 0 ? Vector3.right : Vector3.forward;
+                Vector3 edge = outward * (B - 0.06f);
+                bool ladderSide = side == 3;
+                for (int k = 0; k <= 6; k++)
+                {
+                    float u = Mathf.Lerp(-B + 0.06f, B - 0.06f, k / 6f);
+                    if (ladderSide && Mathf.Abs(u) < Gap) continue;
+                    Box(t, edge + along * u + Vector3.up * (Deck + 0.125f + railH * 0.5f), new Vector3(0.09f, railH, 0.09f), timber, false);
+                }
+                // (spans: the whole side, or the two either side of the gap)
+                var spans = ladderSide ? new[] { (-B, -Gap), (Gap, B) } : new[] { (-B, B) };
+                foreach (var (u0, u1) in spans)
+                {
+                    float uc = (u0 + u1) * 0.5f, len = u1 - u0;
+                    Vector3 size(float h, float d) => Vector3.Scale(along, Vector3.one * len) + Vector3.Scale(Abs(outward), Vector3.one * d) + Vector3.up * h;
+                    Box(t, edge + along * uc + Vector3.up * (Deck + 0.125f + railH), size(0.06f, 0.12f), darkTimber, false);
+                    Box(t, edge + along * uc + Vector3.up * (Deck + 0.125f + railH * 0.5f), size(0.05f, 0.06f), timber, false);
+                    Hidden(t, edge + along * uc + Vector3.up * (Deck + 0.125f + 0.6f), size(1.2f, 0.1f));
+                }
+                if (ladderSide) // (posts either side of the gap, the grab rails tied to them)
+                    for (int sgn = -1; sgn <= 1; sgn += 2)
+                        Box(t, edge + along * sgn * Gap + Vector3.up * (Deck + 0.125f + railH * 0.5f), new Vector3(0.1f, railH, 0.1f), darkTimber, false);
+            }
+            // The drone waits out here, in a corner.
+            Marker(t, "Drone", new Vector3(B - 0.6f, Deck + 0.135f, -B + 0.6f));
+        }
+
+        // ------------------------------------------------------------------ the lookout room
+
+        // Walls all round: boards to the sill, windows above (old glass, a pane cracked or gone here and there) on
+        // three sides; the west side (the ladder's) boarded right up, with the door. Inside, a shelter: sounds from
+        // outside come muffled.
+        void Room(Transform t)
+        {
+            foreach (int sx in new[] { -1, 1 })
+            foreach (int sz in new[] { -1, 1 })
+                Box(t, new Vector3(sx * (C - 0.07f), (Deck + Eaves) * 0.5f, sz * (C - 0.07f)), new Vector3(0.15f, Eaves - Deck, 0.15f), timber, false);
+
             for (int side = 0; side < 4; side++)
             {
                 Vector3 along = side % 2 == 0 ? Vector3.right : Vector3.forward;
-                Vector3 outward = side switch { 0 => Vector3.back, 1 => Vector3.right, 2 => Vector3.forward, _ => Vector3.left };
-                Vector3 mid = outward * (Half - 0.04f);
-                bool ladderSide = side == 3;
-                // Boards, standing, each its own shade, the gap left on the ladder side.
-                int boards = 18;
+                Vector3 outward = Outward(side);
+                Vector3 mid = outward * (C - 0.04f);
+                bool doorSide = side == 3;
+                float boardTop = doorSide ? Eaves : WallTop;
+                int boards = 15;
                 for (int i = 0; i < boards; i++)
                 {
-                    float u = Mathf.Lerp(-Half + 0.12f, Half - 0.12f, i / (boards - 1f));
-                    if (ladderSide && Mathf.Abs(u) < 0.5f) continue;
-                    var b = Box(t, mid + along * u + Vector3.up * (Deck + 0.13f + (WallTop - Deck - 0.13f) * 0.5f),
-                        Vector3.Scale(along, new Vector3(0.22f, 0f, 0.22f)) + Vector3.Scale(Abs(outward), new Vector3(0.035f, 0f, 0.035f)) + Vector3.up * (WallTop - Deck - 0.13f + R(-0.04f, 0.02f)),
+                    float u = Mathf.Lerp(-C + 0.12f, C - 0.12f, i / (boards - 1f));
+                    bool overDoor = doorSide && Mathf.Abs(u) < DoorHalf + 0.06f;
+                    float y0 = overDoor ? Deck + DoorH + 0.08f : Deck + 0.13f;
+                    if (boardTop - y0 < 0.05f) continue;
+                    Box(t, mid + along * u + Vector3.up * ((y0 + boardTop) * 0.5f),
+                        Vector3.Scale(along, Vector3.one * 0.22f) + Vector3.Scale(Abs(outward), Vector3.one * 0.035f) + Vector3.up * (boardTop - y0 + R(-0.03f, 0.01f)),
                         rng.Next(4) == 0 ? darkTimber : plank, false);
                 }
-                // What stops you falling (or climbing out of a window): a solid wall to the eaves each side of the
-                // gap, or all along.
+                // Solid walls, to the eaves (on the door side, each side of the doorway and over it).
                 float wy = (Deck + Eaves) * 0.5f, wh = Eaves - Deck;
-                if (ladderSide)
-                    for (int s = -1; s <= 1; s += 2)
+                if (doorSide)
+                {
+                    for (int sgn = -1; sgn <= 1; sgn += 2)
                     {
-                        var w = Box(t, mid + along * s * (Half + 0.5f) * 0.5f + Vector3.up * wy, Vector3.Scale(along, Vector3.one * (Half - 0.5f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.08f) + Vector3.up * wh, plank, true);
-                        w.GetComponent<Renderer>().enabled = false;
+                        float u0 = DoorHalf + 0.05f, uc = sgn * (u0 + C) * 0.5f;
+                        Hidden(t, mid + along * uc + Vector3.up * wy, Vector3.Scale(along, Vector3.one * (C - u0)) + Vector3.Scale(Abs(outward), Vector3.one * 0.1f) + Vector3.up * wh);
                     }
-                else
-                {
-                    var w = Box(t, mid + Vector3.up * wy, Vector3.Scale(along, Vector3.one * Half * 2f) + Vector3.Scale(Abs(outward), Vector3.one * 0.08f) + Vector3.up * wh, plank, true);
-                    w.GetComponent<Renderer>().enabled = false;
+                    float hy = Deck + DoorH + 0.1f;
+                    Hidden(t, mid + Vector3.up * ((hy + Eaves) * 0.5f), Vector3.Scale(along, Vector3.one * (DoorHalf * 2f + 0.1f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.1f) + Vector3.up * (Eaves - hy));
+                    // The frame round the doorway.
+                    for (int sgn = -1; sgn <= 1; sgn += 2)
+                        Box(t, mid + outward * 0.03f + along * sgn * (DoorHalf + 0.05f) + Vector3.up * (Deck + 0.125f + DoorH * 0.5f), Vector3.Scale(along, Vector3.one * 0.1f) + Vector3.Scale(Abs(outward), Vector3.one * 0.12f) + Vector3.up * DoorH, darkTimber, false);
+                    Box(t, mid + outward * 0.03f + Vector3.up * (Deck + 0.125f + DoorH + 0.05f), Vector3.Scale(along, Vector3.one * (DoorHalf * 2f + 0.2f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.12f) + Vector3.up * 0.1f, darkTimber, false);
                 }
-                // The sill and the head rail.
-                Box(t, mid + outward * 0.04f + Vector3.up * (WallTop + 0.02f), Vector3.Scale(along, Vector3.one * Half * 2f) + Vector3.Scale(Abs(outward), Vector3.one * 0.14f) + Vector3.up * 0.05f, darkTimber, false);
-                Box(t, mid + Vector3.up * (Eaves - 0.06f), Vector3.Scale(along, Vector3.one * Half * 2f) + Vector3.Scale(Abs(outward), Vector3.one * 0.12f) + Vector3.up * 0.12f, timber, false);
-                // Three bays of windows, two mullions; old glass, a pane cracked or missing here and there.
-                for (int bay = 0; bay < 3; bay++)
+                else Hidden(t, mid + Vector3.up * wy, Vector3.Scale(along, Vector3.one * C * 2f) + Vector3.Scale(Abs(outward), Vector3.one * 0.1f) + Vector3.up * wh);
+                Box(t, mid + Vector3.up * (Eaves - 0.06f), Vector3.Scale(along, Vector3.one * C * 2f) + Vector3.Scale(Abs(outward), Vector3.one * 0.12f) + Vector3.up * 0.12f, timber, false);
+                if (doorSide) continue;
+                // The sill, then two bays of windows, each split by a cross-bar.
+                Box(t, mid + outward * 0.04f + Vector3.up * (WallTop + 0.02f), Vector3.Scale(along, Vector3.one * C * 2f) + Vector3.Scale(Abs(outward), Vector3.one * 0.14f) + Vector3.up * 0.05f, darkTimber, false);
+                Box(t, mid + Vector3.up * ((WallTop + Eaves) * 0.5f), Vector3.Scale(along, Vector3.one * 0.07f) + Vector3.Scale(Abs(outward), Vector3.one * 0.08f) + Vector3.up * (Eaves - WallTop), timber, false);
+                for (int bay = 0; bay < 2; bay++)
                 {
-                    float u0 = Mathf.Lerp(-Half, Half, bay / 3f), u1 = Mathf.Lerp(-Half, Half, (bay + 1) / 3f);
-                    if (bay > 0) Box(t, mid + along * u0 + Vector3.up * ((WallTop + Eaves) * 0.5f), Vector3.Scale(along, Vector3.one * 0.06f) + Vector3.Scale(Abs(outward), Vector3.one * 0.08f) + Vector3.up * (Eaves - WallTop), timber, false);
-                    if (ladderSide && bay == 1) continue; // (the doorway: no glass over the gap)
-                    if (rng.Next(7) == 0) continue;       // (gone)
-                    float uc = (u0 + u1) * 0.5f;
-                    // A cross-bar splitting it into an upper and lower pane.
-                    Box(t, mid + along * uc + Vector3.up * ((WallTop + Eaves) * 0.5f + 0.05f), Vector3.Scale(along, Vector3.one * (u1 - u0 - 0.06f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.05f) + Vector3.up * 0.04f, timber, false);
-                    var pane = Box(t, mid + along * uc + Vector3.up * ((WallTop + Eaves) * 0.5f), Vector3.Scale(along, Vector3.one * (u1 - u0 - 0.08f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.01f) + Vector3.up * (Eaves - WallTop - 0.14f), glass, false);
+                    float u0 = bay == 0 ? -C : 0f, u1 = bay == 0 ? 0f : C, uc = (u0 + u1) * 0.5f;
+                    if (rng.Next(8) == 0) continue; // (gone)
+                    float cy = (WallTop + Eaves) * 0.5f;
+                    Box(t, mid + along * uc + Vector3.up * (cy + 0.05f), Vector3.Scale(along, Vector3.one * (u1 - u0 - 0.06f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.05f) + Vector3.up * 0.04f, timber, false);
+                    var pane = Box(t, mid + along * uc + Vector3.up * cy, Vector3.Scale(along, Vector3.one * (u1 - u0 - 0.08f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.01f) + Vector3.up * (Eaves - WallTop - 0.14f), glass, false);
                     pane.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    if (rng.Next(5) == 0) // (a crack across it)
+                    if (rng.Next(4) == 0)
                     {
-                        var crack = Box(t, mid + outward * 0.008f + along * (uc + R(-0.2f, 0.2f)) + Vector3.up * ((WallTop + Eaves) * 0.5f + R(-0.2f, 0.2f)),
+                        var crack = Box(t, mid + outward * 0.008f + along * (uc + R(-0.25f, 0.25f)) + Vector3.up * (cy + R(-0.2f, 0.2f)),
                             Vector3.Scale(along, Vector3.one * R(0.25f, 0.5f)) + Vector3.Scale(Abs(outward), Vector3.one * 0.003f) + Vector3.up * 0.008f, rope, false);
                         crack.transform.localRotation = Quaternion.AngleAxis(R(-40f, 40f), outward);
                     }
                 }
             }
-            // A plank over the gap where the ladder comes up, to step onto.
-            Box(t, new Vector3(-Half - 0.25f, Deck + 0.06f, 0f), new Vector3(0.5f, 0.06f, 1.0f), plank, true);
+            // The ceiling (so you can't jump out through the roof).
+            Hidden(t, new Vector3(0f, Eaves + 0.15f, 0f), new Vector3(C * 2f, 0.3f, C * 2f));
+
+            // The door: boards on ledges and a brace, a latch; hinged on its south side, swinging out.
+            var hinge = new GameObject("Door") { layer = Layers.Props }.transform;
+            hinge.SetParent(t, false);
+            hinge.localPosition = new Vector3(-C + 0.02f, Deck + 0.125f, -DoorHalf);
+            var leaf = Box(hinge, new Vector3(0f, DoorH * 0.5f, DoorHalf), new Vector3(0.05f, DoorH - 0.02f, DoorHalf * 2f - 0.02f), plank, true);
+            leaf.GetComponent<Renderer>().enabled = false;
+            for (int i = 0; i < 4; i++)
+                Box(hinge, new Vector3(0f, DoorH * 0.5f, Mathf.Lerp(0.12f, DoorHalf * 2f - 0.12f, i / 3f)), new Vector3(0.045f, DoorH - 0.03f, DoorHalf * 0.5f - 0.015f), i == 2 ? darkTimber : plank, false);
+            foreach (float y in new[] { 0.3f, DoorH - 0.3f })
+                Box(hinge, new Vector3(-0.04f, y, DoorHalf), new Vector3(0.03f, 0.12f, DoorHalf * 2f - 0.1f), darkTimber, false);
+            Beam(hinge, new Vector3(-0.04f, 0.36f, 0.12f), new Vector3(-0.04f, DoorH - 0.36f, DoorHalf * 2f - 0.12f), 0.03f, 0.1f, darkTimber, false);
+            Box(hinge, new Vector3(-0.07f, DoorH * 0.48f, DoorHalf * 2f - 0.12f), new Vector3(0.04f, 0.05f, 0.14f), metal, false);
+            for (int i = 0; i < 2; i++) Box(hinge, new Vector3(-0.04f, i == 0 ? 0.3f : DoorH - 0.3f, 0.12f), new Vector3(0.035f, 0.05f, 0.25f), metal, false);
+
+            // Where the shelter is (only a marker).
+            var inside = new GameObject("Inside") { layer = Layers.Props };
+            inside.transform.SetParent(t, false);
+            inside.transform.localPosition = new Vector3(0f, Deck + 1.3f, 0f);
+            var box = inside.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(C * 2f - 0.2f, 2.3f, C * 2f - 0.2f);
         }
 
         // ------------------------------------------------------------------ the roof
 
         void Roof(Transform t)
         {
-            const float over = 0.55f;
-            float e = Half + over;
+            float e = C + 0.6f;
             var m = new MeshBuilder();
             Vector3 apex = new Vector3(0f, Apex, 0f);
             Vector3[] c = { new Vector3(-e, Eaves, -e), new Vector3(e, Eaves, -e), new Vector3(e, Eaves, e), new Vector3(-e, Eaves, e) };
             for (int i = 0; i < 4; i++)
             {
-                // Each slope in strips (corrugations: ridges and troughs running down it).
                 Vector3 a = c[i], b = c[(i + 1) % 4];
-                const int strips = 16;
+                const int strips = 14;
                 for (int k = 0; k < strips; k++)
                 {
                     float u0 = k / (float)strips, u1 = (k + 1) / (float)strips;
                     float lift0 = (k % 2 == 0) ? 0.03f : 0f, lift1 = (k % 2 == 0) ? 0f : 0.03f;
                     Vector3 p0 = Vector3.Lerp(a, b, u0) + Vector3.up * lift0, p1 = Vector3.Lerp(a, b, u1) + Vector3.up * lift1;
-                    // (strips narrowing to the apex: a triangle face)
                     Vector3 q0 = Vector3.Lerp(apex, Vector3.Lerp(a, b, u0), 0.02f), q1 = Vector3.Lerp(apex, Vector3.Lerp(a, b, u1), 0.02f);
                     int v0 = m.AddVertex(p0, new Vector2(u0, 0f)), v1 = m.AddVertex(p1, new Vector2(u1, 0f));
                     int v2 = m.AddVertex(q1, new Vector2(u1, 1f)), v3 = m.AddVertex(q0, new Vector2(u0, 1f));
                     m.AddTriangle(v0, v2, v1);
                     m.AddTriangle(v0, v3, v2);
                 }
-                // The hip's ridge cap down to the corner, and the fascia board along the eave.
                 Rod(t, apex + Vector3.up * 0.03f, a + Vector3.up * 0.04f, 0.045f, tin);
                 Beam(t, a + Vector3.down * 0.08f, b + Vector3.down * 0.08f, 0.04f, 0.16f, darkTimber, false);
+                Beam(t, new Vector3(a.x * 0.92f, Eaves - 0.05f, a.z * 0.92f), apex + Vector3.down * 0.2f, 0.08f, 0.12f, timber, false);
             }
             var roof = m.ToMesh("Tower roof");
             made.Add(roof);
@@ -233,29 +308,27 @@ namespace Game.World.Build
             go.transform.SetParent(t, false);
             go.AddComponent<MeshFilter>().sharedMesh = roof;
             go.AddComponent<MeshRenderer>().sharedMaterial = tin;
-            var lid = Box(t, new Vector3(0f, Eaves + 0.2f, 0f), new Vector3(Half * 2f, 0.3f, Half * 2f), tin, true); // (so you can't jump out through it)
-            lid.GetComponent<Renderer>().enabled = false;
-            // Rafters under it, a finial on top, a lightning rod and an aerial with its wire.
-            for (int i = 0; i < 4; i++) Beam(t, new Vector3(c[i].x * 0.92f, Eaves - 0.05f, c[i].z * 0.92f), apex + Vector3.down * 0.2f, 0.08f, 0.12f, timber, false);
             Cyl(t, apex + Vector3.up * 0.12f, 0.07f, 0.22f, metal);
             Sphere(t, apex + Vector3.up * 0.27f, 0.09f, metal);
             Rod(t, apex + Vector3.up * 0.3f, apex + Vector3.up * 1.7f, 0.012f, brass);
-            Vector3 mast = new Vector3(c[2].x * 0.75f, Eaves + 0.25f * (Apex - Eaves) + 0.3f, c[2].z * 0.75f); // (on the hip, three quarters out)
-            Rod(t, mast + Vector3.down * 0.3f, mast + Vector3.up * 2.4f, 0.02f, metal);
-            for (int i = 0; i < 3; i++) Rod(t, mast + Vector3.up * (1.2f + i * 0.4f) + Vector3.left * 0.35f, mast + Vector3.up * (1.2f + i * 0.4f) + Vector3.right * 0.35f, 0.008f, metal);
-            Rod(t, mast + Vector3.up * 2.3f, c[3] + Vector3.up * 0.1f, 0.004f, rope);
+            // The radio's aerial, on the roof over it, its lead running down into the room.
+            Vector3 mast = new Vector3(c[2].x * 0.7f, Eaves + 0.3f * (Apex - Eaves) + 0.05f, c[1].z * 0.35f);
+            Rod(t, mast + Vector3.down * 0.1f, mast + Vector3.up * 3.2f, 0.018f, metal);
+            for (int i = 0; i < 3; i++) Rod(t, mast + Vector3.up * (1.6f + i * 0.45f) + Vector3.forward * 0.4f, mast + Vector3.up * (1.6f + i * 0.45f) + Vector3.back * 0.4f, 0.007f, metal);
+            Rod(t, mast + Vector3.up * 3.1f, c[1] + Vector3.up * 0.08f, 0.004f, rope);
+            Rod(t, mast + Vector3.up * 3.1f, c[2] + Vector3.up * 0.08f, 0.004f, rope);
         }
 
         // ------------------------------------------------------------------ floodlights
 
-        // A floodlight on a bracket at each corner under the eaves (named "Floodlight": the light shines from there),
-        // their conduit running along the head rail to the switch box by the doorway (the "Button").
+        // A floodlight on a bracket at each corner of the room under the eaves (named "Floodlight": the light shines
+        // from there), their conduit along the head rail inside to the switch box by the door (the "Button").
         void Floodlights(Transform t)
         {
             foreach (int sx in new[] { -1, 1 })
             foreach (int sz in new[] { -1, 1 })
             {
-                Vector3 corner = new Vector3(sx * (Half + 0.05f), Eaves - 0.35f, sz * (Half + 0.05f));
+                Vector3 corner = new Vector3(sx * (C + 0.05f), Eaves - 0.3f, sz * (C + 0.05f));
                 Vector3 outward = new Vector3(sx, 0f, sz).normalized;
                 Vector3 at = corner + outward * 0.35f;
                 Beam(t, corner, at + Vector3.up * 0.1f, 0.05f, 0.05f, metal, false);
@@ -269,23 +342,18 @@ namespace Game.World.Build
                 var lens = Shape(PrimitiveType.Cylinder, lamp, new Vector3(0f, 0f, -0.025f), new Vector3(0.3f, 0.005f, 0.3f), glass);
                 lens.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                 lens.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                for (int f = 0; f < 4; f++) // (cooling fins)
-                {
+                for (int f = 0; f < 4; f++)
                     Shape(PrimitiveType.Cube, lamp, new Vector3(0f, 0f, -0.3f - f * 0.03f), new Vector3(0.36f, 0.36f, 0.008f), metal);
-                }
-                Rod(t, at + Vector3.up * 0.15f, new Vector3(sx * (Half - 0.1f), Eaves - 0.15f, sz * (Half - 0.1f)), 0.012f, rope);
             }
-            // The conduit along the head rail to the switch box.
-            Rod(t, new Vector3(-Half + 0.1f, Eaves - 0.15f, -Half + 0.1f), new Vector3(-Half + 0.1f, Eaves - 0.15f, Half - 0.1f), 0.015f, metal);
-            Rod(t, new Vector3(Half - 0.1f, Eaves - 0.15f, -Half + 0.1f), new Vector3(-Half + 0.1f, Eaves - 0.15f, -Half + 0.1f), 0.015f, metal);
-            Rod(t, new Vector3(Half - 0.1f, Eaves - 0.15f, Half - 0.1f), new Vector3(-Half + 0.1f, Eaves - 0.15f, Half - 0.1f), 0.015f, metal);
-            Vector3 box = new Vector3(-Half + 0.12f, Deck + 1.3f, 0.75f);
-            Rod(t, new Vector3(-Half + 0.1f, Eaves - 0.15f, 0.75f), box + Vector3.up * 0.2f, 0.015f, metal);
+            float k = C - 0.1f, y = Eaves - 0.15f;
+            Rod(t, new Vector3(-k, y, -k), new Vector3(-k, y, k), 0.015f, metal);
+            Rod(t, new Vector3(k, y, -k), new Vector3(-k, y, -k), 0.015f, metal);
+            Rod(t, new Vector3(k, y, k), new Vector3(-k, y, k), 0.015f, metal);
+            Vector3 box = new Vector3(-C + 0.12f, Deck + 1.3f, DoorHalf + 0.45f);
+            Rod(t, new Vector3(-k, y, box.z), box + Vector3.up * 0.2f, 0.015f, metal);
             Box(t, box, new Vector3(0.12f, 0.36f, 0.28f), metal, false);
-            Box(t, box + new Vector3(0.065f, 0.12f, 0f), new Vector3(0.01f, 0.06f, 0.2f), brass, false); // (its name plate)
-            var button = new GameObject("Button") { layer = Layers.Props }.transform;
-            button.SetParent(t, false);
-            button.localPosition = box + new Vector3(0.1f, -0.05f, 0f);
+            Box(t, box + new Vector3(0.065f, 0.12f, 0f), new Vector3(0.01f, 0.06f, 0.2f), brass, false);
+            Marker(t, "Button", box + new Vector3(0.1f, -0.05f, 0f));
         }
 
         // ------------------------------------------------------------------ inside
@@ -293,73 +361,122 @@ namespace Game.World.Build
         void Inside(Transform t)
         {
             // The fire finder: a round table on a post, the map disc on it under a brass sighting ring.
-            Vector3 table = new Vector3(0.1f, Deck + 0.125f, -0.1f);
+            Vector3 table = new Vector3(-0.15f, Deck + 0.125f, 0.15f);
             Cyl(t, table + Vector3.up * 0.48f, 0.08f, 0.96f, darkTimber);
             Cyl(t, table + Vector3.up * 0.03f, 0.3f, 0.06f, darkTimber);
-            Cyl(t, table + Vector3.up * 0.98f, 0.5f, 0.05f, plank);
-            Cyl(t, table + Vector3.up * 1.01f, 0.42f, 0.01f, Keep(RuntimeMaterials.Lit("Map paper", new Color(0.5f, 0.47f, 0.38f), 0.1f)));
+            Cyl(t, table + Vector3.up * 0.98f, 0.45f, 0.05f, plank);
+            Cyl(t, table + Vector3.up * 1.01f, 0.38f, 0.01f, Keep(RuntimeMaterials.Lit("Map paper", new Color(0.5f, 0.47f, 0.38f), 0.1f)));
             for (int i = 0; i < 16; i++)
             {
                 float a0 = i / 16f * Mathf.PI * 2f, a1 = (i + 1) / 16f * Mathf.PI * 2f;
-                Rod(t, table + new Vector3(Mathf.Cos(a0) * 0.45f, 1.05f, Mathf.Sin(a0) * 0.45f), table + new Vector3(Mathf.Cos(a1) * 0.45f, 1.05f, Mathf.Sin(a1) * 0.45f), 0.012f, brass);
+                Rod(t, table + new Vector3(Mathf.Cos(a0) * 0.41f, 1.05f, Mathf.Sin(a0) * 0.41f), table + new Vector3(Mathf.Cos(a1) * 0.41f, 1.05f, Mathf.Sin(a1) * 0.41f), 0.012f, brass);
             }
-            Rod(t, table + new Vector3(-0.45f, 1.06f, 0f), table + new Vector3(-0.45f, 1.2f, 0f), 0.006f, brass); // (the sights)
-            Rod(t, table + new Vector3(0.45f, 1.06f, 0f), table + new Vector3(0.45f, 1.16f, 0f), 0.006f, brass);
-            Box(t, table + Vector3.up * 0.5f, new Vector3(0.8f, 1f, 0.8f), plank, true).GetComponent<Renderer>().enabled = false;
-            // A stool by it.
-            Vector3 stool = new Vector3(0.95f, Deck + 0.125f, -0.75f);
+            Rod(t, table + new Vector3(-0.41f, 1.06f, 0f), table + new Vector3(-0.41f, 1.2f, 0f), 0.006f, brass);
+            Rod(t, table + new Vector3(0.41f, 1.06f, 0f), table + new Vector3(0.41f, 1.16f, 0f), 0.006f, brass);
+            Hidden(t, table + Vector3.up * 0.5f, new Vector3(0.7f, 1f, 0.7f));
+
+            // The radio desk against the east wall: a plank top on legs, the set on it, its handset hung on a hook.
+            Vector3 desk = new Vector3(C - 0.32f, Deck + 0.125f, -0.75f);
+            Box(t, desk + Vector3.up * 0.76f, new Vector3(0.5f, 0.04f, 1.0f), plank, true);
+            foreach (float dz in new[] { -0.45f, 0.45f })
+                Box(t, desk + new Vector3(-0.2f, 0.37f, dz), new Vector3(0.05f, 0.74f, 0.05f), darkTimber, false);
+            Box(t, desk + new Vector3(0.05f, 0.4f, 0f), new Vector3(0.36f, 0.02f, 0.9f), darkTimber, false); // (a shelf under it)
+            Radio(t, desk + Vector3.up * 0.78f);
+            // A stool at it, and a battered logbook.
+            Vector3 stool = new Vector3(C - 0.95f, Deck + 0.125f, -0.8f);
             Cyl(t, stool + Vector3.up * 0.62f, 0.2f, 0.05f, plank);
             for (int i = 0; i < 3; i++)
             {
                 float a = i / 3f * Mathf.PI * 2f;
                 Rod(t, stool + Vector3.up * 0.6f + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.12f, stool + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.22f, 0.02f, darkTimber);
             }
+            var log = Box(t, desk + new Vector3(-0.02f, 0.795f, 0.3f), new Vector3(0.2f, 0.025f, 0.28f), Keep(RuntimeMaterials.Lit("Logbook", new Color(0.18f, 0.08f, 0.06f), 0.2f)), false);
+            log.transform.localRotation = Quaternion.Euler(0f, 14f, 0f);
             // A lantern hanging from the ridge (click it on and off).
-            LanternModel.Hanging(t, new Vector3(0.1f, Eaves + 0.3f, -0.1f), 0.55f, metal, metal, made, 5f, 2.4f);
+            LanternModel.Hanging(t, new Vector3(-0.15f, Eaves + 0.25f, 0.15f), 0.55f, metal, metal, made, 5f, 2.4f);
+        }
+
+        // A CB radio set: a steel case, a glowing dial, knobs, a meter, a speaker grille; its handset on a coiled
+        // cord, its aerial lead up the wall. It's left on (CbRadio).
+        void Radio(Transform t, Vector3 top)
+        {
+            var root = new GameObject("CB radio") { layer = Layers.Props };
+            root.transform.SetParent(t, false);
+            root.transform.localPosition = top;
+            root.transform.localRotation = Quaternion.Euler(0f, -90f, 0f); // (its face toward the room, west)
+            var r = root.transform;
+            var steel = Keep(RuntimeMaterials.Lit("Radio case", new Color(0.12f, 0.13f, 0.12f), 0.4f));
+            Box(r, new Vector3(0f, 0.08f, 0f), new Vector3(0.36f, 0.15f, 0.26f), steel, false);
+            Box(r, new Vector3(0f, 0.08f, 0.132f), new Vector3(0.34f, 0.13f, 0.005f), darkTimber, false); // (the front panel)
+            var dial = Box(r, new Vector3(-0.07f, 0.11f, 0.136f), new Vector3(0.14f, 0.04f, 0.004f), glass, false);
+            Box(r, new Vector3(0.09f, 0.11f, 0.136f), new Vector3(0.06f, 0.035f, 0.004f), Keep(RuntimeMaterials.Lit("Radio meter", new Color(0.6f, 0.55f, 0.4f), 0.5f)), false);
+            for (int i = 0; i < 4; i++)
+            {
+                var knob = Shape(PrimitiveType.Cylinder, r, new Vector3(-0.12f + i * 0.07f, 0.045f, 0.145f), new Vector3(0.028f, 0.01f, 0.028f), metal);
+                knob.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            }
+            for (int i = 0; i < 5; i++) Box(r, new Vector3(0.14f, 0.045f + i * 0.012f, 0.136f), new Vector3(0.05f, 0.004f, 0.004f), metal, false); // (the grille)
+            // The handset, on a hook at the side, its coiled cord.
+            Vector3 hook = new Vector3(0.21f, 0.1f, 0.05f);
+            Box(r, hook, new Vector3(0.01f, 0.01f, 0.03f), metal, false);
+            Box(r, hook + new Vector3(0.025f, -0.04f, 0.0f), new Vector3(0.035f, 0.09f, 0.055f), steel, false);
+            Vector3 prev = hook + new Vector3(0.025f, -0.09f, 0f);
+            for (int i = 1; i <= 14; i++)
+            {
+                float u = i / 14f;
+                Vector3 p = Vector3.Lerp(hook + new Vector3(0.025f, -0.09f, 0f), new Vector3(0.12f, 0.02f, -0.1f), u) + new Vector3(Mathf.Sin(u * 30f) * 0.012f, -Mathf.Sin(u * Mathf.PI) * 0.07f, Mathf.Cos(u * 30f) * 0.012f);
+                Rod(r, prev, p, 0.004f, rope);
+                prev = p;
+            }
+            // The aerial lead up the wall behind it.
+            Rod(r, new Vector3(0f, 0.15f, -0.13f), new Vector3(0f, Eaves - Deck - 0.9f, -0.2f), 0.006f, rope);
+            var hit = root.AddComponent<BoxCollider>();
+            hit.isTrigger = true;
+            hit.center = new Vector3(0f, 0.08f, 0f);
+            hit.size = new Vector3(0.42f, 0.2f, 0.32f);
+            var radio = root.AddComponent<CbRadio>();
+            radio.dial = dial.GetComponent<Renderer>();
+            radio.place = t;
         }
 
         // ------------------------------------------------------------------ the ladder
 
-        // Up the west side: two rails, rungs, the rails running on past the deck to grab, and hoops of a safety cage
-        // round where you climb from 2.5 m up, joined by bars. (You climb through it all: no colliders. The
-        // "Ladder" box marks where you can climb.)
+        // Up the west side to the gap in the balcony railing: two rails, rungs, the rails running on past the
+        // balcony to grab, stood off from the frame on brackets. (You climb through it: no colliders. The "Ladder"
+        // box marks where you can climb, "LadderTop" where climbing off the top puts you.)
         void Ladder(Transform t)
         {
             float top = Deck + 1.2f;
             for (int s = -1; s <= 1; s += 2)
             {
                 Box(t, new Vector3(LadderX, top * 0.5f, s * 0.24f), new Vector3(0.06f, top, 0.08f), darkTimber, false);
-                // (and bent over onto the deck, to hold as you step off)
-                Beam(t, new Vector3(LadderX, top, s * 0.24f), new Vector3(-Half - 0.05f, Deck + 1.0f, s * 0.42f), 0.05f, 0.05f, metal, false);
+                Beam(t, new Vector3(LadderX, top, s * 0.24f), new Vector3(-B + 0.06f, Deck + 1.0f, s * Gap), 0.05f, 0.05f, metal, false);
+                foreach (float y in new[] { 3.4f, 6.3f, 9.2f })
+                    Beam(t, new Vector3(LadderX, y, s * 0.24f), new Vector3(LegAt(-1, 1, y).x, y, s * 0.24f), 0.06f, 0.08f, timber, false);
             }
+            Box(t, new Vector3(LadderX, -0.1f, 0f), new Vector3(0.4f, 0.3f, 0.7f), concrete, false);
             for (float y = 0.3f; y < Deck + 0.1f; y += 0.3f)
                 Rod(t, new Vector3(LadderX, y, -0.24f), new Vector3(LadderX, y, 0.24f), 0.018f, metal);
-            // The cage: hoops (half rings round the climber) every metre and a bit, from 2.5 m up, and five bars.
-            Vector3 centre = new Vector3(LadderX - 0.42f, 0f, 0f);
-            const float r = 0.42f;
-            var bars = new List<Vector3>();
-            for (int b = 0; b < 5; b++)
-            {
-                float a = Mathf.Lerp(-80f, 80f, b / 4f) * Mathf.Deg2Rad;
-                bars.Add(new Vector3(-Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r));
-            }
-            for (float y = 2.5f; y < top; y += 1.15f)
-            {
-                const int seg = 10;
-                for (int i = 0; i < seg; i++)
-                {
-                    float a0 = Mathf.Lerp(-90f, 90f, i / (float)seg) * Mathf.Deg2Rad, a1 = Mathf.Lerp(-90f, 90f, (i + 1) / (float)seg) * Mathf.Deg2Rad;
-                    Rod(t, centre + new Vector3(-Mathf.Cos(a0) * r, y, Mathf.Sin(a0) * r), centre + new Vector3(-Mathf.Cos(a1) * r, y, Mathf.Sin(a1) * r), 0.015f, metal);
-                }
-            }
-            foreach (var bar in bars) Rod(t, centre + bar + Vector3.up * 2.5f, centre + bar + Vector3.up * (top - 0.05f), 0.012f, metal);
-            // Where you can climb.
             var zone = new GameObject("Ladder") { layer = Layers.Props }.transform;
             zone.SetParent(t, false);
-            zone.localPosition = new Vector3(LadderX - 0.25f, (top + 0.6f) * 0.5f, 0f); // (reaching from just off the deck's edge)
+            zone.localPosition = new Vector3(LadderX - 0.05f, (top + 0.6f) * 0.5f, 0f); // (stopping short of the balcony's edge)
             var box = zone.gameObject.AddComponent<BoxCollider>();
             box.isTrigger = true;
-            box.size = new Vector3(1.1f, top + 0.6f, 1.1f);
+            box.size = new Vector3(0.8f, top + 0.6f, 1.0f);
+            Marker(t, "LadderTop", new Vector3(-B + 0.55f, Deck + 0.15f, 0f));
+        }
+
+        void Hidden(Transform parent, Vector3 pos, Vector3 size)
+        {
+            var go = Box(parent, pos, size, plank, true);
+            go.GetComponent<Renderer>().enabled = false;
+        }
+
+        static void Marker(Transform parent, string name, Vector3 local)
+        {
+            var go = new GameObject(name) { layer = Layers.Props };
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = local;
         }
 
         // ------------------------------------------------------------------ shapes

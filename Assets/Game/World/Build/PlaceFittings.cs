@@ -38,7 +38,11 @@ namespace Game.World.Build
                     if (l.Place == LootPlace.BackSeat) { backSeat = MakeContainer(root, LootPlace.BackSeat); break; }
             // The drone: at whichever of these you reach first.
             // The drone waits on the deck of whichever watchtower you come to first.
-            if (kind == StructureKind.Watchtower) DroneSpot.Add(root, root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
+            if (kind == StructureKind.Watchtower)
+            {
+                var drone = Find(root, "Drone");
+                DroneSpot.Add(root, drone != null ? root.InverseTransformPoint(drone.position) : root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
+            }
             if (loot == null || loot.Count == 0) return;
 
             var onTable = new List<Loot>();
@@ -115,7 +119,7 @@ namespace Game.World.Build
 
         static void FitYourDoorAndInside(Transform root, StructureKind kind)
         {
-            if (kind != StructureKind.Shack && kind != StructureKind.Cabin && kind != StructureKind.Campsite && kind != StructureKind.Bunker) return;
+            if (kind != StructureKind.Shack && kind != StructureKind.Cabin && kind != StructureKind.Campsite && kind != StructureKind.Bunker && kind != StructureKind.Watchtower) return;
             var door = Find(root, "Door");
             if (door != null && door.GetComponent<Door>() == null && door.GetComponentInChildren<Collider>() != null)
                 door.gameObject.AddComponent<Door>();
@@ -127,9 +131,10 @@ namespace Game.World.Build
             {
                 var bounds = new Bounds(root.InverseTransformPoint(inside.TransformPoint(box.center)), Vector3.Scale(box.size, inside.lossyScale));
                 Object.Destroy(box); // (only a marker)
-                AddShelter(root, root.name, bounds);
+                var shelter = AddShelter(root, root.name, bounds);
+                if (kind == StructureKind.Watchtower) shelter.refugeRadius = 2.5f; // (just the room up there)
             }
-            else if (kind != StructureKind.Campsite && kind != StructureKind.Bunker)
+            else if (kind != StructureKind.Campsite && kind != StructureKind.Bunker && kind != StructureKind.Watchtower)
                 Debug.LogWarning($"Your {root.name} prefab has no child named 'Inside' with a Box Collider, so it isn't a shelter (docs/custom-assets.md).");
         }
 
@@ -146,6 +151,12 @@ namespace Game.World.Build
                 Object.Destroy(box);
             }
             else ladder.box = new Bounds(new Vector3(-2.1f, 6.7f, 0f), new Vector3(1f, 13.4f, 1.2f));
+            var top = Find(root, "LadderTop");
+            if (top != null)
+            {
+                ladder.hasTop = true;
+                ladder.top = root.InverseTransformPoint(top.position);
+            }
 
             var tower = root.gameObject.AddComponent<Watchtower>();
             var button = Find(root, "Button");
