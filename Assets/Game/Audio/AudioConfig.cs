@@ -39,6 +39,12 @@ namespace Game.Audio
         [Tooltip("Your own recordings for any of the game's sounds (several clips: one is picked at random each time).")]
         public SoundOverride[] soundOverrides = new SoundOverride[0];
 
+        [Header("The forest")]
+        [Range(0f, 1f), Tooltip("How loud the wind is (it rises and falls with the gusts under this).")]
+        public float windVolume = 0.45f;
+        [Range(0f, 1f), Tooltip("How loud the leaves rustling in the canopy are.")]
+        public float leavesVolume = 0.35f;
+
         [Header("Music")]
         [Tooltip("Your own tracks per mood. A mood with none uses the built-in music (or tracks in Resources/Music/<Mood>/).")]
         public MoodMusic[] music = new MoodMusic[0];

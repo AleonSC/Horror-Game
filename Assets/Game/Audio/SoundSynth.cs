@@ -656,13 +656,13 @@ namespace Game.Audio
 
                 // Two bands of rush, the higher one opening up as it gusts.
                 Band(air, 220f + 120f * gust, 0.9f, ref lowA, ref bandA);
-                Band(air, 650f + 900f * gust, 1.1f, ref lowB, ref bandB);
+                Band(air, 550f + 500f * gust, 1.1f, ref lowB, ref bandB);
                 // The moan: a narrow resonance gliding with the gust, heard only near its peak.
                 float moanFreq = 280f + 260f * gust + 30f * (float)Math.Sin(2 * Math.PI * t / 2f + phases[1]);
                 Band(air, moanFreq, 0.06f, ref lowM, ref bandM);
                 float moan = bandM * Math.Max(0f, gust - 0.55f) * 2.2f;
 
-                s[i] = bandA * (0.35f + 0.65f * gust) * 1.2f + bandB * gust * gust * 0.8f + brown * (0.5f + 0.5f * gust) * 1.5f + moan * 0.35f;
+                s[i] = bandA * (0.35f + 0.65f * gust) * 1.2f + bandB * gust * gust * 0.35f + brown * (0.5f + 0.5f * gust) * 1.5f + moan * 0.15f;
             }
             return Loop(s, 0.5f);
         }
@@ -677,26 +677,27 @@ namespace Game.Audio
         }
 
         /// <summary>
-        /// The canopy in the wind, to loop: a soft, airy hiss of needles and leaves, with little bursts of rustle
-        /// coming and going through it (10 s). Its volume follows the gusts.
+        /// The canopy in the wind, to loop: a soft, low hush of leaves, with slow swells of rustle coming and going
+        /// through it, never sharp (10 s). Its volume follows the gusts.
         /// </summary>
         public static float[] LeavesLoop(int seed)
         {
             var rng = new Random(seed);
             var s = Make(10f);
-            float hp = 0f, last = 0f, lp = 0f, burst = 0f;
+            float hp = 0f, last = 0f, lp = 0f, lp2 = 0f, burst = 0f;
             for (int i = 0; i < s.Length; i++)
             {
                 float t = Time(i);
                 float n = Noise(rng);
                 hp = 0.97f * (hp + n - last);       // (high: the hiss of needles)
                 last = n;
-                lp += (hp - lp) * 0.35f;            // (taken down a little, so it's soft)
+                lp += (hp - lp) * 0.16f;            // (taken well down, twice, so it's a soft hush and not a hiss)
+                lp2 += (lp - lp2) * 0.3f;
                 // Rustles: the hiss swells in quick, uneven bursts, here and there.
-                if (rng.NextDouble() < 2.5 / SampleRate) burst = 1f;
-                burst *= 0.99985f;
-                float swell = 0.5f + 0.3f * (float)Math.Sin(2 * Math.PI * t / 5f) * (float)Math.Sin(2 * Math.PI * t / 2.3f + 0.7f);
-                s[i] = lp * (swell + burst * 0.8f);
+                if (rng.NextDouble() < 1.2 / SampleRate) burst = Math.Max(burst, 0.5f + 0.5f * (float)rng.NextDouble());
+                burst *= 0.99993f;                  // (rustles swelling and dying slowly, never sudden)
+                float swell = 0.6f + 0.2f * (float)Math.Sin(2 * Math.PI * t / 5f) * (float)Math.Sin(2 * Math.PI * t / 2.5f + 0.7f);
+                s[i] = lp2 * (swell + burst * 0.35f);
             }
             return Loop(s, 0.4f);
         }

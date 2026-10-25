@@ -712,3 +712,15 @@ This replaces the breakable pine/oak described above.
     the roof.
   - Brightness is 150 (was 450), the cone 80° (was 95°), the fog glow 0.06 (was 0.12) and the light shafts 0.18
     (was 0.35). These are all on the `Watchtower` component.
+
+## Softer wind and leaves
+
+- **Quieter:** the wind is about 40% quieter and the leaves about half as loud. Both are now settings:
+  `AudioConfig` > The forest > `windVolume` (0.45) and `leavesVolume` (0.35).
+- **Gentler with the gusts:**
+  - The volume follows the gusts more gently and slowly, so it no longer surges in and out.
+  - The wind's pitch swings much less (0.94–1.05, was 0.85–1.15), and the swing is smoothed.
+- **The sounds themselves are softer:**
+  - The wind's upper rush is lower and quieter, with less of the hollow moan.
+  - The leaves are a low hush (filtered twice, where before they were a bright hiss), and the rustles swell and
+    die slowly instead of bursting in.

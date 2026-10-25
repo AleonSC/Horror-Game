@@ -13,6 +13,7 @@ namespace Game.Audio
     {
         AudioSource wind, drone, tension, leaves;
         float tensionTarget;
+        float windVolume = 0.45f, leavesVolume = 0.35f;
         float nextDistant, nextCreak, nextCall;
         readonly List<System.IDisposable> subs = new List<System.IDisposable>();
 
@@ -26,6 +27,12 @@ namespace Game.Audio
         void Start()
         {
             if (!Services.TryGet<SoundPlayer>(out var sounds)) return;
+            var config = Services.TryGet<GameSetup>(out var setup) ? setup.Get<AudioConfig>() : null;
+            if (config != null)
+            {
+                windVolume = config.windVolume;
+                leavesVolume = config.leavesVolume;
+            }
             wind = Loop(sounds, Sound.WindLoop, MixerNames.Outside);
             drone = Loop(sounds, Sound.Drone, MixerNames.Outside);
             tension = Loop(sounds, Sound.TensionBed, MixerNames.Entities);
@@ -72,12 +79,13 @@ namespace Game.Audio
             Vector3 at = cam.transform.position;
             float dt = Time.deltaTime;
 
-            // The wind's sound follows the gusts where you stand.
+            // The wind's sound follows the gusts where you stand, gently: a bed under everything, not on top of it.
             float gust = Services.TryGet<Wind>(out var w) ? w.Strength(at.x, at.z, Time.time) : 0.3f;
-            wind.volume = Mathf.Lerp(wind.volume, Mathf.Clamp01(0.2f + gust * 0.6f), 1f - Mathf.Exp(-2f * dt));
-            wind.pitch = Mathf.Lerp(0.85f, 1.15f, Mathf.Clamp01(gust));
-            // The canopy hisses and rustles with it, louder in the gusts.
-            if (leaves != null) leaves.volume = Mathf.Lerp(leaves.volume, Mathf.Clamp01(0.1f + gust * 0.7f), 1f - Mathf.Exp(-3f * dt));
+            gust = Mathf.Clamp01(gust);
+            wind.volume = Mathf.Lerp(wind.volume, windVolume * (0.35f + 0.65f * gust), 1f - Mathf.Exp(-0.8f * dt));
+            wind.pitch = Mathf.Lerp(wind.pitch, Mathf.Lerp(0.94f, 1.05f, gust), 1f - Mathf.Exp(-0.8f * dt));
+            // The canopy rustles with it, a little louder in the gusts.
+            if (leaves != null) leaves.volume = Mathf.Lerp(leaves.volume, leavesVolume * (0.3f + 0.7f * gust), 1f - Mathf.Exp(-1f * dt));
             drone.volume = Mathf.MoveTowards(drone.volume, 0.22f, dt * 0.1f);
             tension.volume = Mathf.MoveTowards(tension.volume, tensionTarget, dt * (tensionTarget > tension.volume ? 0.4f : 0.12f));
 
