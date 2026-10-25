@@ -396,3 +396,23 @@ and costs your flashlight nothing.
   and in `LookConfig.asset` / `FlashlightConfig.asset`: brighter flashlight (73), thinner fog (0.0044), no
   moonlight, and more contrast and saturation. The flashlight presets are scaled to match. Other themes
   start from these values too.
+
+## More realistic forest floor, trails and bark
+
+All three are now built the same way (`ForestSurfaces`): a height field painted by laying real-sized pieces on
+top of each other, each resting on what's already there. Colour, bumps (normal map) and HDRP's mask map
+(crevice shading and shine) all come from it, so they agree. Made on background threads while the world plan
+is worked out, once per session (`ForestTextures`); about a second.
+
+- **Forest floor** (repeats every 4 m, 1024 px): dark damp soil with a faint sheen, clumpy moss in patches, an
+  old layer of flattened dark needles, stones half sunk in, fallen leaves (some lobed, some rotted through,
+  edges curled), crooked twigs with side twigs, and a deep litter of pine needles in pairs, from fresh rust to
+  rotting grey-brown. A detail map of big light/dark, bumpy and damp patches lies over it on its own 23 m
+  repeat, so the 4 m repeat doesn't show.
+- **Trails**: sandy packed earth, paler and smoother where it's trodden down the middle, with the odd boot
+  print, gravel and a few bigger stones worked up out of it, and pine litter creeping in from the edges as it
+  fades. It now has its own bumps and mask too, with the fine grain still laid over it in world space.
+- **Bark**: plates of overlapping scales lifted at their lower edges, the odd scale fallen away to show the rust
+  layer under the grey, deep fissures with rust-brown walls and a dark floor, weathering and lichen. **Dead
+  wood**: silver-grey wood with long cracks up the grain and streaks, with patches of bark still clinging on.
+- **Your own**: `WorldArtConfig` now has **Bark** and **Dead Wood** materials alongside Ground and Trail.

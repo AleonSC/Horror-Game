@@ -89,6 +89,8 @@ namespace Game.World.Build
             var art = setup != null ? setup.Get<WorldArtConfig>() : null;
             var settings = (config != null ? config.settings : new WorldGenSettings()).Clone();
             var fixer = new MaterialFixer(made);
+            // The made-in-code textures start now, on other threads, while the plan's being worked out.
+            ForestTextures.Warm(TerrainBuilder.TrailSolidShare(settings.trailWidth), settings.trailWidth * 0.5f + TerrainBuilder.TrailFade, TerrainBuilder.TrailRepeat);
 
             // Your own trees: their real heights go into the plan, so the sightlines are right for them.
             var living = ExtractAll(art != null ? art.livingTrees : null, fixer);
@@ -110,23 +112,22 @@ namespace Game.World.Build
             if (art != null && art.ground != null) ground = fixer.Fix(art.ground);
             else
             {
-                var groundTex = GroundTexture.Build(seed);
-                var groundBumps = GroundTexture.Normals(seed);
-                made.Add(groundTex);
-                made.Add(groundBumps);
-                made.Add(ground = RuntimeMaterials.LitTextured("Ground", Color.white, 0.12f, groundTex, Vector2.one));
-                RuntimeMaterials.SetNormalMap(ground, groundBumps, 1f);
+                // Needle litter, leaves, twigs, stones and moss on dark soil; big patches over it so it doesn't repeat.
+                var floor = ForestTextures.Floor;
+                made.Add(ground = RuntimeMaterials.LitTextured("Ground", Color.white, 0.2f, floor.Colour, Vector2.one));
+                RuntimeMaterials.SetNormalMap(ground, floor.Normals, 1f);
+                RuntimeMaterials.SetMaskMap(ground, floor.Mask);
+                RuntimeMaterials.SetDetail(ground, ForestTextures.FloorPatches, 1, 0.6f);
             }
             if (art != null && art.trail != null) trail = fixer.Fix(art.trail);
             else
             {
                 // Packed earth that fades out at the sides into the litter, rather than stopping at a hard edge.
-                var trailTex = GroundTexture.Trail(seed, TerrainBuilder.TrailSolidShare(settings.trailWidth));
-                var grain = GroundTexture.TrailDetail(seed);
-                made.Add(trailTex);
-                made.Add(grain);
-                made.Add(trail = RuntimeMaterials.LitBlended("Trail", Color.white, 0.18f, trailTex));
-                RuntimeMaterials.SetDetail(trail, grain, 1, 1.3f);
+                var earth = ForestTextures.Trail;
+                made.Add(trail = RuntimeMaterials.LitBlended("Trail", Color.white, 0.25f, earth.Colour));
+                RuntimeMaterials.SetNormalMap(trail, earth.Normals, 1f);
+                RuntimeMaterials.SetMaskMap(trail, earth.Mask);
+                RuntimeMaterials.SetDetail(trail, ForestTextures.TrailGrain, 1, 1.1f);
             }
             if (art != null && art.water != null) water = fixer.Fix(art.water);
             else made.Add(water = RuntimeMaterials.Lit("Water", new Color(0.015f, 0.02f, 0.025f), 0.95f));

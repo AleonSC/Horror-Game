@@ -68,11 +68,14 @@ namespace Game.Editor
             var assets = new List<Object>();
 
             // Materials
-            var groundTex = GroundTexture.Build(rng.Next());
+            var floor = ForestSurfaces.Floor(rng.Next(), 512);
+            var groundTex = new Texture2D(floor.Width, floor.Height, TextureFormat.RGBA32, true) { name = "Ground", wrapMode = TextureWrapMode.Repeat };
+            groundTex.SetPixels(floor.Albedo);
+            groundTex.Apply(true);
             assets.Add(groundTex);
             var mats = new Dictionary<string, Material>
             {
-                ["ground"] = EditorMaterials.Lit("Ground", Color.white, 0.1f, false, groundTex, new Vector2(HalfSize * 2f / 3f, HalfSize * 2f / 3f)),
+                ["ground"] = EditorMaterials.Lit("Ground", Color.white, 0.1f, false, groundTex, new Vector2(HalfSize * 2f / ForestSurfaces.FloorTile, HalfSize * 2f / ForestSurfaces.FloorTile)),
                 ["path"] = EditorMaterials.Lit("Path", new Color(0.17f, 0.13f, 0.1f), 0.12f),
                 ["bark"] = EditorMaterials.Lit("Bark", new Color(0.1f, 0.08f, 0.07f), 0.2f),
                 ["needles"] = EditorMaterials.Lit("Needles", new Color(0.05f, 0.07f, 0.05f), 0.1f, true),

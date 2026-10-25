@@ -20,7 +20,8 @@ namespace Game.World.Build
             int across = Mathf.CeilToInt(plan.Size / ChunkSize);
             var trailParts = SplitTrails(plan, across);
             // The texture repeats a whole number of times across the map, so it wraps without a seam.
-            float uvTile = plan.Size / Mathf.Round(plan.Size / 3f);
+            float uvTile = plan.Size / Mathf.Round(plan.Size / ForestSurfaces.FloorTile);
+            float patchTile = plan.Size / Mathf.Round(plan.Size / PatchTile);
 
             for (int cz = 0; cz < across; cz++)
             for (int cx = 0; cx < across; cx++)
@@ -30,7 +31,7 @@ namespace Game.World.Build
                 go.transform.SetParent(root, false);
                 go.transform.position = origin;
 
-                var mesh = GroundMesh(plan, origin, uvTile);
+                var mesh = GroundMesh(plan, origin, uvTile, patchTile);
                 made.Add(mesh);
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
                 go.AddComponent<MeshRenderer>().sharedMaterial = ground;
@@ -52,12 +53,13 @@ namespace Game.World.Build
             return chunks;
         }
 
-        static Mesh GroundMesh(WorldPlan plan, Vector3 origin, float uvTile)
+        static Mesh GroundMesh(WorldPlan plan, Vector3 origin, float uvTile, float patchTile)
         {
             int n = Mathf.RoundToInt(ChunkSize);
             var verts = new Vector3[(n + 1) * (n + 1)];
             var normals = new Vector3[verts.Length];
             var uvs = new Vector2[verts.Length];
+            var patchUvs = new Vector2[verts.Length];
             var h = plan.Height;
             for (int z = 0; z <= n; z++)
             for (int x = 0; x <= n; x++)
@@ -67,6 +69,7 @@ namespace Game.World.Build
                 verts[i] = new Vector3(x, h.Sample(wx, wz), z);
                 normals[i] = new Vector3(h.Sample(wx - 1f, wz) - h.Sample(wx + 1f, wz), 2f, h.Sample(wx, wz - 1f) - h.Sample(wx, wz + 1f)).normalized;
                 uvs[i] = new Vector2(wx / uvTile, wz / uvTile);
+                patchUvs[i] = new Vector2(wx / patchTile, wz / patchTile);
             }
             var tris = new int[n * n * 6];
             int t = 0;
@@ -77,7 +80,7 @@ namespace Game.World.Build
                 tris[t++] = a; tris[t++] = a + n + 1; tris[t++] = a + 1;
                 tris[t++] = a + 1; tris[t++] = a + n + 1; tris[t++] = a + n + 2;
             }
-            var mesh = new Mesh { name = $"Ground {origin.x},{origin.z}", vertices = verts, normals = normals, uv = uvs, triangles = tris };
+            var mesh = new Mesh { name = $"Ground {origin.x},{origin.z}", vertices = verts, normals = normals, uv = uvs, uv2 = patchUvs, triangles = tris };
             mesh.RecalculateTangents();
             mesh.RecalculateBounds();
             return mesh;
@@ -90,7 +93,10 @@ namespace Game.World.Build
         // The overlay's grid spacing (metres): fine enough to follow the edges.
         const float TrailStep = 0.25f;
         // The earth's texture repeats every this many metres.
-        const float TrailRepeat = 3f;
+        public const float TrailRepeat = 3f;
+
+        /// <summary>How often the forest floor's big patches (its detail map, on UV1) repeat (metres).</summary>
+        const float PatchTile = 23f;
 
         /// <summary>The trails' earth: from the centre (0) to the edge of the fade (1), the share where it's solid.</summary>
         public static float TrailSolidShare(float trailWidth) => Mathf.Clamp01((trailWidth * 0.5f - TrailSolidInside) / (trailWidth * 0.5f + TrailFade));

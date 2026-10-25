@@ -90,6 +90,20 @@ namespace Game.Rendering
         }
 
         /// <summary>
+        /// Give a lit material HDRP's mask map (G: how shut-in each spot is, A: shine; R metal, B where the detail
+        /// map shows). The material's own smoothness gives way to the map's.
+        /// </summary>
+        public static void SetMaskMap(Material m, Texture2D mask)
+        {
+            m.SetTexture("_MaskMap", mask);
+            m.SetFloat("_SmoothnessRemapMin", 0f);
+            m.SetFloat("_SmoothnessRemapMax", 1f);
+            m.SetFloat("_AORemapMin", 0f);
+            m.SetFloat("_AORemapMax", 1f);
+            HDMaterial.ValidateMaterial(m);
+        }
+
+        /// <summary>
         /// Lay HDRP's detail map over a lit material (fine grain and bumps), read from the mesh's UV set
         /// <paramref name="uvSet"/> (0-3) so it can run in a different space to the main texture.
         /// </summary>

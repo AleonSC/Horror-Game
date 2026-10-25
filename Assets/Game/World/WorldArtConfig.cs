@@ -33,10 +33,16 @@ namespace Game.World
         public GameObject[] logs = new GameObject[0];
 
         [Header("Ground")]
-        [Tooltip("The forest floor (its texture repeats about every 3 m).")]
+        [Tooltip("The forest floor (UV0 repeats every 4 m; UV1 every 23 m or so, for a detail map).")]
         public Material ground;
         public Material trail;
         public Material water;
+
+        [Header("Bark (for the built-in trees)")]
+        [Tooltip("The pines' trunks (U once round the trunk, V in metres up it). Empty: made in code.")]
+        public Material bark;
+        [Tooltip("Dead trees, logs and stumps' wood. Empty: made in code.")]
+        public Material deadWood;
 
         [Header("Places (prefabs placed where the plan puts them)")]
         [Tooltip("A lamp post. Give it a Lamp component (or name its parts Light, Marker, Glass and Crank).")]

@@ -49,22 +49,17 @@ namespace Game.World.Build
             this.deadArt = deadArt;
             across = Mathf.CeilToInt(plan.Size / TerrainBuilder.ChunkSize);
             // (Pale enough to catch a little of your light and the lamps': darker and the trees were flat black shapes.)
-            // Bark: plates and deep fissures (a texture with bumps for the lighting), round the built-in trunks.
-            var barkBumps = Keep(BarkTexture.Normals(plan.Seed));
-            Bark = Mat("Bark", new Color(0.8f, 0.8f, 0.8f), 0.22f, false, Keep(BarkTexture.Build(plan.Seed, false)), BarkTexture.Tiling);
-            RuntimeMaterials.SetNormalMap(Bark, barkBumps, 1f);
+            // Bark: plates of layered scales and deep fissures, round the built-in trunks (or your own).
+            Bark = art != null && art.bark != null ? Instanced(fixer.Fix(art.bark)) : Surface("Bark", ForestTextures.Bark, ForestSurfaces.BarkTiling, Color.white);
             Needles = Mat("Needles", new Color(0.09f, 0.13f, 0.08f), 0.18f, true);
-            var deadBark = Keep(BarkTexture.Build(plan.Seed, true));
-            DeadWood = Mat("Dead wood", new Color(0.75f, 0.73f, 0.7f), 0.18f, false, deadBark, BarkTexture.Tiling);
-            RuntimeMaterials.SetNormalMap(DeadWood, barkBumps, 0.6f); // (weathered smoother)
+            DeadWood = art != null && art.deadWood != null ? Instanced(fixer.Fix(art.deadWood)) : Surface("Dead wood", ForestTextures.DeadWood, ForestSurfaces.BarkTiling, Color.white);
             bushA = Mat("Bush leaves", new Color(0.07f, 0.11f, 0.045f), 0.3f, true); // (leaves: double-sided, a little waxy)
             bushB = Mat("Bush leaves (dry)", new Color(0.13f, 0.11f, 0.045f), 0.25f, true);
             grassDry = Mat("Dry grass", new Color(0.24f, 0.2f, 0.12f), 0.1f, true);
             grassGreen = Mat("Grass", new Color(0.09f, 0.11f, 0.06f), 0.1f, true);
             tallGrass = Mat("Tall grass", new Color(0.17f, 0.16f, 0.09f), 0.1f, true);
             rock = Mat("Rock", new Color(0.18f, 0.18f, 0.17f), 0.25f, false);
-            logWood = Mat("Log", new Color(0.45f, 0.4f, 0.36f), 0.2f, false, deadBark, new Vector2(2f, 1f));
-            RuntimeMaterials.SetNormalMap(logWood, barkBumps, 0.8f);
+            logWood = art != null && art.deadWood != null ? DeadWood : Surface("Log", ForestTextures.DeadWood, new Vector2(2f, 1f), new Color(0.75f, 0.7f, 0.65f));
         }
 
         Material Mat(string name, Color c, float smooth, bool doubleSided, Texture2D texture = null, Vector2 tiling = default)
@@ -74,17 +69,27 @@ namespace Game.World.Build
             return m;
         }
 
+        static Material Instanced(Material m)
+        {
+            m.enableInstancing = true; // (the forest is drawn instanced)
+            return m;
+        }
+
+        // A lit material with one of the made-in-code surfaces: colour, bumps and mask (crevices and shine).
+        Material Surface(string name, ForestTextures.Set set, Vector2 tiling, Color tint)
+        {
+            var m = Mat(name, tint, 0.2f, false, set.Colour, tiling);
+            RuntimeMaterials.SetNormalMap(m, set.Normals, 1f);
+            RuntimeMaterials.SetMaskMap(m, set.Mask);
+            return m;
+        }
+
         Mesh Keep(Mesh m)
         {
             made.Add(m);
             return m;
         }
 
-        Texture2D Keep(Texture2D t)
-        {
-            made.Add(t);
-            return t;
-        }
 
         public void Populate()
         {
