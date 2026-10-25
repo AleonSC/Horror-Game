@@ -478,3 +478,13 @@ views of the forest read (`LookController.MenuLift`).
   forward and up, spreading and thinning. Rested: one faint puff every 3.5 s or so. As stamina runs down the
   breaths come quicker (to every 1.1 s), the puffs bigger and thicker, two at a time; winded, three-puff pants.
   It's lit like anything else, so it shows in your flashlight beam and by lamps, and barely in the dark.
+
+## Ground mist that follows the ground
+
+The ground mist was one flat box set at the ground height under the camera, so on a slope it sank into the
+hill above you and floated off the ground below you, and the whole layer rose and fell as you climbed. Now
+(`GroundMist`) it's a grid of overlapping boxes (5 x 5 at the default reach; 28 m apart, 56 m across), each
+sitting on the ground under its own middle. Their soft edges fade linearly from the middle out, so
+neighbours add up to exactly one even layer of mist: no seams, and it lies along the hill, rising and falling
+with the land rather than with you. Each box's ground height eases toward new readings, so it doesn't jump
+over a rock or log. The patches still stay put in the world as you walk.
