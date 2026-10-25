@@ -626,3 +626,15 @@ landmark (the one giant tree, seven times the size of the rest) is gone: `WorldG
   - A caged ladder up the west side.
 - **The ladder jump:** Space jumps you off a ladder, back away from it (or the way you face, if that's away), at
   `PlayerConfig` > `ladderJumpOut` (3.5 m/s). The ladder can't catch you again for 0.6 s.
+
+## Smoke and breath without boxes
+
+The puffs are see-through quads. HDRP was showing their square edges as faint boxes when a light caught them, for
+these reasons:
+- It keeps a see-through material's full shine across the whole quad ("preserve specular lighting").
+- It gives the quads screen-space reflections.
+- It writes their depth and motion.
+- Ray tracing sees the whole quad.
+
+`RuntimeMaterials.SetWisp` turns those off for the smoke and breath materials. The puffs also no longer take
+shadows, or appear in ray tracing or motion vectors.

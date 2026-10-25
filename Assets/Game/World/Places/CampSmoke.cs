@@ -36,7 +36,7 @@ namespace Game.World
                 Destroy(q);
                 puffTexture = PuffTexture();
                 material = RuntimeMaterials.LitBlended("Smoke", new Color(0.32f, 0.32f, 0.33f), 0f, puffTexture);
-                material.SetFloat("_DoubleSidedEnable", 1f);
+                RuntimeMaterials.SetWisp(material);
             }
             block = new MaterialPropertyBlock();
             for (int i = 0; i < Puffs; i++)
@@ -47,6 +47,9 @@ namespace Game.World
                 var r = go.AddComponent<MeshRenderer>();
                 r.sharedMaterial = material;
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                r.rayTracingMode = UnityEngine.Experimental.Rendering.RayTracingMode.Off; // (ray traced reflections and light would see the whole quad)
+                r.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
                 puffs[i] = go.transform;
                 renderers[i] = r;
                 Respawn(i, Life * i / Puffs); // (already rising when you first see it)

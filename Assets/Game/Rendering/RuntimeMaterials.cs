@@ -71,6 +71,27 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>
+        /// Make a blended material a soft wisp (smoke, breath): its quad must vanish where its texture does. HDRP's
+        /// see-through lit materials keep their full shine across the whole quad unless told not to ("preserve
+        /// specular"), and can take screen-space reflections and write depth and motion, each of which shows the
+        /// quad's square edge as a faint box when a light catches it. All of that off.
+        /// </summary>
+        public static void SetWisp(Material m)
+        {
+            m.SetFloat("_DoubleSidedEnable", 1f);
+            m.SetFloat("_EnableBlendModePreserveSpecularLighting", 0f);
+            m.SetFloat("_ReceivesSSRTransparent", 0f);
+            m.SetFloat("_TransparentDepthPrepassEnable", 0f);
+            m.SetFloat("_TransparentDepthPostpassEnable", 0f);
+            m.SetFloat("_TransparentWritingMotionVec", 0f);
+            m.SetFloat("_TransparentZWrite", 0f);
+            m.SetFloat("_SupportDecals", 0f);
+            m.SetFloat("_Smoothness", 0f);
+            m.SetFloat("_Metallic", 0f);
+            HDMaterial.ValidateMaterial(m);
+        }
+
         /// <summary>Glass: lit, very smooth, see-through by the colour's alpha (tinted car windows, dirty panes).</summary>
         public static Material Glass(string name, Color tint)
         {

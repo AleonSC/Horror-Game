@@ -44,7 +44,7 @@ namespace Game.Player
                 Destroy(q);
                 puffTexture = PuffTexture();
                 material = RuntimeMaterials.LitBlended("Breath", new Color(0.85f, 0.86f, 0.88f), 0f, puffTexture, 2);
-                material.SetFloat("_DoubleSidedEnable", 1f);
+                RuntimeMaterials.SetWisp(material);
             }
             block = new MaterialPropertyBlock();
             var holder = new GameObject("Breath") { layer = Layers.Effects }.transform; // (in the world, not on you: puffs stay where you breathed them)
@@ -57,6 +57,9 @@ namespace Game.Player
                 var r = go.AddComponent<MeshRenderer>();
                 r.sharedMaterial = material;
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                r.rayTracingMode = UnityEngine.Experimental.Rendering.RayTracingMode.Off; // (ray traced reflections and light would see the whole quad)
+                r.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
                 r.enabled = false;
                 puffs[i] = go.transform;
                 renderers[i] = r;
