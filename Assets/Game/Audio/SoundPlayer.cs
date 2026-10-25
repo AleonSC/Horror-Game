@@ -152,6 +152,7 @@ namespace Game.Audio
             Add(Sound.ScourClick, SoundSynth.ScourClick(60));
             Add(Sound.RadioCreep, SoundSynth.RadioCreep(61));
             Add(Sound.BushRustle, SoundSynth.BushRustle(62));
+            Add(Sound.ScourSnap, SoundSynth.ScourSnap(63));
         }
 
         void Add(Sound sound, float[] samples)

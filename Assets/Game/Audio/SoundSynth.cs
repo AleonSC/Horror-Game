@@ -1217,6 +1217,28 @@ namespace Game.Audio
 
         // Crossfade the end into the start so it loops without a click.
         /// <summary>
+        /// A scour arriving where it crept to (about 2.6 s): one loud, wet click from deep in its throat, a hard
+        /// tick over a hollow knock, ringing away off the trees.
+        /// </summary>
+        public static float[] ScourSnap(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.25f);
+            float bp1 = 0f, bp2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float d = Time(i);
+                float x = Noise(rng) * Decay(d, 180f)
+                        + (float)Math.Sin(2 * Math.PI * (330f - 700f * d) * d) * Decay(d, 45f) * 0.8f
+                        + (float)Math.Sin(2 * Math.PI * 95f * d) * Decay(d, 22f) * 0.35f;
+                bp1 += (x - bp1) * 0.3f;
+                bp2 += (bp1 - bp2) * 0.55f;
+                s[i] = (bp1 - bp2 * 0.5f) + x * 0.3f;
+            }
+            return Normalize(Reverb(s, 2.4f, 0.9f, 0.5f), 0.95f);
+        }
+
+        /// <summary>
         /// A dry sound with reverb added (a forest at night: the sound ringing off trunks): this many seconds of tail
         /// added on, decaying to silence; <paramref name="wet"/> how loud the echo is against the dry sound, and
         /// <paramref name="dark"/> (0-1) how much the echo loses its highs as it goes. Four combs into two

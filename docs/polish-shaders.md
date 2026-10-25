@@ -736,3 +736,14 @@ This replaces the breakable pine/oak described above.
   - They're louder (`clickVolume` 0.9, was 0.65) and carry further (55 m, was 40 m).
   - They now have reverb: a dark echo off the trees, about a second long, baked into the sound (`SoundSynth.Reverb`,
     a small Schroeder reverb anything can use).
+
+## Scours count their creeps in clicks
+
+- **Clicks on landing:** each time a scour creeps at you, it lands with loud, echoing clicks (`Sound.ScourSnap`),
+  about 0.4 s apart.
+  - It's one click the first time, two the second, three the third, and so on, up to `ScourConfig` > `maxSnaps`
+    (8). The volume is `snapVolume`.
+  - The count starts again each time it goes away and comes back.
+- **No moving while clicking:** a scour never creeps while it's clicking, whether that's its passive clicks or
+  the clicks after a creep. It waits until they and the worst of their echo are done. It also never starts its
+  passive clicks in the middle of a creep, or over the clicks after one.

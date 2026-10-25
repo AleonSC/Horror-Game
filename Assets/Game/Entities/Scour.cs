@@ -41,6 +41,10 @@ namespace Game.Entities
         float appearedAt;
         bool everAppeared;
         float nextClick = -1f;
+        float clickingUntil = -1f; // (mid-run of clicks till then: it never creeps while it's clicking)
+        int creeps;                // creeps at you since it showed itself: it clicks once more at each
+        int snapsLeft;
+        float nextSnap;
         bool drivenOff;
 
         // A ducker appears tucked mostly behind its trunk, just an edge of it showing.
@@ -114,6 +118,7 @@ namespace Game.Entities
             }
 
             if (State != ScourState.Hidden) body.SeeEyesFrom(player.Head.position);
+            Snaps();
             Clicking();
 
             switch (State)
@@ -146,6 +151,8 @@ namespace Game.Entities
             if (portal != null) portal.Close();
             portal = null;
             if (blinkTime >= 0f) { blinkArrive = null; blinkTime = -1f; body.SetMaterialize(1f); body.Shudder(0f); }
+            creeps = 0;
+            snapsLeft = 0;
             body.SetVisible(false);
             body.ShutMouth();
             body.SetPose(ScourPose.Neutral, 1, true);
@@ -340,6 +347,12 @@ namespace Game.Entities
                 StartTaking();
                 return;
             }
+            // Mid-click, it stays put: it moves once it's done.
+            if (Time.time < clickingUntil)
+            {
+                creepTimer = clickingUntil - Time.time + Random.Range(0.1f, 0.4f);
+                return;
+            }
             // A creep stops just short of reach; only once it's right there does it take you.
             float stepLength = s.creepStep * (1f + 0.25f * aggression);
             float step = Mathf.Min(stepLength, dist - s.killDistance * 0.85f);
@@ -391,12 +404,21 @@ namespace Game.Entities
         void Blink(System.Action arrive)
         {
             Play(Sound.Creep, 0.7f, Random.Range(0.85f, 1.15f), 25f);
-            if (!s.creepBlink)
+            // Where it lands, loud clicks: one the first time it creeps at you, two the second, three the third...
+            System.Action landed = () =>
             {
                 arrive();
+                creeps = Mathf.Min(creeps + 1, s.maxSnaps);
+                snapsLeft = creeps;
+                nextSnap = Time.time;
+                clickingUntil = Time.time + (creeps - 1) * SnapGap + 1.2f;
+            };
+            if (!s.creepBlink)
+            {
+                landed();
                 return;
             }
-            blinkArrive = arrive;
+            blinkArrive = landed;
             blinkTime = 0f;
         }
 
@@ -636,10 +658,23 @@ namespace Game.Entities
             if (nextClick < 0f) nextClick = Time.time + Random.Range(0.5f, 1f) * gap;
             // (closing in brings the next run sooner)
             nextClick = Mathf.Min(nextClick, Time.time + gap * 1.3f);
-            if (Time.time < nextClick) return;
+            if (Time.time < nextClick || blinkTime >= 0f || Time.time < clickingUntil) return; // (never over a creep or its clicks)
             nextClick = Time.time + gap * Random.Range(0.7f, 1.3f);
             float pitch = Random.Range(0.85f, 1.1f) / Mathf.Lerp(1f, 1.25f, Mathf.InverseLerp(1f, s.maxGrowth, growth));
             Play(Sound.ScourClick, s.clickVolume * Mathf.Lerp(0.55f, 1f, near), pitch, 55f);
+            clickingUntil = Time.time + 1.4f / pitch; // (the clicks, and the worst of their echo)
+        }
+
+        const float SnapGap = 0.42f;
+
+        // The loud clicks after a creep, one after another (each with its echo).
+        void Snaps()
+        {
+            if (snapsLeft <= 0 || Time.time < nextSnap) return;
+            if (State == ScourState.Hidden) { snapsLeft = 0; return; }
+            snapsLeft--;
+            nextSnap = Time.time + SnapGap * Random.Range(0.9f, 1.1f);
+            Play(Sound.ScourSnap, s.snapVolume, Random.Range(0.94f, 1.04f), 60f);
         }
 
         // ------------------------------------------------------------------ Helpers
