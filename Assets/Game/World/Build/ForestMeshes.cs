@@ -10,9 +10,9 @@ namespace Game.World.Build
     public static class ForestMeshes
     {
         /// <summary>
-        /// A tall pine: a bare trunk, then full, drooping tiers of boughs up to a point. Each tier is an arched skirt
-        /// with a smaller one inside it (so you don't see daylight through the middle), and up close each bough
-        /// carries hanging sprays of needles that rag the edges. height &lt;= 0: random.
+        /// A tall pine: a long bare trunk, then drooping tiers of boughs up to a point, with gaps of dark between
+        /// them. Each tier is an arched skirt, and up close each bough carries a couple of hanging sprays of needles
+        /// that rag the edges. height &lt;= 0: random.
         /// </summary>
         public static (MeshBuilder trunk, MeshBuilder needles) Pine(System.Random rng, float height = -1f, int lod = 0)
         {
@@ -22,19 +22,17 @@ namespace Game.World.Build
             float radius = Range(rng, 0.22f, 0.36f);
             trunk.AddTube(Vector3.down * 0.3f, Vector3.up * height, radius * 1.25f, 0.03f, lod == 0 ? 8 : lod == 1 ? 6 : 4);
 
-            float crownStart = height * Range(rng, 0.3f, 0.45f);
-            int tiers = lod == 0 ? rng.Next(13, 17) : lod == 1 ? 9 : 4;
-            int segments = lod == 0 ? 16 : lod == 1 ? 10 : 7;
-            int sprays = lod == 0 ? 3 : lod == 1 ? 1 : 0;
+            float crownStart = height * Range(rng, 0.4f, 0.55f);
+            int tiers = lod == 0 ? rng.Next(9, 12) : lod == 1 ? 7 : 4;
+            int segments = lod == 0 ? 13 : lod == 1 ? 9 : 6;
+            int sprays = lod == 0 ? 2 : 0;
             for (int t = 0; t < tiers; t++)
             {
                 float f = t / (float)(tiers - 1);              // 0 bottom tier, 1 top
                 float y = Mathf.Lerp(crownStart, height - 0.6f, f);
-                float reach = Mathf.Lerp(Range(rng, 2.6f, 3.6f), 0.45f, Mathf.Pow(f, 0.85f));
+                float reach = Mathf.Lerp(Range(rng, 2.2f, 3.1f), 0.4f, Mathf.Pow(f, 0.85f));
                 float droop = Mathf.Lerp(1.3f, 0.45f, f) * (lod == 2 ? 2f : 1f);
                 AddSkirt(needles, rng, y, reach, droop, segments, lod < 2);
-                // A smaller skirt tucked in under it, filling the gap to the next tier down.
-                if (lod < 2 && f < 0.9f) AddSkirt(needles, rng, y - droop * 0.55f, reach * 0.6f, droop * 0.7f, Mathf.Max(6, segments - 4), false);
                 if (sprays > 0) AddBoughs(needles, rng, y, reach, droop, segments, sprays);
             }
             return (trunk, needles);
