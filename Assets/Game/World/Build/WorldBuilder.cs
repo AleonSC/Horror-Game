@@ -24,6 +24,9 @@ namespace Game.World.Build
         Undergrowth undergrowth;
 
         public WorldPlan Plan => plan;
+
+        /// <summary>Every place built (camps, shacks, the cabin, the car...), and where it's drawn now (the dev tools' Reveal).</summary>
+        public readonly List<(StructureKind Kind, Transform Place)> Places = new List<(StructureKind, Transform)>();
         public InstancedRenderer Forest => forest;
         public WorldWrap Wrapping => wrap;
         public List<string> Timings { get; } = new List<string>();
@@ -172,6 +175,7 @@ namespace Game.World.Build
                 foreach (var l in plan.Loot) if (l.Structure == i) loot.Add(l);
                 var go = props.Structure(st, plan.GroundAt(st.Position), root, loot);
                 wrap.Add(go.transform, go.transform.position);
+                Places.Add((st.Kind, go.transform));
             }
 
             // The batteries in the forest, each with its faint green light.
@@ -240,6 +244,7 @@ namespace Game.World.Build
             foreach (var o in made) if (o != null) Destroy(o);
             made.Clear();
             wrap?.Clear();
+            Places.Clear();
             plan = null;
         }
     }

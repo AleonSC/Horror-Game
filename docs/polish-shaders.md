@@ -521,3 +521,13 @@ dims it with distance. `WeatherConfig` > `boltChance` (0.75: the rest flicker on
   drawn. While the menu's film plays, the trees are also drawn at the copies all round out to 480 m, each
   ground chunk shows its copies one map-width away (`PanoramaGround`, no colliders), and the film camera sees
   out to 750 m, so the forest runs on into the fog in every direction.
+
+## Dev tools: Reveal
+
+A **Reveal** tab in the dev window (F9): tick what to mark (All / None buttons), grouped as Items (batteries;
+torches and lighters; flare guns and glowsticks; everything else), Places (camps, shacks, the cabin, the car,
+the bunker, the watchtower, the landmark tree, lamps (lit or not), the lone door) and Hunters (scours, the blind
+one, crawlers, the flier), each with how many there are now. Each one's marked on the screen in its colour, a
+diamond with its name and distance, through trees and walls; off the screen or behind you, a diamond at the
+screen's edge points the way. The marks stay with the window shut, and update twice a second (things picked
+up, hunters coming and going).
