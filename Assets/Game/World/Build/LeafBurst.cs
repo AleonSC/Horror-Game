@@ -143,7 +143,7 @@ namespace Game.World.Build
                     b.Vel *= Mathf.Exp(-2.2f * dt);
                     b.Vel += new Vector3(Mathf.Sin(age * 3.1f + b.Seed), 0f, Mathf.Cos(age * 2.7f + b.Seed * 1.3f)) * (2.5f * dt);
                     b.Pos += b.Vel * dt;
-                    b.Rot = Quaternion.Euler(b.Spin * dt) * b.Rot;
+                    b.Rot = Quaternion.Normalize(Quaternion.Euler(b.Spin * dt) * b.Rot); // (kept unit length: spun on every frame it drifts, and Unity refuses it)
                     if (b.Pos.y <= b.Ground)
                     {
                         b.Pos.y = b.Ground;
