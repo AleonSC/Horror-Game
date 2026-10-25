@@ -11,8 +11,10 @@ namespace Game.Entities
     /// What a scour sometimes leaves when you drive it off: one of its eyes, a wet, veined ball trailing a strand
     /// of nerve, hanging in the air. It drifts after you at a distance, about head height, bobbing a little, and
     /// never stops looking at you, turning with your every move (with small darting flicks, as eyes do). It
-    /// can't hurt you. After a while (ScourConfig > The eye left behind) it stops, its iris kindles red and
-    /// brightens, and it shoots up into the sky toward the giant, a streak of light, and is gone.
+    /// can't hurt you. Shine your light on it and it blinks, its lids snapping shut over it, again and again while
+    /// the beam stays on it, squinting between (and now and then it blinks by itself). After a while (ScourConfig
+    /// > The eye left behind) it stops, its iris kindles red and brightens, and it shoots up into the sky toward
+    /// the giant, a streak of light, and is gone.
     /// </summary>
     public sealed class ScourEyeball : MonoBehaviour
     {
@@ -23,7 +25,9 @@ namespace Game.Entities
         const float FlyTime = 7f;
 
         static int alive;
-        static Material sclera, iris, pupil, nerve;
+        static Material sclera, pupil, nerve, lidSkin;
+        static Mesh lidMesh;
+        const float LidUpOpen = -82f, LidDownOpen = 62f; // (degrees about the eye's side axis: drawn back over the ball)
         static Texture2D veins;
 
         float watchTime, keep;
@@ -33,6 +37,11 @@ namespace Game.Entities
         Vector3 flyVelocity;
         Quaternion dart = Quaternion.identity;
         float nextDart;
+        Transform upperLid, lowerLid;
+        float shut;          // 0 open, 1 shut
+        float blinkAt = -1f; // when the blink under way started (-1: none)
+        float nextBlink;
+        bool wasLit;
         Transform ball;
         Material irisGlow;
         MeshRenderer halo;
@@ -62,6 +71,8 @@ namespace Game.Entities
                 sclera = RuntimeMaterials.LitTextured("Scour eye white", new Color(0.78f, 0.72f, 0.64f), 0.85f, veins, Vector2.one);
                 pupil = RuntimeMaterials.Lit("Scour eye pupil", new Color(0.01f, 0.005f, 0.005f), 0.95f);
                 nerve = RuntimeMaterials.Lit("Scour eye nerve", new Color(0.32f, 0.12f, 0.1f), 0.7f);
+                lidSkin = RuntimeMaterials.Lit("Scour eyelid", new Color(0.2f, 0.11f, 0.1f), 0.55f, true);
+                lidMesh = LidMesh();
             }
             irisGlow = RuntimeMaterials.LitGlow("Scour eye iris", new Color(0.35f, 0.05f, 0.03f), Color.black);
 
@@ -70,6 +81,10 @@ namespace Game.Entities
             Part(PrimitiveType.Sphere, ball, Vector3.zero, Vector3.one * Size, sclera);
             Part(PrimitiveType.Sphere, ball, new Vector3(0f, 0f, Size * 0.4f), new Vector3(Size * 0.55f, Size * 0.55f, Size * 0.22f), irisGlow);
             Part(PrimitiveType.Sphere, ball, new Vector3(0f, 0f, Size * 0.475f), new Vector3(Size * 0.26f, Size * 0.3f, Size * 0.06f), pupil); // (a little tall: not quite a man's)
+            // Lids: each a quarter of a shell round the front of the ball, swung back out of the way when open.
+            upperLid = Lid(false);
+            lowerLid = Lid(true);
+            nextBlink = Time.time + Random.Range(3f, 7f);
             halo = Effects.Glow(ball, new Vector3(0f, 0f, Size * 0.45f), Size * 1.6f, Color.black, 0.4f, 3f, "Eye glow");
 
             // The strand of nerve trailing from the back of it, swinging behind as it moves.
@@ -120,6 +135,7 @@ namespace Game.Entities
                 Destroy(gameObject);
                 return;
             }
+            Lids(dt, age < watchTime && PlayerSense.InBeam(player, ball.position, 1f));
             Strand(dt);
         }
 
@@ -195,6 +211,79 @@ namespace Game.Entities
             ball.rotation = Quaternion.Slerp(ball.rotation, Quaternion.LookRotation(flyVelocity), 1f - Mathf.Exp(-6f * dt));
             SetGlow(14f * (1f - t * 0.7f));
             if (glow != null) glow.range = Mathf.Lerp(6f, 2f, t);
+        }
+
+        Transform Lid(bool lower)
+        {
+            var go = new GameObject(lower ? "Lower lid" : "Upper lid") { layer = Layers.Entities };
+            go.transform.SetParent(ball, false);
+            go.transform.localScale = new Vector3(1f, lower ? -1f : 1f, 1f) * Size * 0.565f;
+            go.AddComponent<MeshFilter>().sharedMesh = lidMesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = lidSkin;
+            return go.transform;
+        }
+
+        // A blink: snapping shut, a moment shut, opening slower. The beam landing on it starts one at once, and
+        // while it stays on it it keeps blinking, quick and nervous; otherwise only now and then.
+        void Lids(float dt, bool lit)
+        {
+            if (lit && !wasLit) Blink();
+            wasLit = lit;
+            if (blinkAt < 0f && Time.time >= nextBlink) Blink();
+            float target = 0f;
+            if (blinkAt >= 0f)
+            {
+                float t = Time.time - blinkAt;
+                const float close = 0.07f, hold = 0.12f, open = 0.2f;
+                target = t < close ? t / close : t < close + hold ? 1f : 1f - (t - close - hold) / open;
+                if (t >= close + hold + open)
+                {
+                    blinkAt = -1f;
+                    target = 0f;
+                    nextBlink = Time.time + (lit ? Random.Range(0.35f, 0.9f) : Random.Range(4f, 9f));
+                }
+            }
+            if (lit && blinkAt < 0f) target = 0.25f; // (squinting at the light between blinks)
+            shut = Mathf.Clamp01(target);
+            float e = shut * shut * (3f - 2f * shut);
+            // (the lower lid comes only a little way up to meet the upper)
+            upperLid.localRotation = Quaternion.Euler(Mathf.Lerp(LidUpOpen, 4f, e), 0f, 0f);
+            lowerLid.localRotation = Quaternion.Euler(Mathf.Lerp(LidDownOpen, -4f, e), 0f, 0f);
+        }
+
+        void Blink()
+        {
+            if (blinkAt >= 0f) return;
+            blinkAt = Time.time;
+        }
+
+        // A quarter shell of a unit sphere: in front (+Z) and above (+Y), from side to side. (Scaled -1 in Y it's
+        // the lower lid.) Drawn both sides.
+        static Mesh LidMesh()
+        {
+            const int lon = 14, lat = 7;
+            var verts = new Vector3[(lon + 1) * (lat + 1)];
+            var uvs = new Vector2[verts.Length];
+            for (int j = 0; j <= lat; j++)
+            for (int i = 0; i <= lon; i++)
+            {
+                float a = Mathf.Lerp(-90f, 90f, i / (float)lon) * Mathf.Deg2Rad, b = Mathf.Lerp(0f, 90f, j / (float)lat) * Mathf.Deg2Rad;
+                verts[j * (lon + 1) + i] = new Vector3(Mathf.Cos(b) * Mathf.Sin(a), Mathf.Sin(b), Mathf.Cos(b) * Mathf.Cos(a));
+                uvs[j * (lon + 1) + i] = new Vector2(i / (float)lon, j / (float)lat);
+            }
+            var tris = new int[lon * lat * 6];
+            int k = 0;
+            for (int j = 0; j < lat; j++)
+            for (int i = 0; i < lon; i++)
+            {
+                int v = j * (lon + 1) + i;
+                tris[k++] = v; tris[k++] = v + lon + 1; tris[k++] = v + 1;
+                tris[k++] = v + 1; tris[k++] = v + lon + 1; tris[k++] = v + lon + 2;
+            }
+            var m = new Mesh { name = "Scour eyelid", vertices = verts, uv = uvs, triangles = tris };
+            m.RecalculateNormals();
+            m.RecalculateBounds();
+            return m;
         }
 
         void SetGlow(float strength)

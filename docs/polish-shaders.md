@@ -657,7 +657,9 @@ shadows, or appear in ray tracing or motion vectors.
 - **The eye left behind:** one you drive off has a 30% chance (`leftEyeChance`) of leaving an eye (`ScourEyeball`).
   - It's a veined ball trailing a strand of nerve. It floats after you about 8 m off at head height
     (`leftEyeDistance`), going slowly round you and steering clear of trunks.
-  - It never stops staring at you, with small darting flicks.
+  - It never stops staring at you, with small darting flicks. Shine your light on it and it blinks: fleshy lids
+    snap shut over it, again every half second or so while the beam stays on it, squinting in between. Now and
+    then it also blinks by itself.
   - After 30 s (`leftEyeTime`) it stops, its iris kindles red over 2 s, and it shoots up into the sky toward the
     giant.
   - It's harmless. At most 3 at once.
