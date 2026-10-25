@@ -44,7 +44,7 @@ namespace Game.Player
         public float spillFogGlow = 0.2f;
 
         [Header("Bounce")]
-        [Range(0f, 1f), Tooltip("Light bouncing back off what the beam hits close by, tinted by it. 0: none.")]
+        [Range(0f, 1f), Tooltip("Light bouncing back off what the beam hits close by (not trees), tinted by it. 0: none.")]
         public float bounceStrength = 0.25f;
         [Range(1f, 30f), Tooltip("Beyond this the beam's too spread out for any bounce (metres).")]
         public float bounceDistance = 12f;
