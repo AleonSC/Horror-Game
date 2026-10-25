@@ -210,7 +210,8 @@ namespace Game.World.Build
         // A camp someone left in a hurry: an A-frame tent (crawl in with E; its flap opens and shuts, and a little
         // lantern hangs inside), and a fire laid ready but never lit, in a fancy pit: a ring of big rocks with a
         // lower ring of smaller, sooted stones inside it, a bed of old ash and charcoal, a teepee of split logs
-        // over kindling and a twist of birch bark, and an iron tripod over it with a kettle hung on a chain. Light
+        // over kindling and a twist of birch bark, and an iron tripod over it with a kettle hung on a chain, smoke
+        // still rising off the ashes of the last fire into the sky (so the camp can be found from afar). Light
         // it with a lighter (the Campfire). Two logs to sit on and a stump, a mug, a pile of firewood, and the
         // backpack slumped where it was dropped.
         void Campsite(Transform t, System.Random rng)
@@ -286,6 +287,13 @@ namespace Game.World.Build
             Rod(pit, kettle + Vector3.up * 0.2f, kettle + new Vector3(0.11f, 0.05f, 0f), 0.004f, metal);
             var spout = Shape(PrimitiveType.Cylinder, pit, kettle + new Vector3(0.13f, 0.02f, 0f), new Vector3(0.03f, 0.06f, 0.03f), pot, false);
             spout.transform.localRotation = Quaternion.Euler(0f, 0f, -55f);
+
+            // Smoke still curling up off the ashes of the last fire, rising into the sky: seen over the trees from
+            // far off, so you can find the camp.
+            var remnant = new GameObject("Smoke") { layer = Layers.Effects };
+            remnant.transform.SetParent(pit, false);
+            remnant.transform.localPosition = Vector3.up * 0.1f;
+            remnant.AddComponent<CampSmoke>();
 
             var campfire = pit.gameObject.AddComponent<Campfire>();
             campfire.logs = logs.ToArray();

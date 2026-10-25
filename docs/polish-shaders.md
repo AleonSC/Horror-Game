@@ -442,7 +442,7 @@ is worked out, once per session (`ForestTextures`); about a second.
   a flickering warm light with soft shadows, a crackling sound (new `Sound.FireLoop`), smoke rising to the
   skyline, and a **safe circle of 8 m for 10 minutes**. Over its last minute it dies down and the circle shrinks
   with it; the logs char; the embers glow a while and fade. It lights once. Settings: `LampConfig` > Campfires.
-  (No smoke now until a fire's lit.)
+  Smoke from the last fire still rises off the ashes into the sky, so camps can be found from afar.
 - **Tent**: the door flaps open and shut with **E** (from inside or out); shut, they block the doorway. With
   them open, **E** on the doorway crawls you in to sit on the blanket, low, facing the door. Inside, E on the
   flap opens or shuts it, and E anywhere else crawls you out (if the flap's open). Outside sounds come through

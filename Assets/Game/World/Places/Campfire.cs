@@ -79,10 +79,14 @@ namespace Game.World
             zone = new SafeZone("Campfire", transform.position, s.campfireSafeRadius);
             if (Services.TryGet<SafeZones>(out var zones)) zones.Add(zone);
 
-            smoke = new GameObject("Smoke") { layer = Layers.Effects };
-            smoke.transform.SetParent(transform, false);
-            smoke.transform.localPosition = Vector3.up * 0.4f;
-            smoke.AddComponent<CampSmoke>();
+            // (The smoke still rising from the last fire carries on; one's added only if there wasn't any.)
+            if (GetComponentInChildren<CampSmoke>() == null)
+            {
+                smoke = new GameObject("Smoke") { layer = Layers.Effects };
+                smoke.transform.SetParent(transform, false);
+                smoke.transform.localPosition = Vector3.up * 0.4f;
+                smoke.AddComponent<CampSmoke>();
+            }
 
             if (Services.TryGet<SoundPlayer>(out var sounds))
             {
