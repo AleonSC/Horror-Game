@@ -875,3 +875,12 @@ dragged the disc's middle off the trunk and swelled it into a big orange circle.
   guess and a reach). Each one only looks near where the last one was, carried on the way the trunk leans.
 - **Size limit:** a cut can be at most 1.6× the last one's radius plus 12 cm.
 - **Colour:** the fresh wood is a darker, duller brown, so it doesn't glow orange in the flashlight.
+
+## Sounds tab that holds still
+
+Dev window > Sounds now has one row per sound (by name), in a fixed order: loops, then one-shots, each
+alphabetical. A row stays once it's been heard, and shows "quiet (N s ago)" when it isn't playing. The numbers
+(how many are playing, the loudest volume, how far off, the group) update three times a second, not every frame.
+
+Mute works by name. It silences every copy of that sound, new ones too, and keeps doing so with the window shut
+(`SoundMutes`). Unmute all clears it.
