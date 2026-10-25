@@ -43,7 +43,7 @@ namespace Game.Audio
         [Range(0f, 1f), Tooltip("How loud the wind is (it rises and falls with the gusts under this).")]
         public float windVolume = 0.45f;
         [Range(0f, 1f), Tooltip("How loud the leaves rustling in the canopy are.")]
-        public float leavesVolume = 0.35f;
+        public float leavesVolume = 0.15f;
 
         [Header("Music")]
         [Tooltip("Your own tracks per mood. A mood with none uses the built-in music (or tracks in Resources/Music/<Mood>/).")]

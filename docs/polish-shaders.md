@@ -814,3 +814,8 @@ once, but its sound fades out over 1.8 s. The sound is muffled when you're under
   - Click it to step up and play: arrows or WASD steer, it speeds up as you score, and Space (or a direction)
     starts again after a game over. E steps away.
   - It beeps, and keeps the best score for the session ("HI").
+
+## Softer canopy rustle
+
+The leaves rustling in the trees are now less than half as loud (`AudioConfig` > `leavesVolume` 0.15, was 0.35).
+They also swell less and more slowly with the gusts.

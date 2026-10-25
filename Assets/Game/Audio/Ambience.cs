@@ -13,7 +13,7 @@ namespace Game.Audio
     {
         AudioSource wind, drone, tension, leaves;
         float tensionTarget;
-        float windVolume = 0.45f, leavesVolume = 0.35f;
+        float windVolume = 0.45f, leavesVolume = 0.15f;
         float nextDistant, nextCreak, nextCall;
         readonly List<System.IDisposable> subs = new List<System.IDisposable>();
 
@@ -85,7 +85,7 @@ namespace Game.Audio
             wind.volume = Mathf.Lerp(wind.volume, windVolume * (0.35f + 0.65f * gust), 1f - Mathf.Exp(-0.8f * dt));
             wind.pitch = Mathf.Lerp(wind.pitch, Mathf.Lerp(0.94f, 1.05f, gust), 1f - Mathf.Exp(-0.8f * dt));
             // The canopy rustles with it, a little louder in the gusts.
-            if (leaves != null) leaves.volume = Mathf.Lerp(leaves.volume, leavesVolume * (0.3f + 0.7f * gust), 1f - Mathf.Exp(-1f * dt));
+            if (leaves != null) leaves.volume = Mathf.Lerp(leaves.volume, leavesVolume * (0.4f + 0.6f * gust), 1f - Mathf.Exp(-0.6f * dt));
             drone.volume = Mathf.MoveTowards(drone.volume, 0.22f, dt * 0.1f);
             tension.volume = Mathf.MoveTowards(tension.volume, tensionTarget, dt * (tensionTarget > tension.volume ? 0.4f : 0.12f));
 
