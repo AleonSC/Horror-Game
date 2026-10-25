@@ -4,12 +4,14 @@ using UnityEngine;
 namespace Game.Player
 {
     /// <summary>
-    /// What the crosshair is on (section 6.2): the interactable nearest the line of sight within reach, with a
-    /// little aim assist, as long as nothing's in the way.
+    /// What the crosshair is on (section 6.2): first, whatever the crosshair is right on (any part of it: the edge
+    /// of a door counts, not just its middle); otherwise the interactable nearest the line of sight within reach,
+    /// with a little aim assist, as long as nothing's in the way.
     /// </summary>
     public sealed class Interactor
     {
         readonly Collider[] nearby = new Collider[32];
+        readonly RaycastHit[] along = new RaycastHit[16];
 
         /// <summary>What a left click would use (never a door).</summary>
         public IInteractable Target { get; private set; }
@@ -22,6 +24,29 @@ namespace Game.Player
             Door = null;
             float best = float.MaxValue, bestDoor = float.MaxValue;
             int mask = ~(Layers.Mask(Layers.PlayerBody) | Layers.Mask(Layers.Effects));
+            // Right under the crosshair: the nearest door, and the nearest other thing, the line of sight touches
+            // before anything solid. (Open doors are triggers, so they count too.)
+            IInteractable onTarget = null;
+            IDoor onDoor = null;
+            int hits = Physics.RaycastNonAlloc(eye.position, eye.forward, along, reach, mask, QueryTriggerInteraction.Collide);
+            System.Array.Sort(along, 0, hits, HitOrder);
+            for (int i = 0; i < hits; i++)
+            {
+                var c = along[i].collider;
+                var it = c.GetComponentInParent<IInteractable>();
+                if (it != null && it.CanInteract)
+                {
+                    if (it is IDoor d) { if (onDoor == null) onDoor = d; }
+                    else if (onTarget == null) onTarget = it;
+                }
+                else if (!c.isTrigger) break; // (a wall, a trunk: nothing behind it)
+                if (onDoor != null && onTarget != null) break;
+            }
+            Door = onDoor;
+            Target = onTarget;
+            if (onDoor != null) bestDoor = -1f;
+            if (onTarget != null) best = -1f;
+
             int count = Physics.OverlapSphereNonAlloc(eye.position, reach + 0.5f, nearby, mask, QueryTriggerInteraction.Collide);
             for (int i = 0; i < count; i++)
             {
@@ -51,6 +76,8 @@ namespace Game.Player
                 }
             }
         }
+
+        static readonly System.Collections.Generic.IComparer<RaycastHit> HitOrder = System.Collections.Generic.Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance));
 
         public bool TryInteract()
         {

@@ -16,11 +16,11 @@ namespace Game.World
         public float rechargeTime = 120f;
         public float safeRadius = 45f;
         [Tooltip("How bright each floodlight is (candela).")]
-        public float brightness = 450f;
+        public float brightness = 150f;
         [Tooltip("How much they light the fog (0-1): high and the whole area turns to white haze.")]
-        public float fogGlow = 0.12f;
+        public float fogGlow = 0.06f;
         [Tooltip("The soft shafts of light under them (0: none).")]
-        public float beamGlow = 0.35f;
+        public float beamGlow = 0.18f;
         [Tooltip("Where the floodlights hang (this object's space); they shine out and down.")]
         public Vector3[] lightSpots = { new Vector3(-2f, 13.8f, -2f), new Vector3(2f, 13.8f, -2f), new Vector3(-2f, 13.8f, 2f), new Vector3(2f, 13.8f, 2f) };
         [Tooltip("The button, in this object's space.")]
@@ -69,8 +69,8 @@ namespace Game.World
                 lightData[i] = data;
                 var l = go.GetComponent<Light>();
                 l.color = new Color(0.9f, 0.95f, 1f);
-                l.spotAngle = 95f;
-                l.innerSpotAngle = 60f;
+                l.spotAngle = 80f;
+                l.innerSpotAngle = 45f;
                 l.range = 70f;
                 l.intensity = brightness;
                 l.shadows = LightShadows.None;

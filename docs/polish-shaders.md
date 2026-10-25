@@ -701,3 +701,14 @@ This replaces the breakable pine/oak described above.
   - The pieces fly away from it, tumble, bounce, skitter, shrink away and are gone in 1–3 s. Nothing is left
     standing and no logs fall.
   - There's a crack, a crash of wood and a rustle. The blind one ignores the noise, as it did a falling tree.
+
+## Doors easier to use; gentler floodlights
+
+- **Doors (and everything else you use):** whatever the crosshair is right on now wins, any part of it. That
+  includes the edge of a door, or an open door, which is a trigger. Before, a door counted only if you looked
+  near its middle. Aim assist still picks the nearest thing when the crosshair isn't on anything.
+- **Watchtower floodlights:** they were under the eaves, a metre from the railing and planks, and blasted them.
+  - Each now sits on an iron pipe up from a balcony corner post, out past everything, with its wire slung back to
+    the roof.
+  - Brightness is 150 (was 450), the cone 80° (was 95°), the fog glow 0.06 (was 0.12) and the light shafts 0.18
+    (was 0.35). These are all on the `Watchtower` component.

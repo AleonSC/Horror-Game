@@ -321,17 +321,21 @@ namespace Game.World.Build
 
         // ------------------------------------------------------------------ floodlights
 
-        // A floodlight on a bracket at each corner of the room under the eaves (named "Floodlight": the light shines
-        // from there), their conduit along the head rail inside to the switch box by the door (the "Button").
+        // A floodlight on a pipe at each corner of the balcony (named "Floodlight": the light shines from there), and
+        // inside, conduit along the head rail to the switch box by the door (the "Button").
         void Floodlights(Transform t)
         {
             foreach (int sx in new[] { -1, 1 })
             foreach (int sz in new[] { -1, 1 })
             {
-                Vector3 corner = new Vector3(sx * (C + 0.05f), Eaves - 0.3f, sz * (C + 0.05f));
+                // (on an iron pipe up from the balcony's corner post, out past everything, so the light falls on the
+                // forest and not on the railing and planks a metre off; its wire slung back to the roof's corner)
+                Vector3 post = new Vector3(sx * (B - 0.06f), Deck + 0.125f + 1.05f, sz * (B - 0.06f));
                 Vector3 outward = new Vector3(sx, 0f, sz).normalized;
-                Vector3 at = corner + outward * 0.35f;
-                Beam(t, corner, at + Vector3.up * 0.1f, 0.05f, 0.05f, metal, false);
+                Vector3 at = post + Vector3.up * 1.15f + outward * 0.12f;
+                Rod(t, post, post + Vector3.up * 1.2f, 0.025f, metal);
+                Beam(t, post + Vector3.up * 1.1f, at, 0.04f, 0.04f, metal, false);
+                Rod(t, post + Vector3.up * 1.18f, new Vector3(sx * (C + 0.6f), Eaves - 0.04f, sz * (C + 0.6f)), 0.008f, rope);
                 var lamp = new GameObject("Floodlight") { layer = Layers.Props }.transform;
                 lamp.SetParent(t, false);
                 lamp.localPosition = at;
