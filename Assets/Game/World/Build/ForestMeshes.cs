@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Game.World.Build
@@ -39,6 +40,100 @@ namespace Game.World.Build
             AddRoots(trunk, rng, radius * 1.25f, lod == 0 ? 6 : lod == 1 ? 4 : 0, lod == 0 ? 5 : 4);
             return (trunk, needles);
         }
+
+        /// <summary>
+        /// An oak: a stout trunk forking a third of the way up into crooked, spreading limbs, each with side branches,
+        /// and a broad rounded canopy of leaf clumps at their ends: each clump a cluster of leaf cards (cut-out sprays
+        /// of oak leaves, <see cref="ForestSurfaces.OakLeaves"/>) shaded as one rounded mass (their normals point out
+        /// from the clump's middle). Far off, fewer and bigger cards. height &lt;= 0: random.
+        /// </summary>
+        public static (MeshBuilder trunk, MeshBuilder leaves) Oak(System.Random rng, float height = -1f, int lod = 0, float trunkRadius = -1f)
+        {
+            var trunk = new MeshBuilder();
+            var leaves = new MeshBuilder();
+            if (height <= 0f) height = Range(rng, 11f, 16f);
+            float radius = trunkRadius > 0f ? trunkRadius : Range(rng, 0.32f, 0.5f);
+            int sides = lod == 0 ? 9 : lod == 1 ? 6 : 4;
+            float fork = height * Range(rng, 0.3f, 0.38f);
+            Vector3 lean = new Vector3(Range(rng, -0.4f, 0.4f), 0f, Range(rng, -0.4f, 0.4f));
+            Vector3 forkAt = Vector3.up * fork + lean;
+            trunk.AddTube(Vector3.down * 0.3f, forkAt, radius * 1.3f, radius * 0.95f, sides);
+            float crownTop = height, crownRadius = height * Range(rng, 0.38f, 0.48f);
+
+            var clumps = new List<(Vector3 at, float size)>();
+            int limbs = lod == 2 ? 4 : rng.Next(4, 7);
+            float turn = Range(rng, 0f, Mathf.PI * 2f);
+            for (int i = 0; i < limbs; i++)
+            {
+                float a = turn + (i + Range(rng, -0.3f, 0.3f)) / limbs * Mathf.PI * 2f;
+                Vector3 outward = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                float rise = Range(rng, 0.5f, 1.1f);
+                float length = (crownTop - fork) * Range(rng, 0.65f, 0.9f);
+                Vector3 start = forkAt + Vector3.down * Range(rng, 0f, 0.8f);
+                // Two crooked lengths: out and up, then bending further out.
+                Vector3 bend = start + (outward * 0.8f + Vector3.up * rise).normalized * length * 0.5f + RandomWobble(rng, 0.4f);
+                Vector3 end = bend + (outward * 1.2f + Vector3.up * rise * 0.6f).normalized * length * 0.55f + RandomWobble(rng, 0.5f);
+                float r0 = radius * Range(rng, 0.5f, 0.65f);
+                trunk.AddTube(start, bend, r0, r0 * 0.65f, Mathf.Max(4, sides - 2));
+                trunk.AddTube(bend, end, r0 * 0.65f, r0 * 0.2f, Mathf.Max(3, sides - 3));
+                clumps.Add((end, Range(rng, 1.8f, 2.6f)));
+                if (lod == 2) continue;
+                // Side branches off it, each ending in a clump.
+                int side = lod == 0 ? rng.Next(2, 4) : 1;
+                for (int k = 0; k < side; k++)
+                {
+                    float t = Range(rng, 0.35f, 0.85f);
+                    Vector3 from = t < 0.5f ? Vector3.Lerp(start, bend, t * 2f) : Vector3.Lerp(bend, end, (t - 0.5f) * 2f);
+                    Vector3 dir = (outward + new Vector3(Range(rng, -0.9f, 0.9f), Range(rng, 0.1f, 0.9f), Range(rng, -0.9f, 0.9f))).normalized;
+                    Vector3 tip = from + dir * length * Range(rng, 0.3f, 0.5f);
+                    float r = r0 * Mathf.Lerp(0.5f, 0.2f, t);
+                    trunk.AddTube(from, tip, r, r * 0.2f, 3);
+                    clumps.Add((tip, Range(rng, 1.4f, 2.1f)));
+                }
+            }
+            // A clump over the middle, so the crown's rounded and not a ring.
+            clumps.Add((forkAt + Vector3.up * (crownTop - fork) * 0.8f, crownRadius * 0.55f));
+            AddRoots(trunk, rng, radius * 1.3f, lod == 0 ? 6 : lod == 1 ? 4 : 0, Mathf.Max(3, sides - 4));
+
+            // The leaves: each clump a cluster of cards, the canopy's shading rounded (normals out from its middle).
+            int cards = lod == 0 ? 24 : lod == 1 ? 10 : 5;
+            float cardSize = lod == 0 ? 1.15f : lod == 1 ? 1.8f : 2.8f;
+            foreach (var (at, size) in clumps)
+                for (int c = 0; c < cards; c++)
+                {
+                    Vector3 offset = Random3(rng) * size * Mathf.Sqrt((float)rng.NextDouble());
+                    Vector3 centre = at + offset;
+                    Vector3 normal = (offset + Vector3.up * size * 0.3f).normalized;
+                    LeafCard(leaves, centre, normal, cardSize * Range(rng, 0.8f, 1.25f), rng);
+                }
+            return (trunk, leaves);
+        }
+
+        // One leaf card: a square of the leaf texture, turned at random (but never quite edge-on to the sky), its
+        // normal the clump's.
+        static void LeafCard(MeshBuilder b, Vector3 centre, Vector3 normal, float size, System.Random rng)
+        {
+            Vector3 face = (Random3(rng) + normal * 0.6f).normalized;
+            Vector3 right = Vector3.Cross(face, Mathf.Abs(face.y) < 0.95f ? Vector3.up : Vector3.right).normalized;
+            Vector3 up = Vector3.Cross(right, face);
+            float spin = Range(rng, 0f, Mathf.PI * 2f);
+            Vector3 u = (right * Mathf.Cos(spin) + up * Mathf.Sin(spin)) * size * 0.5f;
+            Vector3 v = (-right * Mathf.Sin(spin) + up * Mathf.Cos(spin)) * size * 0.5f;
+            int i0 = b.AddVertex(centre - u - v, new Vector2(0f, 0f), normal);
+            int i1 = b.AddVertex(centre + u - v, new Vector2(1f, 0f), normal);
+            int i2 = b.AddVertex(centre + u + v, new Vector2(1f, 1f), normal);
+            int i3 = b.AddVertex(centre - u + v, new Vector2(0f, 1f), normal);
+            b.AddTriangle(i0, i2, i1);
+            b.AddTriangle(i0, i3, i2);
+        }
+
+        static Vector3 Random3(System.Random rng)
+        {
+            float z = Range(rng, -1f, 1f), a = Range(rng, 0f, Mathf.PI * 2f), r = Mathf.Sqrt(1f - z * z);
+            return new Vector3(r * Mathf.Cos(a), z, r * Mathf.Sin(a));
+        }
+
+        static Vector3 RandomWobble(System.Random rng, float amount) => new Vector3(Range(rng, -amount, amount), Range(rng, -amount, amount) * 0.5f, Range(rng, -amount, amount));
 
         /// <summary>A dead tree: a bare trunk forking into a few crooked limbs. height &lt;= 0: random.</summary>
         public static MeshBuilder DeadTree(System.Random rng, float height = -1f, int lod = 0)

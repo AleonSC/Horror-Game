@@ -707,10 +707,10 @@ namespace Game.World.Build
             return tex;
         }
 
-        // The giant pine (the plan's "7x scale"), a landmark you can find your way by.
+        // The giant oak (the plan's "7x scale"), a landmark you can find your way by.
         void LandmarkTree(Transform t)
         {
-            var (trunk, crown) = ForestMeshes.Pine(new System.Random(7), 14f);
+            var (trunk, crown) = ForestMeshes.Oak(new System.Random(7), 14f);
             var trunkMesh = trunk.ToMesh("Landmark trunk");
             var crownMesh = crown.ToMesh("Landmark crown");
             made.Add(trunkMesh);

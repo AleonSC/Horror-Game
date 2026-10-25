@@ -51,7 +51,9 @@ namespace Game.World.Build
             // (Pale enough to catch a little of your light and the lamps': darker and the trees were flat black shapes.)
             // Bark: plates of layered scales and deep fissures, round the built-in trunks (or your own).
             Bark = art != null && art.bark != null ? Instanced(fixer.Fix(art.bark)) : Surface("Bark", ForestTextures.Bark, ForestSurfaces.BarkTiling, Color.white);
-            Needles = Mat("Needles", new Color(0.09f, 0.13f, 0.08f), 0.18f, true);
+            // The oaks' leaves: cards of a cut-out spray of leaves, lit alike on both faces.
+            Needles = Mat("Oak leaves", new Color(0.85f, 0.9f, 0.8f), 0.22f, true, ForestTextures.OakLeaves, Vector2.one);
+            RuntimeMaterials.SetCutout(Needles, 0.45f);
             DeadWood = art != null && art.deadWood != null ? Instanced(fixer.Fix(art.deadWood)) : Surface("Dead wood", ForestTextures.DeadWood, ForestSurfaces.BarkTiling, Color.white);
             bushA = Mat("Bush leaves", new Color(0.07f, 0.11f, 0.045f), 0.3f, true); // (leaves: double-sided, a little waxy)
             bushB = Mat("Bush leaves (dry)", new Color(0.13f, 0.11f, 0.045f), 0.25f, true);
@@ -143,19 +145,19 @@ namespace Game.World.Build
             var crowns = new Mesh[3];
             for (int lod = 0; lod < 3; lod++)
             {
-                var (t, c) = ForestMeshes.Pine(new System.Random(BreakableSeed), BreakableStage.Height, lod, BreakableRadius);
-                trunks[lod] = Keep(t.ToMesh($"Breakable pine trunk LOD{lod}"));
-                crowns[lod] = Keep(c.ToMesh($"Breakable pine crown LOD{lod}"));
+                var (t, c) = ForestMeshes.Oak(new System.Random(BreakableSeed), BreakableStage.Height, lod, BreakableRadius);
+                trunks[lod] = Keep(t.ToMesh($"Breakable oak trunk LOD{lod}"));
+                crowns[lod] = Keep(c.ToMesh($"Breakable oak crown LOD{lod}"));
             }
             return new[]
             {
-                renderer.AddKind(InstancedRenderer.Kind.Simple("Breakable pine trunk", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
-                renderer.AddKind(InstancedRenderer.Kind.Simple("Breakable pine crown", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
+                renderer.AddKind(InstancedRenderer.Kind.Simple("Breakable oak trunk", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
+                renderer.AddKind(InstancedRenderer.Kind.Simple("Breakable oak crown", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
             };
         }
 
         const int BreakableSeed = 4217;
-        const float BreakableRadius = 0.3f;
+        const float BreakableRadius = 0.38f;
 
         int[][] BuiltInPines()
         {
@@ -166,14 +168,14 @@ namespace Game.World.Build
                 var crowns = new Mesh[3];
                 for (int lod = 0; lod < 3; lod++)
                 {
-                    var (t, c) = ForestMeshes.Pine(new System.Random(plan.Seed * 31 + v), TreeShapes.Height(TreeKind.Pine, v), lod);
-                    trunks[lod] = Keep(t.ToMesh($"Pine {v} trunk LOD{lod}"));
-                    crowns[lod] = Keep(c.ToMesh($"Pine {v} crown LOD{lod}"));
+                    var (t, c) = ForestMeshes.Oak(new System.Random(plan.Seed * 31 + v), TreeShapes.Height(TreeKind.Pine, v), lod);
+                    trunks[lod] = Keep(t.ToMesh($"Oak {v} trunk LOD{lod}"));
+                    crowns[lod] = Keep(c.ToMesh($"Oak {v} crown LOD{lod}"));
                 }
                 kinds[v] = new[]
                 {
-                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Pine trunk {v}", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
-                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Pine crown {v}", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak trunk {v}", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak crown {v}", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
                 };
             }
             return kinds;

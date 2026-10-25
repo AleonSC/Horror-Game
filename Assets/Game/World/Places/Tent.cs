@@ -139,7 +139,8 @@ namespace Game.World
 
         public string Prompt => "Crawl in";
         public bool CanInteract => !inside && flap != null && flap.IsOpen;
-        public Vector3 FocusPoint => transform.TransformPoint(new Vector3(0f, 0.45f, flap != null ? flap.transform.localPosition.z : 1f));
+        // (The middle of the doorway, about where you'd look at it from standing in front: not down at its foot.)
+        public Vector3 FocusPoint => transform.TransformPoint(new Vector3(0f, 0.75f, flap != null ? flap.transform.localPosition.z : 1f));
 
         public Transform SeatPoint => seat;
         public Vector3 ExitPoint => transform.TransformPoint(outAt);
@@ -161,6 +162,19 @@ namespace Game.World
         }
 
         public bool CanSit(Vector3 from) => false; // (in by the doorway, with E, not with Y)
+
+        // Walking (or crouching) into the open doorway crawls you in, as E does: the tent's too low and its sides
+        // too steep to stand in, so there's no walking about inside.
+        void Update()
+        {
+            if (inside || seat == null || flap == null || !flap.IsOpen) return;
+            if (!Services.TryGet<PlayerController>(out var player) || player.Seat != null || !player.Moving) return;
+            Vector3 local = transform.InverseTransformPoint(player.transform.position);
+            float front = flap.transform.localPosition.z;
+            bool inDoorway = Mathf.Abs(local.x) < 0.55f && local.z < front + 0.35f && local.z > front - 0.9f;
+            bool heading = Vector3.Dot(player.transform.forward, -transform.forward) > 0.3f;
+            if (inDoorway && heading) Interact();
+        }
 
         public void Interact()
         {

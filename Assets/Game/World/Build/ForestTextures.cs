@@ -21,7 +21,7 @@ namespace Game.World.Build
 
         static Task<SurfacePixels> floorJob, patchesJob, grainJob, barkJob, deadJob, trailJob;
         static Set floor, bark, dead, trail;
-        static Texture2D patches, grain;
+        static Texture2D patches, grain, oakLeaves;
         static float trailShare = -1f, trailHalf = -1f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -29,7 +29,7 @@ namespace Game.World.Build
         {
             floorJob = patchesJob = grainJob = barkJob = deadJob = trailJob = null;
             floor = bark = dead = trail = null;
-            patches = grain = null;
+            patches = grain = oakLeaves = null;
             trailShare = trailHalf = -1f;
         }
 
@@ -63,6 +63,20 @@ namespace Game.World.Build
 
         /// <summary>The trails' earth (call <see cref="Warm"/> first with the trails' size).</summary>
         public static Set Trail => Ready(ref trail, ref trailJob, "Trail earth", false, () => ForestSurfaces.Trail(Seed, Mathf.Max(0f, trailShare), Mathf.Max(0.3f, trailHalf), 3f));
+
+        /// <summary>A spray of oak leaves for the canopy's cards (cut out by its alpha).</summary>
+        public static Texture2D OakLeaves
+        {
+            get
+            {
+                if (oakLeaves != null) return oakLeaves;
+                var px = ForestSurfaces.OakLeaves(Seed);
+                oakLeaves = new Texture2D(px.Width, px.Height, TextureFormat.RGBA32, true) { name = "Oak leaves", wrapMode = TextureWrapMode.Clamp, anisoLevel = 4, hideFlags = HideFlags.DontSave };
+                oakLeaves.SetPixels(px.Albedo);
+                oakLeaves.Apply(true, true);
+                return oakLeaves;
+            }
+        }
 
         /// <summary>The trails' fine grain (a detail map, in world space).</summary>
         public static Texture2D TrailGrain => ReadyDetail(ref grain, ref grainJob, "Trail grain", () => ForestSurfaces.TrailGrain(Seed));

@@ -585,3 +585,16 @@ thread, its patches drifted on (`mistDrift`), and each new one blends in over th
 thickness traded off so together they're always one layer's worth), so the mist drifts smoothly. Its grid is
 fixed in the world (whole cells), so it doesn't crawl as you walk. Seen from high above it's still made taller
 and thinner (the same amount of mist), so the fog's slices don't band it. Two fog volumes instead of 25.
+
+## Oaks instead of pines, and getting into tents
+
+- **Oaks**: the forest's living trees are oaks now (`ForestMeshes.Oak`): a stout trunk with root flares, forking
+  about a third of the way up into four to six crooked, spreading limbs with side branches, under a broad,
+  rounded canopy. The canopy is clumps of leaf cards at the branch ends (and one over the middle), each card a
+  cut-out spray of lobed oak leaves made in code (`ForestSurfaces.OakLeaves`: some deep green, some yellowing),
+  shaded as rounded masses. Far off, fewer and bigger cards. Heights 10.5-16 m, crowns about 5.5 m out. The
+  breakable tree and the landmark tree are oaks too (the breakable one 12 m, its trunk 0.38 m). (Inside, the
+  living tree is still called `Pine` in the plan.)
+- **Tents**: walking or crouching into an open tent's doorway now crawls you in (as E does: the tent's too low and
+  steep-sided to walk about in), and the doorway's aim point is at its middle, where you'd look, rather than at
+  its foot, so E finds it.

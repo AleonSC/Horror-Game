@@ -81,6 +81,16 @@ namespace Game.Rendering
             return m;
         }
 
+        /// <summary>Cut a lit material out by its texture's alpha (leaves), lit on both faces alike.</summary>
+        public static void SetCutout(Material m, float threshold)
+        {
+            HDMaterial.SetAlphaClipping(m, true);
+            HDMaterial.SetAlphaCutoff(m, threshold);
+            m.SetFloat("_DoubleSidedEnable", 1f);
+            m.SetFloat("_DoubleSidedNormalMode", 2f); // (none: both faces lit the same, so the undersides aren't black)
+            HDMaterial.ValidateMaterial(m);
+        }
+
         /// <summary>Give a lit material a normal map (bumps for the lighting), this strong.</summary>
         public static void SetNormalMap(Material m, Texture2D normals, float scale)
         {

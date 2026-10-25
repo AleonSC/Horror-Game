@@ -10,7 +10,7 @@ namespace Game.World.Generation
         public string Name => "Breakable trees";
 
         /// <summary>The breakable tree's height (metres): one model, one size.</summary>
-        public const float Height = 15f;
+        public const float Height = 12f;
 
         public void Run(WorldPlan plan, WorldGenSettings s, Rng rng)
         {

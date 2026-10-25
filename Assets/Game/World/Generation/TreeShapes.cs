@@ -25,12 +25,12 @@ namespace Game.World.Generation
 
         /// <summary>The built-in trees' heights.</summary>
         public static float Height(TreeKind kind, int variant) =>
-            kind == TreeKind.Pine ? 14f + variant * 1.1f : 8f + variant * 1.7f;
+            kind == TreeKind.Pine ? 10.5f + variant * 0.8f : 8f + variant * 1.7f; // ("Pine" is the living tree: an oak now)
 
         /// <summary>How far the crown spreads from the trunk (before scaling).</summary>
-        public static float CrownRadius(TreeKind kind) => kind == TreeKind.Pine ? 3f : 3.5f;
+        public static float CrownRadius(TreeKind kind) => kind == TreeKind.Pine ? 5.5f : 3.5f;
 
         /// <summary>Where the crown starts, as a share of the height.</summary>
-        public static float CrownStart(TreeKind kind) => kind == TreeKind.Pine ? 0.42f : 0.4f;
+        public static float CrownStart(TreeKind kind) => kind == TreeKind.Pine ? 0.33f : 0.4f;
     }
 }

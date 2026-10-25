@@ -412,6 +412,60 @@ namespace Game.World.Build
             }
         }
 
+        // ------------------------------------------------------------------ leaves
+
+        /// <summary>
+        /// A spray of oak leaves for the canopy's cards (alpha: the leaves, cut out): forty-odd lobed leaves on
+        /// their stalks, overlapping, in greens from deep to yellowing, each with its midrib and a darker edge.
+        /// </summary>
+        public static SurfacePixels OakLeaves(int seed, int size = 256)
+        {
+            var px = new SurfacePixels { Width = size, Height = size, Albedo = new Color[size * size] };
+            var depth = new float[size * size];
+            for (int i = 0; i < depth.Length; i++) { depth[i] = -1f; px.Albedo[i] = new Color(0.1f, 0.14f, 0.05f, 0f); }
+            var rng = new System.Random(seed);
+            int leaves = 75;
+            for (int n = 0; n < leaves; n++)
+            {
+                // All over the card (thinning to its edge), each turned its own way, the later ones on top.
+                float a = Range(rng, 0f, 6.283f), r = Mathf.Sqrt((float)rng.NextDouble()) * size * 0.34f;
+                Vector2 stalk = new Vector2(size * 0.5f + Mathf.Cos(a) * r, size * 0.5f + Mathf.Sin(a) * r);
+                float angle = Range(rng, 0f, 6.283f);
+                float len = Range(rng, 0.11f, 0.19f) * size, wide = len * Range(rng, 0.3f, 0.38f);
+                Vector2 along = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)), side = new Vector2(-along.y, along.x);
+                Color c = Color.Lerp(new Color(0.07f, 0.12f, 0.035f), new Color(0.2f, 0.27f, 0.07f), (float)rng.NextDouble());
+                if (rng.NextDouble() < 0.12) c = Color.Lerp(c, new Color(0.3f, 0.26f, 0.08f), 0.6f); // (yellowing)
+                int lobes = rng.Next(4, 6);
+                float phase = Range(rng, 0f, 3f);
+                int reach = Mathf.CeilToInt(len + 4);
+                for (int y = -reach; y <= reach; y++)
+                for (int x = -reach; x <= reach; x++)
+                {
+                    int px0 = Mathf.RoundToInt(stalk.x) + x, py0 = Mathf.RoundToInt(stalk.y) + y;
+                    if (px0 < 1 || py0 < 1 || px0 >= size - 1 || py0 >= size - 1) continue;
+                    Vector2 d = new Vector2(x, y);
+                    float u = Vector2.Dot(d, along) / len, v = Vector2.Dot(d, side);
+                    if (u < 0f || u > 1f) continue;
+                    // The stalk, then the blade: an oval widest past its middle, with rounded lobes down each side.
+                    float blade = u < 0.12f ? 0f : wide * Mathf.Sqrt(Mathf.Max(0f, 1f - Mathf.Pow((u - 0.6f) / 0.48f, 2f)));
+                    blade *= 0.72f + 0.28f * Mathf.Abs(Mathf.Sin(u * lobes * Mathf.PI + phase));
+                    bool onStalk = u < 0.16f && Mathf.Abs(v) < 1.2f;
+                    if (!onStalk && Mathf.Abs(v) > blade) continue;
+                    int k = py0 * size + px0;
+                    float z = n + u * 0.5f;
+                    if (z < depth[k]) continue;
+                    depth[k] = z;
+                    float edge = blade > 0f ? Mathf.Abs(v) / blade : 0f;
+                    float rib = Mathf.Exp(-v * v / 1.5f);
+                    Color col = c * (1.05f - 0.3f * edge * edge) + new Color(0.06f, 0.07f, 0.02f) * rib;
+                    if (onStalk) col = new Color(0.12f, 0.1f, 0.05f);
+                    col.a = 1f;
+                    px.Albedo[k] = col;
+                }
+            }
+            return px;
+        }
+
         static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);
 
         static Color Pick(System.Random rng, params Color[] colours) => colours[rng.Next(colours.Length)] * Range(rng, 0.85f, 1.15f);

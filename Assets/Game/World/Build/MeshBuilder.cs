@@ -10,6 +10,9 @@ namespace Game.World.Build
         readonly List<Vector3> vertices = new List<Vector3>();
         readonly List<Vector2> uvs = new List<Vector2>();
         readonly List<int> triangles = new List<int>();
+        // (Normals given with the vertex, e.g. a leaf canopy's rounded shading; zero: worked out from the faces.)
+        readonly List<Vector3> normals = new List<Vector3>();
+        bool anyNormals;
 
         public int VertexCount => vertices.Count;
 
@@ -17,6 +20,17 @@ namespace Game.World.Build
         {
             vertices.Add(position);
             uvs.Add(uv);
+            normals.Add(Vector3.zero);
+            return vertices.Count - 1;
+        }
+
+        /// <summary>A vertex with its own normal (kept as given, not worked out from the faces).</summary>
+        public int AddVertex(Vector3 position, Vector2 uv, Vector3 normal)
+        {
+            vertices.Add(position);
+            uvs.Add(uv);
+            normals.Add(normal.normalized);
+            anyNormals = true;
             return vertices.Count - 1;
         }
 
@@ -64,6 +78,8 @@ namespace Game.World.Build
             {
                 vertices.Add(matrix.MultiplyPoint3x4(other.vertices[i]));
                 uvs.Add(other.uvs[i]);
+                normals.Add(matrix.MultiplyVector(other.normals[i]));
+                anyNormals |= other.anyNormals;
             }
             foreach (int t in other.triangles) triangles.Add(t + offset);
         }
@@ -78,6 +94,7 @@ namespace Game.World.Build
             {
                 vertices.Add(matrix.MultiplyPoint3x4(v[i]));
                 uvs.Add(uv.Length == v.Length ? uv[i] : Vector2.zero);
+                normals.Add(Vector3.zero);
             }
             foreach (int t in mesh.triangles) triangles.Add(t + offset);
         }
@@ -137,6 +154,12 @@ namespace Game.World.Build
             mesh.SetUVs(0, uvs);
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateNormals();
+            if (anyNormals)
+            {
+                var n = mesh.normals;
+                for (int i = 0; i < n.Length && i < normals.Count; i++) if (normals[i] != Vector3.zero) n[i] = normals[i].normalized;
+                mesh.normals = n;
+            }
             mesh.RecalculateTangents();
             mesh.RecalculateBounds();
             return mesh;
