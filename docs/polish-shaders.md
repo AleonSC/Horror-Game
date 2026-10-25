@@ -909,7 +909,7 @@ Measured: about 89% of it is below 100 Hz, 10% is 100–1000 Hz (the body you he
 - **The giant groans** 1.5–3 s after the intro's last line (`IntroFinished`). It comes from its direction, far
   off (`Sound.GiantGroan`, about 11 s): a vast, slow voice sinking in pitch, its vowel sliding from "aw" to "oo",
   shuddering, over a sub rumble, with a long dark echo. The view trembles a little.
-- **Glitching intro:** `PresentationConfig` > `glitchIntro`, off by default.
+- **Glitching intro:** `PresentationConfig` > `glitchIntro`, now on by default (off: the old intro).
   - Every intro line is shown in the middle of a dark screen.
   - Between lines the dark tears open: black flickering, bars of black, teal, red and white thrown across the
     screen, and a burst of static. For `glitchPeek` seconds (1) you see through your own eyes in the forest,
