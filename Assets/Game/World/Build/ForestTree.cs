@@ -162,7 +162,7 @@ namespace Game.World.Build
         {
             get
             {
-                if (freshWood == null) freshWood = Game.Rendering.RuntimeMaterials.Lit("Fresh wood", new Color(0.5f, 0.38f, 0.25f), 0.12f, true);
+                if (freshWood == null) freshWood = Game.Rendering.RuntimeMaterials.Lit("Fresh wood", new Color(0.36f, 0.28f, 0.2f), 0.1f, true);
                 return freshWood;
             }
         }
@@ -199,14 +199,28 @@ namespace Game.World.Build
             // Cap the cut ends with fresh wood: torn and splintered where it snapped off the stump, cleaner between logs.
             var centres = new Vector3[logs];
             var radii = new float[logs];
+            // Up the trunk from its foot, each cut looked for near where the last one was (carried on the way it
+            // leans), so branches the cut also passes through don't count.
+            Vector3 guess = Vector3.zero, lean = Vector3.zero;
+            float reach = 0.7f;
             for (int k = 0; k < logs; k++)
             {
-                if (!MeshSlicer.TrunkAt(points[k], cuts[k], out centres[k], out radii[k]))
+                Vector3 expect = guess + lean * (k > 0 ? cuts[k] - cuts[k - 1] : 0f);
+                if (!MeshSlicer.TrunkAt(points[k], cuts[k], expect, reach, out centres[k], out radii[k]))
                 {
-                    centres[k] = new Vector3(0f, cuts[k], 0f);
-                    radii[k] = 0.1f;
+                    centres[k] = new Vector3(expect.x, cuts[k], expect.z);
+                    radii[k] = k > 0 ? radii[k - 1] * 0.85f : 0.1f;
+                    guess = centres[k];
                     continue;
                 }
+                if (k > 0)
+                {
+                    float rise = Mathf.Max(0.01f, cuts[k] - cuts[k - 1]);
+                    var step = centres[k] - centres[k - 1];
+                    lean = new Vector3(step.x, 0f, step.z) / rise;
+                }
+                guess = centres[k];
+                reach = radii[k] * 1.6f + 0.12f;
                 float jag = k == 0 ? 0.45f : 0.12f;
                 MeshSlicer.Cap(pieces[k], FreshWood, centres[k], radii[k], true, jag, rng);
                 MeshSlicer.Cap(pieces[k + 1], FreshWood, centres[k], radii[k], false, jag, rng);

@@ -177,12 +177,27 @@ namespace Game.World.Build
         /// Where the trunk is at a cut, from the points where the cut crossed the wood: the middle and the radius
         /// (most of the points are the trunk's ring; a limb crossing near it doesn't throw it far off).
         /// </summary>
-        public static bool TrunkAt(List<Vector3> points, float y, out Vector3 centre, out float radius)
+        public static bool TrunkAt(List<Vector3> points, float y, out Vector3 centre, out float radius) =>
+            TrunkAt(points, y, Vector3.zero, float.MaxValue, out centre, out radius);
+
+        /// <summary>
+        /// The trunk where a cut crosses it, looking only near <paramref name="guess"/> (within
+        /// <paramref name="reach"/>, across): a branch the cut also goes through, off to one side, isn't taken for
+        /// part of the trunk (which would drag its middle off and swell it).
+        /// </summary>
+        public static bool TrunkAt(List<Vector3> points, float y, Vector3 guess, float reach, out Vector3 centre, out float radius)
         {
-            centre = new Vector3(0f, y, 0f);
+            centre = new Vector3(guess.x, y, guess.z);
             radius = 0f;
             if (points == null || points.Count < 3) return false;
-            // Start from the middle of all of them, then keep to the ones near the middle.
+            if (reach < float.MaxValue)
+            {
+                var near = new List<Vector3>();
+                foreach (var p in points)
+                    if (new Vector2(p.x - guess.x, p.z - guess.z).sqrMagnitude <= reach * reach) near.Add(p);
+                if (near.Count >= 3) points = near;
+            }
+            // Start from the middle of them, then keep to the ones near the middle.
             Vector3 c = Vector3.zero;
             foreach (var p in points) c += p;
             c /= points.Count;
@@ -204,6 +219,7 @@ namespace Game.World.Build
             d.Sort();
             centre = new Vector3(c.x, y, c.z);
             radius = d[d.Count / 2] * 1.04f;
+            if (reach < float.MaxValue) radius = Mathf.Min(radius, reach);
             return radius > 0.01f;
         }
 

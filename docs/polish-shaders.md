@@ -864,3 +864,14 @@ This replaces the arcade cabinet and the fire-finder table.
   - At most 2500 blots at once (the oldest go), and they're cleared on a new run.
   - Settings are in `ItemsConfig` > Luminescent spray: reach, rate, blot size, colour, glow, use per blot, most
     blots.
+
+## Cut ends the right size
+
+When a tree falls, each cut end is capped with a disc of fresh wood. Its size and position were guessed from all
+the points where the cut crossed the mesh. On the dead tree, the cut also crosses branches, and those points
+dragged the disc's middle off the trunk and swelled it into a big orange circle.
+
+- **Following the trunk:** the cuts are now worked out up the trunk from its foot (`MeshSlicer.TrunkAt` with a
+  guess and a reach). Each one only looks near where the last one was, carried on the way the trunk leans.
+- **Size limit:** a cut can be at most 1.6× the last one's radius plus 12 cm.
+- **Colour:** the fresh wood is a darker, duller brown, so it doesn't glow orange in the flashlight.
