@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Game.Core;
 using UnityEngine;
 using UnityEngine.Rendering.HighDefinition;
@@ -6,122 +7,168 @@ namespace Game.Rendering
 {
     /// <summary>
     /// The thick low mist (HDRP local volumetric fog, so the flashlight and lamps light it by themselves), lying on
-    /// the ground all round the camera and following its rise and fall: a grid of overlapping boxes, each sitting
-    /// on the ground under its own middle, their soft edges fading linearly so where they overlap they add up to
-    /// exactly one layer of mist (no seams, and on a slope it climbs with the hill rather than sinking into it).
-    /// The grid moves in whole steps, a whole number of patches, so the patches stay put in the world as you walk.
+    /// the ground all round the camera and following every rise and dip of it. Its density is one 3D texture made
+    /// for where you are, with the mist's height above the ground worked into every column of it (so it hugs the
+    /// hills and hummocks exactly, in one even layer), made afresh every couple of seconds on another thread with
+    /// its patches drifted on a little, and each new one blended in over the last as it comes (so the mist
+    /// drifts smoothly). Its grid is fixed in the world, so the mist doesn't shimmer as you walk.
     /// </summary>
     public sealed class GroundMist : MonoBehaviour
     {
-        // How far apart the boxes' middles are, in patches (each box is twice this across).
-        const int PatchesPerStep = 2;
-        const int MaxAcross = 7; // (7 x 7 = 49 boxes, inside HDRP's 64 on screen)
+        const int Across = 64, Up = 48; // (about 1.4 m across, and a fraction of a metre up, a cell)
+        const float Refresh = 2f; // (seconds between new textures; each blends in over the next this-many)
 
-        LocalVolumetricFog[] volumes = new LocalVolumetricFog[0];
-        Texture3D density;
-        float builtPatchiness = -1f;
-        readonly System.Collections.Generic.Dictionary<Vector2Int, float> ground = new System.Collections.Generic.Dictionary<Vector2Int, float>();
-        readonly System.Collections.Generic.List<Vector2Int> stale = new System.Collections.Generic.List<Vector2Int>();
-        float fallbackGround;
-        bool hasFallback;
+        sealed class Layer
+        {
+            public LocalVolumetricFog Volume;
+            public Texture3D Texture;
+        }
+
+        readonly Layer[] layers = new Layer[2];
+        int newest = -1;      // the layer blending in (the other's blending out)
+        float blend = 1f;     // how far the newest has blended in
+        float nextBake;
+        Task<byte[]> baking;
+        Vector3 bakeCorner, bakeSize;
+        Vector2 drift;        // how far the patches have drifted (metres)
+        readonly float[] ground = new float[Across * Across];
+
+        LayerSettings last;
+        struct LayerSettings { public Color Albedo; public float MeanFreePath; }
+
+        void Awake()
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                var go = new GameObject($"Mist {i}");
+                go.transform.SetParent(transform, false);
+                var v = go.AddComponent<LocalVolumetricFog>();
+                v.parameters.maskMode = LocalVolumetricFogMaskMode.Texture;
+                v.parameters.blendingMode = LocalVolumetricFogBlendingMode.Additive;
+                v.parameters.falloffMode = LocalVolumetricFogFalloffMode.Linear;
+                v.parameters.scaleMode = LocalVolumetricFogScaleMode.ScaleInvariant;
+                v.parameters.textureTiling = Vector3.one;
+                v.parameters.textureScrollingSpeed = Vector3.zero;
+                v.enabled = false;
+                layers[i] = new Layer
+                {
+                    Volume = v,
+                    Texture = new Texture3D(Across, Up, Across, TextureFormat.Alpha8, false)
+                    {
+                        name = $"Ground mist {i}",
+                        wrapMode = TextureWrapMode.Clamp,
+                        filterMode = FilterMode.Bilinear,
+                        hideFlags = HideFlags.HideAndDontSave,
+                    },
+                };
+                v.parameters.volumeMask = layers[i].Texture;
+            }
+        }
 
         void OnDestroy()
         {
-            if (density != null) Destroy(density);
-        }
-
-        LocalVolumetricFog MakeVolume(int i)
-        {
-            var go = new GameObject($"Mist {i}");
-            go.transform.SetParent(transform, false);
-            var v = go.AddComponent<LocalVolumetricFog>();
-            v.parameters.maskMode = LocalVolumetricFogMaskMode.Texture;
-            v.parameters.blendingMode = LocalVolumetricFogBlendingMode.Additive;
-            v.parameters.falloffMode = LocalVolumetricFogFalloffMode.Linear;
-            v.parameters.scaleMode = LocalVolumetricFogScaleMode.ScaleInvariant;
-            if (density != null) v.parameters.volumeMask = density;
-            return v;
+            foreach (var l in layers) if (l != null && l.Texture != null) Destroy(l.Texture);
         }
 
         /// <summary>Follow the camera and take the look's mist settings (called every frame by LookController).</summary>
         public void Apply(LookSettings s, Camera cam, float gone = 0f)
         {
             bool on = s.mist && cam != null;
-            float tile = Mathf.Max(s.mistPatchSize, 1f);
-            float step = tile * PatchesPerStep;
-            int across = on ? Mathf.Clamp(Mathf.CeilToInt(s.mistReach / step) * 2 + 1, 3, MaxAcross) : 0;
-            if (volumes.Length != across * across)
+            if (!on)
             {
-                foreach (var v in volumes) if (v != null) Destroy(v.gameObject);
-                volumes = new LocalVolumetricFog[across * across];
-                for (int i = 0; i < volumes.Length; i++) volumes[i] = MakeVolume(i);
+                foreach (var l in layers) l.Volume.enabled = false;
+                return;
             }
-            if (!on) return;
-
-            // The patchiness is baked into the texture, so rebuild it when that changes.
-            if (density == null || !Mathf.Approximately(builtPatchiness, s.mistPatchiness))
-            {
-                if (density != null) Destroy(density);
-                density = MistNoise.Build(s.mistPatchiness);
-                builtPatchiness = s.mistPatchiness;
-                foreach (var v in volumes) v.parameters.volumeMask = density;
-            }
-
-            float top = Mathf.Max(0.1f, s.mistHeight);
             var p = cam.transform.position;
-            // Seen from high above (the menu's views), a layer this thin falls between the fog's slices and shows
-            // as bands: so the higher you are, the taller it's made and the thinner, the same amount of mist.
-            float high = 0f;
-            if (Physics.Raycast(p + Vector3.up, Vector3.down, out var under, 500f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore))
-                high = Mathf.Clamp01((p.y - under.point.y - 8f) / 30f);
-            float stretch = 1f + 3f * high;
-            int cx = Mathf.RoundToInt(p.x / step), cz = Mathf.RoundToInt(p.z / step), half = across / 2;
-            transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-            stale.Clear();
-            foreach (var key in ground.Keys) if (Mathf.Abs(key.x - cx) > half + 1 || Mathf.Abs(key.y - cz) > half + 1) stale.Add(key);
-            foreach (var key in stale) ground.Remove(key);
 
-            int n = 0;
-            for (int gz = -half; gz <= half; gz++)
-            for (int gx = -half; gx <= half; gx++)
+            // A new texture ready: it starts blending in over the last.
+            if (baking != null && baking.IsCompleted)
             {
-                var v = volumes[n++];
-                var key = new Vector2Int(cx + gx, cz + gz);
-                Vector3 centre = new Vector3(key.x * step, 0f, key.y * step);
-                float floor = GroundAt(key, centre, p);
-                v.transform.SetPositionAndRotation(new Vector3(centre.x, floor + top * stretch * 0.5f - 0.2f, centre.z), Quaternion.identity);
-                v.parameters.size = new Vector3(step * 2f, top * stretch, step * 2f);
-                v.parameters.textureTiling = new Vector3(PatchesPerStep * 2f, 1f, PatchesPerStep * 2f);
-                v.parameters.textureScrollingSpeed = new Vector3(s.mistDrift / tile, 0f, s.mistDrift * 0.6f / tile);
-                v.parameters.albedo = s.mistColor * (1f - gone); // (no glow while the world goes)
-                v.parameters.meanFreePath = Mathf.Max(0.05f, s.mistThickness * stretch);
-                // Halfway in from every side: each box a tent, rising from nothing at its edge to full at its
-                // middle, so neighbours (one step apart) add up to one even layer. The top fade is in the texture.
-                v.parameters.positiveFade = new Vector3(0.5f, 0.01f, 0.5f);
-                v.parameters.negativeFade = new Vector3(0.5f, 0.01f, 0.5f);
-                v.enabled = true;
+                int next = newest < 0 ? 0 : 1 - newest;
+                var l = layers[next];
+                l.Texture.SetPixelData(baking.Result, 0);
+                l.Texture.Apply(false, false);
+                l.Volume.transform.SetPositionAndRotation(bakeCorner + bakeSize * 0.5f, Quaternion.identity);
+                l.Volume.parameters.size = bakeSize;
+                blend = newest < 0 ? 1f : 0f;
+                newest = next;
+                baking = null;
+            }
+            drift += new Vector2(1f, 0.6f) * (s.mistDrift * Time.deltaTime);
+            if (baking == null && Time.time >= nextBake)
+            {
+                nextBake = Time.time + Refresh;
+                Bake(s, p);
+            }
+
+            blend = Mathf.Min(1f, blend + Time.deltaTime / Refresh);
+            // Fading the old out and the new in by their thickness: together, always one layer's worth.
+            float mfp = Mathf.Max(0.05f, s.mistThickness);
+            Color albedo = s.mistColor * (1f - gone); // (no glow while the world goes)
+            for (int i = 0; i < 2; i++)
+            {
+                var l = layers[i];
+                float w = newest < 0 ? 0f : i == newest ? blend : 1f - blend;
+                l.Volume.enabled = w > 0.01f;
+                if (!l.Volume.enabled) continue;
+                l.Volume.parameters.albedo = albedo;
+                l.Volume.parameters.meanFreePath = mfp / w;
+                // Soft sides so the box's edge never shows (the top is in the texture).
+                l.Volume.parameters.positiveFade = new Vector3(0.15f, 0.01f, 0.15f);
+                l.Volume.parameters.negativeFade = new Vector3(0.15f, 0.01f, 0.15f);
             }
         }
 
-        // The ground under a box's middle (eased toward a new reading, so it doesn't jump over a rock or a log).
-        float GroundAt(Vector2Int key, Vector3 centre, Vector3 camera)
+        // Read the ground under every column (here, on this thread), then work out the density on another.
+        void Bake(LookSettings s, Vector3 camera)
         {
-            float found;
-            if (Physics.Raycast(new Vector3(centre.x, camera.y + 200f, centre.z), Vector3.down, out var hit, 600f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore))
-                found = hit.point.y;
-            else
+            float width = Mathf.Max(20f, s.mistReach * 2f);
+            float cell = width / Across;
+            // The grid fixed in the world (whole cells), so the mist doesn't crawl as you move.
+            float cx = Mathf.Round(camera.x / cell) * cell, cz = Mathf.Round(camera.z / cell) * cell;
+            float x0 = cx - width * 0.5f, z0 = cz - width * 0.5f;
+            float low = float.MaxValue, high = float.MinValue, fallback = camera.y - 1.7f;
+            if (Physics.Raycast(camera + Vector3.up, Vector3.down, out var under, 500f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore))
+                fallback = under.point.y;
+            for (int z = 0; z < Across; z++)
+            for (int x = 0; x < Across; x++)
             {
-                // (no ground there: as under the camera)
-                if (Physics.Raycast(camera + Vector3.up, Vector3.down, out var under, 500f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore))
-                {
-                    fallbackGround = under.point.y;
-                    hasFallback = true;
-                }
-                found = hasFallback ? fallbackGround : camera.y - 1.7f;
+                var top = new Vector3(x0 + (x + 0.5f) * cell, camera.y + 200f, z0 + (z + 0.5f) * cell);
+                float g = Physics.Raycast(top, Vector3.down, out var hit, 600f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore) ? hit.point.y : fallback;
+                ground[z * Across + x] = g;
+                low = Mathf.Min(low, g);
+                high = Mathf.Max(high, g);
             }
-            if (ground.TryGetValue(key, out var was)) found = Mathf.Lerp(was, found, 1f - Mathf.Exp(-3f * Time.deltaTime));
-            ground[key] = found;
-            return found;
+            // Seen from high above (the menu's views), a thin layer falls between the fog's slices and shows as
+            // bands: so the higher you are, the taller (and thinner) the mist's made, the same amount of it.
+            float above = Mathf.Clamp01((camera.y - fallback - 8f) / 30f);
+            float stretch = 1f + 3f * above;
+            float mistTop = Mathf.Max(0.1f, s.mistHeight) * stretch;
+            float bottom = low - 0.3f, height = high - low + mistTop + 0.6f;
+            bakeCorner = new Vector3(x0, bottom, z0);
+            bakeSize = new Vector3(width, height, width);
+
+            var heights = (float[])ground.Clone();
+            float patchiness = s.mistPatchiness, patchSize = Mathf.Max(1f, s.mistPatchSize);
+            Vector2 offset = drift;
+            float thin = 1f / stretch; // (the same amount of mist, spread taller)
+            baking = Task.Run(() =>
+            {
+                var data = new byte[Across * Up * Across];
+                for (int z = 0; z < Across; z++)
+                for (int x = 0; x < Across; x++)
+                {
+                    float g = heights[z * Across + x];
+                    float wx = x0 + (x + 0.5f) * cell, wz = z0 + (z + 0.5f) * cell;
+                    for (int y = 0; y < Up; y++)
+                    {
+                        float wy = bottom + (y + 0.5f) / Up * height;
+                        float d = MistNoise.Ground(wx, wz, (wy - g) / mistTop, patchiness, patchSize, offset, 1) * thin;
+                        data[x + y * Across + z * Across * Up] = (byte)(Mathf.Clamp01(d) * 255f + 0.5f);
+                    }
+                }
+                return data;
+            });
         }
     }
 }

@@ -23,6 +23,34 @@ namespace Game.Rendering
             return Mathf.Clamp01(patches * height * height);
         }
 
+        /// <summary>
+        /// The ground mist's density at a point in the world (0-1): soft patches about <paramref name="patchSize"/>
+        /// metres across (scrolled along by <paramref name="offset"/>), thinning with <paramref name="up"/> (the
+        /// height above the ground as a share of the mist's height, 0-1) and gone at the top.
+        /// </summary>
+        public static float Ground(float x, float z, float up, float patchiness, float patchSize, Vector2 offset, int seed)
+        {
+            if (up >= 1f) return 0f;
+            float px = (x + offset.x) / Mathf.Max(1f, patchSize), pz = (z + offset.y) / Mathf.Max(1f, patchSize);
+            float py = Mathf.Max(0f, up) * 2f;
+            float n = 0.65f * Value(px, py, pz, seed) + 0.35f * Value(px * 2f, py * 2f, pz * 2f, seed + 17);
+            float patches = Mathf.Lerp(1f, MathUtil.SmoothThreshold(0.25f, 0.8f, n), Mathf.Clamp01(patchiness));
+            float height = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(up));
+            return Mathf.Clamp01(patches * height * height);
+        }
+
+        // Smooth value noise in open space (not tiling).
+        static float Value(float x, float y, float z, int seed)
+        {
+            int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y), z0 = Mathf.FloorToInt(z);
+            float fx = Smooth(x - x0), fy = Smooth(y - y0), fz = Smooth(z - z0);
+            float a = Mathf.Lerp(Mathf.Lerp(Hash(x0, y0, z0, seed), Hash(x0 + 1, y0, z0, seed), fx),
+                                 Mathf.Lerp(Hash(x0, y0, z0 + 1, seed), Hash(x0 + 1, y0, z0 + 1, seed), fx), fz);
+            float b = Mathf.Lerp(Mathf.Lerp(Hash(x0, y0 + 1, z0, seed), Hash(x0 + 1, y0 + 1, z0, seed), fx),
+                                 Mathf.Lerp(Hash(x0, y0 + 1, z0 + 1, seed), Hash(x0 + 1, y0 + 1, z0 + 1, seed), fx), fz);
+            return Mathf.Lerp(a, b, fy);
+        }
+
         public static Texture3D Build(float patchiness, int seed = 1)
         {
             var tex = new Texture3D(Size, Height, Size, TextureFormat.Alpha8, false)

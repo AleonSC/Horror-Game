@@ -573,3 +573,15 @@ are at least as tall as it into one (`WorldGenConfig` > `breakableTrees`), so it
 earlier stages kept clear. It's always cut the same way (stump, logs and caps identical every time). Falling
 trees (`ForestEvents`) pick only breakable ones, and the blind one barging through the forest knocks over only
 those; every other tree stands. A test checks every seed has plenty, all in place of tall enough pines.
+
+## Ground mist, take three: one layer that hugs the ground
+
+The grid of overlapping mist boxes (each on the ground under its middle) still showed layers: where two
+overlapping boxes sat at different heights, their halves added up as two faint layers one above the other. Now
+(`GroundMist`) the mist is **one box** whose density is a 3D texture made for where you are (64 x 48 x 64 cells
+over the mist's reach), with the mist's height above the ground worked into every column of it from the ground
+under that column, so it hugs every hill and hummock in one even layer. It's made afresh every 2 s on another
+thread, its patches drifted on (`mistDrift`), and each new one blends in over the last (two volumes, their
+thickness traded off so together they're always one layer's worth), so the mist drifts smoothly. Its grid is
+fixed in the world (whole cells), so it doesn't crawl as you walk. Seen from high above it's still made taller
+and thinner (the same amount of mist), so the fog's slices don't band it. Two fog volumes instead of 25.
