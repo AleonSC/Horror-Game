@@ -115,6 +115,8 @@ namespace Game.Entities
                 subs.Add(events.Subscribe<HuntsReset>(_ => { if (State == GiantState.Walking) { scanLeft = 10f; } }));
                 // The watchtower's floodlights drive it back to the horizon.
                 subs.Add(events.Subscribe<FloodlightsLit>(e => SendBack(s.restTime + e.Seconds)));
+                // The intro's last line said, a moment, and it groans, far off, from where it hangs.
+                subs.Add(events.Subscribe<IntroFinished>(_ => StartCoroutine(GroanSoon())));
             }
             Threats.Add(this);
             Rehang();
@@ -127,6 +129,18 @@ namespace Game.Entities
             Services.Unregister(this);
             foreach (var m in new[] { chainMat, eyeMat, pupilMat }) if (m != null) Destroy(m);
             SetWorldRed(0f);
+        }
+
+        System.Collections.IEnumerator GroanSoon()
+        {
+            yield return new WaitForSeconds(Random.Range(1.5f, 3f));
+            if (!Services.TryGet<PlayerController>(out var p) || !Services.TryGet<SoundPlayer>(out var sounds)) yield break;
+            Vector3 to = ShownAt - p.transform.position;
+            to.y = 0f;
+            if (to.sqrMagnitude < 1f) to = Vector3.forward;
+            Vector3 from = p.transform.position + to.normalized * 160f + Vector3.up * 60f;
+            sounds.Play(Sound.GiantGroan, from, MixerNames.Outside, 1f, Random.Range(0.92f, 1f), 700f);
+            p.AddShake(0.35f);
         }
 
         // ------------------------------------------------------------------ the run
@@ -202,6 +216,10 @@ namespace Game.Entities
             if (PlayerPlace.InDarkRoom != hiddenForRoom) ShowForRoom(!PlayerPlace.InDarkRoom);
             if (hiddenForRoom) { if (scanRoot != null) scanRoot.gameObject.SetActive(false); return; }
             float dt = Time.deltaTime;
+            // Its eye open in the sky: the far distance comes pin sharp (no softening it away), clearing over a
+            // couple of seconds as it opens, and back to the player's own blur after.
+            if (Services.TryGet<LookController>(out var sharpen))
+                sharpen.FarSharp = Mathf.MoveTowards(sharpen.FarSharp, State == GiantState.Staring ? 1f : 0f, dt / 2f);
             Vector3 p = PlayerFeet;
 
             // Swinging on the chain (jolts), damped.

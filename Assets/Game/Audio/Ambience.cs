@@ -106,9 +106,10 @@ namespace Game.Audio
                 nextCall = Time.time + Random.Range(14f, 40f);
                 Vector3 from = at + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(45f, 90f) + Vector3.up * 8f;
                 float roll = Random.value;
-                if (roll < 0.55f) sounds.Play(Sound.Hoot, from, MixerNames.Outside, 0.35f, Random.Range(0.9f, 1.05f), 120f);
-                else if (roll < 0.75f) sounds.Play(Sound.Screech, from, MixerNames.Outside, 0.25f, Random.Range(0.9f, 1.05f), 120f);
-                else sounds.Play(Sound.Caw, from, MixerNames.Outside, 0.3f, Random.Range(0.85f, 1.05f), 120f);
+                // (low and slow: bigger birds than they should be, further off than they sound)
+                if (roll < 0.55f) sounds.Play(Sound.Hoot, from, MixerNames.Outside, 0.35f, Random.Range(0.72f, 0.84f), 120f);
+                else if (roll < 0.75f) sounds.Play(Sound.Screech, from, MixerNames.Outside, 0.25f, Random.Range(0.7f, 0.82f), 120f);
+                else sounds.Play(Sound.Caw, from, MixerNames.Outside, 0.3f, Random.Range(0.66f, 0.78f), 120f);
             }
             // Strong gusts make the trees groan.
             if (gust > 0.75f && Time.time >= nextCreak)

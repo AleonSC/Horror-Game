@@ -148,7 +148,7 @@ namespace Game.World
                     {
                         // Mostly the long hooting call; now and then a barn owl's screech instead.
                         bool screech = Random.value < 0.18f;
-                        sounds.Play(screech ? Sound.Screech : Sound.Hoot, o.Body.position, MixerNames.Outside, screech ? 0.45f : 0.55f, Random.Range(0.92f, 1.08f), screech ? 70f : 90f);
+                        sounds.Play(screech ? Sound.Screech : Sound.Hoot, o.Body.position, MixerNames.Outside, screech ? 0.45f : 0.55f, Random.Range(0.74f, 0.86f), screech ? 70f : 90f);
                     }
                 }
             }

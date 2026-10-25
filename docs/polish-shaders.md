@@ -900,3 +900,20 @@ static.
 
 Measured: about 89% of it is below 100 Hz, 10% is 100–1000 Hz (the body you hear on small speakers), 0.35% is
 1–4 kHz, and almost nothing is above 4 kHz.
+
+## Ominous birds, the giant's groan, a glitching intro (to try), sharp sky under the eye
+
+- **Owls and crows** now have a long, dark echo off the trees, built into their calls (hoot, barn owl screech,
+  caw). They're played lower and slower everywhere (about 0.7–0.85× pitch), so they sound like bigger birds,
+  further off than they should be.
+- **The giant groans** 1.5–3 s after the intro's last line (`IntroFinished`). It comes from its direction, far
+  off (`Sound.GiantGroan`, about 11 s): a vast, slow voice sinking in pitch, its vowel sliding from "aw" to "oo",
+  shuddering, over a sub rumble, with a long dark echo. The view trembles a little.
+- **Glitching intro:** `PresentationConfig` > `glitchIntro`, off by default.
+  - Every intro line is shown in the middle of a dark screen.
+  - Between lines the dark tears open: black flickering, bars of black, teal, red and white thrown across the
+    screen, and a burst of static. For `glitchPeek` seconds (1) you see through your own eyes in the forest,
+    groggy and unable to move. Then it tears shut for the next line.
+  - After the last line you wake as usual, and the giant groans.
+- **Under the eye:** while the giant's eye is open in the sky, the depth-of-field blur on the far distance clears
+  over 2 s, so nothing softens it (`LookController.FarSharp`). It comes back once the eye closes.

@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using Game.Audio;
 using Game.Core;
 using Game.Player;
 using Game.World.Build;
@@ -214,12 +216,17 @@ namespace Game.UI
             // The first line(s) over black ("wake up"), then you wake in the forest, groggy, and can move while the
             // rest are said.
             Services.TryGet<Narration>(out var narration);
+            if (config.glitchIntro && narration != null)
+            {
+                yield return GlitchIntro(narration, flow);
+                yield break;
+            }
             int wake = Mathf.Max(0, config.linesBeforeWaking);
             if (narration != null) yield return narration.Intro(0, wake);
 
             flow?.Set(GamePhase.Playing);
             if (Services.TryGet<PlayerController>(out var player)) player.StartGroggy(config.wakeGroggyTime);
-            if (narration != null) narration.StartCoroutine(narration.Intro(wake));
+            if (narration != null) narration.StartCoroutine(narration.IntroThenFinish(wake));
             float fade = Mathf.Max(0.2f, config.wakeFadeTime);
             bool coming = false;
             for (float t = 0f; t < fade && black != null; t += Time.unscaledDeltaTime)
@@ -238,6 +245,99 @@ namespace Game.UI
             if (black != null) black.RemoveFromHierarchy();
             if (root != null) root.RemoveFromHierarchy();
             Destroy(this);
+        }
+
+        // The glitching intro: each line in the middle of the dark; between them the dark tears and for a moment
+        // you see through your own eyes, in the forest (groggy, unable to move), then it tears back for the next
+        // line. After the last, you wake as usual, and the giant answers.
+        IEnumerator GlitchIntro(Narration narration, GameFlow flow)
+        {
+            Services.TryGet<PlayerController>(out var player);
+            int lines = narration.IntroLines;
+            float total = lines * (config.lineTime * 1.4f + 1f + config.glitchPeek);
+            if (player != null) player.StartGroggy(total + config.wakeGroggyTime);
+            var ui = UiRoot.Get();
+            var tears = new List<VisualElement>();
+            for (int i = 0; i < 16 && ui != null; i++)
+            {
+                var bar = UiStyle.Box(ui.Top, Color.black);
+                bar.style.position = Position.Absolute;
+                bar.style.left = 0;
+                bar.style.right = 0;
+                bar.style.display = DisplayStyle.None;
+                tears.Add(bar);
+            }
+            for (int i = 0; i < lines; i++)
+            {
+                yield return narration.MiddleLine(i);
+                if (i < lines - 1) yield return Glitch(tears, Mathf.Max(0.3f, config.glitchPeek));
+            }
+            foreach (var bar in tears) bar.RemoveFromHierarchy();
+
+            // Awake: as the ordinary intro does after its first line.
+            flow?.Set(GamePhase.Playing);
+            if (player != null) player.StartGroggy(config.wakeGroggyTime);
+            float fade = Mathf.Max(0.2f, config.wakeFadeTime);
+            for (float t = 0f; t < fade && black != null; t += Time.unscaledDeltaTime)
+            {
+                float x = t / fade;
+                black.style.opacity = 1f - x * x * x * (x * (x * 6f - 15f) + 10f);
+                yield return null;
+            }
+            Narration.Finished();
+            if (black != null) black.RemoveFromHierarchy();
+            if (root != null) root.RemoveFromHierarchy();
+            Destroy(this);
+        }
+
+        // The dark tearing open (black flickering, bars of noise and colour across the screen, a burst of
+        // static), a moment of seeing, and tearing shut again.
+        IEnumerator Glitch(List<VisualElement> tears, float peek)
+        {
+            AudioSource crackle = null;
+            if (Services.TryGet<SoundPlayer>(out var sounds)) crackle = sounds.Play2D(Sound.Static, MixerNames.UI, 0.45f, Random.Range(0.8f, 1.2f));
+            const float tear = 0.28f;
+            for (float t = 0f; t < tear; t += Time.unscaledDeltaTime)
+            {
+                Tear(tears, 1f - t / tear, 1f);
+                yield return null;
+            }
+            if (crackle != null) crackle.Stop();
+            Tear(tears, 0f, 0f);
+            for (float t = 0f; t < peek; t += Time.unscaledDeltaTime)
+            {
+                // (now and then a flicker of it even while you see)
+                Tear(tears, 0f, Random.value < 0.08f ? 0.3f : 0f);
+                yield return null;
+            }
+            if (sounds != null) crackle = sounds.Play2D(Sound.Static, MixerNames.UI, 0.45f, Random.Range(0.8f, 1.2f));
+            for (float t = 0f; t < tear; t += Time.unscaledDeltaTime)
+            {
+                Tear(tears, t / tear, 1f);
+                yield return null;
+            }
+            if (crackle != null) crackle.Stop();
+            Tear(tears, 1f, 0f);
+        }
+
+        // One frame of the tear: the black on (with this chance), and this share of the bars thrown across it.
+        void Tear(List<VisualElement> tears, float dark, float bars)
+        {
+            if (black != null) black.style.opacity = Random.value < dark ? 1f : Random.value < 0.3f ? 0.6f : 0f;
+            foreach (var bar in tears)
+            {
+                bool on = Random.value < bars * 0.7f;
+                bar.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                if (!on) continue;
+                bar.style.top = Random.Range(0f, UiRoot.Height);
+                bar.style.height = Random.value < 0.7f ? Random.Range(2f, 14f) : Random.Range(20f, 90f);
+                bar.style.translate = new Translate(Random.Range(-120f, 120f), 0);
+                float k = Random.value;
+                bar.style.backgroundColor = k < 0.45f ? new Color(0f, 0f, 0f, 0.95f)
+                    : k < 0.7f ? new Color(0.1f, 0.35f, 0.33f, 0.55f)
+                    : k < 0.88f ? new Color(0.45f, 0.04f, 0.04f, 0.5f)
+                    : new Color(0.85f, 0.85f, 0.85f, 0.35f);
+            }
         }
 
         void Quit()

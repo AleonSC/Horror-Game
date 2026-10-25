@@ -317,7 +317,7 @@ namespace Game.World
 
         static void Caw(Vector3 at, float volume)
         {
-            if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.Caw, at, MixerNames.Outside, volume, Random.Range(0.8f, 1.1f), 80f);
+            if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.Caw, at, MixerNames.Outside, volume, Random.Range(0.68f, 0.82f), 80f);
         }
 
         static Vector3 OnGround(Vector3 p)

@@ -187,6 +187,12 @@ namespace Game.Core
     }
 
     /// <summary>The player used the item in their hand.</summary>
+    /// <summary>The intro's lines have all been said (the giant answers).</summary>
+    public readonly struct IntroFinished : IGameEvent
+    {
+        public override string ToString() => "Intro finished";
+    }
+
     /// <summary>F with the map held: hold it up, or put it down.</summary>
     public readonly struct MapToggled : IGameEvent
     {

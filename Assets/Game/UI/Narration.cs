@@ -113,6 +113,36 @@ namespace Game.UI
             }
         }
 
+        /// <summary>The intro's lines from this one on, then tell everyone it's over (the giant answers).</summary>
+        public IEnumerator IntroThenFinish(int from)
+        {
+            yield return Intro(from);
+            Finished();
+        }
+
+        public static void Finished()
+        {
+            if (Services.TryGet<EventBus>(out var events)) events.Publish(new IntroFinished());
+        }
+
+        public int IntroLines => config.intro != null ? config.intro.Length : 0;
+
+        /// <summary>One intro line in the middle of the screen (the glitching intro): fades in, holds, fades out.</summary>
+        public IEnumerator MiddleLine(int i)
+        {
+            if (i < 0 || i >= IntroLines) yield break;
+            string line = config.intro[i];
+            float linger = line.Contains("***") ? 2.2f : line.Contains("**") ? 1.6f : 1f;
+            centre.text = NarrationText.Intro(line);
+            centre.style.bottom = StyleKeyword.Null;
+            centre.style.top = UiRoot.Height * 0.5f - 24f;
+            yield return Fade(centre, 0f, 1f, 0.5f, false, true);
+            yield return new WaitForSecondsRealtime(config.lineTime * linger);
+            yield return Fade(centre, 1f, 0f, 0.4f, false, true);
+            centre.style.top = StyleKeyword.Null;
+            centre.style.bottom = Bottom;
+        }
+
         IEnumerator Fade(Label l, float from, float to, float time, bool frantic, bool unscaled = false)
         {
             for (float t = 0f; t < time; t += unscaled ? Time.unscaledDeltaTime : Time.deltaTime)

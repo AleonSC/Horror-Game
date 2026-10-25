@@ -34,6 +34,10 @@ namespace Game.UI
         public float lineTime = 2.2f;
         [Range(0, 20), Tooltip("Lines shown over black before you wake in the forest; you can move during the rest.")]
         public int linesBeforeWaking = 1;
+        [Tooltip("Try it: every intro line in the middle of a dark screen, and between them the screen glitches out to your own eyes in the forest for a moment, then glitches back for the next line. You wake after the last.")]
+        public bool glitchIntro;
+        [Range(0.3f, 4f), Tooltip("The glitching intro: seconds of seeing through your eyes between lines.")]
+        public float glitchPeek = 1f;
         [Range(0f, 15f), Tooltip("Seconds you wake groggy for: slow, swaying, blurred vision clearing.")]
         public float wakeGroggyTime = 9f;
         [Range(0.2f, 6f), Tooltip("Seconds for the forest to fade in when you wake.")]

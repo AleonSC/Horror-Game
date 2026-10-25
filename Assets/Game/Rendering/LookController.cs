@@ -48,6 +48,8 @@ namespace Game.Rendering
         public float FogTintAmount;
         /// <summary>Blurred vision (waking up groggy), 0-1: everything past arm's length soft, clearing outward as it falls.</summary>
         public float Blur;
+        /// <summary>The far distance pin sharp, 0-1 (the giant's eye open in the sky: nothing softens it).</summary>
+        public float FarSharp;
         /// <summary>The world going (a scour has you), 0-1: the fog turns black and stops glowing, the moon goes out.</summary>
         public float Void;
         /// <summary>While it goes: how far you can still see (metres).</summary>
@@ -260,6 +262,10 @@ namespace Game.Rendering
             // Blurred vision (waking groggy) pulls the sharp distance right in, and it pushes outward as it clears.
             float dof = prefs != null ? Mathf.Clamp01(prefs.depthOfField) : 0.5f;
             float farStart = dof > 0.001f ? Mathf.Lerp(380f, 40f, dof) : 2000f, farEnd = dof > 0.001f ? farStart * 1.6f : 4000f; // (0.5: soft from 210 m, fully by 336)
+            float sharp = Mathf.Clamp01(FarSharp);
+            farStart = Mathf.Lerp(farStart, 2000f, sharp);
+            farEnd = Mathf.Lerp(farEnd, 4000f, sharp);
+            if (sharp > 0.999f) dof = 0f;
             bool blurring = b > 0.001f || dof > 0.001f;
             blur.focusMode.Override(blurring ? DepthOfFieldMode.Manual : DepthOfFieldMode.Off);
             if (blurring)

@@ -895,7 +895,7 @@ namespace Game.Audio
                 lp += (Noise(rng) - lp) * 0.1f;
                 s[i] = (tone * 0.85f + lp * 0.25f) * amp;
             }
-            return Normalize(s, 0.8f);
+            return Normalize(Reverb(s, 3f, 0.7f, 0.75f), 0.8f); // (carried off through the dark trees)
         }
 
         /// <summary>A barn owl's screech (the prototype's): a harsh, breathy rasp with a strained falling tone, trailing off (1.4 s).</summary>
@@ -915,7 +915,7 @@ namespace Game.Audio
                 phase += (1900f - 600f * p) / SampleRate;
                 s[i] = (rasp + (float)Math.Sin(2 * Math.PI * phase) * 0.25f) * env;
             }
-            return Normalize(s, 0.75f);
+            return Normalize(Reverb(s, 2.6f, 0.65f, 0.7f), 0.75f);
         }
 
         /// <summary>A frog: a low, rattling croak.</summary>
@@ -966,7 +966,7 @@ namespace Game.Audio
                 float env = (float)Math.Sin(Math.PI * Math.Min(1f, p * 1.2f)) * (p < 0.08f ? p / 0.08f : 1f);
                 s[i] = (a + b * 0.7f) * env;
             }
-            return Normalize(s, 0.8f);
+            return Normalize(Reverb(s, 2.2f, 0.6f, 0.7f), 0.8f);
         }
 
         /// <summary>A step in water: a splash and slosh.</summary>
@@ -1446,6 +1446,43 @@ namespace Game.Audio
                 s[i] = lp * (0.85f + 0.15f * (float)Math.Sin(2 * Math.PI * 3.1 * t));
             }
             return Loop(s, 0.4f);
+        }
+
+        /// <summary>
+        /// The giant, far off (about 11 s): a vast, slow groan, a throat the size of a hill. A low voice with a
+        /// rough edge to it, sinking in pitch, its vowel slowly changing (two formants sliding), shuddering as it
+        /// goes, a sub rumble under it you feel more than hear; heard across miles of forest, so dark and long in
+        /// its echo.
+        /// </summary>
+        public static float[] GiantGroan(int seed)
+        {
+            var rng = new Random(seed);
+            const float length = 7.5f;
+            var s = Make(length);
+            double phase = 0;
+            float f1a = 0f, f1b = 0f, f2a = 0f, f2b = 0f, lp = 0f, sub1 = 0f, sub2 = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i), u = t / length;
+                float pitch = 46f - 14f * u + 1.2f * (float)Math.Sin(2 * Math.PI * 5.5 * t) * (0.3f + u) + 0.6f * Noise(rng);
+                phase += pitch / SampleRate;
+                float p = (float)(phase - Math.Floor(phase));
+                // A rough, pulsed voice: sharp pulses (many harmonics), a little noise in each.
+                float voice = (p < 0.12f ? 1f - p / 0.12f : 0f) * 2f - 0.3f + Noise(rng) * 0.15f;
+                // Two formants, an "aw" opening to an "oo".
+                float k1 = 2f * (float)Math.Sin(Math.PI * (260f - 80f * u) / SampleRate);
+                float k2 = 2f * (float)Math.Sin(Math.PI * (620f - 250f * u) / SampleRate);
+                f1a += k1 * f1b; float h1 = voice - f1a - 0.25f * f1b; f1b += k1 * h1;
+                f2a += k2 * f2b; float h2 = voice - f2a - 0.3f * f2b; f2b += k2 * h2;
+                float throat = f1b * 1f + f2b * 0.45f;
+                lp += (throat - lp) * 0.2f;
+                // The sub rumble.
+                sub1 += (Noise(rng) - sub1) * 0.004f; sub2 += (sub1 - sub2) * 0.004f;
+                float env = Math.Min(1f, t / 1.4f) * (float)Math.Pow(Math.Max(0f, 1f - u), 0.7f);
+                float shudder = 0.8f + 0.2f * (float)Math.Sin(2 * Math.PI * 3.1 * t + Math.Sin(t * 1.3));
+                s[i] = (lp * shudder * 2.2f + sub2 * 22f) * env;
+            }
+            return Normalize(Reverb(s, 3.5f, 0.6f, 0.85f), 0.95f);
         }
 
         /// <summary>
