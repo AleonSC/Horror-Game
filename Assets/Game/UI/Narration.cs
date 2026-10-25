@@ -14,7 +14,7 @@ namespace Game.UI
     public sealed class Narration : MonoBehaviour
     {
         PresentationConfig config;
-        Label centre, lower;
+        Label centre, centre2, lower;
         readonly Queue<(string text, bool frantic)> queue = new Queue<(string, bool)>();
         bool showing;
         System.IDisposable lampSub;
@@ -49,6 +49,13 @@ namespace Game.UI
             centre.style.right = 0;
             centre.style.bottom = Bottom;
             centre.style.opacity = 0f;
+            // (the second of a pair, under the first, in the glitching intro)
+            centre2 = UiStyle.Text(ui.Top, "", 30, UiStyle.Ink, TextAnchor.MiddleCenter, 4f);
+            centre2.style.position = Position.Absolute;
+            centre2.style.left = 0;
+            centre2.style.right = 0;
+            centre2.style.top = UiRoot.Height * 0.5f + 16f;
+            centre2.style.opacity = 0f;
             lower = UiStyle.Text(ui.Hud, "", 22, UiStyle.Ink, TextAnchor.MiddleCenter, 2f);
             lower.style.position = Position.Absolute;
             lower.style.left = 0;
@@ -142,6 +149,42 @@ namespace Game.UI
             centre.style.top = StyleKeyword.Null;
             centre.style.bottom = Bottom;
         }
+
+        /// <summary>
+        /// Two intro lines in the middle of the screen (the glitching intro): the first on the top row, the second
+        /// fading in under it shortly after; they hold together, then both fade.
+        /// </summary>
+        public IEnumerator MiddlePair(int i)
+        {
+            if (i < 0 || i >= IntroLines) yield break;
+            bool two = i + 1 < IntroLines;
+            string a = config.intro[i], b = two ? config.intro[i + 1] : "";
+            float linger = Mathf.Max(Linger(a), two ? Linger(b) : 0f);
+            centre.text = NarrationText.Intro(a);
+            centre.style.bottom = StyleKeyword.Null;
+            centre.style.top = UiRoot.Height * 0.5f - (two ? 52f : 24f);
+            centre2.text = two ? NarrationText.Intro(b) : "";
+            centre2.style.opacity = 0f;
+            yield return Fade(centre, 0f, 1f, 0.5f, false, true);
+            if (two)
+            {
+                yield return new WaitForSecondsRealtime(0.7f);
+                yield return Fade(centre2, 0f, 1f, 0.5f, false, true);
+            }
+            yield return new WaitForSecondsRealtime(config.lineTime * linger);
+            for (float t = 0f; t < 0.4f; t += Time.unscaledDeltaTime)
+            {
+                centre.style.opacity = 1f - t / 0.4f;
+                centre2.style.opacity = two ? 1f - t / 0.4f : 0f;
+                yield return null;
+            }
+            centre.style.opacity = 0f;
+            centre2.style.opacity = 0f;
+            centre.style.top = StyleKeyword.Null;
+            centre.style.bottom = Bottom;
+        }
+
+        static float Linger(string line) => line.Contains("***") ? 2.2f : line.Contains("**") ? 1.6f : 1f;
 
         IEnumerator Fade(Label l, float from, float to, float time, bool frantic, bool unscaled = false)
         {

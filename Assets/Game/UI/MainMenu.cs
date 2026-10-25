@@ -247,15 +247,13 @@ namespace Game.UI
             Destroy(this);
         }
 
-        // The glitching intro: each line in the middle of the dark; between them the dark tears and for a moment
-        // you see through your own eyes, in the forest (groggy, unable to move), then it tears back for the next
-        // line. After the last, you wake as usual, and the giant answers.
+        // The glitching intro: the lines two at a time in the middle of the dark; between each pair the dark tears
+        // and for a moment you see through your own eyes, in the forest, and can move (blurred, swaying), then it
+        // tears back for the next two. After the last, you wake as usual, and the giant answers.
         IEnumerator GlitchIntro(Narration narration, GameFlow flow)
         {
             Services.TryGet<PlayerController>(out var player);
             int lines = narration.IntroLines;
-            float total = lines * (config.lineTime * 1.4f + 1f + config.glitchPeek);
-            if (player != null) player.StartGroggy(total + config.wakeGroggyTime);
             var ui = UiRoot.Get();
             var tears = new List<VisualElement>();
             for (int i = 0; i < 16 && ui != null; i++)
@@ -267,10 +265,10 @@ namespace Game.UI
                 bar.style.display = DisplayStyle.None;
                 tears.Add(bar);
             }
-            for (int i = 0; i < lines; i++)
+            for (int i = 0; i < lines; i += 2)
             {
-                yield return narration.MiddleLine(i);
-                if (i < lines - 1) yield return Glitch(tears, Mathf.Max(0.3f, config.glitchPeek));
+                yield return narration.MiddlePair(i);
+                if (i + 2 < lines) yield return Glitch(tears, Mathf.Max(0.3f, config.glitchPeek), flow, player);
             }
             foreach (var bar in tears) bar.RemoveFromHierarchy();
 
@@ -292,7 +290,7 @@ namespace Game.UI
 
         // The dark tearing open (black flickering, bars of noise and colour across the screen, a burst of
         // static), a moment of seeing, and tearing shut again.
-        IEnumerator Glitch(List<VisualElement> tears, float peek)
+        IEnumerator Glitch(List<VisualElement> tears, float peek, GameFlow flow, PlayerController player)
         {
             AudioSource crackle = null;
             if (Services.TryGet<SoundPlayer>(out var sounds)) crackle = sounds.Play2D(Sound.Static, MixerNames.UI, 0.45f, Random.Range(0.8f, 1.2f));
@@ -304,6 +302,9 @@ namespace Game.UI
             }
             if (crackle != null) crackle.Stop();
             Tear(tears, 0f, 0f);
+            // Seeing: free to move, but blurred and swaying, clearing a little as it goes.
+            flow?.Set(GamePhase.Playing);
+            if (player != null) player.StartGroggy(peek * 2.5f, config.glitchPeekGroggy);
             for (float t = 0f; t < peek; t += Time.unscaledDeltaTime)
             {
                 // (now and then a flicker of it even while you see)
@@ -316,6 +317,7 @@ namespace Game.UI
                 Tear(tears, t / tear, 1f);
                 yield return null;
             }
+            flow?.Set(GamePhase.Intro); // (held still again for the next lines)
             if (crackle != null) crackle.Stop();
             Tear(tears, 1f, 0f);
         }

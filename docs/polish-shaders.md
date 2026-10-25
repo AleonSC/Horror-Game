@@ -938,3 +938,13 @@ The hiss was the player's own breathing (`Sound.Breath`, played in your head). R
 
 Panting is now only seen, in your breath's steam. It still makes the noise that monsters close by can hear, as
 before. The two breaths as a scour takes you stay.
+
+## Glitching intro: lines in pairs, and you can move in the glimpses
+
+- **Pairs:** the intro's lines come two at a time in the middle of the dark (`Narration.MiddlePair`). The first is
+  on the top row, and the second fades in under it 0.7 s later. They hold together, then both fade.
+- **The glimpses:** between each pair, the screen glitches to your eyes for `glitchPeek` seconds (now 2.5).
+  - You can move and look round, but blurred and swaying: groggy, `glitchPeekGroggy` (0.6) of the way to just
+    woken, easing off over the glimpse (`PlayerController.StartGroggy(seconds, amount)`).
+  - You're held still again for the next lines.
+- After the last pair you wake as usual, and the giant groans.

@@ -520,6 +520,13 @@ namespace Game.Player
             groggy = groggyFull;
         }
 
+        /// <summary>Groggy, but only this much of the way (0-1) to just woken, wearing off over this many seconds.</summary>
+        public void StartGroggy(float seconds, float amount)
+        {
+            groggyFull = Mathf.Max(0.01f, seconds);
+            groggy = groggyFull * Mathf.Clamp01(amount);
+        }
+
         static float Ease(float x) => x * x * (3f - 2f * x);
 
         /// <summary>How groggy, 1 just woken to 0 clear.</summary>
