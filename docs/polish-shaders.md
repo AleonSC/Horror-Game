@@ -598,3 +598,7 @@ and thinner (the same amount of mist), so the fog's slices don't band it. Two fo
 - **Tents**: walking or crouching into an open tent's doorway now crawls you in (as E does: the tent's too low and
   steep-sided to walk about in), and the doorway's aim point is at its middle, where you'd look, rather than at
   its foot, so E finds it.
+- **Fuller crowns**: more and bigger leaf clumps (along each limb as well as at its end, and a dome over the
+  middle and round its shoulders), more and bigger cards in each (34 close up, 14 mid, 7 far), and a denser
+  spray of leaves on each card (130). Its smaller mip levels (seen further off) are made to keep as much leaf
+  past the cut-out as the full-size one (`ForestTextures.LeafCut`), so far canopies don't go thin and holey.

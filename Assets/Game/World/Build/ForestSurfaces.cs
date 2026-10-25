@@ -424,11 +424,11 @@ namespace Game.World.Build
             var depth = new float[size * size];
             for (int i = 0; i < depth.Length; i++) { depth[i] = -1f; px.Albedo[i] = new Color(0.1f, 0.14f, 0.05f, 0f); }
             var rng = new System.Random(seed);
-            int leaves = 75;
+            int leaves = 130;
             for (int n = 0; n < leaves; n++)
             {
                 // All over the card (thinning to its edge), each turned its own way, the later ones on top.
-                float a = Range(rng, 0f, 6.283f), r = Mathf.Sqrt((float)rng.NextDouble()) * size * 0.34f;
+                float a = Range(rng, 0f, 6.283f), r = Mathf.Sqrt((float)rng.NextDouble()) * size * 0.38f;
                 Vector2 stalk = new Vector2(size * 0.5f + Mathf.Cos(a) * r, size * 0.5f + Mathf.Sin(a) * r);
                 float angle = Range(rng, 0f, 6.283f);
                 float len = Range(rng, 0.11f, 0.19f) * size, wide = len * Range(rng, 0.3f, 0.38f);

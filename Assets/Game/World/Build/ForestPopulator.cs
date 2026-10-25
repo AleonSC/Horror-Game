@@ -53,7 +53,7 @@ namespace Game.World.Build
             Bark = art != null && art.bark != null ? Instanced(fixer.Fix(art.bark)) : Surface("Bark", ForestTextures.Bark, ForestSurfaces.BarkTiling, Color.white);
             // The oaks' leaves: cards of a cut-out spray of leaves, lit alike on both faces.
             Needles = Mat("Oak leaves", new Color(0.85f, 0.9f, 0.8f), 0.22f, true, ForestTextures.OakLeaves, Vector2.one);
-            RuntimeMaterials.SetCutout(Needles, 0.45f);
+            RuntimeMaterials.SetCutout(Needles, ForestTextures.LeafCut);
             DeadWood = art != null && art.deadWood != null ? Instanced(fixer.Fix(art.deadWood)) : Surface("Dead wood", ForestTextures.DeadWood, ForestSurfaces.BarkTiling, Color.white);
             bushA = Mat("Bush leaves", new Color(0.07f, 0.11f, 0.045f), 0.3f, true); // (leaves: double-sided, a little waxy)
             bushB = Mat("Bush leaves (dry)", new Color(0.13f, 0.11f, 0.045f), 0.25f, true);

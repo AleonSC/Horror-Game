@@ -76,7 +76,8 @@ namespace Game.World.Build
                 float r0 = radius * Range(rng, 0.5f, 0.65f);
                 trunk.AddTube(start, bend, r0, r0 * 0.65f, Mathf.Max(4, sides - 2));
                 trunk.AddTube(bend, end, r0 * 0.65f, r0 * 0.2f, Mathf.Max(3, sides - 3));
-                clumps.Add((end, Range(rng, 1.8f, 2.6f)));
+                clumps.Add((end, Range(rng, 2.2f, 3f)));
+                clumps.Add((bend + Vector3.up * 0.6f, Range(rng, 1.8f, 2.5f))); // (and along it, so the crown's full, not tufts on sticks)
                 if (lod == 2) continue;
                 // Side branches off it, each ending in a clump.
                 int side = lod == 0 ? rng.Next(2, 4) : 1;
@@ -88,16 +89,23 @@ namespace Game.World.Build
                     Vector3 tip = from + dir * length * Range(rng, 0.3f, 0.5f);
                     float r = r0 * Mathf.Lerp(0.5f, 0.2f, t);
                     trunk.AddTube(from, tip, r, r * 0.2f, 3);
-                    clumps.Add((tip, Range(rng, 1.4f, 2.1f)));
+                    clumps.Add((tip, Range(rng, 1.8f, 2.5f)));
                 }
             }
-            // A clump over the middle, so the crown's rounded and not a ring.
-            clumps.Add((forkAt + Vector3.up * (crownTop - fork) * 0.8f, crownRadius * 0.55f));
+            // A dome over the middle and round its shoulders, so the crown's rounded and full, not a ring.
+            Vector3 dome = forkAt + Vector3.up * (crownTop - fork) * 0.78f;
+            clumps.Add((dome, crownRadius * 0.6f));
+            clumps.Add((forkAt + Vector3.up * (crownTop - fork) * 0.5f, crownRadius * 0.5f));
+            for (int i = 0; i < 4; i++)
+            {
+                float a = turn + (i + 0.5f) / 4f * Mathf.PI * 2f;
+                clumps.Add((dome + new Vector3(Mathf.Cos(a), -0.35f, Mathf.Sin(a)) * crownRadius * 0.55f, crownRadius * 0.42f));
+            }
             AddRoots(trunk, rng, radius * 1.3f, lod == 0 ? 6 : lod == 1 ? 4 : 0, Mathf.Max(3, sides - 4));
 
             // The leaves: each clump a cluster of cards, the canopy's shading rounded (normals out from its middle).
-            int cards = lod == 0 ? 24 : lod == 1 ? 10 : 5;
-            float cardSize = lod == 0 ? 1.15f : lod == 1 ? 1.8f : 2.8f;
+            int cards = lod == 0 ? 34 : lod == 1 ? 14 : 7;
+            float cardSize = lod == 0 ? 1.4f : lod == 1 ? 2.3f : 3.4f;
             foreach (var (at, size) in clumps)
                 for (int c = 0; c < cards; c++)
                 {

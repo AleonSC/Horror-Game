@@ -72,8 +72,22 @@ namespace Game.World.Build
                 if (oakLeaves != null) return oakLeaves;
                 var px = ForestSurfaces.OakLeaves(Seed);
                 oakLeaves = new Texture2D(px.Width, px.Height, TextureFormat.RGBA32, true) { name = "Oak leaves", wrapMode = TextureWrapMode.Clamp, anisoLevel = 4, hideFlags = HideFlags.DontSave };
-                oakLeaves.SetPixels(px.Albedo);
-                oakLeaves.Apply(true, true);
+                // Each smaller level (seen further off) keeps as much leaf showing past the cut-out as the full one:
+                // left to plain averaging, the leaves' edges blur below the cut and far canopies go thin and holey.
+                var level = px.Albedo;
+                int w = px.Width;
+                float coverage = Coverage(level, LeafCut);
+                for (int mip = 0; mip < oakLeaves.mipmapCount; mip++)
+                {
+                    if (mip > 0)
+                    {
+                        level = Half(level, w);
+                        w = Mathf.Max(1, w / 2);
+                        KeepCoverage(level, coverage, LeafCut);
+                    }
+                    oakLeaves.SetPixels(level, mip);
+                }
+                oakLeaves.Apply(false, true);
                 return oakLeaves;
             }
         }
@@ -102,6 +116,54 @@ namespace Game.World.Build
             job = null;
             tex = Texture(px.Width, px.Height, px.Albedo, name, true, true);
             return tex;
+        }
+
+        /// <summary>Where the leaves' alpha is cut (their material uses the same).</summary>
+        public const float LeafCut = 0.4f;
+
+        static float Coverage(Color[] px, float cut)
+        {
+            int n = 0;
+            foreach (var c in px) if (c.a > cut) n++;
+            return n / (float)Mathf.Max(1, px.Length);
+        }
+
+        static Color[] Half(Color[] src, int w)
+        {
+            int h = w, nw = Mathf.Max(1, w / 2), nh = Mathf.Max(1, h / 2);
+            var dst = new Color[nw * nh];
+            for (int y = 0; y < nh; y++)
+            for (int x = 0; x < nw; x++)
+            {
+                Color sum = Color.clear;
+                float colourWeight = 0f;
+                for (int k = 0; k < 4; k++)
+                {
+                    var c = src[Mathf.Min(h - 1, y * 2 + k / 2) * w + Mathf.Min(w - 1, x * 2 + k % 2)];
+                    sum.a += c.a * 0.25f;
+                    // (the colour from the leaves only, so their edges don't go grey with the clear background)
+                    sum.r += c.r * c.a; sum.g += c.g * c.a; sum.b += c.b * c.a;
+                    colourWeight += c.a;
+                }
+                if (colourWeight > 0f) { sum.r /= colourWeight; sum.g /= colourWeight; sum.b /= colourWeight; }
+                dst[y * nw + x] = sum;
+            }
+            return dst;
+        }
+
+        // Scale the alpha so the same share of pixels as the full-size level is past the cut.
+        static void KeepCoverage(Color[] px, float want, float cut)
+        {
+            float lo = 0.5f, hi = 8f;
+            for (int i = 0; i < 12; i++)
+            {
+                float mid = (lo + hi) * 0.5f;
+                int n = 0;
+                foreach (var c in px) if (c.a * mid > cut) n++;
+                if (n / (float)px.Length < want) lo = mid; else hi = mid;
+            }
+            float scale = (lo + hi) * 0.5f;
+            for (int i = 0; i < px.Length; i++) px[i].a = Mathf.Clamp01(px[i].a * scale);
         }
 
         static Texture2D Texture(int w, int h, Color[] pixels, string name, bool linear, bool repeatBoth)
