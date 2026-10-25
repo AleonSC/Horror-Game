@@ -177,7 +177,8 @@ namespace Game.Player
                 bobPhase += Time.deltaTime * s.bobFrequency * Mathf.PI * 2f * Mathf.Clamp(speed / Mathf.Max(s.walkSpeed, 0.1f), 0.4f, 1.8f);
                 // A step at the bottom of each bob.
                 if (Mathf.Floor(before / Mathf.PI) != Mathf.Floor(bobPhase / Mathf.PI)) Footstep(s);
-                bob = new Vector3(Mathf.Cos(bobPhase * 0.5f) * s.bobAmount * 0.5f, Mathf.Sin(bobPhase) * s.bobAmount, 0f);
+                float amount = s.bobAmount * (Running ? 1.35f : Crouching ? 0.7f : 1f); // (heavier when running, softer creeping)
+                bob = new Vector3(Mathf.Cos(bobPhase * 0.5f) * amount * 0.5f, Mathf.Sin(bobPhase) * amount, 0f);
             }
             head.localPosition = Vector3.Lerp(head.localPosition, new Vector3(0f, eye, 0f) + bob, 1f - Mathf.Exp(-12f * Time.deltaTime));
 

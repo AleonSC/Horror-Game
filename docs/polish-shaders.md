@@ -469,3 +469,12 @@ views of the forest read (`LookController.MenuLift`).
   shack's table; one hangs on a chain from the cabin's beam; and the tent's is the same lantern, hung by a cord.
 - **Batteries**: every shack's table now has 2 (and a 50% chance of a third); the cabin's table has 3.
   `WorldGenConfig` > `batteriesInShack`, `batteriesInCabin`.
+
+## Head bob and steaming breath
+
+- **Head bob** a little stronger (`PlayerConfig` > `bobAmount` 0.065, was 0.05), heavier when running (x1.35)
+  and softer creeping (x0.7).
+- **Breath** (`PlayerBreath`): a soft puff of steam from just below the view with each breath out, drifting
+  forward and up, spreading and thinning. Rested: one faint puff every 3.5 s or so. As stamina runs down the
+  breaths come quicker (to every 1.1 s), the puffs bigger and thicker, two at a time; winded, three-puff pants.
+  It's lit like anything else, so it shows in your flashlight beam and by lamps, and barely in the dark.

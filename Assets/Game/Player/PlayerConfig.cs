@@ -51,7 +51,7 @@ namespace Game.Player
         [Range(0f, 4f), Tooltip("Head bob steps per second (walking).")]
         public float bobFrequency = 1.8f;
         [Range(0f, 0.2f), Tooltip("Head bob height (metres).")]
-        public float bobAmount = 0.05f;
+        public float bobAmount = 0.065f;
         [Range(0.01f, 0.5f), Tooltip("Mouse speed (times the player's sensitivity setting).")]
         public float mouseSpeed = 0.1f;
 
