@@ -20,11 +20,11 @@ namespace Game.Entities
     {
         [Header("Hanging (from the start)")]
         [Range(100f, 2000f), Tooltip("How tall it is (metres).")]
-        public float height = 660f;
+        public float height = 740f;
         [Range(1f, 60f), Tooltip("Hanging, its feet are this many degrees above the horizon...")]
-        public float feetElevation = 10f;
+        public float feetElevation = 15f;
         [Range(5f, 80f), Tooltip("...and its neck this many. (Together with its height, these set how far away it hangs.)")]
-        public float neckElevation = 38f;
+        public float neckElevation = 45f;
         [Range(5f, 300f), Tooltip("Seconds to turn once on its chain, slowly back and forth.")]
         public float turnTime = 45f;
         [Range(0f, 90f), Tooltip("How far it turns each way (degrees).")]
@@ -72,8 +72,8 @@ namespace Game.Entities
         [Range(1, 10)] public int eyeAtLamp = 5;
         [Range(10f, 89f), Tooltip("Degrees above the horizon.")]
         public float eyeElevation = 68f;
-        [Range(1f, 200f), Tooltip("Its size, as an angle across (degrees).")]
-        public float eyeSize = 9f;
+        [Range(1f, 200f), Tooltip("The width of its opening, as an angle across (degrees). The swirl of cloud round it spreads nearly three times as wide.")]
+        public float eyeSize = 15f;
         [Range(0.1f, 20f)] public float eyeOpenTime = 4f;
         [Range(0.1f, 60f)] public float eyeStareTime = 11f;
         [Range(0.1f, 20f)] public float eyeCloseTime = 3f;
@@ -81,8 +81,12 @@ namespace Game.Entities
         public float dreamAfter = 3f;
         [Range(0.1f, 10f), Tooltip("Seconds for the dream to take hold.")]
         public float dreamRamp = 2.5f;
+        [Tooltip("Only for the plain red eye, if the eye's shader can't be used.")]
         public Color eyeColor = new Color(1f, 0.08f, 0.03f);
-        [Range(0f, 50f)] public float eyeGlow = 8f;
+        [Range(0f, 10f), Tooltip("How bright the eye and its clouds are.")]
+        public float eyeGlow = 1f;
+        [Range(0f, 0.5f), Tooltip("How fast the clouds swirl round it.")]
+        public float eyeSwirl = 0.03f;
         [Tooltip("The fog's colour while it stares.")]
         public Color redFog = new Color(0.11f, 0.015f, 0.015f);
 
@@ -92,9 +96,20 @@ namespace Game.Entities
         public float shockwaveAfter = 2.5f;
         [Range(10f, 1000f), Tooltip("How fast the shockwave travels (metres a second).")]
         public float shockwaveSpeed = 220f;
+        [Range(0f, 1f), Tooltip("How thick the wall of dust the shockwave drives before it is (0: none).")]
+        public float shockwaveDust = 0.6f;
+        [Range(5f, 200f), Tooltip("How tall that wall of dust stands (metres).")]
+        public float shockwaveHeight = 45f;
+        [Range(0f, 1f), Tooltip("How thick the cloud thrown up round its feet as it lands.")]
+        public float landingDust = 0.8f;
+        public Color dustColor = new Color(0.2f, 0.18f, 0.17f);
+        [Range(0f, 10f), Tooltip("As the shockwave passes: the ground heaving (and the shake is twice this, in degrees)...")]
+        public float shockwaveRumble = 2.5f;
+        [Range(0f, 10f), Tooltip("...and seconds of being knocked groggy.")]
+        public float shockwaveDaze = 2.5f;
         [Range(0.5f, 50f)] public float walkSpeed = 7.5f;
         [Range(1f, 30f), Tooltip("Seconds for one stride (two steps).")]
-        public float strideTime = 12f;
+        public float strideTime = 8f;
         [Range(5f, 200f), Tooltip("Every so often it stops to scan: between this many seconds...")]
         public float minScanEvery = 25f;
         [Range(5f, 200f)] public float maxScanEvery = 50f;
@@ -102,7 +117,11 @@ namespace Game.Entities
         public float minScanTime = 3f;
         [Range(0.5f, 20f)] public float maxScanTime = 6f;
         [Range(0f, 20f), Tooltip("Camera shake from a step when it's at its nearest (degrees; a third of that far off).")]
-        public float stepShake = 4.5f;
+        public float stepShake = 2.5f;
+        [Range(0f, 4f), Tooltip("The ground heaving under you with each step, at its nearest (a third of that far off).")]
+        public float stepRumble = 1f;
+        [Range(0.2f, 4f), Tooltip("How long each step's tremor lasts (seconds).")]
+        public float stepRumbleTime = 1.4f;
         [Range(20f, 1000f), Tooltip("It never comes nearer than this (metres): it slows as it nears, still striding, and keeps this far off however you run at it.")]
         public float closestDistance = 220f;
         [Range(0.3f, 1f), Tooltip("And never nearer than this share of how far off it landed (0.9: it barely gains, forever walking in the distance).")]

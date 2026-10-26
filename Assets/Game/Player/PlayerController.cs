@@ -25,6 +25,8 @@ namespace Game.Player
         float height;
         float bobPhase;
         float shake;
+        float rumble, rumbleLeft, rumbleFor = 1f;
+        Vector3 headRest;
         float groggy, groggyFull = 1f;
         float ladderFree; // (just jumped off a ladder: it doesn't catch you again till this time)
         bool blurred;
@@ -186,10 +188,23 @@ namespace Game.Player
                 float amount = s.bobAmount * (Running ? 1.35f : Crouching ? 0.7f : 1f); // (heavier when running, softer creeping)
                 bob = new Vector3(Mathf.Cos(bobPhase * 0.5f) * amount * 0.5f, Mathf.Sin(bobPhase) * amount, 0f);
             }
-            head.localPosition = Vector3.Lerp(head.localPosition, new Vector3(0f, eye, 0f) + bob, 1f - Mathf.Exp(-12f * Time.deltaTime));
+            headRest = Vector3.Lerp(headRest == Vector3.zero ? head.localPosition : headRest, new Vector3(0f, eye, 0f) + bob, 1f - Mathf.Exp(-12f * Time.deltaTime));
+            head.localPosition = headRest;
 
             Vector3 wobble = Vector3.zero;
             if (shake > 0f) wobble += Random.insideUnitSphere * shake;
+            if (rumbleLeft > 0f)
+            {
+                // The ground heaving: a drop as it hits, then a deep tremor dying away.
+                rumbleLeft -= Time.deltaTime;
+                float k = Mathf.Clamp01(rumbleLeft / rumbleFor);
+                float since = rumbleFor - rumbleLeft;
+                float t = Time.time;
+                float tremor = (Mathf.Sin(t * 57f) * 0.6f + Mathf.Sin(t * 31f + 1.3f) * 0.4f) * k * k;
+                float drop = Mathf.Sin(Mathf.Clamp01(since / 0.35f) * Mathf.PI);
+                head.localPosition = headRest + Vector3.up * (tremor * 0.02f - drop * 0.06f) * rumble;
+                wobble += new Vector3(tremor * 0.7f + drop * 1.2f, 0f, Mathf.Sin(t * 23f) * k * k * 1.1f) * rumble;
+            }
             if (groggy > 0f)
             {
                 // Coming round: the head lolls and sways, settling as it clears (slowly at first, then quickly).
@@ -503,6 +518,17 @@ namespace Game.Player
 
         /// <summary>Shake the view by about this many degrees (it dies away).</summary>
         public void AddShake(float degrees) => shake = Mathf.Max(shake, degrees);
+
+        /// <summary>
+        /// The ground heaving under you (a giant's step, its landing): the view drops and a deep tremor runs through
+        /// it, dying away over this many seconds. <paramref name="amount"/> about 1 for a heavy step close by.
+        /// </summary>
+        public void AddRumble(float amount, float seconds)
+        {
+            if (rumbleLeft > 0f && rumble * (rumbleLeft / rumbleFor) > amount) return; // (a bigger one's still going)
+            rumble = amount;
+            rumbleLeft = rumbleFor = Mathf.Max(0.1f, seconds);
+        }
 
         public void SetHeld(bool held)
         {

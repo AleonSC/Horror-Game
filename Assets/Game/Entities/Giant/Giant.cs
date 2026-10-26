@@ -35,7 +35,11 @@ namespace Game.Entities
         Transform bodyRoot, chain, eye, pupil;
         readonly List<Transform> emptyChains = new List<Transform>();
         readonly List<float> emptyBearings = new List<float>();
-        Material chainMat, eyeMat, pupilMat;
+        Material chainMat, eyeMat, pupilMat, skyEyeMat;
+        DustRing shockDust, landingDust;
+        float landedAt = -1f;
+        Vector2 look, lookTo;
+        float glanceIn;
         Light[] searchlights;
         Renderer[] shafts;
         Vector3 searchAim;
@@ -91,17 +95,32 @@ namespace Game.Entities
             var skyFade = Effects.GameShader("Game/SkyFade");
             chainMat = skyFade != null ? new Material(skyFade) { name = "Giant chain" } : RuntimeMaterials.Silhouette("Giant chain");
             chain = MakeChain("Chain", false);
-            eyeMat = RuntimeMaterials.Haze("The eye", Color.red);
-            pupilMat = RuntimeMaterials.Haze("The eye's pupil", Color.black);
-            RuntimeMaterials.DrawAfter(eyeMat, 1);  // (over the body, which darkens what's behind it)
-            RuntimeMaterials.DrawAfter(pupilMat, 2);
             BuildScan();
-            eye = Ball("The eye", eyeMat);
-            pupil = Ball("Pupil", pupilMat);
-            pupil.SetParent(eye, false);
-            pupil.localPosition = new Vector3(0f, 0f, -0.45f);
-            pupil.localScale = new Vector3(0.28f, 0.9f, 0.2f);
+            // The eye: a living eye in a swirl of cloud (its own shader), or failing that a plain red one.
+            var eyeShader = Effects.GameShader("Game/SkyEye");
+            if (eyeShader != null)
+            {
+                skyEyeMat = new Material(eyeShader) { name = "The eye" };
+                eye = Bar("The eye", skyEyeMat);
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                eye.GetComponent<MeshFilter>().sharedMesh = quad.GetComponent<MeshFilter>().sharedMesh;
+                Destroy(quad);
+            }
+            else
+            {
+                eyeMat = RuntimeMaterials.Haze("The eye", Color.red);
+                pupilMat = RuntimeMaterials.Haze("The eye's pupil", Color.black);
+                RuntimeMaterials.DrawAfter(eyeMat, 1);  // (over the body, which darkens what's behind it)
+                RuntimeMaterials.DrawAfter(pupilMat, 2);
+                eye = Ball("The eye", eyeMat);
+                pupil = Ball("Pupil", pupilMat);
+                pupil.SetParent(eye, false);
+                pupil.localPosition = new Vector3(0f, 0f, -0.45f);
+                pupil.localScale = new Vector3(0.28f, 0.9f, 0.2f);
+            }
             eye.gameObject.SetActive(false);
+            shockDust = DustRing.Create(transform, "Shockwave dust", 60f);
+            landingDust = DustRing.Create(transform, "Landing dust", 9f);
             Services.Register(this);
         }
 
@@ -127,7 +146,7 @@ namespace Game.Entities
             foreach (var sub in subs) sub.Dispose();
             Threats.Remove(this);
             Services.Unregister(this);
-            foreach (var m in new[] { chainMat, eyeMat, pupilMat }) if (m != null) Destroy(m);
+            foreach (var m in new[] { chainMat, eyeMat, pupilMat, skyEyeMat }) if (m != null) Destroy(m);
             SetWorldRed(0f);
         }
 
@@ -155,6 +174,7 @@ namespace Game.Entities
             timer = 0f;
             swing = swingSpeed = 0f;
             shockRadius = -1f;
+            landedAt = -1f;
             chain.gameObject.SetActive(true);
             eye.gameObject.SetActive(false);
             SetSearchlights(false);
@@ -283,7 +303,27 @@ namespace Game.Entities
             float lid = timer < open ? Mathf.SmoothStep(0f, 1f, timer / open)
                 : timer < open + stare ? 1f
                 : 1f - Mathf.SmoothStep(0f, 1f, (timer - open - stare) / close);
-            eye.localScale = new Vector3(EyeSize, EyeSize * Mathf.Max(0.02f, 0.55f * lid), EyeSize * 0.35f);
+            if (skyEyeMat != null)
+            {
+                // The clouds gather and start to turn before it opens, and drift apart after it shuts.
+                eye.localScale = Vector3.one * (EyeSize / 0.36f);
+                float cloud = timer < open + stare ? Mathf.SmoothStep(0f, 1f, timer / (open * 0.8f)) : Mathf.Sqrt(lid);
+                skyEyeMat.SetFloat("_Open", lid);
+                skyEyeMat.SetFloat("_Cloud", cloud);
+                skyEyeMat.SetFloat("_Spin", s.eyeSwirl);
+                // Its pupil: wide as it opens, narrowing on you; then small darting looks, never far off you.
+                glanceIn -= dt;
+                if (glanceIn <= 0f)
+                {
+                    glanceIn = Random.Range(0.5f, 2.2f);
+                    lookTo = Random.insideUnitCircle * 0.1f;
+                }
+                look = Vector2.Lerp(look, lookTo, 1f - Mathf.Exp(-22f * dt));
+                skyEyeMat.SetVector("_Look", new Vector4(look.x, look.y, 0f, 0f));
+                float narrow = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((timer - open * 0.5f) / 2.5f));
+                skyEyeMat.SetFloat("_Pupil", Mathf.Lerp(0.62f, 0.34f, narrow) + Mathf.Sin(Time.time * 0.7f) * 0.025f);
+            }
+            else eye.localScale = new Vector3(EyeSize, EyeSize * Mathf.Max(0.02f, 0.55f * lid), EyeSize * 0.35f);
 
             // The dream: after a moment, the view stretches and running gets you nowhere. It lets go as the eye shuts.
             float dream = Mathf.Clamp01((timer - s.dreamAfter) / Mathf.Max(0.1f, s.dreamRamp));
@@ -334,7 +374,9 @@ namespace Game.Entities
             footHeight = 0f;
             State = GiantState.Landed;
             timer = 0f;
+            landedAt = Time.time;
             if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Boom, MixerNames.Outside, 1f, 0.8f);
+            player.AddRumble(0.8f, 2.5f); // (the first of it, through the ground; the wave itself follows)
             if (Services.TryGet<EventBus>(out var events))
             {
                 events.Publish(new BossThemeStarted(EntityKind.Giant));
@@ -403,8 +445,9 @@ namespace Game.Entities
                     nextScan = Random.Range(s.minScanEvery, s.maxScanEvery);
                     scanLeft = Random.Range(s.minScanTime, s.maxScanTime);
                 }
-                // A step every half stride: a thud and a shake, growing as it nears.
-                int step = Mathf.FloorToInt(stride * 2f);
+                // A step every half stride, as each foot comes down (a quarter of the way into each half): a thud,
+                // and the ground heaving under you, growing as it nears.
+                int step = Mathf.FloorToInt(stride * 2f + 0.5f);
                 if (step != lastStep)
                 {
                     lastStep = step;
@@ -416,6 +459,7 @@ namespace Game.Entities
                         sounds.Play2D(Sound.Boom, MixerNames.Outside, Mathf.Lerp(0.12f, 0.5f, near) * moving, Random.Range(0.5f, 0.6f));
                     }
                     player.AddShake(s.stepShake * Mathf.Lerp(0.3f, 1f, near) * moving);
+                    player.AddRumble(s.stepRumble * Mathf.Lerp(0.35f, 1f, near) * moving, s.stepRumbleTime);
                 }
             }
         }
@@ -429,10 +473,18 @@ namespace Game.Entities
             float d = Flat(p - truePos).magnitude;
             if (before < d && shockRadius >= d)
             {
-                player.AddShake(4f);
-                if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Thunder, MixerNames.Outside, 0.8f, 0.55f);
+                // It hits: the ground heaves, the view's knocked about, a roar of wind and dust, and you're dazed.
+                player.AddShake(s.shockwaveRumble * 2f);
+                player.AddRumble(s.shockwaveRumble, 3.5f);
+                if (s.shockwaveDaze > 0f) player.StartGroggy(s.shockwaveDaze, 0.6f);
+                if (Services.TryGet<SoundPlayer>(out var sounds))
+                {
+                    sounds.Play2D(Sound.Thunder, MixerNames.Outside, 1f, 0.5f);
+                    sounds.Play2D(Sound.Boom, MixerNames.Outside, 0.8f, 0.45f);
+                    sounds.Play2D(Sound.TreeRush, MixerNames.Outside, 0.7f, 0.6f);
+                }
             }
-            if (shockRadius > d + 100f) shockRadius = -1f;
+            if (shockRadius > d + 300f) shockRadius = -1f;
         }
 
         // ------------------------------------------------------------------ drawing
@@ -467,8 +519,13 @@ namespace Game.Entities
                 body.SetShade(s.solidBlack ? 0f : s.haze, fog, s.solidBlack ? 0f : s.beamThrough);
                 RuntimeMaterials.SetSilhouette(chainMat, s.solidBlack ? 0f : s.haze * 0.8f, fog, s.solidBlack ? 0f : s.beamThrough);
                 body.SetEyes(eyesOpen, s.ownEyeColor.linear * s.ownEyeGlow / mul);
-                RuntimeMaterials.SetHazeColor(eyeMat, s.eyeColor.linear * s.eyeGlow / mul);
-                RuntimeMaterials.SetHazeColor(pupilMat, Color.black);
+                if (skyEyeMat != null) skyEyeMat.SetFloat("_Bright", s.eyeGlow);
+                else
+                {
+                    RuntimeMaterials.SetHazeColor(eyeMat, s.eyeColor.linear * 8f * s.eyeGlow / mul);
+                    RuntimeMaterials.SetHazeColor(pupilMat, Color.black);
+                }
+                DrawDust(p, fog, mul);
             }
 
             if (chain.gameObject.activeSelf)
@@ -490,6 +547,30 @@ namespace Game.Entities
             {
                 eye.position = EyeWorld(p);
                 eye.rotation = Quaternion.LookRotation(eye.position - player.Head.position);
+            }
+        }
+
+        // The dust: a cloud thrown up round its feet as it lands, slowly settling; and the wall of it the shockwave
+        // drives out across the forest, passing you and rolling on (thinning as it goes).
+        void DrawDust(Vector3 p, Color fog, float mul)
+        {
+            Color dust = (s.dustColor.linear + fog * 0.5f) / mul;
+            if (landingDust != null)
+            {
+                float since = landedAt < 0f ? -1f : Time.time - landedAt;
+                float thick = since < 0f ? 0f : s.landingDust * Mathf.Clamp01(since / 0.6f) * Mathf.Clamp01(1f - (since - 6f) / 14f);
+                float grow = since < 0f ? 0f : 1f - Mathf.Exp(-since / 3f);
+                float size = bodyRoot.localScale.y; // (its height as drawn)
+                landingDust.SetSoftness(4f);
+                landingDust.Place(bodyRoot.position + Vector3.down * size * 0.02f, size * Mathf.Lerp(0.08f, 0.45f, grow), size * Mathf.Lerp(0.12f, 0.32f, grow), dust, thick);
+            }
+            if (shockDust != null)
+            {
+                float d = Flat(p - truePos).magnitude;
+                float thick = shockRadius < 0f ? 0f : s.shockwaveDust * Mathf.Clamp01(shockRadius / 40f) * Mathf.Clamp01(1f - (shockRadius - d) / 300f);
+                Vector3 centre = new Vector3(truePos.x, p.y - 8f, truePos.z);
+                shockDust.SetSoftness(8f);
+                shockDust.Place(centre, Mathf.Max(0f, shockRadius), s.shockwaveHeight * Mathf.Lerp(1.6f, 1f, Mathf.Clamp01(shockRadius / Mathf.Max(1f, d))), dust, thick);
             }
         }
 

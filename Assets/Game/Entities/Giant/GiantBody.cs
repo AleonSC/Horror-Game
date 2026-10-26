@@ -348,23 +348,31 @@ namespace Game.Entities
         public void PoseWalking(float phase, float scan, float moving)
         {
             if (custom) { Animate(moving, false); return; }
+            // (Left foot strikes at a quarter of a stride, the right at three quarters.)
             float a = phase * Mathf.PI * 2f;
-            float swing = Mathf.Sin(a) * 26f * moving;
-            // A slow, heavy dip as each foot comes down.
-            hips.localPosition = HipsAt + Vector3.down * (0.012f * moving * (1f - Mathf.Abs(Mathf.Cos(a))));
-            hips.localRotation = Quaternion.Euler(10f, Mathf.Sin(a) * 4f * moving, 0f);
-            chest.localRotation = Quaternion.Euler(14f, -Mathf.Sin(a) * 6f * moving, 0f);      // hunched
-            neck.localRotation = Quaternion.Euler(18f, 0f, 0f);                                // jutting forward
-            head.localRotation = Quaternion.Euler(-10f, scan * 55f, scan * 8f);
+            float sn = Mathf.Sin(a), cs = Mathf.Cos(a);
+            float swing = sn * 30f * moving;
+            // Heavy: the whole body sinks as each foot lands and rises over the planted leg, rolling from side to
+            // side onto it, the head nodding with each footfall. (Big enough to read from miles off.)
+            float dip = Mathf.Abs(sn);
+            float strike = Mathf.Pow(dip, 6f);
+            hips.localPosition = HipsAt + new Vector3(cs * 0.012f, -0.026f * dip, 0f) * moving; // (over the planted foot: the left is at -x)
+            hips.localRotation = Quaternion.Euler(10f + 3f * strike * moving, sn * 6f * moving, -cs * 4f * moving);
+            chest.localRotation = Quaternion.Euler(14f + 2f * strike * moving, -sn * 9f * moving, cs * 2f * moving);    // hunched, swaying
+            neck.localRotation = Quaternion.Euler(18f + 6f * strike * moving, 0f, 0f);                                   // jutting forward, nodding
+            head.localRotation = Quaternion.Euler(-10f - 4f * strike * moving, scan * 55f - sn * 4f * moving, scan * 8f);
             thighL.localRotation = Quaternion.Euler(-swing, 0f, -2f);
             thighR.localRotation = Quaternion.Euler(swing, 0f, 2f);
-            float kneeL = Mathf.Max(0f, Mathf.Sin(a + 1.2f)) * 45f * moving + 4f;
-            float kneeR = Mathf.Max(0f, Mathf.Sin(a + 1.2f + Mathf.PI)) * 45f * moving + 4f;
+            // The knee bends as the leg swings through, straight again as the foot comes down.
+            float kneeL = Mathf.Max(0f, cs) * 55f * moving + 4f;
+            float kneeR = Mathf.Max(0f, -cs) * 55f * moving + 4f;
             shinL.localRotation = Quaternion.Euler(kneeL, 0f, 0f);
-            shinR.localRotation = Quaternion.Euler(kneeR, 0f, 0f);
-            armL.localRotation = Quaternion.Euler(swing * 0.6f - 6f, 0f, -5f);
-            armR.localRotation = Quaternion.Euler(-swing * 0.6f - 6f, 0f, 5f);
-            foreL.localRotation = foreR.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+            shinR.localRotation = Quaternion.Euler(kneeR, 0f, 2f);
+            // The long arms swinging against the legs, the elbows bending as they come forward.
+            armL.localRotation = Quaternion.Euler(swing * 0.9f - 6f, 0f, -5f - 3f * dip * moving);
+            armR.localRotation = Quaternion.Euler(-swing * 0.9f - 6f, 0f, 5f + 3f * dip * moving);
+            foreL.localRotation = Quaternion.Euler(-12f - Mathf.Max(0f, -sn) * 25f * moving, 0f, 0f);
+            foreR.localRotation = Quaternion.Euler(-12f - Mathf.Max(0f, sn) * 25f * moving, 0f, 0f);
             // Feet: flat on the ground under it, the lifted one hanging a little toe-down.
             Flat(ankleL, 10f - swing + kneeL, 0.85f);
             Flat(ankleR, 10f + swing + kneeR, 0.85f);

@@ -1120,3 +1120,30 @@ The held remote sat below the bottom of the screen. It now has its own spot, `It
 - Lightning bloom reduced:
   - The blind one's red bolt: `boltGlow` is now 2.5 (was 8). A strike on the blind one is only 1.36× brighter, where it used to be 2.2×. The bolt is never wider than 0.45 m.
   - Weather lightning: `boltBrightness` is now 12 (was 30).
+
+## Giant: higher, bigger, walking, ground shake, shockwave; a new eye
+
+- **Hanging:**
+  - The giant is 740 m tall (was 660).
+  - It hangs higher: its feet are 15° above the horizon (was 10°) and its neck 45° (was 38°), which puts it about 870 m away.
+- **Walk:**
+  - Rewritten so it reads from far away. The whole body sinks as each foot lands and rises over the planted leg, rolling toward it. The head nods on each footfall, the long arms swing against the legs with the elbows bending, and the knees bend through the swing and straighten as the foot lands.
+  - A stride is now 8 s (was 12).
+  - The thud now lands when a foot actually comes down. Before, it fell midway through the swing.
+  - It still never reaches you.
+- **Ground shake:**
+  - Each step makes the ground heave under you through a new `PlayerController.AddRumble(amount, seconds)`. The view drops, then a deep tremor dies away over `stepRumbleTime`.
+  - Strength is `stepRumble`, a third as strong when the giant is far off.
+  - The random jitter from `stepShake` is lowered to 2.5.
+- **Landing and shockwave:**
+  - A cloud of dust bursts up around its feet as it lands, then settles over about 20 s (`landingDust`).
+  - The shockwave now drives a visible wall of dust out across the forest (new `Game/ShockDust` shader on a `DustRing`; `shockwaveDust`, `shockwaveHeight`, `dustColor`).
+  - When the wave reaches you, the ground heaves (`shockwaveRumble`), the view is knocked about, and there is a roar of thunder, boom and rushing wind. You're dazed for `shockwaveDaze` seconds, and the trees still whip over as before.
+- **The eye:**
+  - Rebuilt to look like the reference painting, using a new shader `Game/SkyEye` on one quad.
+  - The eye: a dull mauve-brown iris with fine radial fibres, a paler ring around a large pupil, a dark outer rim, a glint low in the pupil, and the white barely showing.
+  - The lids close from above and below.
+  - Around the eye, the clouds are drawn into slowly turning rings, lit warm from below near the eye and dark blue-grey further out. A pale violet lid fold arcs above it.
+  - The clouds gather before the eye opens and drift apart after it closes. The pupil starts wide, narrows onto you, then makes small darting looks.
+  - `eyeSize` (15°) is the width of the opening. `eyeGlow` (now 1) is the brightness. `eyeSwirl` sets how fast the clouds turn.
+  - If the shader can't be used, the old red eye is drawn instead.
