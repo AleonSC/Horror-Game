@@ -1107,3 +1107,9 @@ reach the things inside.
 ## Drone remote raised into view
 
 The held remote sat below the bottom of the screen. It now has its own spot, `Items > Hand > remoteOffset` (default 0.16 right, -0.15 up, 0.42 forward from the eye), which is higher and nearer the middle than the other held items. It updates live, so you can nudge it while playing.
+
+## Drone hovers, light static, longer range
+
+- When you press F to leave the drone, it now hovers where you left it, bobbing slightly. Its motors keep running, so the blind one can still hear it, and its red beacon keeps blinking. It uses battery at `droneHoverDrain` (0.35) of the flying rate, and it falls if the battery dies. To pick it up you need to land it, or be able to reach it. If you've walked out of signal range, F says "No signal" until you get closer.
+- The drone's picture always has a little static (`droneStatic`, 0.12) plus short random bursts. The static still gets heavier as the signal fades.
+- `droneRange` is now 260 m, up from 140, and the slider goes to 600.

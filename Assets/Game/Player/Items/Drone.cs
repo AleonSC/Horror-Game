@@ -13,8 +13,8 @@ namespace Game.Player
     /// The drone (section 6.3). Set down with F, it lifts off and you fly it from the remote: WASD, the mouse,
     /// Space and Ctrl to climb and sink, Shift for speed; click for its lamp, T for thermal. You see and hear only
     /// through it, standing where you are, blind. Its signal only reaches so far; its motors carry (the blind one
-    /// hears them); its battery runs down and it drops when it's flat. F brings your eyes back and it settles to
-    /// the ground, to be picked up again.
+    /// hears them); its battery runs down and it drops when it's flat. F brings your eyes back and it hovers where
+    /// you left it, motors running and battery slowly draining, until you fly it again (land it first to pick it up).
     /// </summary>
     public sealed class Drone : MonoBehaviour, IInteractable
     {
@@ -50,9 +50,11 @@ namespace Game.Player
         public float Signal { get; private set; } = 1f;
         public float Height { get; private set; }
         public float FromYou { get; private set; }
+        /// <summary>Static over its picture at full signal.</summary>
+        public float BaseStatic => s != null ? s.droneStatic : 0f;
 
         public string Prompt => "Pick up drone";
-        public bool CanInteract => !Flying && !airborne;
+        public bool CanInteract => !Flying;
         public Vector3 FocusPoint => transform.position + Vector3.up * 0.05f;
 
         /// <summary>
@@ -186,6 +188,11 @@ namespace Game.Player
                 player.Hotbar?.Say("Its battery is flat.");
                 return;
             }
+            if (Signal <= 0.02f)
+            {
+                player.Hotbar?.Say("No signal. Get closer to it.");
+                return;
+            }
             Flying = true;
             SwitchedFrame = Time.frameCount;
             airborne = true;
@@ -204,7 +211,7 @@ namespace Game.Player
             velocity = Vector3.up * 1.5f; // (it lifts off)
         }
 
-        /// <summary>Your eyes back; it settles to the ground where it is.</summary>
+        /// <summary>Your eyes back; it hovers where it is (or stays put, if it's on the ground).</summary>
         public void StopFlying()
         {
             if (!Flying) return;
@@ -238,16 +245,17 @@ namespace Game.Player
             Signal = 1f - Mathf.Clamp01((FromYou - s.droneRange * 0.6f) / (s.droneRange * 0.4f));
 
             Vector3 wish = Vector3.zero;
-            if (Flying)
+            bool hovering = !Flying && airborne && !Dead;
+            if (Flying || hovering)
             {
-                Battery = Mathf.Max(0f, Battery - dt / Mathf.Max(1f, s.droneFlightTime));
+                Battery = Mathf.Max(0f, Battery - dt * (Flying ? 1f : s.droneHoverDrain) / Mathf.Max(1f, s.droneFlightTime));
                 if (Dead)
                 {
                     if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.Clunk, transform.position, MixerNames.World, 0.6f, 1.6f, 20f);
                     player.Hotbar?.Say("The drone's battery died.");
                     StopFlying();
                 }
-                else wish = Controls();
+                else if (Flying) wish = Controls();
 
                 noiseIn -= dt;
                 if (noiseIn <= 0f && Services.TryGet<EventBus>(out var events))
@@ -271,8 +279,9 @@ namespace Game.Player
             }
             else if (airborne)
             {
-                // Not flown: it settles down gently (or drops, flat).
-                velocity = Dead ? velocity + Physics.gravity * dt : Vector3.Lerp(velocity, Vector3.down * 1.5f, 1f - Mathf.Exp(-2f * dt));
+                // Not flown: it holds where it is, bobbing a little (or drops, flat).
+                velocity = Dead ? velocity + Physics.gravity * dt
+                    : Vector3.Lerp(velocity, Vector3.up * (Mathf.Sin(Time.time * 1.3f) * 0.08f), 1f - Mathf.Exp(-2.5f * dt));
             }
             Move(dt);
 

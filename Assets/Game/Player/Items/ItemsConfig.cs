@@ -166,8 +166,12 @@ namespace Game.Player
         [Header("Drone")]
         [Range(10f, 600f), Tooltip("Seconds of flight in a full battery.")]
         public float droneFlightTime = 150f;
-        [Range(20f, 400f), Tooltip("How far from you it can fly before the signal's gone (metres).")]
-        public float droneRange = 140f;
+        [Range(20f, 600f), Tooltip("How far from you it can fly before the signal's gone (metres).")]
+        public float droneRange = 260f;
+        [Range(0f, 1f), Tooltip("Battery used while it hovers on its own, as a share of what flying uses.")]
+        public float droneHoverDrain = 0.35f;
+        [Range(0f, 1f), Tooltip("Static over its picture even at full signal (it thickens as the signal goes).")]
+        public float droneStatic = 0.12f;
         [Range(1f, 20f)] public float droneSpeed = 6f;
         [Range(1f, 4f), Tooltip("Shift: this many times faster.")]
         public float droneBoost = 2.2f;

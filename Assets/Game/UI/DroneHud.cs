@@ -8,7 +8,7 @@ namespace Game.UI
     /// <summary>
     /// The drone's screen while you fly it (section 7): a recording frame, battery and signal, height and how far
     /// from you it is, the lamp and thermal, warnings when the battery's low or the signal's going, and static
-    /// as the signal weakens. The usual HUD is hidden meanwhile.
+    /// (a little always, more as the signal weakens). The usual HUD is hidden meanwhile.
     /// </summary>
     public sealed class DroneHud : MonoBehaviour
     {
@@ -17,6 +17,7 @@ namespace Game.UI
         VisualElement batteryFill;
         readonly VisualElement[] bars = new VisualElement[4];
         Texture2D noiseTexture;
+        float burstUntil;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
@@ -165,8 +166,12 @@ namespace Game.UI
             warning.text = warn;
             warning.style.opacity = Mathf.Repeat(t, 0.9f) < 0.55f ? 1f : 0.25f;
 
+            // Always a little static, now and then a burst; thicker as the signal goes.
             float stat = Mathf.Clamp01((0.6f - drone.Signal) / 0.6f);
-            stat = stat * 0.75f + (drone.Battery < 0.05f ? 0.3f : 0f);
+            float baseline = drone.BaseStatic;
+            if (Time.unscaledTime > burstUntil + 0.2f && Random.value < Time.unscaledDeltaTime * 0.35f) burstUntil = Time.unscaledTime + Random.Range(0.06f, 0.25f);
+            float burst = Time.unscaledTime < burstUntil ? 0.25f : 0f;
+            stat = Mathf.Max(baseline, stat * 0.75f) + burst + (drone.Battery < 0.05f ? 0.3f : 0f);
             noise.style.opacity = stat * Random.Range(0.75f, 1f);
             noise.style.translate = new Translate(Random.Range(-128f, 0f), Random.Range(-128f, 0f));
         }
