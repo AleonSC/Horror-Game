@@ -35,7 +35,24 @@ namespace Game.Entities
         [Range(0.5f, 10f), Tooltip("...for this long.")]
         public float listenTime = 3f;
 
-        [Header("Following your trail")]
+        [Header("Teleporting (try it: untick to have it walk your trail instead)")]
+        [Tooltip("It doesn't walk about: it stands, listening, then goes in a strike of its own red lightning and comes in another somewhere round you. Only when it hears you does it run at you.")]
+        public bool teleports = true;
+        [Range(1f, 60f), Tooltip("It stands listening this long (shortest)...")]
+        public float perchMin = 7f;
+        [Range(1f, 60f), Tooltip("...to this long, before it goes again.")]
+        public float perchMax = 14f;
+        [Range(0.2f, 15f), Tooltip("Gone, between the strikes, this long (shortest)...")]
+        public float goneMin = 1.5f;
+        [Range(0.2f, 15f)] public float goneMax = 4f;
+        [Range(5f, 100f), Tooltip("It comes in between this close to you...")]
+        public float teleportNear = 16f;
+        [Range(5f, 150f), Tooltip("...and this far.")]
+        public float teleportFar = 38f;
+        [Range(0f, 1f), Tooltip("Chance it comes in where you're looking.")]
+        public float teleportInView = 0.4f;
+
+        [Header("Following your trail (when it doesn't teleport)")]
         [Tooltip("Roaming, it follows the trail you've left (where you were this many seconds ago), not just wandering.")]
         [Range(0f, 120f)] public float trailBehind = 18f;
         [Range(0.5f, 6f), Tooltip("How fast it follows your trail (metres a second); a little quicker each lamp after it comes.")]

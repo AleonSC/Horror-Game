@@ -2,12 +2,13 @@ using System.Collections.Generic;
 using Game.Audio;
 using Game.Core;
 using Game.Player;
+using Game.Rendering;
 using Game.World.Build;
 using UnityEngine;
 
 namespace Game.Entities
 {
-    public enum BlindState { Absent, Arriving, Roaming, Listening, Rushing, Searching, Taking, Away }
+    public enum BlindState { Absent, Arriving, Roaming, Listening, Rushing, Searching, Taking, Away, Teleporting }
 
     /// <summary>
     /// The blind one, "the Auscult" (section 6.8). It comes at the 3rd lamp, breaking out of the ground 45 m away
@@ -213,6 +214,7 @@ namespace Game.Entities
                 case BlindState.Listening: UpdateListening(dt); break;
                 case BlindState.Rushing: UpdateRushing(dt); break;
                 case BlindState.Searching: UpdateSearching(dt); break;
+                case BlindState.Teleporting: UpdateTeleporting(dt); return;
                 case BlindState.Taking: UpdateTaking(dt); return;
             }
 
@@ -265,8 +267,14 @@ namespace Game.Entities
         }
 
         // Roaming: on your trail, where you were a little while ago, at a steady walk (quicker as the night goes on).
+        // (Teleporting, instead: it stands where it is, listening, and in a while goes in a strike of lightning.)
         void UpdateRoaming(float dt)
         {
+            if (s.teleports)
+            {
+                Perch(dt);
+                return;
+            }
             roar = Mathf.MoveTowards(roar, 0f, dt);
             listen = Mathf.MoveTowards(listen, 0f, dt * 2f);
             target = TrailPoint();
@@ -289,6 +297,161 @@ namespace Game.Entities
                 SetState(BlindState.Listening);
             }
             HearClose();
+        }
+
+        // ------------------------------------------------------------------ teleporting
+
+        float perchLeft = -1f, goneFor;
+        Vector3 comeTo;
+        bool struckOut, struckIn;
+        MeshRenderer afterglow;
+        float afterglowLeft;
+
+        // Standing where it came in, still, head cocked, listening (it hears you as ever: and runs at you), and in
+        // a while it goes.
+        void Perch(float dt)
+        {
+            speed = 0f;
+            roar = Mathf.MoveTowards(roar, 0f, dt);
+            lean = Mathf.MoveTowards(lean, 0f, dt * 0.8f); // (rising from its crouch, after coming in)
+            listen = Mathf.MoveTowards(listen, 0.7f + 0.3f * Mathf.Sin(Time.time * 0.7f), dt * 1.5f);
+            Face(player.transform.position);
+            if (perchLeft < 0f) perchLeft = Random.Range(s.perchMin, Mathf.Max(s.perchMin, s.perchMax));
+            perchLeft -= dt;
+            // Now and then a click, listening.
+            if (Time.time - lastStep > 1.4f)
+            {
+                lastStep = Time.time;
+                Play(Sound.Click, 0.7f, Random.Range(0.32f, 0.45f), 35f);
+            }
+            if (nextHardListen < 0f) nextHardListen = Time.time + Random.Range(s.minHardListen, s.maxHardListen);
+            if (Time.time >= nextHardListen)
+            {
+                nextHardListen = Time.time + Random.Range(s.minHardListen, s.maxHardListen);
+                hardListening = true;
+                Play(Sound.Click, 1f, 0.3f, 60f);
+                SetState(BlindState.Listening);
+                return;
+            }
+            HearClose();
+            if (State == BlindState.Roaming && perchLeft <= 0f) StartTeleport();
+        }
+
+        void StartTeleport()
+        {
+            perchLeft = -1f;
+            struckOut = struckIn = false;
+            goneFor = Random.Range(s.goneMin, Mathf.Max(s.goneMin, s.goneMax));
+            comeTo = TeleportSpot();
+            SetState(BlindState.Teleporting);
+        }
+
+        // Going: a fit of convulsing (half a second), then red lightning strikes it, a blinding flash, and it's
+        // gone, a red glow where it stood fading. Gone a few seconds, its storm drifting overhead to where it'll
+        // be. Coming: a strike there, and it's there, hunched low in the glare, rising, with a low roar and a thud
+        // you feel; then it stands and listens.
+        void UpdateTeleporting(float dt)
+        {
+            float t = stateTime;
+            const float fit = 0.55f;
+            if (!struckOut)
+            {
+                // The fit: twitching, head jerking, arms up.
+                speed = 0f;
+                roar = Mathf.Clamp01(t / fit) * 0.6f;
+                listen = Random.value;
+                body.transform.localPosition = Random.insideUnitSphere * 0.12f * (t / fit);
+                if (t - dt <= 0f) Play(Sound.Shriek, 0.6f, 0.3f, 60f);
+                if (t >= fit)
+                {
+                    struckOut = true;
+                    body.transform.localPosition = Vector3.zero;
+                    storm.StrikeAt(transform.position);
+                    Afterglow(transform.position);
+                    body.gameObject.SetActive(false);
+                    float near = 1f - Mathf.Clamp01(DistanceToPlayer / 60f);
+                    player.AddShake(0.4f + 1.2f * near);
+                    // Its storm moves over to where it'll come in (it follows this object).
+                    transform.position = comeTo;
+                }
+                body.Pose(0f, s.height, listen, roar, 0f, dt);
+                return;
+            }
+            if (!struckIn)
+            {
+                if (t < fit + goneFor) return;
+                // Coming in: the strike, and it's there, low, in the glare.
+                struckIn = true;
+                transform.position = comeTo;
+                Face(player.transform.position);
+                transform.rotation = Quaternion.LookRotation(Flat(player.transform.position - comeTo).sqrMagnitude > 0.01f ? Flat(player.transform.position - comeTo) : Vector3.forward);
+                storm.StrikeAt(comeTo);
+                Afterglow(comeTo);
+                body.gameObject.SetActive(true);
+                lean = 1f;
+                roar = 0.5f;
+                Play(Sound.GiantStep, 1f, 1.1f, 120f);
+                Play(Sound.Moan, 0.8f, 0.4f, 80f);
+                float near = 1f - Mathf.Clamp01(DistanceToPlayer / 50f);
+                player.AddShake(0.6f + 1.4f * near);
+            }
+            // Rising from the crouch, a moment, then it listens.
+            lean = Mathf.MoveTowards(lean, 0.4f, dt * 0.8f);
+            roar = Mathf.MoveTowards(roar, 0f, dt * 0.6f);
+            body.Pose(0f, s.height, 0.3f, roar, lean, dt);
+            if (t >= fit + goneFor + 1.4f)
+            {
+                SetState(BlindState.Roaming);
+                perchLeft = Random.Range(s.perchMin, Mathf.Max(s.perchMin, s.perchMax));
+            }
+        }
+
+        // Where it comes in: round you, between near and far; sometimes where you're looking; not in a light, not
+        // in a building (the ground there, and nothing solid in the way of standing).
+        Vector3 TeleportSpot()
+        {
+            Vector3 you = player.transform.position;
+            Vector3 ahead = Vector3.ProjectOnPlane(player.Head.forward, Vector3.up).normalized;
+            if (ahead.sqrMagnitude < 0.01f) ahead = Vector3.forward;
+            var zones = Services.TryGet<SafeZones>(out var z) ? z : null;
+            for (int tries = 0; tries < 12; tries++)
+            {
+                float bearing = Random.value < s.teleportInView ? Random.Range(-35f, 35f) : Random.Range(0f, 360f);
+                Vector3 dir = Quaternion.Euler(0f, bearing, 0f) * ahead;
+                Vector3 p = you + dir * Random.Range(s.teleportNear, Mathf.Max(s.teleportNear, s.teleportFar));
+                p.y = PlayerSense.GroundHeight(p);
+                if (zones != null && zones.Contains(p, 4f)) continue;
+                if (Physics.CheckSphere(p + Vector3.up * 2f, 1.2f, Layers.Mask(Layers.Props), QueryTriggerInteraction.Ignore)) continue;
+                return p;
+            }
+            return RoamPoint();
+        }
+
+        // A red glow left on the ground where a bolt struck, fading over a few seconds.
+        void Afterglow(Vector3 at)
+        {
+            if (afterglow == null)
+            {
+                afterglow = Effects.Glow(null, Vector3.zero, 4f, Color.black, 0.3f, 2.5f, "Strike afterglow");
+                if (afterglow == null) return;
+                afterglow.transform.SetParent(transform.parent, true);
+                afterglowFade = StartCoroutine(FadeAfterglow());
+            }
+            afterglow.transform.position = at + Vector3.up * 0.6f;
+            afterglowLeft = 3.5f;
+        }
+
+        Coroutine afterglowFade;
+
+        System.Collections.IEnumerator FadeAfterglow()
+        {
+            while (afterglow != null)
+            {
+                afterglowLeft = Mathf.Max(0f, afterglowLeft - Time.deltaTime);
+                float k = afterglowLeft / 3.5f;
+                Effects.SetGlow(afterglow, s.lightningColor * 3f * k * k);
+                yield return null;
+            }
         }
 
         // Where you were trailBehind seconds ago (or, with no trail yet, round where you are).
@@ -387,6 +550,7 @@ namespace Game.Entities
         // Get far from it for long and it catches up, somewhere behind you.
         void KeepUp(float dt)
         {
+            if (s.teleports) { lostFor = 0f; return; } // (it comes in round you anyway)
             lostFor = DistanceToPlayer > s.lostDistance ? lostFor + dt : 0f;
             if (lostFor < s.lostTime) return;
             lostFor = 0f;

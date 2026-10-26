@@ -1073,3 +1073,22 @@ height at all ten, slow at first and wilder toward the end (`stormCurve` 1.3). I
     often;
   - and the falling leaves are carried further by the stronger wind (`Wind.Storm`).
 - **Lightning** comes more often, up to 3× as often at its height (`stormLightning` 0.3).
+
+## Trying out: the blind one teleports in lightning
+
+`BlindConfig` > Teleporting > `teleports` (on). Untick it for the trail-walking blind one from before.
+
+- **It doesn't walk about.** It stands where it came in, still, head cocked, listening, with a low click now and
+  then. It still listens hard every 20–40 s. After 7–14 s (`perchMin` / `perchMax`) it goes.
+- **Going:** it convulses for half a second (twitching, arms up, head jerking, a low shriek). Then its own red
+  lightning strikes it, a thick bright bolt straight down, with a blinding red flash, a crack and thunder at once.
+  It's gone, a red glow fading where it stood. The view shakes, harder the nearer it was.
+- **Gone** for 1.5–4 s (`goneMin` / `goneMax`): nothing, but its storm cloud drifts overhead to where it's coming.
+- **Coming:** another strike, 16–38 m from you (`teleportNear` / `teleportFar`), and 40% of the time where you're
+  looking (`teleportInView`). Never in a light or on a building. It's there in the glare, hunched low, rising,
+  with a thud you feel and a low moan. Then it stands and listens.
+- **Only when it hears you** (a noise in range, moving within 4 m of it, or moving within 30 m while it's
+  listening hard) does it run at you on foot, as before. It then searches where it heard you, and goes back to
+  teleporting.
+- `Storm.StrikeAt` puts a bolt on a chosen spot: brighter, thicker and longer than the storm's own, with its
+  thunder at once.

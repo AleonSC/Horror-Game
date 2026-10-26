@@ -19,7 +19,7 @@ namespace Game.Entities
         Material boltMat;
         Light flash;
         HDAdditionalLightData flashData;
-        float nextStrike, flashLeft, thunderAt = -1f;
+        float nextStrike, flashLeft, thunderAt = -1f, boltWidth = 0.35f;
         Vector3 thunderFrom;
 
         public float Strength { get; set; }
@@ -91,8 +91,8 @@ namespace Game.Entities
             {
                 flashLeft -= dt;
                 float f = Mathf.Clamp01(flashLeft / 0.25f) * (0.6f + 0.4f * Mathf.PerlinNoise(Time.time * 40f, 0.5f));
-                flash.intensity = s.lightningIntensity * f;
-                bolt.widthMultiplier = 0.35f * f;
+                flash.intensity = s.lightningIntensity * f * (boltWidth / 0.35f);
+                bolt.widthMultiplier = boltWidth * f;
                 if (flashLeft <= 0f)
                 {
                     flash.enabled = false;
@@ -113,6 +113,28 @@ namespace Game.Entities
             Vector3 top = transform.position + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)) * s.stormSize * 0.3f;
             Vector3 ground = top + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)) * s.stormSize * 0.25f;
             ground.y = PlayerSense.GroundHeight(ground);
+            Bolt(top, ground, 1f, 0.35f);
+        }
+
+        /// <summary>
+        /// A bolt right onto this spot (the blind one going, or coming): from high over it, brighter and thicker
+        /// than the storm's own, lasting longer, its thunder at once (it's right there).
+        /// </summary>
+        public void StrikeAt(Vector3 ground)
+        {
+            Vector3 top = ground + Vector3.up * s.stormHeight + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)) * 6f;
+            Bolt(top, ground, 2.2f, 0.6f);
+            nextStrike = Mathf.Max(nextStrike, 1.5f); // (no other strike on top of it)
+            if (Services.TryGet<SoundPlayer>(out var sounds))
+            {
+                sounds.Play(Sound.Crack, ground + Vector3.up * 2f, MixerNames.Entities, 1f, 0.5f, 200f);
+                sounds.Play(Sound.Thunder, ground, MixerNames.Outside, 1f, Random.Range(1.05f, 1.2f), 500f);
+            }
+            thunderAt = -1f;
+        }
+
+        void Bolt(Vector3 top, Vector3 ground, float strength, float time)
+        {
             const int n = 14;
             bolt.positionCount = n;
             for (int i = 0; i < n; i++)
@@ -125,10 +147,11 @@ namespace Game.Entities
             flash.transform.position = Vector3.Lerp(top, ground, 0.7f);
             flash.color = s.lightningColor;
             flashData.volumetricDimmer = s.lightningFogGlow;
-            RuntimeMaterials.SetGlow(boltMat, s.lightningColor * s.boltGlow);
+            RuntimeMaterials.SetGlow(boltMat, s.lightningColor * s.boltGlow * strength);
             flash.range = 120f;
             flash.enabled = true;
-            flashLeft = 0.35f;
+            flashLeft = time;
+            boltWidth = 0.35f * strength;
             // Thunder follows at the speed of sound.
             thunderFrom = ground;
             float d = Camera.main != null ? Vector3.Distance(Camera.main.transform.position, ground) : 50f;
