@@ -1033,3 +1033,24 @@ Esc doesn't open the pause menu while the intro runs (`MainMenu.IntroRunning`). 
   ground), a glow you can see across the sky, with a little light round it.
 - **Fixed:** the luminescent spray can stood on its side (the helper it used lays cylinders along +Z). It's
   upright now.
+
+## The blind one's music, from the HDRP build
+
+The blind one's theme is now the HDRP build's (its `BlindEntityTheme`), ported to `Audio/BlindTheme.cs`. It's the
+same synthesis, at this build's 24 kHz with the reverb's delays scaled to match, and plain C# so it's made off the
+main thread with the rest of the music. It's scored to its entrance:
+- **0–3.5 s:** a sub-bass drone on low D creeping in under a rising, whining cluster as the ground rumbles.
+- **3.5 s:** a huge drum hit as it breaks out of the earth.
+- **7.6 s:** the roar: a hit and a blaring, dissonant brass chord (D, Eb, A, G#) opening up and dying away.
+- **13.1 s:** two stamps.
+- **15 s on:** the hunt: a limping drum rhythm like its gait, a driving low cello ostinato, a thin shivering tremolo
+  of high minor seconds, and its clicking, all building.
+
+It's made once (80 s) and cut in two for the music manager:
+- the intro is the first 67.8 s, the entrance and the building hunt;
+- the loop is the five bars of the hunt at its fullest (55.8–67.8 s, cut on bar lines). It carries straight on
+  from the intro's end, on the same deck, and loops on itself with its start faded over what follows its end, so
+  there's no seam.
+
+Measured: the loop's end and the intro's end match in level, and it starts on the next downbeat.
+`MusicTests` now expects 67.8 s and 12 s.

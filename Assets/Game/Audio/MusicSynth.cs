@@ -102,45 +102,11 @@ namespace Game.Audio
 
         // ------------------------------------------------------------------ the blind one
 
-        /// <summary>
-        /// Its entrance: a sub-bass drone, a drum hit at 3.5 s as it breaks out of the ground, a roar with a
-        /// dissonant brass chord (D, Eb, A, G#) at 7.6 s, two stamps at 13.1 s (16 s).
-        /// </summary>
-        public static float[] BlindIntro(int seed)
-        {
-            var rng = new Random(seed);
-            var s = Make(16f);
-            float lp = 0f;
-            for (int i = 0; i < s.Length; i++)
-            {
-                float t = T(i);
-                float drone = Sine(Note("D1"), t) * 0.5f * Env(t, 2.5f, 16f, 2f) + Saw(Note("D2"), t, 4) * 0.12f * Env(t, 4f, 16f, 2f);
-                float hit = Drum(t - 3.5f, 48f, rng) * 1.2f;
-                lp += (Noise(rng) - lp) * 0.08f;
-                float roar = t > 7.6f ? lp * 2.2f * Env(t - 7.6f, 0.15f, 3.2f, 2f) : 0f;
-                float chord = t > 7.6f ? Brass(t - 7.6f, 5.5f, Note("D3"), Note("Eb3"), Note("A3"), Note("G#4")) : 0f;
-                float stamps = Drum(t - 13.1f, 40f, rng) + Drum(t - 13.55f, 40f, rng);
-                s[i] = drone + hit + roar + chord * 0.7f + stamps;
-            }
-            return SoftEnd(Normalize(s, 0.8f), 0.5f);
-        }
+        /// <summary>Its entrance and the building hunt: the HDRP build's theme (<see cref="BlindTheme"/>).</summary>
+        public static float[] BlindIntro(int seed) => BlindTheme.Intro();
 
-        /// <summary>Its hunt: a limping rhythm (a heavy beat, then a dragged one) under the drone (8 s).</summary>
-        public static float[] BlindLoop(int seed)
-        {
-            var rng = new Random(seed);
-            var s = Make(8f);
-            for (int i = 0; i < s.Length; i++)
-            {
-                float t = T(i);
-                float bar = t % 2f;
-                float limp = Drum(bar, 44f, rng) + 0.55f * Drum(bar - 0.75f, 58f, rng);
-                float drone = Sine(Note("D1"), t) * 0.4f + Saw(Note("Eb2"), t, 3) * 0.06f;
-                float click = (t % 1f) > 0.5f && (t % 1f) < 0.52f ? Noise(rng) * 0.15f : 0f;
-                s[i] = limp + drone + click;
-            }
-            return Loopable(s, 0.7f);
-        }
+        /// <summary>Its hunt at its fullest, looping on from the intro's end (<see cref="BlindTheme"/>).</summary>
+        public static float[] BlindLoop(int seed) => BlindTheme.Loop();
 
         // ------------------------------------------------------------------ the giant
 

@@ -30,10 +30,10 @@ namespace Game.Tests
         [Test]
         public void Themes_HitTheirMarks()
         {
-            Sound(MusicSynth.BlindIntro(4), 16f, "Blind intro");
+            Sound(MusicSynth.BlindIntro(4), 67.8f, "Blind intro"); // (the HDRP build's theme, up to its loop)
             Sound(MusicSynth.GiantIntro(6), 8f, "Giant intro");
             Sound(MusicSynth.FlierIntro(8), 15f, "Flier intro");
-            Sound(MusicSynth.BlindLoop(5), 7.75f, "Blind loop");
+            Sound(MusicSynth.BlindLoop(5), 12f, "Blind loop"); // (five bars of its hunt)
             Sound(MusicSynth.FlierLoop(9), 3.75f, "Flier loop");
 
             // The blind one's drum hit lands at 3.5 s: much louder just after than just before.
