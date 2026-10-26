@@ -198,6 +198,84 @@ namespace Game.UI
             StartCoroutine(Intro());
         }
 
+        // ------------------------------------------------------------------ skipping the intro
+
+        /// <summary>The intro's under way (its lines, the glitches): Esc held skips it, rather than pausing.</summary>
+        public static bool IntroRunning { get; private set; }
+        const float HoldToSkip = 1.2f;
+        float skipHeld;
+        Label skipLabel;
+        VisualElement skipBar;
+        List<VisualElement> tearsShown;
+        AudioSource crackleNow;
+
+        void Update()
+        {
+            if (!IntroRunning) return;
+            var k = UnityEngine.InputSystem.Keyboard.current;
+            bool held = k != null && k.escapeKey.isPressed;
+            skipHeld = held ? skipHeld + Time.unscaledDeltaTime : Mathf.MoveTowards(skipHeld, 0f, Time.unscaledDeltaTime * 3f);
+            if (skipLabel != null)
+            {
+                skipLabel.style.opacity = Mathf.Clamp01(skipHeld * 4f) * 0.9f + 0.25f;
+                skipBar.style.width = 160f * Mathf.Clamp01(skipHeld / HoldToSkip);
+            }
+            if (skipHeld >= HoldToSkip) Skip();
+        }
+
+        void ShowSkipHint()
+        {
+            var ui = UiRoot.Get();
+            if (ui == null || skipLabel != null) return;
+            skipLabel = UiStyle.Text(ui.Top, "HOLD ESC TO SKIP", 14, UiStyle.Ink, TextAnchor.MiddleRight, 3f);
+            skipLabel.style.position = Position.Absolute;
+            skipLabel.style.right = 40;
+            skipLabel.style.bottom = 40;
+            skipLabel.style.opacity = 0.25f;
+            skipBar = UiStyle.Box(ui.Top, new Color(1f, 1f, 1f, 0.5f));
+            skipBar.style.position = Position.Absolute;
+            skipBar.style.right = 40;
+            skipBar.style.bottom = 32;
+            skipBar.style.height = 2;
+            skipBar.style.width = 0;
+        }
+
+        void EndSkippable()
+        {
+            IntroRunning = false;
+            skipLabel?.RemoveFromHierarchy();
+            skipBar?.RemoveFromHierarchy();
+            skipLabel = null;
+            skipBar = null;
+        }
+
+        // Skipped: no more lines or glitches; awake in the forest at once (a short fade, a little groggy).
+        void Skip()
+        {
+            EndSkippable();
+            StopAllCoroutines();
+            if (tearsShown != null) foreach (var bar in tearsShown) bar.RemoveFromHierarchy();
+            if (crackleNow != null) crackleNow.Stop();
+            if (Services.TryGet<Narration>(out var narration)) narration.SkipIntro();
+            else Narration.Finished();
+            if (Services.TryGet<GameFlow>(out var flow)) flow.Set(GamePhase.Playing);
+            if (Services.TryGet<PlayerController>(out var player)) player.StartGroggy(3f, 0.4f);
+            StartCoroutine(SkippedFade());
+        }
+
+        IEnumerator SkippedFade()
+        {
+            float from = black != null ? black.resolvedStyle.opacity : 0f;
+            for (float t = 0f; t < 0.8f && black != null; t += Time.unscaledDeltaTime)
+            {
+                black.style.opacity = Mathf.Lerp(from, 0f, t / 0.8f);
+                yield return null;
+            }
+            if (black != null) black.RemoveFromHierarchy();
+            if (root != null) root.RemoveFromHierarchy();
+            Destroy(this);
+        }
+
         IEnumerator Intro()
         {
             var flow = Services.TryGet<GameFlow>(out var f) ? f : null;
@@ -216,6 +294,8 @@ namespace Game.UI
             // The first line(s) over black ("wake up"), then you wake in the forest, groggy, and can move while the
             // rest are said.
             Services.TryGet<Narration>(out var narration);
+            IntroRunning = true;
+            ShowSkipHint();
             if (config.glitchIntro && narration != null)
             {
                 yield return GlitchIntro(narration, flow);
@@ -226,7 +306,7 @@ namespace Game.UI
 
             flow?.Set(GamePhase.Playing);
             if (Services.TryGet<PlayerController>(out var player)) player.StartGroggy(config.wakeGroggyTime);
-            if (narration != null) narration.StartCoroutine(narration.IntroThenFinish(wake));
+            if (narration != null) narration.PlayIntroFrom(wake);
             float fade = Mathf.Max(0.2f, config.wakeFadeTime);
             bool coming = false;
             for (float t = 0f; t < fade && black != null; t += Time.unscaledDeltaTime)
@@ -244,6 +324,9 @@ namespace Game.UI
             }
             if (black != null) black.RemoveFromHierarchy();
             if (root != null) root.RemoveFromHierarchy();
+            // (still skippable while the rest of the lines are said along the bottom)
+            while (narration != null && narration.IntroPlaying) yield return null;
+            EndSkippable();
             Destroy(this);
         }
 
@@ -256,6 +339,7 @@ namespace Game.UI
             int lines = narration.IntroLines;
             var ui = UiRoot.Get();
             var tears = new List<VisualElement>();
+            tearsShown = tears;
             for (int i = 0; i < 16 && ui != null; i++)
             {
                 var bar = UiStyle.Box(ui.Top, Color.black);
@@ -283,6 +367,7 @@ namespace Game.UI
                 yield return null;
             }
             Narration.Finished();
+            EndSkippable();
             if (black != null) black.RemoveFromHierarchy();
             if (root != null) root.RemoveFromHierarchy();
             Destroy(this);
@@ -294,6 +379,7 @@ namespace Game.UI
         {
             AudioSource crackle = null;
             if (Services.TryGet<SoundPlayer>(out var sounds)) crackle = sounds.Play2D(Sound.Static, MixerNames.UI, 0.45f, Random.Range(0.8f, 1.2f));
+            crackleNow = crackle;
             const float tear = 0.28f;
             for (float t = 0f; t < tear; t += Time.unscaledDeltaTime)
             {
@@ -312,6 +398,7 @@ namespace Game.UI
                 yield return null;
             }
             if (sounds != null) crackle = sounds.Play2D(Sound.Static, MixerNames.UI, 0.45f, Random.Range(0.8f, 1.2f));
+            crackleNow = crackle;
             for (float t = 0f; t < tear; t += Time.unscaledDeltaTime)
             {
                 Tear(tears, t / tear, 1f);

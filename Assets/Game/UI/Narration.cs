@@ -120,15 +120,51 @@ namespace Game.UI
             }
         }
 
+        Coroutine introRoutine;
+        static bool told;
+
+        /// <summary>The intro's lines are still being said (along the bottom, after you wake).</summary>
+        public bool IntroPlaying { get; private set; }
+
+        /// <summary>Say the intro's lines from this one on (after you wake), then tell everyone it's over.</summary>
+        public void PlayIntroFrom(int from)
+        {
+            IntroPlaying = true;
+            introRoutine = StartCoroutine(IntroThenFinish(from));
+        }
+
         /// <summary>The intro's lines from this one on, then tell everyone it's over (the giant answers).</summary>
         public IEnumerator IntroThenFinish(int from)
         {
             yield return Intro(from);
+            IntroPlaying = false;
             Finished();
         }
 
+        /// <summary>Skipped: no more intro lines, whatever was showing gone; the giant still answers.</summary>
+        public void SkipIntro()
+        {
+            if (introRoutine != null) StopCoroutine(introRoutine);
+            introRoutine = null;
+            IntroPlaying = false;
+            foreach (var l in new[] { centre, centre2 })
+            {
+                if (l == null) continue;
+                l.style.opacity = 0f;
+            }
+            if (centre != null)
+            {
+                centre.style.top = StyleKeyword.Null;
+                centre.style.bottom = Bottom;
+            }
+            Finished();
+        }
+
+        /// <summary>Tell everyone the intro's over (once).</summary>
         public static void Finished()
         {
+            if (told) return;
+            told = true;
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new IntroFinished());
         }
 

@@ -1004,3 +1004,13 @@ face. The face and its capping slab fill it from above, and the corridor and roo
     Anything moving within 30 m (`hardListenReach`), even crouched, and it rushes you.
   - **It catches up sooner:** more than 70 m off (`lostDistance`, was 90) for 30 s (`lostTime`, was 60), and it's
     35 m behind you.
+
+## Hold Esc to skip the intro
+
+While the intro runs (its lines over the dark, the glitches, and, in the old intro, the lines along the bottom
+after you wake), "HOLD ESC TO SKIP" shows faintly bottom right, with a bar filling as you hold. After 1.2 s:
+- the lines and glitches stop;
+- you're awake in the forest after a short 0.8 s fade, a little groggy for 3 s;
+- and the giant still groans (`IntroFinished`, sent only once).
+
+Esc doesn't open the pause menu while the intro runs (`MainMenu.IntroRunning`). A tap does nothing.
