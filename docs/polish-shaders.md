@@ -1187,3 +1187,9 @@ The held remote sat below the bottom of the screen. It now has its own spot, `It
   - Each lamp face now has a bright glare you can see from the forest.
   - Brightness is 700 cd (was 150) with an 80 m reach.
   - The fog they light (`fogGlow` 0.035) and the soft beam shafts (`beamGlow` 0.06) are turned down, so the lit ground stays clear when you look in from outside the beam rather than being hidden behind haze.
+
+## Bunker doorway, actually open
+
+- **Why the last fix didn't work:** the mound's heights were right, but its points sit 0.5 m apart. The last row at full height was at z 3.1 and the first ground-level row in front was at z 3.6, and the bunker's front face is at z 3.5. So the slope between those two rows ran from 3 m high down to about 0.5 m inside the door frame: a dirt ramp blocking the doorway. That slope also had a collider.
+- **The fix:** the mound now leaves out every square that reaches onto the front face or in front of it (`OverFront`). The front wall and its capping slab close what's left above.
+- **Checked offline:** I sampled the mound surface inside the doorway and corridor (|x| < 0.7, z > 1.5, below door height). 217 points were inside before the fix, and 0 are now.

@@ -594,7 +594,7 @@ namespace Game.World.Build
 
             // The earth heaped over it: high and flat over the rooms (so nothing pokes out), falling away round
             // the sides and back, banked against the front's sides, open in front of the doorway.
-            EarthMound(t, new Vector2(roomHalf + wall + 0.3f, F - 0.05f), roomBack - wall - 0.3f, faceH, rng);
+            EarthMound(t, new Vector2(roomHalf + wall + 0.3f, F - 0.05f), roomBack - wall - 0.3f, faceH, F - faceD, faceW * 0.5f + 0.1f, rng);
 
             PlaceFittings.AddShelter(t, "Bunker", new Bounds(new Vector3(0f, roomH * 0.5f, (F - faceD + roomBack) * 0.5f), new Vector3(roomHalf * 2f, roomH, F - faceD - roomBack)));
         }
@@ -604,14 +604,17 @@ namespace Game.World.Build
         // hole over the front's face where the doorway is (the capping slab covers it). (Before, the earth ran
         // straight from full height down to the ground in front, and with its points half a metre apart that
         // slope stood right across the doorway, inside the frame: a wall of dirt where the way in should be.)
-        void EarthMound(Transform t, Vector2 half, float back, float height, System.Random rng)
+        // (faceBack, faceHalf: the front's back and half its width. No earth at all over the front, or in front of
+        // it: before, with the mound's points half a metre apart, its last slope from full height down to the
+        // ground straddled the front and stood inside the doorway's frame, still blocking the way in.)
+        void EarthMound(Transform t, Vector2 half, float back, float height, float faceBack, float faceHalf, System.Random rng)
         {
             const float step = 0.5f, fall = 3.2f;
             float x0 = -half.x - fall - 0.5f, x1 = half.x + fall + 0.5f, z0 = back - fall - 0.5f, z1 = half.y + fall;
             int nx = Mathf.CeilToInt((x1 - x0) / step), nz = Mathf.CeilToInt((z1 - z0) / step);
             float seed = (float)rng.NextDouble() * 100f;
-            // The doorway's gap: from in front of the face back past its whole depth, wider than the doorway.
-            bool Gap(float x, float z) => Mathf.Abs(x) < 2.3f && z > half.y - 0.6f; // (the face itself fills behind it)
+            // Over the front and in front of it (the front and its capping slab close what's left above).
+            bool OverFront(Vector3 v) => Mathf.Abs(v.x) < faceHalf && v.z > faceBack + 0.05f;
             float H(float x, float z)
             {
                 if (z > half.y - 0.1f && Mathf.Abs(x) < 2.3f) return -0.15f; // (the doorway's open ground)
@@ -636,6 +639,8 @@ namespace Game.World.Build
             {
                 int a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
                 if (verts[a].y <= 0f && verts[b].y <= 0f && verts[c].y <= 0f && verts[d].y <= 0f) continue;
+                // A square reaching onto the front: left out.
+                if (OverFront(verts[a]) || OverFront(verts[b]) || OverFront(verts[c]) || OverFront(verts[d])) continue;
                 tris.Add(a); tris.Add(c); tris.Add(b);
                 tris.Add(b); tris.Add(c); tris.Add(d);
             }
