@@ -14,6 +14,8 @@ namespace Game.Core
         public float GustSpeed = 9f;        // how fast they roll across (metres a second)
         public float GustSpacing = 70f;     // metres between gust fronts
         public Vector2 Direction = new Vector2(0.8f, 0.6f);
+        /// <summary>How far the storm's built (0 calm, 1 its height): what's blown about goes up with it.</summary>
+        public float Storm;
 
         Vector3 shockFrom;
         float shockStart = -1000f, shockSpeed = 220f, shockStrength;

@@ -105,7 +105,10 @@ namespace Game.World
                     // A strong gust, or your running feet, lift it.
                     float fx = l.Pos.x - feet.x, fz = l.Pos.z - feet.z;
                     bool kicked = running && fx * fx + fz * fz < 1.4f;
-                    if (kicked || (push.sqrMagnitude > 0.9f && Random.value < dt * 0.8f))
+                    // (the storm: lighter gusts lift them, and far more often)
+                    float storm = wind != null ? wind.Storm : 0f;
+                    float lift = Mathf.Lerp(0.9f, 0.35f, storm);
+                    if (kicked || (push.sqrMagnitude > lift && Random.value < dt * Mathf.Lerp(0.8f, 4f, storm)))
                     {
                         l.Flying = true;
                         l.Vel = new Vector3(push.x * 3f + (kicked ? fx * 2f : 0f), Random.Range(1.2f, kicked ? 2.5f : 2f), push.y * 3f + (kicked ? fz * 2f : 0f));

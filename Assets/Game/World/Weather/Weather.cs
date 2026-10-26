@@ -20,12 +20,14 @@ namespace Game.World
         Light flash;
         LightningBolt bolt;
         bool boltShown;
-        float nextLightning, flashLeft, thunderAt = -1f, thunderVolume, rainAmount;
+        float nextLightning, flashLeft, thunderAt = -1f, thunderVolume, rainAmount, storm;
         readonly List<Tornado> tornadoes = new List<Tornado>();
         System.IDisposable resetSub;
 
         public WeatherSettings Settings => config.settings;
         public float RainAmount => rainAmount;
+        /// <summary>How far the storm's built, 0 calm to 1 its height (all ten lamps lit).</summary>
+        public float Storm => storm;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AttachToGame()
@@ -99,22 +101,26 @@ namespace Game.World
             float dt = Time.deltaTime;
             var wind = Services.TryGet<Wind>(out var w) ? w : null;
             int lamps = LampsLit;
+            // The storm: each lamp lit, it builds toward the next step, slowly, over a minute or so.
+            float stormWant = Mathf.Pow(Mathf.Clamp01(lamps / 10f), s.stormCurve);
+            storm = Mathf.MoveTowards(storm, stormWant, dt / Mathf.Max(1f, s.stormBuildTime) * 0.1f * 1.6f);
             if (wind != null)
             {
                 float a = s.direction * Mathf.Deg2Rad;
                 wind.Direction = new Vector2(Mathf.Sin(a), Mathf.Cos(a));
-                wind.Breeze = s.breeze;
-                wind.Gusts = s.gusts * (1f + s.gustsPerLamp * lamps);
-                wind.GustSpeed = s.gustSpeed;
-                wind.GustSpacing = s.gustSpacing;
+                wind.Breeze = Mathf.Lerp(s.breeze, s.stormBreeze, storm);
+                wind.Gusts = s.gusts * Mathf.Lerp(1f, s.stormGusts, storm);
+                wind.GustSpeed = Mathf.Lerp(s.gustSpeed, s.stormGustSpeed, storm);
+                wind.GustSpacing = Mathf.Lerp(s.gustSpacing, s.stormGustSpacing, storm);
+                wind.Storm = storm;
             }
 
             var cam = Camera.main;
             bool outside = !PlayerPlace.InDarkRoom;
             float mul = Services.TryGet<LookController>(out var look) ? LookController.ExposureMultiplier(look.Config.settings.exposure) : 1f;
 
-            // Rain: heavier at the 5th and 7th lamps, easing in over a while.
-            float wantRain = !outside ? 0f : lamps >= 7 ? s.rainAtSeventhLamp : lamps >= 5 ? s.rainAtFifthLamp : s.rainAtStart;
+            // Rain: with the storm (it builds as the storm does; through the lone door, none).
+            float wantRain = !outside ? 0f : Mathf.Lerp(s.rainAtStart, s.rainAtFull, storm);
             rainAmount = Mathf.MoveTowards(rainAmount, wantRain, dt / 20f);
             rain.Update(cam, rainAmount, s, wind, mul);
             // (a drizzle hardly heard, a downpour clearly; under a roof, quieter still as well as muffled)
@@ -130,7 +136,7 @@ namespace Game.World
         {
             if (outside && Time.time >= nextLightning)
             {
-                nextLightning = Time.time + Random.Range(s.minLightning, Mathf.Max(s.minLightning, s.maxLightning));
+                nextLightning = Time.time + Random.Range(s.minLightning, Mathf.Max(s.minLightning, s.maxLightning)) * Mathf.Lerp(1f, s.stormLightning, storm);
                 float d = Random.Range(s.minLightningDistance, Mathf.Max(s.minLightningDistance, s.maxLightningDistance));
                 flashLeft = Random.Range(0.25f, 0.6f);
                 float bearing = Random.Range(0f, 360f);

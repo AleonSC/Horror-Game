@@ -1054,3 +1054,22 @@ It's made once (80 s) and cut in two for the music manager:
 
 Measured: the loop's end and the intro's end match in level, and it starts on the next downbeat.
 `MusicTests` now expects 67.8 s and 12 s.
+
+## A storm that builds with every lamp
+
+There's now one storm level (`Weather.Storm`, 0 to 1). Each lamp lit, it climbs toward the next step slowly, over
+about a minute (`WeatherConfig` > The storm > `stormBuildTime`, 75 s). It goes from calm at no lamps to its
+height at all ten, slow at first and wilder toward the end (`stormCurve` 1.3). It drives:
+- **Rain:** from 0.15 at the start to 1 at the storm's height (`rainAtStart` / `rainAtFull`), easing as the storm
+  does. It no longer jumps at the 5th and 7th lamps (those settings are gone).
+- **Wind:**
+  - the steady breeze rises to `stormBreeze` (0.6);
+  - the gusts reach `stormGusts` (2.4×) as strong, roll through faster (`stormGustSpeed` 17 m/s) and come closer
+    together (`stormGustSpacing` 42 m), so the trees and grass lash about;
+  - the wind's sound rises up to 80% louder with it, and the canopy's rustle up to twice as loud. (The old 4% per
+    lamp is gone.)
+- **Leaves:**
+  - lighter gusts lift them off the ground (a push of 0.35 at the height, was 0.9 always) and up to five times as
+    often;
+  - and the falling leaves are carried further by the stronger wind (`Wind.Storm`).
+- **Lightning** comes more often, up to 3× as often at its height (`stormLightning` 0.3).

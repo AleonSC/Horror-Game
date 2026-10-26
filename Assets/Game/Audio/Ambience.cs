@@ -82,10 +82,11 @@ namespace Game.Audio
             // The wind's sound follows the gusts where you stand, gently: a bed under everything, not on top of it.
             float gust = Services.TryGet<Wind>(out var w) ? w.Strength(at.x, at.z, Time.time) : 0.3f;
             gust = Mathf.Clamp01(gust);
-            wind.volume = Mathf.Lerp(wind.volume, windVolume * (0.35f + 0.65f * gust), 1f - Mathf.Exp(-0.8f * dt));
+            float storm = w != null ? Mathf.Clamp01(w.Storm) : 0f;
+            wind.volume = Mathf.Lerp(wind.volume, Mathf.Clamp01(windVolume * (0.35f + 0.65f * gust) * (1f + 0.8f * storm)), 1f - Mathf.Exp(-0.8f * dt));
             wind.pitch = Mathf.Lerp(wind.pitch, Mathf.Lerp(0.94f, 1.05f, gust), 1f - Mathf.Exp(-0.8f * dt));
             // The canopy rustles with it, a little louder in the gusts.
-            if (leaves != null) leaves.volume = Mathf.Lerp(leaves.volume, leavesVolume * (0.4f + 0.6f * gust), 1f - Mathf.Exp(-0.6f * dt));
+            if (leaves != null) leaves.volume = Mathf.Lerp(leaves.volume, Mathf.Clamp01(leavesVolume * (0.4f + 0.6f * gust) * (1f + storm)), 1f - Mathf.Exp(-0.6f * dt));
             drone.volume = Mathf.MoveTowards(drone.volume, 0.22f, dt * 0.1f);
             tension.volume = Mathf.MoveTowards(tension.volume, tensionTarget, dt * (tensionTarget > tension.volume ? 0.4f : 0.12f));
 

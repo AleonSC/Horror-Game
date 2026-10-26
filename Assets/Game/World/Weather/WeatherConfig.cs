@@ -25,14 +25,28 @@ namespace Game.World
         public float gustSpacing = 70f;
         [Range(0f, 360f), Tooltip("Which way the wind blows (degrees).")]
         public float direction = 37f;
-        [Range(0f, 1f), Tooltip("Each lamp lit makes the gusts this much stronger (0.05 = 5%).")]
-        public float gustsPerLamp = 0.04f;
 
-        [Header("Rain (grows at the 5th and 7th lamps)")]
-        [Range(0f, 1f), Tooltip("How hard it rains from the start (0: dry until the 5th lamp).")]
-        public float rainAtStart = 0.2f;
-        [Range(0f, 1f)] public float rainAtFifthLamp = 0.55f;
-        [Range(0f, 1f)] public float rainAtSeventhLamp = 1f;
+        [Header("The storm (building a little with every lamp lit)")]
+        [Range(5f, 300f), Tooltip("Each lamp lit, the storm builds toward its next step over about this many seconds (slowly: not at once).")]
+        public float stormBuildTime = 75f;
+        [Range(0.3f, 3f), Tooltip("How the storm grows over the ten lamps: 1 evenly; above 1 slow at first, wild at the end.")]
+        public float stormCurve = 1.3f;
+        [Range(0f, 1f), Tooltip("The steady wind at the storm's height (the breeze above at the start).")]
+        public float stormBreeze = 0.6f;
+        [Range(1f, 5f), Tooltip("The gusts at the storm's height, times their strength at the start.")]
+        public float stormGusts = 2.4f;
+        [Range(0f, 40f), Tooltip("How fast the gusts roll through at the storm's height...")]
+        public float stormGustSpeed = 17f;
+        [Range(10f, 300f), Tooltip("...and how close together they come.")]
+        public float stormGustSpacing = 42f;
+        [Range(0.05f, 1f), Tooltip("Lightning at the storm's height comes this much as often apart (0.3: three times as often).")]
+        public float stormLightning = 0.3f;
+
+        [Header("Rain (with the storm)")]
+        [Range(0f, 1f), Tooltip("How hard it rains from the start (no lamps lit).")]
+        public float rainAtStart = 0.15f;
+        [Range(0f, 1f), Tooltip("How hard it rains at the storm's height (all ten lamps).")]
+        public float rainAtFull = 1f;
         [Range(0f, 1f), Tooltip("How loud the rain is at its heaviest (lighter rain much quieter than that).")]
         public float rainVolume = 0.4f;
         [Range(100, 8000), Tooltip("Drops round you at full rain.")]
