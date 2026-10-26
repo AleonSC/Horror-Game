@@ -152,6 +152,8 @@ namespace Game.Player
         {
             hand.localPosition = config.settings.handOffset;
             if (shown != Items.HeldKind || (shown == ItemKind.Drone && shownLit != Items.Held.Lit)) ShowHeld();
+            if (model != null && shown == ItemKind.Drone && shownLit)
+                model.transform.localPosition = config.settings.remoteOffset - config.settings.handOffset;
             DroneGhost();
             Burn(Time.deltaTime);
             Spray(Time.deltaTime);
@@ -311,7 +313,7 @@ namespace Game.Player
             if (kind == ItemKind.Drone && shownLit)
             {
                 model = ItemModels.Remote(hand);
-                model.transform.localPosition = new Vector3(-0.06f, -0.04f, 0.02f);
+                model.transform.localPosition = config.settings.remoteOffset - config.settings.handOffset;
                 model.transform.localRotation = Quaternion.Euler(-58f, 0f, 0f);
                 var lcd = model.AddComponent<DroneRemoteScreen>();
                 lcd.player = player;

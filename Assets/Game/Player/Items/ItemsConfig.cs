@@ -226,6 +226,8 @@ namespace Game.Player
         [Header("Hand")]
         [Tooltip("Where held things sit, from the eye (right, up, forward; metres).")]
         public Vector3 handOffset = new Vector3(0.28f, -0.26f, 0.45f);
+        [Tooltip("Where the drone's remote sits, from the eye (right, up, forward; metres). Higher and nearer the middle than other held things, so its screen is in view.")]
+        public Vector3 remoteOffset = new Vector3(0.16f, -0.15f, 0.42f);
 
         public ItemSettings Clone() => (ItemSettings)MemberwiseClone();
     }

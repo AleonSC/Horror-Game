@@ -1103,3 +1103,7 @@ it; `LockerDoor`). Inside, lying where you can see them, to take one by one:
 
 The locker's sides, back, top and bottom, and its door, each have their own collider, so with the door open you
 reach the things inside.
+
+## Drone remote raised into view
+
+The held remote sat below the bottom of the screen. It now has its own spot, `Items > Hand > remoteOffset` (default 0.16 right, -0.15 up, 0.42 forward from the eye), which is higher and nearer the middle than the other held items. It updates live, so you can nudge it while playing.
