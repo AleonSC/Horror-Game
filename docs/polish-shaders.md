@@ -1092,3 +1092,14 @@ height at all ten, slow at first and wilder toward the end (`stormCurve` 1.3). I
   teleporting.
 - `Storm.StrikeAt` puts a bolt on a chosen spot: brighter, thicker and longer than the storm's own, with its
   thunder at once.
+
+## The locker opens; what's in it is picked up
+
+The watchtower's locker is no longer searched all at once. Click it and its door swings open (click again to shut
+it; `LockerDoor`). Inside, lying where you can see them, to take one by one:
+- on its floor, **a drone**: one in every tower's locker. Take one and the drones in the other lockers are gone
+  (`Pickup.OneOfMany`);
+- on its shelf, **a can of luminescent spray** and **three batteries**.
+
+The locker's sides, back, top and bottom, and its door, each have their own collider, so with the door open you
+reach the things inside.

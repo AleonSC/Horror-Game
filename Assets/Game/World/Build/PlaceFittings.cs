@@ -36,18 +36,13 @@ namespace Game.World.Build
             if (loot != null)
                 foreach (var l in loot)
                     if (l.Place == LootPlace.BackSeat) { backSeat = MakeContainer(root, LootPlace.BackSeat); break; }
-            // The drone: at whichever of these you reach first.
-            // The drone waits on the deck of whichever watchtower you come to first.
             if (kind == StructureKind.Watchtower)
             {
-                // (in its locker, if it has one; or at a spot named "Drone"; or by the map)
-                var locker = Find(root, "Locker");
-                var inLocker = locker != null ? locker.GetComponent<Container>() : null;
+                // A tower with a locker has its drone lying in it already (put there with the locker: take one
+                // and the others go). Without one, the one drone waits at whichever tower you come to first, at
+                // a spot named "Drone", or by the map.
                 var drone = Find(root, "Drone");
-                // A drone in every tower's locker (take one and the others go); without a locker, the one drone
-                // waits at whichever tower you come to first.
-                if (inLocker != null) inLocker.Put(ItemKind.Drone, 1);
-                else DroneSpot.Add(root, drone != null ? root.InverseTransformPoint(drone.position) : root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
+                if (Find(root, "Locker") == null) DroneSpot.Add(root, drone != null ? root.InverseTransformPoint(drone.position) : root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
             }
             if (loot == null || loot.Count == 0) return;
 

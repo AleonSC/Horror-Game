@@ -453,8 +453,8 @@ namespace Game.World.Build
         }
 
         // A steel locker in the north-west corner: louvred door with a handle, a name card slot, on short feet.
-        // Search it and its door swings open. The drone waits in it (in whichever tower you come to first); a can
-        // of luminescent spray in every one.
+        // Click it and its door swings open (or shut). Inside, to take one by one: a drone on its floor (in every
+        // tower's: take one and the others' are gone), and on its shelf a can of luminescent spray and batteries.
         void Locker(Transform t)
         {
             const float w = 0.55f, d = 0.5f, h = 1.85f;
@@ -486,14 +486,32 @@ namespace Game.World.Build
             }
             Box(door, new Vector3(w - 0.06f, h * 0.52f, 0.02f), new Vector3(0.02f, 0.12f, 0.02f), metal, false);
             Box(door, new Vector3(w * 0.5f, h - 0.4f, 0.013f), new Vector3(0.1f, 0.05f, 0.004f), brass, false);
-            // What you bump into, and the search (it is the locker).
-            var solid = root.gameObject.AddComponent<BoxCollider>();
-            solid.center = new Vector3(0f, h * 0.5f + 0.05f, 0f);
-            solid.size = new Vector3(w, h, d);
-            var box = root.gameObject.AddComponent<Container>();
-            box.label = "Search the locker";
-            box.door = door;
-            box.Put(Game.Player.ItemKind.Spray, 1);
+            // What you bump into: its sides, back, top and bottom, and the door (it swings away), so the inside is
+            // open to reach into once the door is.
+            void Wall(Vector3 c, Vector3 size)
+            {
+                var col = new GameObject("Locker wall") { layer = Layers.Props };
+                col.transform.SetParent(root, false);
+                col.transform.localPosition = c;
+                col.AddComponent<BoxCollider>().size = size;
+            }
+            Wall(new Vector3(-w * 0.5f + 0.01f, h * 0.5f + 0.05f, 0f), new Vector3(0.02f, h, d));
+            Wall(new Vector3(w * 0.5f - 0.01f, h * 0.5f + 0.05f, 0f), new Vector3(0.02f, h, d));
+            Wall(new Vector3(0f, h * 0.5f + 0.05f, -d * 0.5f + 0.01f), new Vector3(w, h, 0.02f));
+            Wall(new Vector3(0f, h + 0.04f, 0f), new Vector3(w, 0.02f, d));
+            Wall(new Vector3(0f, 0.06f, 0f), new Vector3(w, 0.02f, d));
+            var doorCol = new GameObject("Locker door (solid)") { layer = Layers.Props };
+            doorCol.transform.SetParent(door, false);
+            doorCol.transform.localPosition = new Vector3(w * 0.5f, h * 0.5f, 0.005f);
+            doorCol.AddComponent<BoxCollider>().size = new Vector3(w, h, 0.02f);
+            var locker = root.gameObject.AddComponent<LockerDoor>();
+            locker.door = door;
+            // Inside: the drone on the floor, the spray and batteries on the shelf.
+            float yaw = root.eulerAngles.y;
+            var drone = Pickup.Create(Game.Player.ItemKind.Drone, 1, root.TransformPoint(new Vector3(0f, 0.08f, 0.02f)), yaw + 20f, root);
+            Pickup.OneOfMany(drone);
+            Pickup.Create(Game.Player.ItemKind.Spray, 1, root.TransformPoint(new Vector3(-0.12f, 1.46f, 0.04f)), yaw, root);
+            Pickup.Create(Game.Player.ItemKind.Batteries, 3, root.TransformPoint(new Vector3(0.12f, 1.46f, 0.04f)), yaw + 35f, root);
         }
 
         // A CB radio set: a steel case, a glowing dial, knobs, a meter, a speaker grille; its handset on a coiled

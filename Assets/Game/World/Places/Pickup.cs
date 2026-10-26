@@ -103,6 +103,15 @@ namespace Game.World
             if (outline != null) Game.Rendering.RuntimeMaterials.SetGlow(outline, haloColor * (outlineStrength * pulse));
         }
 
+        // Ones of which you get just one (the drones in the watchtowers' lockers): take one and the rest go.
+        static readonly System.Collections.Generic.List<Pickup> oneOfMany = new System.Collections.Generic.List<Pickup>();
+
+        /// <summary>Mark it one of a set: when any of them is taken, the others are gone.</summary>
+        public static void OneOfMany(Pickup p)
+        {
+            if (p != null && !oneOfMany.Contains(p)) oneOfMany.Add(p);
+        }
+
         public void Interact()
         {
             if (!Services.TryGet<PlayerController>(out var player) || player.Hotbar == null) return;
@@ -112,7 +121,14 @@ namespace Game.World
                 Destroy(gameObject);
                 return;
             }
-            if (player.Hotbar.Give(kind, count, charge)) Destroy(gameObject);
+            if (!player.Hotbar.Give(kind, count, charge)) return;
+            if (oneOfMany.Contains(this))
+            {
+                foreach (var other in oneOfMany)
+                    if (other != null && other != this && other.kind == kind) Destroy(other.gameObject);
+                oneOfMany.RemoveAll(p => p == null || p == this || p.kind == kind);
+            }
+            Destroy(gameObject);
         }
     }
 }
