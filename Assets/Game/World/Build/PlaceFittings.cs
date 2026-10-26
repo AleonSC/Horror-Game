@@ -44,8 +44,10 @@ namespace Game.World.Build
                 var locker = Find(root, "Locker");
                 var inLocker = locker != null ? locker.GetComponent<Container>() : null;
                 var drone = Find(root, "Drone");
-                Vector3 at = inLocker != null ? root.InverseTransformPoint(locker.position) : drone != null ? root.InverseTransformPoint(drone.position) : root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f);
-                DroneSpot.Add(root, at, inLocker);
+                // A drone in every tower's locker (take one and the others go); without a locker, the one drone
+                // waits at whichever tower you come to first.
+                if (inLocker != null) inLocker.Put(ItemKind.Drone, 1);
+                else DroneSpot.Add(root, drone != null ? root.InverseTransformPoint(drone.position) : root.InverseTransformPoint(Spot(root, "Deck", DeckSpot)) + new Vector3(-1.6f, 0.01f, -0.6f));
             }
             if (loot == null || loot.Count == 0) return;
 

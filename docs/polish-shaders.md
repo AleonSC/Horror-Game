@@ -968,3 +968,12 @@ face. The face and its capping slab fill it from above, and the corridor and roo
   out doesn't change the rest of the tree (`ForestMeshes.AddRoots` takes the same random turns either way). Which
   trees get them is picked from where they stand, so it's the same every time.
 - **Your own tree art** isn't touched. The breakable dead tree has no roots.
+
+## Fallen trees don't bounce light; a drone in every locker
+
+- **No bounce:** the flashlight's bounce light already skipped standing trees (by their layer). A felled tree's
+  logs and stump are props, though, so they bounced it back. Now they don't, and nor do the logs lying in the
+  forest: anything marked `NoLightBounce` (a new Core component, on them and their children) is skipped.
+- **Drones:** every watchtower's locker now holds a drone. Take one from any locker and the drones in all the
+  others are gone (`Container` keeps a list of lockers with a drone). A prefab of your own with no locker still
+  gets the one drone at whichever tower you come to first (`DroneSpot`).

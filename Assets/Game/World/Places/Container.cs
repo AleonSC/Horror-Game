@@ -23,7 +23,24 @@ namespace Game.World
         public bool CanInteract => contents.Count > 0;
         public Vector3 FocusPoint => transform.position;
 
-        public void Put(ItemKind kind, int count) => contents.Add((kind, count));
+        // The lockers with a drone in them: take one and the rest are emptied of theirs (there's only the one).
+        static readonly List<Container> holdingDrone = new List<Container>();
+
+        public void Put(ItemKind kind, int count)
+        {
+            contents.Add((kind, count));
+            if (kind == ItemKind.Drone && !holdingDrone.Contains(this)) holdingDrone.Add(this);
+        }
+
+        void OnDestroy() => holdingDrone.Remove(this);
+
+        // A drone taken from here: it's gone from every other.
+        void DroneTaken()
+        {
+            foreach (var other in holdingDrone)
+                if (other != null && other != this) other.contents.RemoveAll(c => c.kind == ItemKind.Drone);
+            holdingDrone.Clear();
+        }
 
         /// <summary>Make one: a small box to aim at, at this spot (nothing to see: it's part of what it's on).</summary>
         public static Container Create(string label, Vector3 localPosition, Vector3 size, Transform parent)
@@ -53,6 +70,7 @@ namespace Game.World
                 var (kind, count) = contents[i];
                 if (!player.Hotbar.Give(kind, count)) return; // (no room: the rest stays)
                 contents.RemoveAt(i--);
+                if (kind == ItemKind.Drone) DroneTaken();
             }
             if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(Sound.DoorShut, transform.position, MixerNames.World, 0.3f, 1.6f, 8f);
         }

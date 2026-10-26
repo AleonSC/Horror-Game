@@ -77,6 +77,7 @@ namespace Game.World.Build
             {
                 // (Art whose meshes can't be read: it goes over whole, as it is.)
                 root = new GameObject("Falling tree") { layer = Layers.Trees }.transform;
+                root.gameObject.AddComponent<NoLightBounce>();
                 root.position = at;
                 foreach (var pair in whole) Show(root, pair.Key, pair.Value.m, pair.Value.mats, pair.Value.name, Vector3.zero);
             }
@@ -233,6 +234,7 @@ namespace Game.World.Build
             var stumpMesh = pieces[0].ToMesh("Stump", Vector3.zero, out var stumpMats);
             stumpGo.AddComponent<MeshFilter>().sharedMesh = stumpMesh;
             stumpGo.AddComponent<MeshRenderer>().sharedMaterials = stumpMats;
+            stumpGo.AddComponent<NoLightBounce>();
             var stumpCol = stumpGo.AddComponent<CapsuleCollider>();
             stumpCol.radius = Mathf.Max(0.1f, radii[0]);
             stumpCol.height = Mathf.Max(stump, stumpCol.radius * 2f + 0.01f);
@@ -242,6 +244,7 @@ namespace Game.World.Build
 
             // The logs, under a root on top of the stump.
             var root = new GameObject("Falling tree") { layer = Layers.Trees }.transform;
+            root.gameObject.AddComponent<NoLightBounce>(); // (its logs, once they've come apart, are props: still wood)
             Vector3 pivot = centres[0];
             root.position = at + pivot;
             segments = new List<TreeFall.Segment>();

@@ -213,8 +213,9 @@ namespace Game.Player
         void UpdateBounce(FlashlightSettings s)
         {
             float target = 0f;
-            // (Trees don't bounce any back: only the ground and things nearby do.)
-            if (IsOn && s.bounceStrength > 0f && Probe(s.bounceDistance, out var hit) && hit.collider.gameObject.layer != Layers.Trees)
+            // (Trees don't bounce any back, nor logs and stumps: only the ground and things nearby do.)
+            if (IsOn && s.bounceStrength > 0f && Probe(s.bounceDistance, out var hit) && hit.collider.gameObject.layer != Layers.Trees
+                && hit.collider.GetComponentInParent<NoLightBounce>() == null)
             {
                 float fade = 1f - Mathf.SmoothStep(0f, 1f, hit.distance / Mathf.Max(s.bounceDistance, 0.1f));
                 target = beam.intensity * s.bounceStrength * 0.25f * fade; // (brighter, as it sits further off)
