@@ -1174,3 +1174,16 @@ The held remote sat below the bottom of the screen. It now has its own spot, `It
   - A bright flash shows where it parted.
   - Nine loose links are flung out and tumble down after the giant, spinning.
   - The broken stub on the giant's collar shows from the moment it snaps.
+
+## Watchtower floodlight lever; real light from the lamps
+
+- **The lever:**
+  - The red button is gone. There's now a knife-switch lever on the switch box by the door (steel arm, black grip) that you click to flip. Down is on, up is off, and it swings over.
+  - The floodlights run on a charge: 60 s of light (`onTime`), which drains while on and refills while off (`rechargeTime` 120 s from empty).
+  - They need 25% charge to switch on (`minCharge`). When the charge runs out they flicker for the last 4 s, die, and the lever kicks back up.
+  - A small lamp on the box glows green when there's enough charge and pulses amber while it refills.
+  - Switching on still drives off the giant and the flier and makes the tower safe. To stop the lever being spammed, hunts reset at most once every 20 s.
+- **Light:**
+  - Each lamp face now has a bright glare you can see from the forest.
+  - Brightness is 700 cd (was 150) with an 80 m reach.
+  - The fog they light (`fogGlow` 0.035) and the soft beam shafts (`beamGlow` 0.06) are turned down, so the lit ground stays clear when you look in from outside the beam rather than being hidden behind haze.
