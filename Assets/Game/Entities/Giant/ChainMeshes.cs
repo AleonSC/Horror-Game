@@ -23,6 +23,11 @@ namespace Game.Entities
         /// <summary>Eight links running up +Y from the origin, each turned a quarter from the last.</summary>
         public static Mesh Run => run != null ? run : run = Links(LinksPerRun, "Chain links");
 
+        static Mesh link;
+
+        /// <summary>One link on its own (the ones flung loose as the chain snaps).</summary>
+        public static Mesh Link => link != null ? link : link = Links(1, "Chain link");
+
         /// <summary>A few links, as broken off (hanging from the giant's collar after it falls).</summary>
         public static Mesh Stub => stub != null ? stub : stub = Links(3, "Broken chain");
 

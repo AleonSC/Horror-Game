@@ -40,6 +40,14 @@ namespace Game.Entities
         float landedAt = -1f;
         Vector2 look, lookTo;
         float glanceIn;
+        // The chain snapping: how long since (-1: not), where it broke and where its top is (from the player), and
+        // the links flung loose.
+        float snapT = -1f, snapLength;
+        Vector3 snapBreak, snapTop, snapAxis;
+        readonly List<Transform> looseLinks = new List<Transform>();
+        readonly List<Vector3> looseAt = new List<Vector3>(), looseVel = new List<Vector3>(), looseSpin = new List<Vector3>();
+        MeshRenderer snapFlash;
+        MaterialPropertyBlock looseBlock;
         Light[] searchlights;
         Renderer[] shafts;
         Vector3 searchAim;
@@ -175,6 +183,7 @@ namespace Game.Entities
             swing = swingSpeed = 0f;
             shockRadius = -1f;
             landedAt = -1f;
+            EndSnap();
             chain.gameObject.SetActive(true);
             eye.gameObject.SetActive(false);
             SetSearchlights(false);
@@ -239,7 +248,12 @@ namespace Game.Entities
             // Its eye open in the sky: the far distance comes pin sharp (no softening it away), clearing over a
             // couple of seconds as it opens, and back to the player's own blur after.
             if (Services.TryGet<LookController>(out var sharpen))
-                sharpen.FarSharp = Mathf.MoveTowards(sharpen.FarSharp, State == GiantState.Staring ? 1f : 0f, dt / 2f);
+            {
+                // The far blur holds while it stares, and lifts the moment the chain snaps (quickly, so you see it
+                // fall and land); once it's up and walking it comes back, slowly.
+                bool clear = State == GiantState.Falling || State == GiantState.Landed;
+                sharpen.FarSharp = Mathf.MoveTowards(sharpen.FarSharp, clear ? 1f : 0f, dt / (clear ? 0.4f : 4f));
+            }
             Vector3 p = PlayerFeet;
 
             // Swinging on the chain (jolts), damped.
@@ -337,10 +351,8 @@ namespace Game.Entities
                 eyeDone = true;
                 player.Dream = 0f;
                 SetWorldRed(0f);
-                // The chain snaps like thunder, and it falls.
-                chain.gameObject.SetActive(false);
-                if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Thunder, MixerNames.Outside, 1f, 0.8f);
-                player.AddShake(1.5f);
+                // The chain snaps, and it falls.
+                StartSnap();
                 State = GiantState.Falling;
                 timer = 0f;
             }
@@ -359,6 +371,122 @@ namespace Game.Entities
             if (!Services.TryGet<LookController>(out var look)) return;
             look.FogTint = s.redFog;
             look.FogTintAmount = amount;
+        }
+
+        // ------------------------------------------------------------------ the chain snapping
+
+        float snapThickness = 1f;
+        const float SnapTime = 4f;
+
+        // A crack like a gunshot the size of the sky, a flash where it parts; the chain whips back up, lashing
+        // from side to side, and is hauled away up into the dark; a handful of links flung loose come tumbling
+        // down after the giant, spinning.
+        void StartSnap()
+        {
+            Vector3 p = PlayerFeet;
+            Vector3 neck = body.ChainAnchor != null ? body.ChainAnchor.position : bodyRoot.TransformPoint(body.NeckLocal);
+            Vector3 top = ChainTop(p, neck, Vector3.Distance(p, neck) * 1.5f);
+            snapBreak = neck + Vector3.up * snapThickness * 1.2f - p;
+            snapTop = top - p;
+            snapLength = Mathf.Max(1f, (top - neck).magnitude);
+            Vector3 toward = Flat(neck - p);
+            snapAxis = Vector3.Cross(Vector3.up, toward.sqrMagnitude > 0.01f ? toward.normalized : Vector3.forward);
+            snapT = 0f;
+
+            if (Services.TryGet<SoundPlayer>(out var sounds))
+            {
+                sounds.Play2D(Sound.ChainSnap, MixerNames.Outside, 1f, Random.Range(0.95f, 1.02f));
+                sounds.Play2D(Sound.Thunder, MixerNames.Outside, 0.7f, 0.7f);
+            }
+            player.AddShake(3f);
+            player.AddRumble(0.6f, 1.5f);
+
+            // The flash where it parts.
+            if (snapFlash == null)
+            {
+                snapFlash = Effects.Glow(transform, Vector3.zero, 1f, Color.black, 0f, 2f, "Chain snap flash");
+            }
+            if (snapFlash != null)
+            {
+                snapFlash.gameObject.SetActive(true);
+                snapFlash.transform.position = p + snapBreak;
+                snapFlash.transform.localScale = Vector3.one * snapThickness * 40f;
+            }
+
+            // The loose links.
+            for (int i = 0; i < 9; i++)
+            {
+                Transform l;
+                if (i < looseLinks.Count) l = looseLinks[i];
+                else
+                {
+                    l = ChainPart(transform, "Loose link", ChainMeshes.Link);
+                    looseLinks.Add(l);
+                    looseAt.Add(Vector3.zero); looseVel.Add(Vector3.zero); looseSpin.Add(Vector3.zero);
+                }
+                l.gameObject.SetActive(true);
+                looseBlock ??= new MaterialPropertyBlock();
+                looseBlock.SetFloat(FadeStartId, 1e5f); // (no fading into the sky for these: they're falling)
+                looseBlock.SetFloat(FadeEndId, 2e5f);
+                l.GetComponent<MeshRenderer>().SetPropertyBlock(looseBlock);
+                l.localScale = Vector3.one * snapThickness * 1.6f;
+                l.rotation = Random.rotation;
+                looseAt[i] = snapBreak + Random.insideUnitSphere * snapThickness * 2f;
+                Vector3 fling = Random.insideUnitSphere;
+                fling.y = Mathf.Abs(fling.y) * 0.8f + 0.2f;
+                looseVel[i] = fling * snapThickness * Random.Range(6f, 16f);
+                looseSpin[i] = Random.insideUnitSphere * Random.Range(180f, 720f);
+            }
+        }
+
+        void UpdateSnap(Vector3 p)
+        {
+            float dt = Time.deltaTime;
+            snapT += dt;
+            float t = snapT;
+            // Recoiling up, fast and then slower, and hauled on up out of sight.
+            float rise = snapLength * (0.28f * (1f - Mathf.Exp(-4f * t)) + 0.11f * t * t);
+            Vector3 top = p + snapTop;
+            Vector3 bottom = p + snapBreak + Vector3.up * rise;
+            if (rise >= snapLength * 0.97f || t >= SnapTime)
+            {
+                EndSnap();
+                return;
+            }
+            PlaceChain(chain, bottom, top, snapThickness);
+            // Lashing from side to side as it goes, dying away (and a little toward and away from you).
+            float lash = 22f * Mathf.Exp(-1.1f * t) * Mathf.Sin(7f * t + 0.4f);
+            float sway = 9f * Mathf.Exp(-0.9f * t) * Mathf.Sin(4.3f * t + 1.1f);
+            chain.RotateAround(top, Vector3.Cross(snapAxis, Vector3.up), lash);
+            chain.RotateAround(top, snapAxis, sway);
+
+            if (snapFlash != null && snapFlash.gameObject.activeSelf)
+            {
+                float f = Mathf.Clamp01(1f - t / 0.5f);
+                Effects.SetGlow(snapFlash, new Color(1f, 0.75f, 0.45f) * 40f * f * f);
+                if (f <= 0f) snapFlash.gameObject.SetActive(false);
+            }
+
+            // The loose links falling (about as fast as the giant falls, at the scale it's drawn), tumbling.
+            float g = snapThickness * 9f;
+            for (int i = 0; i < looseLinks.Count; i++)
+            {
+                var l = looseLinks[i];
+                if (!l.gameObject.activeSelf) continue;
+                looseVel[i] += Vector3.down * g * dt;
+                looseAt[i] += looseVel[i] * dt;
+                l.position = p + looseAt[i];
+                l.Rotate(looseSpin[i] * dt, Space.Self);
+                if (l.position.y < p.y - 5f) l.gameObject.SetActive(false);
+            }
+        }
+
+        void EndSnap()
+        {
+            snapT = -1f;
+            if (chain != null && State != GiantState.Hanging && State != GiantState.Staring) chain.gameObject.SetActive(false);
+            if (snapFlash != null) snapFlash.gameObject.SetActive(false);
+            foreach (var l in looseLinks) if (l != null) l.gameObject.SetActive(false);
         }
 
         // ------------------------------------------------------------------ falling, landing, walking
@@ -528,12 +656,14 @@ namespace Game.Entities
                 DrawDust(p, fog, mul);
             }
 
-            if (chain.gameObject.activeSelf)
+            if (snapT >= 0f) UpdateSnap(p);
+            else if (chain.gameObject.activeSelf)
             {
                 Vector3 neck = body.ChainAnchor != null ? body.ChainAnchor.position : bodyRoot.TransformPoint(body.NeckLocal);
                 PlaceChain(chain, neck, ChainTop(p, neck, r * 1.5f), s.height * k * 0.008f);
+                snapThickness = s.height * k * 0.008f;
             }
-            body.ShowBrokenChain(!chain.gameObject.activeSelf);
+            body.ShowBrokenChain(State != GiantState.Hanging && State != GiantState.Staring);
             for (int i = 0; i < emptyChains.Count; i++)
             {
                 Vector3 baseDir = Bearing(emptyBearings[i]);
@@ -741,7 +871,7 @@ namespace Game.Entities
                 SetWorldRed(0f);
                 return;
             }
-            chain.gameObject.SetActive(State == GiantState.Hanging || State == GiantState.Staring);
+            chain.gameObject.SetActive(State == GiantState.Hanging || State == GiantState.Staring || snapT >= 0f);
             eye.gameObject.SetActive(State == GiantState.Staring);
             if (searchlights != null) foreach (var l in searchlights) l.enabled = searching;
         }

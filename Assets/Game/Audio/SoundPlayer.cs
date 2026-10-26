@@ -160,6 +160,7 @@ namespace Game.Audio
             Add(Sound.TvStatic, SoundSynth.TvStatic(68));
             Add(Sound.SprayHiss, SoundSynth.SprayHiss(69));
             Add(Sound.GiantGroan, SoundSynth.GiantGroan(70));
+            Add(Sound.ChainSnap, SoundSynth.ChainSnap(71));
         }
 
         void Add(Sound sound, float[] samples)

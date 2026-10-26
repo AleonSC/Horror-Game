@@ -72,8 +72,8 @@ namespace Game.Entities
         [Range(1, 10)] public int eyeAtLamp = 5;
         [Range(10f, 89f), Tooltip("Degrees above the horizon.")]
         public float eyeElevation = 68f;
-        [Range(1f, 200f), Tooltip("The width of its opening, as an angle across (degrees). The swirl of cloud round it spreads nearly three times as wide.")]
-        public float eyeSize = 15f;
+        [Range(1f, 34f), Tooltip("The width of its opening, as an angle across (degrees). The swirl of cloud round it spreads nearly three times as wide. (Past about 34 the swirl's corners reach the camera's far clip and are cut off.)")]
+        public float eyeSize = 28f;
         [Range(0.1f, 20f)] public float eyeOpenTime = 4f;
         [Range(0.1f, 60f)] public float eyeStareTime = 11f;
         [Range(0.1f, 20f)] public float eyeCloseTime = 3f;

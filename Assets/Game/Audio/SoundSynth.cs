@@ -1489,6 +1489,64 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// The giant's chain snapping, miles off (about 6 s with its echo): a crack like a shot the size of the sky; the deep, clanging
+        /// ring of the parted links, out of tune with each other; the whip of it lashing back up; and links clattering
+        /// against each other, quick at first, slowing, dying away; all of it rolling off the hills.
+        /// </summary>
+        public static float[] ChainSnap(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(3.8f);
+            float hp = 0f, prevN = 0f, whipL = 0f, whipB = 0f, lowL = 0f;
+            // The ring of the great links: heavy, inharmonic (a struck bar), each partial decaying at its own rate.
+            float[] freq = { 96f, 263f, 517f, 853f, 1279f, 1781f };
+            float[] decay = { 1.1f, 1.5f, 2.2f, 3.2f, 4.5f, 6f };
+            float[] amp = { 0.55f, 0.5f, 0.42f, 0.3f, 0.22f, 0.14f };
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                // The crack: a hard broadband burst, its highs first.
+                hp = 0.9f * (hp + n - prevN); prevN = n;
+                float crack = (hp * 0.8f + n * 0.5f) * (float)Math.Exp(-t * 55f) * 1.6f;
+                // The thump under it.
+                lowL += (n - lowL) * 0.01f;
+                float thump = (float)Math.Sin(2 * Math.PI * 48f * t) * (float)Math.Exp(-t * 6f) * 0.6f + lowL * (float)Math.Exp(-t * 4f) * 3f;
+                // The ring.
+                float ring = 0f;
+                for (int k = 0; k < freq.Length; k++)
+                    ring += amp[k] * (float)Math.Sin(2 * Math.PI * freq[k] * t * (1f + 0.002f * k)) * (float)Math.Exp(-t * decay[k]);
+                ring *= Math.Min(1f, t / 0.004f);
+                // The whip: a rush of air sweeping up in pitch as it lashes back, then gone.
+                float wt = t - 0.08f;
+                float whip = 0f;
+                if (wt > 0f && wt < 1.2f)
+                {
+                    Band(n, 300f + 2200f * wt, 0.6f, ref whipL, ref whipB);
+                    whip = whipB * (float)Math.Sin(Math.PI * wt / 1.2f) * 0.5f;
+                }
+                s[i] = crack + thump + ring * 0.6f + whip;
+            }
+            // Loose links clattering: quick clinks at first, further apart, quieter, and then nothing.
+            float at = 0.15f, gap = 0.05f, loud = 0.5f;
+            while (at < 3.6f && loud > 0.03f)
+            {
+                int start = (int)(at * SampleRate);
+                float f = 700f + (float)rng.NextDouble() * 900f;
+                for (int j = 0; j < SampleRate * 0.25f && start + j < s.Length; j++)
+                {
+                    float tt = j / (float)SampleRate;
+                    float e = (float)Math.Exp(-tt * 22f);
+                    s[start + j] += loud * e * ((float)Math.Sin(2 * Math.PI * f * tt) + 0.6f * (float)Math.Sin(2 * Math.PI * f * 2.76f * tt) + 0.3f * Noise(rng) * (float)Math.Exp(-tt * 200f));
+                }
+                at += gap * (0.6f + 0.8f * (float)rng.NextDouble());
+                gap *= 1.18f;
+                loud *= 0.86f;
+            }
+            return Normalize(Reverb(s, 3.5f, 0.55f, 0.55f), 0.95f);
+        }
+
+        /// <summary>
         /// The giant, far off (about 11 s): a vast, slow groan, a throat the size of a hill. A low voice with a
         /// rough edge to it, sinking in pitch, its vowel slowly changing (two formants sliding), shuddering as it
         /// goes, a sub rumble under it you feel more than hear; heard across miles of forest, so dark and long in

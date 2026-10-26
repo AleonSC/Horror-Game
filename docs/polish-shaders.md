@@ -1159,3 +1159,18 @@ The held remote sat below the bottom of the screen. It now has its own spot, `It
   - Rebuilt. A call is now a series of 2–4 harsh caws, a little under half a second apart, the last one longer and lower.
   - Each caw is a rough, strained voice: sharp pulses wavering in timing and strength, every other pulse weaker for the rattle, and breath through it. Its pitch jumps up at the start then sags (about 480 Hz). It's shaped by broad throat resonances around 1.3, 2.4 and 3.6 kHz, with a little forest echo.
   - Playback pitch raised to 0.85–0.97 (was about 0.7), so they sound like crows rather than something slowed down.
+
+## Blur until the drop, bigger eye, the chain snapping
+
+- **Background blur:**
+  - It now stays on while the eye stares.
+  - It lifts in about 0.4 s the moment the chain snaps, so the fall and landing are sharp.
+  - Once the giant is up and walking, it comes back over about 4 s.
+- **Eye size:** `eyeSize` is now 28° (was 15). The slider stops at 34°, because past that the swirl's corners reach the camera's far clip and get cut off.
+- **Chain snap:**
+  - There's a new sound, `ChainSnap`: a huge crack, a thump, the deep clanging ring of the parted links, a rush of air as the chain whips back, and loose links clattering, then echoing off the hills.
+  - The camera jolts and the ground rumbles.
+  - The broken chain whips back up, lashing side to side as the motion dies away, and is hauled up into the dark over about 3 s. Its fade into the sky goes with it.
+  - A bright flash shows where it parted.
+  - Nine loose links are flung out and tumble down after the giant, spinning.
+  - The broken stub on the giant's collar shows from the moment it snaps.
