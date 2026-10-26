@@ -60,7 +60,7 @@ namespace Game.World
         [Range(0f, 1f), Tooltip("Share of strikes that show a bolt down through the sky (the rest flicker in the cloud).")]
         public float boltChance = 0.75f;
         [Range(0f, 200f), Tooltip("How bright the bolt itself is (the fog dims it with distance).")]
-        public float boltBrightness = 30f;
+        public float boltBrightness = 12f;
         [Range(2f, 120f), Tooltip("A flash every this many seconds (shortest)...")]
         public float minLightning = 15f;
         [Range(2f, 200f), Tooltip("...and longest.")]

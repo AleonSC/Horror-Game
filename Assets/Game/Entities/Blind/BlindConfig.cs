@@ -107,7 +107,7 @@ namespace Game.Entities
         [Range(0f, 1f), Tooltip("How much a strike lights the fog: high and the whole view flashes red.")]
         public float lightningFogGlow = 0.2f;
         [Range(0f, 60f), Tooltip("How brightly the bolt itself glows.")]
-        public float boltGlow = 8f;
+        public float boltGlow = 2.5f;
 
         public BlindSettings Clone() => (BlindSettings)MemberwiseClone();
     }

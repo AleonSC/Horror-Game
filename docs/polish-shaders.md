@@ -1113,3 +1113,10 @@ The held remote sat below the bottom of the screen. It now has its own spot, `It
 - When you press F to leave the drone, it now hovers where you left it, bobbing slightly. Its motors keep running, so the blind one can still hear it, and its red beacon keeps blinking. It uses battery at `droneHoverDrain` (0.35) of the flying rate, and it falls if the battery dies. To pick it up you need to land it, or be able to reach it. If you've walked out of signal range, F says "No signal" until you get closer.
 - The drone's picture always has a little static (`droneStatic`, 0.12) plus short random bursts. The static still gets heavier as the signal fades.
 - `droneRange` is now 260 m, up from 140, and the slider goes to 600.
+
+## Strike scorch and softer lightning bloom
+
+- The blind one used to leave a round red ball of glow where it struck. Now it leaves glowing burn lines on the ground (StrikeScorch.cs). Six to eight lines branch and fork outward 2–3.6 m from the spot, following the terrain. They glow red-hot and flicker, with a dim red light just above the ground, and they cool and disappear over 4 s.
+- Lightning bloom reduced:
+  - The blind one's red bolt: `boltGlow` is now 2.5 (was 8). A strike on the blind one is only 1.36× brighter, where it used to be 2.2×. The bolt is never wider than 0.45 m.
+  - Weather lightning: `boltBrightness` is now 12 (was 30).

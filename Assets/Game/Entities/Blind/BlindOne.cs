@@ -304,8 +304,7 @@ namespace Game.Entities
         float perchLeft = -1f, goneFor;
         Vector3 comeTo;
         bool struckOut, struckIn;
-        MeshRenderer afterglow;
-        float afterglowLeft;
+        StrikeScorch scorch;
 
         // Standing where it came in, still, head cocked, listening (it hears you as ever: and runs at you), and in
         // a while it goes.
@@ -427,31 +426,11 @@ namespace Game.Entities
             return RoamPoint();
         }
 
-        // A red glow left on the ground where a bolt struck, fading over a few seconds.
+        // Burn lines left glowing on the ground where a bolt struck, cooling over a few seconds.
         void Afterglow(Vector3 at)
         {
-            if (afterglow == null)
-            {
-                afterglow = Effects.Glow(null, Vector3.zero, 4f, Color.black, 0.3f, 2.5f, "Strike afterglow");
-                if (afterglow == null) return;
-                afterglow.transform.SetParent(transform.parent, true);
-                afterglowFade = StartCoroutine(FadeAfterglow());
-            }
-            afterglow.transform.position = at + Vector3.up * 0.6f;
-            afterglowLeft = 3.5f;
-        }
-
-        Coroutine afterglowFade;
-
-        System.Collections.IEnumerator FadeAfterglow()
-        {
-            while (afterglow != null)
-            {
-                afterglowLeft = Mathf.Max(0f, afterglowLeft - Time.deltaTime);
-                float k = afterglowLeft / 3.5f;
-                Effects.SetGlow(afterglow, s.lightningColor * 3f * k * k);
-                yield return null;
-            }
+            if (scorch != null) Destroy(scorch.gameObject);
+            scorch = StrikeScorch.Burn(at, s.lightningColor, 4f, transform.parent);
         }
 
         // Where you were trailBehind seconds ago (or, with no trail yet, round where you are).

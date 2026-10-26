@@ -48,7 +48,7 @@ namespace Game.Entities
             var boltGo = new GameObject("Lightning");
             boltGo.transform.SetParent(transform, false);
             bolt = boltGo.AddComponent<LineRenderer>();
-            boltMat = RuntimeMaterials.Glow("Red lightning", new Color(1f, 0.1f, 0.05f) * 40f);
+            boltMat = RuntimeMaterials.Glow("Red lightning", Color.black);
             bolt.sharedMaterial = boltMat;
             bolt.useWorldSpace = true;
             bolt.widthMultiplier = 0.35f;
@@ -92,7 +92,7 @@ namespace Game.Entities
                 flashLeft -= dt;
                 float f = Mathf.Clamp01(flashLeft / 0.25f) * (0.6f + 0.4f * Mathf.PerlinNoise(Time.time * 40f, 0.5f));
                 flash.intensity = s.lightningIntensity * f * (boltWidth / 0.35f);
-                bolt.widthMultiplier = boltWidth * f;
+                bolt.widthMultiplier = Mathf.Min(boltWidth, 0.45f) * f;
                 if (flashLeft <= 0f)
                 {
                     flash.enabled = false;
@@ -147,11 +147,11 @@ namespace Game.Entities
             flash.transform.position = Vector3.Lerp(top, ground, 0.7f);
             flash.color = s.lightningColor;
             flashData.volumetricDimmer = s.lightningFogGlow;
-            RuntimeMaterials.SetGlow(boltMat, s.lightningColor * s.boltGlow * strength);
+            RuntimeMaterials.SetGlow(boltMat, s.lightningColor * s.boltGlow * (1f + (strength - 1f) * 0.3f)); // (a strike on it: a bit brighter, not blinding)
             flash.range = 120f;
             flash.enabled = true;
             flashLeft = time;
-            boltWidth = 0.35f * strength;
+            boltWidth = 0.35f * strength; // (the flash light scales with this too)
             // Thunder follows at the speed of sound.
             thunderFrom = ground;
             float d = Camera.main != null ? Vector3.Distance(Camera.main.transform.position, ground) : 50f;
