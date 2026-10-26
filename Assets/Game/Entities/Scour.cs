@@ -42,7 +42,6 @@ namespace Game.Entities
         bool everAppeared;
         float nextClick = -1f;
         float clickingUntil = -1f; // (mid-run of clicks till then: it never creeps while it's clicking)
-        int creeps;                // creeps at you since it showed itself: it clicks once more at each
         int snapsLeft;
         float nextSnap;
         bool drivenOff;
@@ -153,7 +152,6 @@ namespace Game.Entities
             if (portal != null) portal.Close();
             portal = null;
             if (blinkTime >= 0f) { blinkArrive = null; blinkTime = -1f; body.SetMaterialize(1f); body.Shudder(0f); }
-            creeps = 0;
             snapsLeft = 0;
             body.SetVisible(false);
             body.ShutMouth();
@@ -406,14 +404,13 @@ namespace Game.Entities
         void Blink(System.Action arrive)
         {
             Play(Sound.Creep, 0.7f, Random.Range(0.85f, 1.15f), 25f);
-            // Where it lands, loud clicks: one the first time it creeps at you, two the second, three the third...
+            // Where it lands, one loud click.
             System.Action landed = () =>
             {
                 arrive();
-                creeps = Mathf.Min(creeps + 1, s.maxSnaps);
-                snapsLeft = creeps;
+                snapsLeft = 1;
                 nextSnap = Time.time;
-                clickingUntil = Time.time + (creeps - 1) * SnapGap + 1.2f;
+                clickingUntil = Time.time + 1.2f;
             };
             if (!s.creepBlink)
             {

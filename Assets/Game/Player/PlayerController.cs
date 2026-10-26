@@ -302,6 +302,17 @@ namespace Game.Player
             height = Mathf.MoveTowards(height, seated, Time.deltaTime * 4f);
         }
 
+        System.Func<Vector3> gazeLock;
+        float gazeLockFrom, gazeLockUntil;
+
+        /// <summary>Drag the view onto something and hold it there for this long (the mouse does nothing meanwhile).</summary>
+        public void LockGaze(System.Func<Vector3> target, float seconds)
+        {
+            gazeLock = target;
+            gazeLockFrom = Time.time;
+            gazeLockUntil = Time.time + seconds;
+        }
+
         /// <summary>Gently draw the view toward a point over a few seconds (the mouse still works).</summary>
         public void DrawGazeTo(Vector3 point, float seconds)
         {
@@ -311,6 +322,20 @@ namespace Game.Player
 
         void Look(PlayerSettings s)
         {
+            // Held by something (the blind one bursting out of the ground): eyes dragged onto it, the mouse does
+            // nothing, until it lets go.
+            if (gazeLock != null && Time.time < gazeLockUntil)
+            {
+                Vector3 to = gazeLock() - head.position;
+                float wantYaw = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
+                float wantPitch = -Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg;
+                float k = 1f - Mathf.Exp(-Mathf.Lerp(1.5f, 6f, Mathf.Clamp01((Time.time - gazeLockFrom) / 1.2f)) * Time.deltaTime);
+                yaw = Mathf.LerpAngle(yaw, wantYaw, k);
+                pitch = Mathf.Clamp(Mathf.Lerp(pitch, wantPitch, k), -85f, 85f);
+                transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+                return;
+            }
+            gazeLock = null;
             // In a seat that holds the view (a game on a TV): eyes on it, the mouse does nothing.
             if (Seat is ILockedView locked)
             {

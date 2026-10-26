@@ -35,6 +35,18 @@ namespace Game.Entities
         [Range(0.5f, 10f), Tooltip("...for this long.")]
         public float listenTime = 3f;
 
+        [Header("Following your trail")]
+        [Tooltip("Roaming, it follows the trail you've left (where you were this many seconds ago), not just wandering.")]
+        [Range(0f, 120f)] public float trailBehind = 18f;
+        [Range(0.5f, 6f), Tooltip("How fast it follows your trail (metres a second); a little quicker each lamp after it comes.")]
+        public float trailSpeed = 2.4f;
+        [Range(0f, 0.5f)] public float trailSpeedPerLamp = 0.12f;
+        [Range(5f, 120f), Tooltip("Every so often it stops dead and listens hard: between this many seconds...")]
+        public float minHardListen = 20f;
+        [Range(5f, 120f)] public float maxHardListen = 40f;
+        [Range(0f, 80f), Tooltip("...and then it hears you moving within this, even crouched.")]
+        public float hardListenReach = 30f;
+
         [Header("Hearing (x difficulty)")]
         [Range(0f, 15f), Tooltip("Within this it hears you whatever you do (except crouch).")]
         public float closeHearing = 4f;
@@ -54,9 +66,9 @@ namespace Game.Entities
 
         [Header("Keeping up")]
         [Range(30f, 300f), Tooltip("Get this far away...")]
-        public float lostDistance = 90f;
+        public float lostDistance = 70f;
         [Range(5f, 300f), Tooltip("...for this long...")]
-        public float lostTime = 60f;
+        public float lostTime = 30f;
         [Range(10f, 100f), Tooltip("...and it catches up to this far.")]
         public float catchUpTo = 35f;
 

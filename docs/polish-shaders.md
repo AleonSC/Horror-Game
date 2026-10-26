@@ -977,3 +977,30 @@ face. The face and its capping slab fill it from above, and the corridor and roo
 - **Drones:** every watchtower's locker now holds a drone. Take one from any locker and the drones in all the
   others are gone (`Container` keeps a list of lockers with a drone). A prefab of your own with no locker still
   gets the one drone at whichever tower you come to first (`DroneSpot`).
+
+## One click per creep; the blind one: detailed, locks your eyes, and a real threat
+
+- **Scours** click once, loud, each time they creep at you (the counting-up is gone; `maxSnaps` removed). They
+  still never creep while clicking.
+- **The blind one's look** (`BlindBody`), more detailed on the same joints, so it walks, listens, roars and leans
+  as before:
+  - a spine of bony knobs down its hunched back, ribs showing on each side, shoulder blades jutting, a sunken
+    belly, swollen hip bones, and tatters of skin hanging from its back and arms;
+  - knobbed vertebrae up its neck;
+  - a swollen skull with a ridge down it, a row of glowing pits on each side, and great thin ear membranes on
+    bony spines (it hunts by sound);
+  - teeth lining the split mouth;
+  - knobbed elbows and knees;
+  - hands with four long two-jointed fingers and a thumb, all clawed;
+  - and long feet up on their toes (it walks the way a dog stands), clawed.
+- **Your eyes are dragged onto it** as it breaks out of the ground (`PlayerController.LockGaze`), and held there
+  through its emergence and roar (about 10 s, the mouse doing nothing), then let go.
+- **A real threat.** Before, roaming it wandered at 1.5 m/s round wherever you'd been. Outrun it once, past its
+  hearing, and it searched the wrong spot, then dawdled, and only caught up after 60 s more than 90 m off. Now:
+  - **It follows your trail.** It remembers where you've been (a point every 2 s, the last 2 minutes) and walks
+    after you, where you were 18 s ago (`trailBehind`), at 2.4 m/s (`trailSpeed`), 12% quicker for each lamp lit
+    after it came (`trailSpeedPerLamp`).
+  - **It stops dead and listens hard** every 20–40 s (`minHardListen` / `maxHardListen`), with a deep click.
+    Anything moving within 30 m (`hardListenReach`), even crouched, and it rushes you.
+  - **It catches up sooner:** more than 70 m off (`lostDistance`, was 90) for 30 s (`lostTime`, was 60), and it's
+    35 m behind you.

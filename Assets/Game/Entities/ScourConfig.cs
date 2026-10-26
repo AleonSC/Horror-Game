@@ -121,10 +121,8 @@ namespace Game.Entities
         [Range(0f, 1f), Tooltip("With no other scours out, chance something answers from further off in the dark.")]
         public float phantomAnswerChance = 0.45f;
         [Range(0f, 1f)] public float clickVolume = 0.9f;
-        [Range(0f, 1f), Tooltip("The loud clicks as it lands where it crept to: one the first time it creeps at you, two the second, and so on.")]
+        [Range(0f, 1f), Tooltip("The one loud click as it lands where it crept to.")]
         public float snapVolume = 1f;
-        [Range(1, 12), Tooltip("Most loud clicks after a creep.")]
-        public int maxSnaps = 8;
 
         [Header("The eye left behind")]
         [Range(0f, 1f), Tooltip("Chance that one you drive off leaves an eye behind, floating after you and watching.")]

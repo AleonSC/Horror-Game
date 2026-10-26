@@ -28,6 +28,10 @@ namespace Game.Entities
         readonly Collider[] nearby = new Collider[16];
 
         Vector3 target, searchSpot;
+        // Where you've been (a point every 2 s, the last couple of minutes): it follows the trail.
+        readonly Queue<Vector3> trail = new Queue<Vector3>();
+        float nextTrail, nextHardListen = -1f;
+        bool hardListening;
         float timer, stateTime, nextListen, lostFor, deafFor, speed, roar, lean, listen;
         float lastStep;
         bool arrived;
@@ -109,6 +113,8 @@ namespace Game.Entities
             storm.transform.position = at + Vector3.up * s.stormHeight;
             body.gameObject.SetActive(true);
             SetState(BlindState.Arriving);
+            // Your eyes are dragged to where it breaks out, and held on it through its roar.
+            player.LockGaze(() => transform.position + Vector3.up * s.height * Mathf.Lerp(0.15f, 0.75f, Mathf.Clamp01((stateTime - 3.5f) / 1.2f)), 10.2f);
             if (Services.TryGet<EventBus>(out var events))
             {
                 events.Publish(new BossThemeStarted(EntityKind.Blind));
@@ -210,6 +216,12 @@ namespace Game.Entities
                 case BlindState.Taking: UpdateTaking(dt); return;
             }
 
+            if (Time.time >= nextTrail)
+            {
+                nextTrail = Time.time + 2f;
+                trail.Enqueue(player.transform.position);
+                while (trail.Count > 60) trail.Dequeue();
+            }
             CheckTake();
             KeepUp(dt);
             body.Pose(speed, s.height, listen, roar, lean, dt);
@@ -252,19 +264,45 @@ namespace Game.Entities
             }
         }
 
+        // Roaming: on your trail, where you were a little while ago, at a steady walk (quicker as the night goes on).
         void UpdateRoaming(float dt)
         {
             roar = Mathf.MoveTowards(roar, 0f, dt);
             listen = Mathf.MoveTowards(listen, 0f, dt * 2f);
-            MoveToward(target, s.roamSpeed, dt);
-            if (Flat(target - transform.position).magnitude < 2f) target = RoamPoint();
+            target = TrailPoint();
+            int lamps = Services.TryGet<GameRun>(out var run) ? Mathf.Max(0, run.LampsLit - s.arriveAtLamp) : 0;
+            MoveToward(target, s.trailSpeed * (1f + s.trailSpeedPerLamp * lamps), dt);
             nextListen -= dt;
-            if (nextListen <= 0f)
+            if (nextHardListen < 0f) nextHardListen = Time.time + Random.Range(s.minHardListen, s.maxHardListen);
+            if (Time.time >= nextHardListen)
+            {
+                // Stops dead and listens hard: anything moving within reach, it hears.
+                nextHardListen = Time.time + Random.Range(s.minHardListen, s.maxHardListen);
+                hardListening = true;
+                Play(Sound.Click, 1f, 0.3f, 60f);
+                SetState(BlindState.Listening);
+            }
+            else if (nextListen <= 0f)
             {
                 nextListen = Random.Range(s.minListenEvery, s.maxListenEvery);
+                hardListening = false;
                 SetState(BlindState.Listening);
             }
             HearClose();
+        }
+
+        // Where you were trailBehind seconds ago (or, with no trail yet, round where you are).
+        Vector3 TrailPoint()
+        {
+            int back = Mathf.Clamp(Mathf.RoundToInt(s.trailBehind / 2f), 0, trail.Count - 1);
+            if (trail.Count == 0) return RoamPoint();
+            Vector3 p = default;
+            int i = 0, want = trail.Count - 1 - back;
+            foreach (var q in trail) { if (i++ == want) { p = q; break; } }
+            // (once it's there, a little on toward where you went next)
+            if (Flat(p - transform.position).magnitude < 3f) p = player.transform.position + Flat(p - player.transform.position) * 0.5f;
+            p.y = PlayerSense.GroundHeight(p);
+            return p;
         }
 
         // It stops, cocks its head and clicks.
@@ -278,7 +316,18 @@ namespace Game.Entities
                 Play(Sound.Click, 0.8f, Random.Range(0.35f, 0.5f), 30f);
             }
             HearClose();
-            if (stateTime >= s.listenTime) SetState(BlindState.Roaming);
+            // Listening hard: you moving anywhere near, crouched or not, and it's coming.
+            if (hardListening && player.Moving && DistanceToPlayer <= s.hardListenReach * Difficulty.Now.blindHearing && deafFor <= 0f)
+            {
+                hardListening = false;
+                RushTo(player.transform.position);
+                return;
+            }
+            if (stateTime >= s.listenTime * (hardListening ? 1.5f : 1f))
+            {
+                hardListening = false;
+                SetState(BlindState.Roaming);
+            }
         }
 
         void UpdateRushing(float dt)
