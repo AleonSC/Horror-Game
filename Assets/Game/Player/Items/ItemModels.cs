@@ -42,6 +42,41 @@ namespace Game.Player
 
         static Material sprayBand;
 
+        /// <summary>
+        /// The drone's remote, in the hand while the drone's out: a dark grey handset with two thumbsticks, a small
+        /// LCD screen in the middle (named "Screen": <see cref="DroneRemoteScreen"/> draws on it), a red and a green
+        /// LED, grips, and a stubby aerial. Flat, screen up (+Y), the aerial away from you (+Z).
+        /// </summary>
+        public static GameObject Remote(Transform parent)
+        {
+            var root = new GameObject("Drone remote");
+            root.transform.SetParent(parent, false);
+            var t = root.transform;
+            var shell = Mat("Remote shell", new Color(0.07f, 0.07f, 0.075f), 0.45f);
+            var grip = Mat("Remote grip", new Color(0.03f, 0.03f, 0.03f), 0.2f);
+            var metal = Mat("Steel", new Color(0.35f, 0.35f, 0.36f), 0.7f);
+            Part(PrimitiveType.Cube, t, Vector3.zero, new Vector3(0.17f, 0.022f, 0.085f), shell);
+            foreach (float x in new[] { -1f, 1f })
+            {
+                var g = Part(PrimitiveType.Capsule, t, new Vector3(x * 0.075f, -0.008f, -0.03f), new Vector3(0.035f, 0.035f, 0.035f), grip);
+                g.transform.localRotation = Quaternion.Euler(70f, 0f, 0f);
+                // Thumbsticks: a base, a stem, a cap.
+                Part(PrimitiveType.Cylinder, t, new Vector3(x * 0.055f, 0.013f, -0.012f), new Vector3(0.026f, 0.002f, 0.026f), grip);
+                Part(PrimitiveType.Cylinder, t, new Vector3(x * 0.055f, 0.02f, -0.012f), new Vector3(0.006f, 0.006f, 0.006f), metal);
+                Part(PrimitiveType.Cylinder, t, new Vector3(x * 0.055f, 0.027f, -0.012f), new Vector3(0.018f, 0.002f, 0.018f), grip);
+            }
+            // The screen, sunk in a bezel, and its LEDs.
+            Part(PrimitiveType.Cube, t, new Vector3(0f, 0.0115f, 0.012f), new Vector3(0.062f, 0.002f, 0.044f), grip);
+            var screen = Part(PrimitiveType.Cube, t, new Vector3(0f, 0.0128f, 0.012f), new Vector3(0.054f, 0.001f, 0.036f), shell);
+            screen.name = "Screen";
+            Part(PrimitiveType.Sphere, t, new Vector3(-0.02f, 0.0125f, -0.022f), Vector3.one * 0.005f, GlowMat("Remote LED red", new Color(1f, 0.08f, 0.04f) * 1.5f));
+            Part(PrimitiveType.Sphere, t, new Vector3(0.02f, 0.0125f, -0.022f), Vector3.one * 0.005f, GlowMat("Remote LED green", new Color(0.2f, 1f, 0.3f) * 1.2f));
+            // The aerial, folded up a little, off the far edge.
+            var aerial = Part(PrimitiveType.Cylinder, t, new Vector3(0.07f, 0.03f, 0.055f), new Vector3(0.005f, 0.04f, 0.005f), metal);
+            aerial.transform.localRotation = Quaternion.Euler(-30f, 0f, 0f);
+            return root;
+        }
+
         static GameObject BuiltIn(ItemKind kind, Transform parent)
         {
             var root = new GameObject(Inventory.NameOf(kind));
@@ -108,12 +143,13 @@ namespace Game.Player
                 {
                     // A spray can: the can, its pale green label with a glowing band, the shoulder, the nozzle.
                     var can = Mat("Spray can", new Color(0.55f, 0.56f, 0.58f), 0.8f);
-                    Cyl(t, new Vector3(0f, 0.08f, 0f), 0.032f, 0.16f, can);
-                    Cyl(t, new Vector3(0f, 0.075f, 0f), 0.0325f, 0.1f, Mat("Spray label", new Color(0.12f, 0.2f, 0.14f), 0.35f));
+                    // (upright: Cyl lays a cylinder along +Z)
+                    Part(PrimitiveType.Cylinder, t, new Vector3(0f, 0.08f, 0f), new Vector3(0.064f, 0.08f, 0.064f), can);
+                    Part(PrimitiveType.Cylinder, t, new Vector3(0f, 0.075f, 0f), new Vector3(0.065f, 0.05f, 0.065f), Mat("Spray label", new Color(0.12f, 0.2f, 0.14f), 0.35f));
                     sprayBand ??= Game.Rendering.RuntimeMaterials.LitGlow("Spray glow band", new Color(0.4f, 0.8f, 0.45f), new Color(0.55f, 1f, 0.6f) * 0.4f);
                     Part(PrimitiveType.Cylinder, t, new Vector3(0f, 0.09f, 0f), new Vector3(0.0655f, 0.008f, 0.0655f), sprayBand);
                     Part(PrimitiveType.Sphere, t, new Vector3(0f, 0.163f, 0f), new Vector3(0.062f, 0.03f, 0.062f), can);
-                    Cyl(t, new Vector3(0f, 0.18f, 0f), 0.009f, 0.016f, black);
+                    Part(PrimitiveType.Cylinder, t, new Vector3(0f, 0.18f, 0f), new Vector3(0.018f, 0.008f, 0.018f), black);
                     Part(PrimitiveType.Cube, t, new Vector3(0f, 0.185f, 0.008f), new Vector3(0.006f, 0.006f, 0.008f), black);
                     break;
                 }

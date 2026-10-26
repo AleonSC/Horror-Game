@@ -1014,3 +1014,22 @@ after you wake), "HOLD ESC TO SKIP" shows faintly bottom right, with a bar filli
 - and the giant still groans (`IntroFinished`, sent only once).
 
 Esc doesn't open the pause menu while the intro runs (`MainMenu.IntroRunning`). A tap does nothing.
+
+## Drone: placement ghost, the remote with its LCD, and a beacon
+
+- **Ghost:** holding the drone (not yet out), a see-through drone shows where it'd be set down. That's where
+  you're looking, on the ground or something flat within 4 m, or just in front of you. It's pale blue where
+  there's room and red where there isn't (a trunk, a wall, too close to you); F there says "No room to set it
+  down there." (`Drone.PlacementSpot`, `Hotbar.DroneGhost`.)
+- **The remote:** once it's set down, its hotbar and inventory icon becomes a controller (`ItemIcons.For(stack)`),
+  and you hold its remote: a dark handset with grips, two thumbsticks, a red and a green LED, a stubby aerial, and
+  a small LCD, tilted up toward you (`ItemModels.Remote`). F flies it and F brings your eyes back, as before.
+- **The LCD** (`DroneRemoteScreen`): a green-backlit radar.
+  - You're the cross in the middle, the way you face is up.
+  - The drone is a blinking dot where it is from you, inside a ring for its range. Every 1.8 s it pings: a ring
+    spreads out from it, with a soft beep.
+  - Its battery bar and four signal bars run along the bottom. A cross over it means no signal.
+- **Beacon:** a red light on top of the drone blinks briefly every 1.2 s while it's up (powered and off the
+  ground), a glow you can see across the sky, with a little light round it.
+- **Fixed:** the luminescent spray can stood on its side (the helper it used lays cylinders along +Z). It's
+  upright now.

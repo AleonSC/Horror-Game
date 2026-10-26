@@ -27,7 +27,8 @@ namespace Game.Player
         Camera cam;
         AudioListener ears;
         HDAdditionalCameraData camData;
-        Light lamp;
+        Light lamp, beaconLight;
+        MeshRenderer beacon;
         Transform model;
         readonly List<Transform> rotors = new List<Transform>();
         AudioSource motors;
@@ -54,12 +55,34 @@ namespace Game.Player
         public bool CanInteract => !Flying && !airborne;
         public Vector3 FocusPoint => transform.position + Vector3.up * 0.05f;
 
-        /// <summary>Set it down in front of the player and start flying it.</summary>
-        public static Drone Deploy(PlayerController player, ItemSettings s, float battery, GameObject art)
+        /// <summary>
+        /// Where it would be set down: where you're looking, on the ground or something flat, within 4 m (or just
+        /// in front of you). False if there's no room there (a trunk, a wall, you).
+        /// </summary>
+        public static bool PlacementSpot(PlayerController player, out Vector3 at)
+        {
+            var eye = player.Head;
+            int solid = Layers.Mask(Layers.Ground) | Layers.Mask(Layers.Props) | Layers.Mask(Layers.Default);
+            if (Physics.Raycast(eye.position, eye.forward, out var look, 4f, solid | Layers.Mask(Layers.Trees), QueryTriggerInteraction.Ignore) && look.normal.y > 0.6f)
+                at = look.point;
+            else
+            {
+                at = player.transform.position + Vector3.ProjectOnPlane(eye.forward, Vector3.up).normalized * 1.2f;
+                if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var hit, 10f, solid, QueryTriggerInteraction.Ignore)) at = hit.point;
+            }
+            int blockers = Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Props) | Layers.Mask(Layers.Default) | Layers.Mask(Layers.Entities);
+            bool room = !Physics.CheckSphere(at + Vector3.up * 0.3f, 0.22f, blockers, QueryTriggerInteraction.Ignore);
+            Vector3 fromYou = at - player.transform.position;
+            fromYou.y = 0f;
+            return room && fromYou.magnitude > 0.5f;
+        }
+
+        /// <summary>Set it down (here, or in front of the player) and start flying it.</summary>
+        public static Drone Deploy(PlayerController player, ItemSettings s, float battery, GameObject art, Vector3? spot = null)
         {
             if (Current != null) Destroy(Current.gameObject);
-            Vector3 at = player.transform.position + player.transform.forward * 1.2f;
-            if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var hit, 10f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore)) at = hit.point;
+            Vector3 at = spot ?? player.transform.position + player.transform.forward * 1.2f;
+            if (spot == null && Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var hit, 10f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore)) at = hit.point;
             var go = new GameObject("Drone") { layer = Layers.Props };
             go.transform.SetPositionAndRotation(at + Vector3.up * 0.02f, Quaternion.Euler(0f, player.transform.eulerAngles.y, 0f));
             var d = go.AddComponent<Drone>();
@@ -96,6 +119,18 @@ namespace Game.Player
             camData = camGo.AddComponent<HDAdditionalCameraData>();
             ears = camGo.AddComponent<AudioListener>();
             ears.enabled = false;
+
+            // Its beacon: a red light on top, blinking while it's up, to be seen in the sky.
+            beacon = Effects.Glow(model, new Vector3(0f, 0.085f, 0f), 0.35f, Color.black, 0.15f, 3f, "Drone beacon");
+            var beaconGo = new GameObject("Drone beacon light");
+            beaconGo.transform.SetParent(model, false);
+            beaconGo.transform.localPosition = new Vector3(0f, 0.1f, 0f);
+            beaconGo.AddHDLight(LightType.Point);
+            beaconLight = beaconGo.GetComponent<Light>();
+            beaconLight.color = new Color(1f, 0.08f, 0.04f);
+            beaconLight.range = 3f;
+            beaconLight.shadows = LightShadows.None;
+            beaconLight.enabled = false;
 
             var lampGo = new GameObject("Drone lamp");
             lampGo.transform.SetParent(camGo.transform, false);
@@ -255,6 +290,16 @@ namespace Game.Player
             model.localRotation = Quaternion.Slerp(model.localRotation, Quaternion.Euler(local.z * 3f, 0f, -local.x * 3f), 1f - Mathf.Exp(-6f * dt));
             transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             cam.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+
+            // The beacon: a short red blink every 1.2 s while it's up (powered and off the ground).
+            bool up = (Flying || airborne) && !Dead;
+            bool blink = up && Time.time % 1.2f < 0.12f;
+            if (beacon != null) Effects.SetGlow(beacon, new Color(1f, 0.06f, 0.03f) * (blink ? 7f : 0f));
+            if (beaconLight != null)
+            {
+                beaconLight.enabled = blink;
+                beaconLight.intensity = 3f;
+            }
 
             lamp.enabled = LampOn && !Dead;
             lamp.color = s.droneLampColor;

@@ -14,6 +14,29 @@ namespace Game.UI
         const int Size = 64;
         static readonly Dictionary<ItemKind, Texture2D> made = new Dictionary<ItemKind, Texture2D>();
 
+        static Texture2D remote;
+
+        /// <summary>The icon for what's in a slot: the drone, once it's out, shows as its remote.</summary>
+        public static Texture2D For(ItemStack stack)
+        {
+            if (!stack.Empty && stack.Kind == ItemKind.Drone && stack.Lit)
+            {
+                if (remote == null)
+                {
+                    var c = new Canvas();
+                    // A handheld controller: the body with grips, two sticks, the screen, the aerial.
+                    c.Box(10, 24, 54, 44, 3.2f);
+                    c.Line(12, 44, 8, 56, 5f); c.Line(52, 44, 56, 56, 5f);
+                    c.Ring(20, 34, 4.5f, 2.4f); c.Ring(44, 34, 4.5f, 2.4f);
+                    c.Box(27, 28, 37, 37, 2f);
+                    c.Line(48, 24, 54, 8, 2.4f); c.Disc(54, 8, 2.2f);
+                    remote = c.ToTexture("Icon drone remote");
+                }
+                return remote;
+            }
+            return For(stack.Kind);
+        }
+
         public static Texture2D For(ItemKind kind)
         {
             if (kind == ItemKind.None) return null;

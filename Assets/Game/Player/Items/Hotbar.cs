@@ -30,6 +30,11 @@ namespace Game.Player
         string hint;
         float hintUntil;
         AudioSource sprayHiss;
+        bool shownLit;
+        GameObject droneGhost;
+        Material ghostOk, ghostBad;
+        bool ghostRoom;
+        Vector3 ghostAt;
 
         public Inventory Items { get; } = new Inventory();
         public ItemSettings Settings => config.settings;
@@ -85,6 +90,9 @@ namespace Game.Player
         void OnDestroy()
         {
             resetSub?.Dispose();
+            if (droneGhost != null) Destroy(droneGhost);
+            if (ghostOk != null) Destroy(ghostOk);
+            if (ghostBad != null) Destroy(ghostBad);
             if (Services.TryGet<SafeZones>(out var zones)) zones.Remove(handZone);
             Services.Unregister(this);
         }
@@ -143,7 +151,8 @@ namespace Game.Player
         void Update()
         {
             hand.localPosition = config.settings.handOffset;
-            if (shown != Items.HeldKind) ShowHeld();
+            if (shown != Items.HeldKind || (shown == ItemKind.Drone && shownLit != Items.Held.Lit)) ShowHeld();
+            DroneGhost();
             Burn(Time.deltaTime);
             Spray(Time.deltaTime);
             UpdateLights();
@@ -184,6 +193,39 @@ namespace Game.Player
                 Items.SetLit(slot, false);
                 Say("The lighter's out of fuel.");
             }
+        }
+
+        // Holding the drone (not yet out): a see-through drone where it'd be set down, where you're looking, pale
+        // where there's room, red where there isn't.
+        void DroneGhost()
+        {
+            var held = Items.Held;
+            bool show = !held.Empty && held.Kind == ItemKind.Drone && !held.Lit && !player.Piloting && player.Seat == null
+                        && !(Services.TryGet<UiState>(out var ui) && ui.AnyOpen);
+            if (!show)
+            {
+                if (droneGhost != null) droneGhost.SetActive(false);
+                ghostRoom = !held.Empty && held.Kind == ItemKind.Drone && Drone.PlacementSpot(player, out ghostAt);
+                return;
+            }
+            if (droneGhost == null)
+            {
+                float mul = Services.TryGet<LookController>(out var look) ? LookController.ExposureMultiplier(look.Config.settings.exposure) : 1f;
+                ghostOk = RuntimeMaterials.Haze("Drone ghost", Color.white);
+                RuntimeMaterials.SetHazeColor(ghostOk, new Color(0.55f, 0.85f, 1f) * 0.35f / mul);
+                ghostBad = RuntimeMaterials.Haze("Drone ghost (no room)", Color.white);
+                RuntimeMaterials.SetHazeColor(ghostBad, new Color(1f, 0.2f, 0.12f) * 0.35f / mul);
+                droneGhost = ItemModels.Make(ItemKind.Drone, config.art.Lying(ItemKind.Drone), null, false);
+                droneGhost.name = "Drone ghost";
+                droneGhost.transform.localScale = Vector3.one * 1.6f;
+                foreach (var t in droneGhost.GetComponentsInChildren<Transform>()) t.gameObject.layer = Layers.Effects;
+                foreach (var r in droneGhost.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            ghostRoom = Drone.PlacementSpot(player, out ghostAt);
+            droneGhost.SetActive(true);
+            droneGhost.transform.SetPositionAndRotation(ghostAt + Vector3.up * (0.02f + 0.015f * Mathf.Sin(Time.time * 3f)), Quaternion.Euler(0f, player.transform.eulerAngles.y, 0f));
+            var mat = ghostRoom ? ghostOk : ghostBad;
+            foreach (var r in droneGhost.GetComponentsInChildren<Renderer>()) if (r.sharedMaterial != mat) r.sharedMaterial = mat;
         }
 
         // The spray can: while F's held, paint where you look; it hisses, and runs out.
@@ -262,7 +304,26 @@ namespace Game.Player
             model = null;
             flame = null;
             shown = kind;
+            shownLit = kind != ItemKind.None && Items.Held.Lit;
             if (kind == ItemKind.None || hand == null) return;
+
+            // The drone out there: in your hand, its remote, screen up and tilted to you, pinging where it is.
+            if (kind == ItemKind.Drone && shownLit)
+            {
+                model = ItemModels.Remote(hand);
+                model.transform.localPosition = new Vector3(-0.06f, -0.04f, 0.02f);
+                model.transform.localRotation = Quaternion.Euler(-58f, 0f, 0f);
+                var lcd = model.AddComponent<DroneRemoteScreen>();
+                lcd.player = player;
+                lcd.range = config.settings.droneRange;
+                foreach (var r in model.GetComponentsInChildren<Renderer>())
+                {
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    if (r.name == "Screen") lcd.screen = r;
+                }
+                foreach (var t in model.GetComponentsInChildren<Transform>()) t.gameObject.layer = Layers.Effects;
+                return;
+            }
 
             // The flashlight model sits on the beam (which trails the view a little); everything else in the hand.
             Transform parent = kind == ItemKind.Flashlight && player.Flashlight != null ? player.Flashlight.Beam : hand;
@@ -373,7 +434,8 @@ namespace Game.Player
                         break;
                     }
                     if (held.Charge <= 0.001f) { Say("Its battery is flat."); break; }
-                    Drone.Deploy(player, config.settings, held.Charge, config.art.Lying(ItemKind.Drone));
+                    if (!ghostRoom) { Say("No room to set it down there."); break; }
+                    Drone.Deploy(player, config.settings, held.Charge, config.art.Lying(ItemKind.Drone), ghostAt);
                     Items.SetLit(slot, true);
                     Used(ItemKind.Drone, "set it down and flew it");
                     break;

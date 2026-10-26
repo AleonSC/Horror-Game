@@ -24,6 +24,7 @@ namespace Game.UI
         readonly Label[] slotCount = new Label[Inventory.SlotCount];
         readonly float[] slotRaise = new float[Inventory.SlotCount];
         readonly ItemKind[] slotKind = new ItemKind[Inventory.SlotCount];
+        readonly bool[] slotLit = new bool[Inventory.SlotCount];
         string lastPrompt;
         int lampsShown = -1;
         float lampPulse = 10f, reticleShown;
@@ -433,10 +434,11 @@ namespace Game.UI
                 UiStyle.Border(slot[i], Color.Lerp(Faint, Warmish(0.5f), e));
                 Show(slotBrackets[i], e > 0.01f);
                 slotBrackets[i].style.opacity = e;
-                if (slotKind[i] != s.Kind)
+                if (slotKind[i] != s.Kind || slotLit[i] != s.Lit)
                 {
                     slotKind[i] = s.Kind;
-                    var tex = s.Empty ? null : ItemIcons.For(s.Kind);
+                    slotLit[i] = s.Lit;
+                    var tex = s.Empty ? null : ItemIcons.For(s);
                     slotIcon[i].style.backgroundImage = tex != null ? new StyleBackground(tex) : new StyleBackground(StyleKeyword.None);
                 }
                 Show(slotIcon[i], !s.Empty);

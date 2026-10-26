@@ -302,7 +302,7 @@ namespace Game.UI
                 var slot = slots[i];
                 slot.Q<Label>("name").text = stack.Empty ? "" : Inventory.NameOf(stack.Kind);
                 var icon = slot.Q<VisualElement>("icon");
-                var tex = stack.Empty ? null : ItemIcons.For(stack.Kind);
+                var tex = stack.Empty ? null : ItemIcons.For(stack);
                 icon.style.backgroundImage = tex != null ? new StyleBackground(tex) : new StyleBackground(StyleKeyword.None);
                 icon.style.unityBackgroundImageTintColor = stack.Lit ? UiStyle.Warm : UiStyle.Ink;
                 slot.Q<Label>("detail").text = stack.Empty ? "" : Detail(stack, s);
