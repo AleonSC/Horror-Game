@@ -600,13 +600,18 @@ namespace Game.World.Build
         }
 
         // A heightfield of earth over the bunker: full height over the box (|x| < half.x, back < z < half.y),
-        // easing down to the ground over 3.2 m round it, a little lumpy; nothing in front of the doorway.
+        // easing down to the ground over 3.2 m round it, a little lumpy; nothing in front of the doorway, and a
+        // hole over the front's face where the doorway is (the capping slab covers it). (Before, the earth ran
+        // straight from full height down to the ground in front, and with its points half a metre apart that
+        // slope stood right across the doorway, inside the frame: a wall of dirt where the way in should be.)
         void EarthMound(Transform t, Vector2 half, float back, float height, System.Random rng)
         {
             const float step = 0.5f, fall = 3.2f;
             float x0 = -half.x - fall - 0.5f, x1 = half.x + fall + 0.5f, z0 = back - fall - 0.5f, z1 = half.y + fall;
             int nx = Mathf.CeilToInt((x1 - x0) / step), nz = Mathf.CeilToInt((z1 - z0) / step);
             float seed = (float)rng.NextDouble() * 100f;
+            // The doorway's gap: from in front of the face back past its whole depth, wider than the doorway.
+            bool Gap(float x, float z) => Mathf.Abs(x) < 2.3f && z > half.y - 0.6f; // (the face itself fills behind it)
             float H(float x, float z)
             {
                 if (z > half.y - 0.1f && Mathf.Abs(x) < 2.3f) return -0.15f; // (the doorway's open ground)

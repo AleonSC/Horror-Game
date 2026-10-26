@@ -948,3 +948,10 @@ before. The two breaths as a scour takes you stay.
     woken, easing off over the glimpse (`PlayerController.StartGroggy(seconds, amount)`).
   - You're held still again for the next lines.
 - After the last pair you wake as usual, and the giant groans.
+
+## The bunker's doorway opens
+
+The earth heaped over the bunker is a grid of heights half a metre apart: full height over the rooms, dropping to
+the ground in front of the doorway. That drop came right at the doorway, so a steep sheet of earth (with a
+collider) stood across the opening, inside its frame. The mound now leaves a gap over the doorway and the front's
+face. The face and its capping slab fill it from above, and the corridor and room behind are open to walk into.
