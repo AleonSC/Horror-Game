@@ -111,6 +111,12 @@ namespace Game.World.Build
             foreach (var set in dead) foreach (int k in set) renderer.SetSway(k, DeadTreeSway);
             var breakable = BuiltInBreakable();
             foreach (int k in breakable) renderer.SetSway(k, DeadTreeSway);
+            // Roots: only on a few, and only where the ground's nearly flat (on a slope the downhill ones would
+            // stand out of it). The same trees, with roots drawn.
+            var rootedPine = livingArt == null ? BuiltInPines(true) : null;
+            var rootedDead = deadArt == null ? BuiltInDead(true) : null;
+            if (rootedPine != null) foreach (var set in rootedPine) foreach (int k in set) renderer.SetSway(k, TreeSway);
+            if (rootedDead != null) foreach (var set in rootedDead) foreach (int k in set) renderer.SetSway(k, DeadTreeSway);
 
             foreach (var t in plan.Trees)
             {
@@ -118,8 +124,11 @@ namespace Game.World.Build
                 bool isPine = t.Kind == TreeKind.Pine;
                 // (The breakable tree: its one model, the small dead tree, always the same size.)
                 float size = t.Breakable ? 1f : t.Scale * ((isPine ? livingArt : deadArt) != null ? custom : 1f);
-                var m = Matrix4x4.TRS(Ground(t.Position), Quaternion.Euler(0f, t.Yaw, 0f), Vector3.one * size);
-                var kinds = isPine ? pine : dead;
+                var rooted = isPine ? rootedPine : rootedDead;
+                bool roots = !t.Breakable && rooted != null && Rooted(t.Position);
+                // (rooted ones sit a touch lower: every root's end well under the soil)
+                var m = Matrix4x4.TRS(Ground(t.Position) + (roots ? Vector3.down * 0.06f * size : Vector3.zero), Quaternion.Euler(0f, t.Yaw, 0f), Vector3.one * size);
+                var kinds = roots ? rooted : isPine ? pine : dead;
                 int[] drawn = t.Breakable ? breakable : kinds[t.Variant % kinds.Length];
                 foreach (int k in drawn) renderer.Add(k, t.Position, m);
 
@@ -149,7 +158,27 @@ namespace Game.World.Build
 
         const int BreakableSeed = 4217;
 
-        int[][] BuiltInPines()
+        const float RootedShare = 0.14f;   // (share of the trees on flat enough ground that show their roots)
+        const float RootedMaxSlope = 0.1f; // (rise per metre: steeper than this, no roots)
+
+        // Does the tree here show its roots? A few, picked by where they stand (so the same every time), only on
+        // nearly flat ground, checked a root's length round the trunk too.
+        bool Rooted(Vector2 p)
+        {
+            float pick = Mathf.Abs(Mathf.Sin(p.x * 12.9898f + p.y * 78.233f) * 43758.5453f) % 1f;
+            if (pick > RootedShare) return false;
+            var h = plan.Height;
+            float centre = h.Sample(p);
+            if (h.Slope(p.x, p.y) > RootedMaxSlope) return false;
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i / 6f * Mathf.PI * 2f;
+                if (Mathf.Abs(h.Sample(p + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 1.6f) - centre) > 0.12f) return false;
+            }
+            return true;
+        }
+
+        int[][] BuiltInPines(bool roots = false)
         {
             var kinds = new int[TreeShapes.PineVariants][];
             for (int v = 0; v < kinds.Length; v++)
@@ -158,28 +187,30 @@ namespace Game.World.Build
                 var crowns = new Mesh[3];
                 for (int lod = 0; lod < 3; lod++)
                 {
-                    var (t, c) = ForestMeshes.Oak(new System.Random(plan.Seed * 31 + v), TreeShapes.Height(TreeKind.Pine, v), lod);
-                    trunks[lod] = Keep(t.ToMesh($"Oak {v} trunk LOD{lod}"));
-                    crowns[lod] = Keep(c.ToMesh($"Oak {v} crown LOD{lod}"));
+                    var (t, c) = ForestMeshes.Oak(new System.Random(plan.Seed * 31 + v), TreeShapes.Height(TreeKind.Pine, v), lod, -1f, roots);
+                    string r = roots ? " rooted" : "";
+                    trunks[lod] = Keep(t.ToMesh($"Oak {v}{r} trunk LOD{lod}"));
+                    crowns[lod] = Keep(c.ToMesh($"Oak {v}{r} crown LOD{lod}"));
                 }
+                string rr = roots ? " rooted" : "";
                 kinds[v] = new[]
                 {
-                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak trunk {v}", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
-                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak crown {v}", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak trunk {v}{rr}", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak crown {v}{rr}", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
                 };
             }
             return kinds;
         }
 
-        int[][] BuiltInDead()
+        int[][] BuiltInDead(bool roots = false)
         {
             var kinds = new int[TreeShapes.DeadVariants][];
             for (int v = 0; v < kinds.Length; v++)
             {
                 var lods = new Mesh[3];
                 for (int lod = 0; lod < 3; lod++)
-                    lods[lod] = Keep(ForestMeshes.DeadTree(new System.Random(plan.Seed * 37 + v), TreeShapes.Height(TreeKind.Dead, v), lod).ToMesh($"Dead tree {v} LOD{lod}"));
-                kinds[v] = new[] { renderer.AddKind(InstancedRenderer.Kind.Simple($"Dead tree {v}", lods, DeadWood, TreeLods, TreeRange, true, Layers.Trees)) };
+                    lods[lod] = Keep(ForestMeshes.DeadTree(new System.Random(plan.Seed * 37 + v), TreeShapes.Height(TreeKind.Dead, v), lod, roots).ToMesh($"Dead tree {v}{(roots ? " rooted" : "")} LOD{lod}"));
+                kinds[v] = new[] { renderer.AddKind(InstancedRenderer.Kind.Simple($"Dead tree {v}{(roots ? " rooted" : "")}", lods, DeadWood, TreeLods, TreeRange, true, Layers.Trees)) };
             }
             return kinds;
         }

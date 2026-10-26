@@ -47,7 +47,7 @@ namespace Game.World.Build
         /// of oak leaves, <see cref="ForestSurfaces.OakLeaves"/>) shaded as one rounded mass (their normals point out
         /// from the clump's middle). Far off, fewer and bigger cards. height &lt;= 0: random.
         /// </summary>
-        public static (MeshBuilder trunk, MeshBuilder leaves) Oak(System.Random rng, float height = -1f, int lod = 0, float trunkRadius = -1f)
+        public static (MeshBuilder trunk, MeshBuilder leaves) Oak(System.Random rng, float height = -1f, int lod = 0, float trunkRadius = -1f, bool roots = false)
         {
             var trunk = new MeshBuilder();
             var leaves = new MeshBuilder();
@@ -101,7 +101,7 @@ namespace Game.World.Build
                 float a = turn + (i + 0.5f) / 4f * Mathf.PI * 2f;
                 clumps.Add((dome + new Vector3(Mathf.Cos(a), -0.35f, Mathf.Sin(a)) * crownRadius * 0.55f, crownRadius * 0.42f));
             }
-            AddRoots(trunk, rng, radius * 1.3f, lod == 0 ? 6 : lod == 1 ? 4 : 0, Mathf.Max(3, sides - 4));
+            AddRoots(trunk, rng, radius * 1.3f, lod == 0 ? 6 : lod == 1 ? 4 : 0, Mathf.Max(3, sides - 4), roots);
 
             // The leaves: each clump a cluster of cards, the canopy's shading rounded (normals out from its middle).
             int cards = lod == 0 ? 34 : lod == 1 ? 14 : 7;
@@ -144,7 +144,7 @@ namespace Game.World.Build
         static Vector3 RandomWobble(System.Random rng, float amount) => new Vector3(Range(rng, -amount, amount), Range(rng, -amount, amount) * 0.5f, Range(rng, -amount, amount));
 
         /// <summary>A dead tree: a bare trunk forking into a few crooked limbs. height &lt;= 0: random.</summary>
-        public static MeshBuilder DeadTree(System.Random rng, float height = -1f, int lod = 0)
+        public static MeshBuilder DeadTree(System.Random rng, float height = -1f, int lod = 0, bool roots = false)
         {
             var b = new MeshBuilder();
             if (height <= 0f) height = Range(rng, 8f, 15f);
@@ -172,7 +172,7 @@ namespace Game.World.Build
                     b.AddTube(s, s + d * length * 0.45f, r * 0.35f, 0.005f, 4);
                 }
             }
-            AddRoots(b, rng, radius, lod == 0 ? 5 : lod == 1 ? 3 : 0, lod == 0 ? 5 : 4);
+            AddRoots(b, rng, radius, lod == 0 ? 5 : lod == 1 ? 3 : 0, lod == 0 ? 5 : 4, roots);
             return b;
         }
 
@@ -323,8 +323,10 @@ namespace Game.World.Build
         }
 
         // Roots flaring out from the foot of the trunk into the ground: each from up the trunk a little, out and down
-        // in two crooked lengths, tapering, the last of it sunk under the soil.
-        static void AddRoots(MeshBuilder b, System.Random rng, float trunkRadius, int count, int sides)
+        // in two crooked lengths, tapering, diving well under the soil at the end (so a little unevenness in the
+        // ground doesn't leave a tip in the air). Not drawn (draw false), it still takes the same turns of the
+        // random numbers, so the rest of the tree comes out the same with roots or without.
+        static void AddRoots(MeshBuilder b, System.Random rng, float trunkRadius, int count, int sides, bool draw = true)
         {
             float turn = Range(rng, 0f, Mathf.PI * 2f);
             for (int i = 0; i < count; i++)
@@ -334,9 +336,10 @@ namespace Game.World.Build
                 Vector3 side = new Vector3(-dir.z, 0f, dir.x);
                 float reach = Range(rng, 0.5f, 1.1f) + trunkRadius;
                 Vector3 from = dir * trunkRadius * 0.55f + Vector3.up * Range(0.3f, 0.55f, rng);
-                Vector3 bend = dir * (trunkRadius + reach * 0.35f) + side * Range(rng, -0.12f, 0.12f) + Vector3.up * 0.06f;
-                Vector3 end = dir * (trunkRadius + reach) + side * Range(rng, -0.25f, 0.25f) + Vector3.down * 0.12f;
+                Vector3 bend = dir * (trunkRadius + reach * 0.35f) + side * Range(rng, -0.12f, 0.12f) + Vector3.down * 0.02f;
+                Vector3 end = dir * (trunkRadius + reach) + side * Range(rng, -0.25f, 0.25f) + Vector3.down * 0.4f;
                 float r = trunkRadius * Range(rng, 0.38f, 0.55f);
+                if (!draw) continue;
                 b.AddTube(from, bend, r, r * 0.6f, sides);
                 b.AddTube(bend, end, r * 0.6f, 0.02f, sides);
             }

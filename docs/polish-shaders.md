@@ -955,3 +955,16 @@ The earth heaped over the bunker is a grid of heights half a metre apart: full h
 the ground in front of the doorway. That drop came right at the doorway, so a steep sheet of earth (with a
 collider) stood across the opening, inside its frame. The mound now leaves a gap over the doorway and the front's
 face. The face and its capping slab fill it from above, and the corridor and room behind are open to walk into.
+
+## Roots only on a few trees, and in the ground
+
+- **Most trees** have no visible roots now. On a slope, the roots on the downhill side stood out of the ground.
+- **About 1 in 7 trees** (living and dead) show their roots, and only where the ground is nearly flat:
+  - the slope under the trunk is at most 0.1 rise per metre;
+  - and the ground a root's length (1.6 m) round the trunk is within 12 cm of the trunk's foot.
+- **Into the ground:** on those trees each root bends down from the trunk and dives 40 cm into the soil at its end
+  (it was 12 cm). The tree also sits 6 cm lower, so no tip is left in the air.
+- **Same trees:** the rooted versions are the same trees as the plain ones, with the roots drawn. Leaving roots
+  out doesn't change the rest of the tree (`ForestMeshes.AddRoots` takes the same random turns either way). Which
+  trees get them is picked from where they stand, so it's the same every time.
+- **Your own tree art** isn't touched. The breakable dead tree has no roots.
