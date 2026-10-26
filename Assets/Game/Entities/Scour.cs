@@ -240,13 +240,14 @@ namespace Game.Entities
                 Vector3 p = player.transform.position + Quaternion.Euler(0f, angle, 0f) * forward * dist;
                 p.y = PlayerSense.GroundHeight(p);
                 if (zones != null && zones.Contains(p, s.ringMargin)) continue;
-                if (Physics.CheckSphere(p + Vector3.up * 1f, 0.45f, Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Props), QueryTriggerInteraction.Ignore)) continue;
+                if (!RoomAt(p)) continue;
 
                 ducker = Random.value < s.duckerChance && FindTreeNear(p, out peekTree);
                 if (!ducker) peekTree = null;
                 peekOut = PeekOnAppear;
                 peekSide = Random.value < 0.5f ? -1 : 1;
                 spot = ducker ? PeekSpot(peekOut) : p;
+                if (ducker && !RoomAt(spot)) { ducker = false; peekTree = null; spot = p; } // (no room behind that one)
                 return true;
             }
             spot = default;
@@ -388,6 +389,7 @@ namespace Game.Entities
             }
 
             peekTree = null; // stepping out into the open
+            if (!FindRoom(ref next)) return; // (thick with trunks just there: it'll try again next time)
             Blink(() =>
             {
                 MoveTo(next);
@@ -714,8 +716,84 @@ namespace Game.Entities
 
         void MoveTo(Vector3 p)
         {
+            p = OutOfTrunks(p);
             p.y = PlayerSense.GroundHeight(p);
             transform.position = p;
+        }
+
+        // ------------------------------------------------------------------ keeping out of trunks
+
+        static int Solid => Layers.Mask(Layers.Trees) | Layers.Mask(Layers.Props);
+        readonly Collider[] overlapping = new Collider[8];
+
+        float BodyRadius => 0.3f * Mathf.Max(0.5f, s.height / 2.4f);
+
+        // Its body (a column from just off the ground to its shoulders) here, as a capsule.
+        void BodyAt(Vector3 p, out Vector3 low, out Vector3 high, out float radius)
+        {
+            radius = BodyRadius;
+            low = p + Vector3.up * (radius + 0.15f);
+            high = p + Vector3.up * Mathf.Max(radius + 0.2f, s.height * 0.8f);
+        }
+
+        /// <summary>Is there room for it to stand here (no trunk, log or prop in the way)?</summary>
+        bool RoomAt(Vector3 p)
+        {
+            BodyAt(p, out var low, out var high, out float r);
+            return !Physics.CheckCapsule(low, high, r, Solid, QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>Here, or pushed just clear of whatever trunk or prop it would be standing in.</summary>
+        Vector3 OutOfTrunks(Vector3 p)
+        {
+            for (int pass = 0; pass < 3; pass++)
+            {
+                BodyAt(p, out var low, out var high, out float r);
+                int n = Physics.OverlapCapsuleNonAlloc(low, high, r, overlapping, Solid, QueryTriggerInteraction.Ignore);
+                if (n == 0) return p;
+                for (int i = 0; i < n; i++)
+                {
+                    var c = overlapping[i];
+                    Vector3 mid = new Vector3(p.x, Mathf.Clamp(p.y + s.height * 0.4f, c.bounds.min.y, c.bounds.max.y), p.z);
+                    Vector3 near = c is MeshCollider m && !m.convex ? c.bounds.ClosestPoint(mid) : c.ClosestPoint(mid);
+                    Vector3 away = p - near;
+                    away.y = 0f;
+                    if (away.sqrMagnitude < 1e-4f)
+                    {
+                        away = p - c.bounds.center; // (inside it: out the nearest way from its middle)
+                        away.y = 0f;
+                        if (away.sqrMagnitude < 1e-4f) away = Vector3.forward;
+                        near = new Vector3(c.bounds.center.x, p.y, c.bounds.center.z) + away.normalized * Mathf.Min(c.bounds.extents.x, c.bounds.extents.z);
+                    }
+                    float d = away.magnitude;
+                    if (d < r + 0.05f) p += away / Mathf.Max(d, 1e-3f) * (r + 0.05f - d);
+                }
+            }
+            return p;
+        }
+
+        /// <summary>A spot with room for it, as near here as can be found (within about 2 m), or false.</summary>
+        bool FindRoom(ref Vector3 p)
+        {
+            Vector3 at = OutOfTrunks(p);
+            at.y = PlayerSense.GroundHeight(at);
+            if (RoomAt(at)) { p = at; return true; }
+            for (float r = 0.6f; r <= 2.1f; r += 0.5f)
+                for (int i = 0; i < 10; i++)
+                {
+                    float a = (i + Random.value * 0.5f) / 10f * Mathf.PI * 2f;
+                    Vector3 q = p + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
+                    q.y = PlayerSense.GroundHeight(q);
+                    if (RoomAt(q)) { p = q; return true; }
+                }
+            return false;
+        }
+
+        // A standing trunk (not a fallen log or a stump): tall, and narrow across.
+        static bool IsTrunk(Collider c)
+        {
+            var b = c.bounds;
+            return b.size.y > 3f && Mathf.Max(b.size.x, b.size.z) < 2.5f;
         }
 
         // Standing still and upright, facing you; or, if ScourConfig says so, a new unsettling pose each creep.

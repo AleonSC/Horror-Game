@@ -944,29 +944,69 @@ namespace Game.Audio
         }
 
         /// <summary>
-        /// A crow's harsh, rasping caw (the prototype's): a buzzy, rough voice, its pitch sagging, through two nasal
-        /// resonances (0.42 s).
+        /// A crow calling: "kaah... kaah... kaah", two to four harsh caws a little under half a second apart, the
+        /// last often longer and lower (2 s). Each caw is a rough, strained voice: a buzz of sharp pulses (a crow's
+        /// syrinx forced hard) wavering in timing and strength, every other pulse weaker (the rattle in it), with
+        /// breath through it, its pitch jumping up at the start and sagging away; shaped by a crow's broad throat
+        /// resonances (round 1.3, 2.4 and 3.6 kHz), not a synth's narrow ones. Heard across the forest, with a
+        /// little of the trees' echo.
         /// </summary>
         public static float[] Caw(int seed)
         {
             var rng = new Random(seed);
-            var s = Make(0.42f);
-            double phase = 0;
-            float y1 = 0f, y2 = 0f, z1 = 0f, z2 = 0f;
-            const float r = 0.97f;
-            float c1 = 2f * r * (float)Math.Cos(2 * Math.PI * 1200f / SampleRate);
-            float c2 = 2f * r * (float)Math.Cos(2 * Math.PI * 2600f / SampleRate);
-            for (int i = 0; i < s.Length; i++)
+            var s = Make(2.1f);
+            int caws = 2 + rng.Next(3);
+            float at = 0.02f;
+            for (int c = 0; c < caws; c++)
             {
-                float t = Time(i), p = t / 0.42f;
-                phase += (520f - 120f * p + 25f * Noise(rng)) / SampleRate;
-                float source = (float)(2.0 * (phase % 1.0) - 1.0) + Noise(rng) * 0.4f;
-                float a = c1 * y1 - r * r * y2 + source; y2 = y1; y1 = a;
-                float b = c2 * z1 - r * r * z2 + source; z2 = z1; z1 = b;
-                float env = (float)Math.Sin(Math.PI * Math.Min(1f, p * 1.2f)) * (p < 0.08f ? p / 0.08f : 1f);
-                s[i] = (a + b * 0.7f) * env;
+                bool last = c == caws - 1;
+                float len = (last ? 0.42f : 0.34f) * (0.9f + 0.2f * (float)rng.NextDouble());
+                float pitch = (last ? 0.9f : 1f) * (0.95f + 0.1f * (float)rng.NextDouble());
+                if (at + len > 2.0f) break;
+                OneCaw(s, (int)(at * SampleRate), len, pitch, rng, c == 0 ? 1f : 0.85f + 0.15f * (float)rng.NextDouble());
+                at += len + 0.12f + 0.12f * (float)rng.NextDouble();
             }
-            return Normalize(Reverb(s, 2.2f, 0.6f, 0.7f), 0.8f);
+            return Normalize(Reverb(s, 1.6f, 0.3f, 0.6f), 0.8f);
+        }
+
+        static void OneCaw(float[] s, int start, float len, float pitch, Random rng, float loud)
+        {
+            int n = (int)(len * SampleRate);
+            double phase = 0;
+            float jitter = 0f, breath = 0f;
+            float l1 = 0f, b1 = 0f, l2 = 0f, b2 = 0f, l3 = 0f, b3 = 0f, hp = 0f, prev = 0f;
+            int pulse = 0;
+            float pulseGain = 1f;
+            for (int i = 0; i < n && start + i < s.Length; i++)
+            {
+                float t = i / (float)SampleRate, p = t / len;
+                // Pitch: a jump up into it, then sagging away (around 480 Hz, lowered for the last, longer caw).
+                float f0 = pitch * (420f + 160f * (float)Math.Exp(-p * 9f) * (p < 0.05f ? p / 0.05f : 1f) + 90f * (1f - p) - 60f * p * p);
+                jitter += (Noise(rng) - jitter) * 0.02f;
+                double before = phase;
+                phase += f0 * (1f + 0.06f * jitter) / SampleRate;
+                if (Math.Floor(phase) != Math.Floor(before))
+                {
+                    // A new pulse: its strength wavers, and every other one is weaker (the rattle).
+                    pulse++;
+                    pulseGain = (0.75f + 0.5f * (float)rng.NextDouble()) * (pulse % 2 == 0 ? 0.55f : 1f);
+                }
+                // A sharp pulse each period (rich in harmonics, like a strained voice), and the breath through it.
+                float ph = (float)(phase - Math.Floor(phase));
+                float src = (ph < 0.18f ? (float)Math.Sin(Math.PI * ph / 0.18f) : 0f) * pulseGain;
+                breath += (Noise(rng) - breath) * 0.6f;
+                src += breath * 0.35f;
+                // A crow's throat: broad resonances.
+                Band(src, 1300f, 0.55f, ref l1, ref b1);
+                Band(src, 2400f, 0.7f, ref l2, ref b2);
+                Band(src, 3600f, 0.9f, ref l3, ref b3);
+                float v = b1 + b2 * 0.8f + b3 * 0.35f;
+                hp = 0.995f * (hp + v - prev); prev = v; // (no rumble under it)
+                // Hard onset, held, then trailing off (a little catch near the end).
+                float env = Math.Min(1f, t / 0.012f) * (p < 0.6f ? 1f : (float)Math.Pow(1f - (p - 0.6f) / 0.4f, 1.6f));
+                env *= 0.85f + 0.15f * (float)Math.Sin(p * 37f);
+                s[start + i] += hp * env * loud;
+            }
         }
 
         /// <summary>A step in water: a splash and slosh.</summary>

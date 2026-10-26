@@ -14,7 +14,8 @@ namespace Game.Entities
             float best = float.MaxValue;
             foreach (var h in hits)
             {
-                float d = (h.transform.position - p).sqrMagnitude;
+                if (!IsTrunk(h)) continue;
+                float d = (TrunkCentre(h) - p).sqrMagnitude;
                 if (d < best) { best = d; tree = h; }
             }
             return tree != null;
@@ -29,28 +30,40 @@ namespace Game.Entities
             float best = float.MaxValue;
             foreach (var h in hits)
             {
-                Vector3 p = h.transform.position;
+                if (!IsTrunk(h)) continue;
+                Vector3 p = TrunkCentre(h);
                 float toPlayer = PlayerSense.FlatDistance(p, target);
                 if (toPlayer >= dist - 0.5f || toPlayer < s.killDistance + 1.5f) continue;
                 if (PlayerSense.FlatDistance(p, transform.position) > stepLength * 1.6f) continue;
                 float d = PlayerSense.FlatDistance(p, next);
                 if (d < best) { best = d; tree = h; }
             }
+            if (tree != null && !RoomAt(PeekSpotFor(tree, 0f))) tree = null; // (no room behind it: another trunk, a rock)
             return tree != null;
+        }
+
+        // The middle of a trunk at about head height (its collider's, not its object's: they needn't match).
+        static Vector3 TrunkCentre(Collider c)
+        {
+            var b = c.bounds;
+            return new Vector3(b.center.x, b.min.y, b.center.z);
         }
 
         // Right behind the trunk from the player, whether tucked in or peeking: it stays put and only cranes its
         // head round (the pose does that; see PoseShape's Peek). On a thicker or thinner trunk than the pose was
         // made for, it stands that much further to the side it peeks round, so its head still clears the edge and
         // the rest of it stays hidden. (Facing the player, its left is the world's Cross(up, away).)
-        Vector3 PeekSpot(float outAmount)
+        Vector3 PeekSpot(float outAmount) => PeekSpotFor(peekTree, outAmount);
+
+        Vector3 PeekSpotFor(Collider peekTree, float outAmount)
         {
-            Vector3 trunk = peekTree.transform.position;
+            Vector3 trunk = TrunkCentre(peekTree);
             Vector3 away = trunk - player.transform.position;
             away.y = 0f;
             away = away.sqrMagnitude > 0.01f ? away.normalized : Vector3.forward;
             Vector3 left = Vector3.Cross(Vector3.up, away);
-            float r = peekTree is CapsuleCollider c ? c.radius * peekTree.transform.lossyScale.x : 0.32f;
+            float r = peekTree is CapsuleCollider c ? c.radius * Mathf.Max(peekTree.transform.lossyScale.x, peekTree.transform.lossyScale.z) : Mathf.Min(peekTree.bounds.extents.x, peekTree.bounds.extents.z);
+            r = Mathf.Max(r, 0.1f);
             float k = Mathf.Max(0.5f, s.height / 2.4f); // (the pose was made for a 2.4 m scour)
             float shift = Mathf.Clamp(r - 0.32f * k, -0.08f, 0.2f);
             Vector3 spot = trunk + away * (r + 0.25f * k) + left * peekSide * shift;

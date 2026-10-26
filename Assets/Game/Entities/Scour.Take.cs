@@ -31,6 +31,7 @@ namespace Game.Entities
             takeForward = away.normalized;
             float dist = Mathf.Max(away.magnitude, s.approachMinDistance);
             approachFrom = takeStart + takeForward * dist;
+            approachFrom = OutOfTrunks(approachFrom);
             approachFrom.y = PlayerSense.GroundHeight(approachFrom);
             transform.position = approachFrom;
             approachTime = Mathf.Clamp((dist - 0.9f) / Mathf.Max(s.approachSpeed, 0.1f), 2f, 6f);
@@ -62,6 +63,7 @@ namespace Game.Entities
                 float phase = u * steps;
                 float lurch = Mathf.SmoothStep(0f, 1f, Mathf.Floor(phase) / steps + Mathf.SmoothStep(0f, 1f, phase - Mathf.Floor(phase)) / steps);
                 Vector3 p = Vector3.Lerp(approachFrom, takeStart + takeForward * 0.9f, lurch);
+                p = OutOfTrunks(p);
                 p.y = PlayerSense.GroundHeight(p) + Mathf.Abs(Mathf.Sin(phase * Mathf.PI)) * 0.06f;
                 transform.position = p;
                 body.Face(takeStart);

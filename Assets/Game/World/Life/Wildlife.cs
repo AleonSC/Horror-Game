@@ -179,7 +179,7 @@ namespace Game.World
             {
                 var b = flock[Random.Range(0, flock.Count)];
                 bool crow = b.Body.name == "Crow";
-                sounds.Play(crow ? Sound.Caw : Sound.Squeak, b.Body.position, MixerNames.Outside, crow ? 0.6f : 0.35f, crow ? Random.Range(0.68f, 0.82f) : Random.Range(0.85f, 1.15f), 60f);
+                sounds.Play(crow ? Sound.Caw : Sound.Squeak, b.Body.position, MixerNames.Outside, crow ? 0.6f : 0.35f, crow ? Random.Range(0.86f, 0.97f) : Random.Range(0.85f, 1.15f), 60f);
             }
             if (flockLife <= 0f)
             {

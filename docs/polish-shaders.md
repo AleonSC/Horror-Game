@@ -1147,3 +1147,15 @@ The held remote sat below the bottom of the screen. It now has its own spot, `It
   - The clouds gather before the eye opens and drift apart after it closes. The pupil starts wide, narrows onto you, then makes small darting looks.
   - `eyeSize` (15°) is the width of the opening. `eyeGlow` (now 1) is the brightness. `eyeSwirl` sets how fast the clouds turn.
   - If the shader can't be used, the old red eye is drawn instead.
+
+## Scours kept out of trees; realistic crows
+
+- **Scours and trunks:**
+  - Before, scours were only checked against trees when they first appeared. Creeping, advancing, circling, charging and the walk-up when they grab you could all put one inside a trunk.
+  - Now every move goes through `OutOfTrunks`, which pushes the body (a capsule about the scour's size) just clear of any trunk or prop it overlaps.
+  - A creep with no room near its landing spot looks within about 2 m (`FindRoom`). If there's still no room, it skips that creep and tries next time.
+  - Hiding spots are worked out from the trunk's collider, not the tree object's position (the two can differ). Only standing trunks are used (tall and narrow), never logs or stumps, and a trunk is only used when there's room behind it.
+- **Crows:**
+  - Rebuilt. A call is now a series of 2–4 harsh caws, a little under half a second apart, the last one longer and lower.
+  - Each caw is a rough, strained voice: sharp pulses wavering in timing and strength, every other pulse weaker for the rattle, and breath through it. Its pitch jumps up at the start then sags (about 480 Hz). It's shaped by broad throat resonances around 1.3, 2.4 and 3.6 kHz, with a little forest echo.
+  - Playback pitch raised to 0.85–0.97 (was about 0.7), so they sound like crows rather than something slowed down.
