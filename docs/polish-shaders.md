@@ -1193,3 +1193,31 @@ The held remote sat below the bottom of the screen. It now has its own spot, `It
 - **Why the last fix didn't work:** the mound's heights were right, but its points sit 0.5 m apart. The last row at full height was at z 3.1 and the first ground-level row in front was at z 3.6, and the bunker's front face is at z 3.5. So the slope between those two rows ran from 3 m high down to about 0.5 m inside the door frame: a dirt ramp blocking the doorway. That slope also had a collider.
 - **The fix:** the mound now leaves out every square that reaches onto the front face or in front of it (`OverFront`). The front wall and its capping slab close what's left above.
 - **Checked offline:** I sampled the mound surface inside the doorway and corridor (|x| < 0.7, z > 1.5, below door height). 217 points were inside before the fix, and 0 are now.
+
+## Session timeline: judging the pacing
+
+It's hard to judge whether horror works when you know every scare. The session recorder now also keeps each run as a timeline and saves it as an HTML page to open in a browser.
+
+- **What it records:** twice a second it notes:
+  - what each threat is doing: away, out/watching, hunting you, or taking you. The giant walking far off counts as background, not pressure.
+  - the threat level (calm / dread / hush);
+  - how you're moving: still, walking, running, crouching, being taken, or flying the drone;
+  - the flashlight, and whether you're in the open, in a light, or under cover.
+
+  It also marks lamps lit, being caught, things appearing, hunt resets, floodlights, boss themes, and scares. Scares come from a new `ScareHappened` event that phantoms and falling trees now publish.
+- **The page** (no scripts, works offline):
+  - Summary cards:
+    - **Hunted:** the share of the run with something coming for you.
+    - **Under pressure:** the share with something out, or the dread/hush on.
+    - **Overlap:** the share with two or more threats out at once.
+    - **Quiet:** the share with nothing going on, plus the longest quiet stretch and how many lasted 30 s or more.
+    - **Between beats:** the typical and longest gap between scares or arrivals.
+    - Counts of scares and catches, and how much you stood still.
+  - A pressure curve in 10 s bins, then one lane per threat and player state. Lamps are drawn as numbered lines down through everything, and you can hover anything to see what and when.
+  - A lamp-by-lamp table.
+- **Where to find it:**
+  - It's saved to `SessionLogs/Timeline_<date>.html` when Play stops, and for each run when a new run starts.
+  - The dev window's Session tab (F11) shows this run's pacing so far and has an **Open timeline** button that saves it and opens it in your browser.
+  - It's only in the editor and development builds, like the rest of the dev tools.
+- **How to read it:** look for contrast. Long flat stretches of pressure, a lot of overlap, or short gaps between beats usually mean the fear is going numb. Long stretches of standing still can mean fear or being lost; watch someone play to tell which.
+- **Code:** `DevTools/SessionTimeline.cs` (the model and the numbers, plain C#), `DevTools/TimelineReport.cs` (the page), `DevTools/SessionRecorder.cs` (sampling and saving). Tests are in `Tests/EditMode/SessionTimelineTests.cs`.

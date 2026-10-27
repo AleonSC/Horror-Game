@@ -98,7 +98,9 @@ namespace Game.World
             toTree.y = 0f;
             Vector3 side = Vector3.Cross(Vector3.up, toTree).normalized * (Random.value < 0.5f ? -1f : 1f);
             Vector3 pushFrom = best.transform.position - (side + toTree.normalized * 0.4f);
-            return best.KnockDown(world.Forest, pushFrom, 0.7f);
+            bool fell = best.KnockDown(world.Forest, pushFrom, 0.7f);
+            if (fell && Services.TryGet<EventBus>(out var events)) events.Publish(new ScareHappened("a tree fell", best.transform.position));
+            return fell;
         }
 
         static bool PlayerSenseOccluded(Vector3 from, Vector3 to, Collider self)
@@ -147,6 +149,21 @@ namespace Game.World
             phantom = yours != null ? Instantiate(yours) : Phantoms.Make(which, null);
             phantom.transform.SetPositionAndRotation(at, Quaternion.LookRotation(-dir) * Quaternion.Euler(0f, Random.Range(-30f, 30f), 0f));
             phantomSeen = false;
+            if (Services.TryGet<EventBus>(out var events)) events.Publish(new ScareHappened($"phantom ({(yours != null ? yours.name : PhantomName(which))})", at));
+        }
+
+        static string PhantomName(int which)
+        {
+            switch (which % Phantoms.Count)
+            {
+                case 0: return "chair";
+                case 1: return "stop sign";
+                case 2: return "gurney";
+                case 3: return "TV";
+                case 4: return "telephone";
+                case 5: return "radio";
+                default: return "tricycle";
+            }
         }
 
         static bool InView(Camera cam, Vector3 p)

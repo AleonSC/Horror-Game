@@ -249,4 +249,16 @@ namespace Game.Core
         public FloodlightsLit(Vector3 position, float seconds) { Position = position; Seconds = seconds; }
         public override string ToString() => "The watchtower's floodlights came on";
     }
+
+    /// <summary>
+    /// Something meant to startle happened (a phantom by the path, a tree going over): for the session timeline,
+    /// which can't otherwise tell a scare from scenery.
+    /// </summary>
+    public readonly struct ScareHappened : IGameEvent
+    {
+        public readonly string What;
+        public readonly Vector3 Position;
+        public ScareHappened(string what, Vector3 position) { What = what; Position = position; }
+        public override string ToString() => $"Scare: {What}";
+    }
 }
