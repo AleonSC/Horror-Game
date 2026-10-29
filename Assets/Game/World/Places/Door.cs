@@ -13,10 +13,16 @@ namespace Game.World
         public float swingTime = 0.7f;
         [Tooltip("Locked: it won't open (the lone door, until all ten lamps are lit).")]
         public bool locked;
+        [Range(0f, 1f), Tooltip("Left standing this far open (a share of the open angle) while it isn't opened: the lone door, creaking a little wider with each lamp. It holds there, solid, until it's opened.")]
+        public float ajar;
+        [Tooltip("Seconds it takes to creak to a new ajar, or to swing open by itself.")]
+        public float creakTime = 2.5f;
 
         Quaternion shut;
         float open;     // 0 shut, 1 open
         bool opening;
+        float swingFor;
+        float rattleLeft, rattleFor, rattleDegrees, shownAngle = -1f;
         Collider handle;
         Collider[] solid;
         CharacterController player;
@@ -41,6 +47,7 @@ namespace Game.World
                 return;
             }
             opening = !opening;
+            swingFor = swingTime;
             Play(opening ? Sound.DoorOpen : Sound.DoorShut, 0.7f, Random.Range(0.9f, 1.1f));
             // Sometimes, shutting it is answered: three slow knocks, out in the trees.
             if (!opening && GetComponent<LoneDoor>() == null)
@@ -62,16 +69,52 @@ namespace Game.World
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(from, 0f, "three knocks"));
         }
 
+        /// <summary>Swing open by itself, slowly (the lone door when the last lamp's lit).</summary>
+        public void SwingOpen()
+        {
+            if (opening) return;
+            opening = true;
+            swingFor = creakTime * 1.6f;
+            Play(Sound.Creak, 0.8f, 0.55f);
+        }
+
+        /// <summary>Creak to standing this far open (a share of the open angle), slowly; it holds there, solid.</summary>
+        public void SetAjar(float share)
+        {
+            share = Mathf.Clamp01(share);
+            if (Mathf.Approximately(share, ajar)) return;
+            if (!opening && share > ajar) Play(Sound.Creak, 0.7f, Random.Range(0.5f, 0.62f));
+            ajar = share;
+            swingFor = creakTime;
+        }
+
+        /// <summary>Shake in its frame (while it's shut or ajar): knocking against the stop, dying away.</summary>
+        public void Rattle(float seconds, float degrees)
+        {
+            rattleFor = rattleLeft = Mathf.Max(0.05f, seconds);
+            rattleDegrees = degrees;
+        }
+
         void Update()
         {
-            float target = opening ? 1f : 0f;
-            // Only solid when shut (and not shut on you): swinging or open, you walk through it, so it never
-            // shoves you or pins you in the doorway.
-            bool block = !opening && open <= 0f && !Overlaps();
+            // Open, or standing ajar (creaking there slowly).
+            float target = opening ? 1f : ajar;
+            float speed = swingFor > 0f ? swingFor : swingTime;
+            // Only solid when at rest shut or ajar (and not shut on you): swinging or open, you walk through it, so
+            // it never shoves you or pins you in the doorway.
+            bool block = !opening && open <= ajar + 0.001f && !Overlaps();
             foreach (var c in solid) if (c != null && c.isTrigger == block) c.isTrigger = !block;
-            if (Mathf.Approximately(open, target)) return;
-            open = Mathf.MoveTowards(open, target, Time.deltaTime / Mathf.Max(0.05f, swingTime));
-            transform.localRotation = shut * Quaternion.Euler(0f, -openAngle * Mathf.SmoothStep(0f, 1f, open), 0f);
+            if (!Mathf.Approximately(open, target)) open = Mathf.MoveTowards(open, target, Time.deltaTime / Mathf.Max(0.05f, speed));
+            float angle = -openAngle * Mathf.SmoothStep(0f, 1f, open);
+            if (rattleLeft > 0f)
+            {
+                rattleLeft -= Time.deltaTime;
+                float k = Mathf.Clamp01(rattleLeft / rattleFor);
+                angle += Mathf.Sin(rattleLeft * 70f) * rattleDegrees * k * (opening ? 0f : 1f);
+            }
+            if (Mathf.Approximately(angle, shownAngle)) return;
+            shownAngle = angle;
+            transform.localRotation = shut * Quaternion.Euler(0f, angle, 0f);
         }
 
         bool Overlaps()

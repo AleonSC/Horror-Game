@@ -36,7 +36,7 @@ namespace Game.World
             if (Services.TryGet<EventBus>(out var events)) sub = events.Subscribe<DoorUnlocked>(_ => door.locked = false);
             if (room != null)
             {
-                Portal.Create(frame, room, opening, openingCentre, () => door.IsOpen && !door.locked);
+                Portal.Create(frame, room, opening, openingCentre, () => (door.IsOpen && !door.locked) || door.ajar > 0.001f); // (through the crack, ajar: a glimpse of the room)
                 Portal.Create(room, frame, opening, openingCentre, null);
             }
         }

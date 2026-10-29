@@ -12,8 +12,9 @@ namespace Game.World
     /// <summary>
     /// The lone door's ring (section 6.5): ten standing stones round it, each with a rune cut into the face it
     /// turns to the door, one for each lamp. As each lamp is lit the next stone wakes, its rune kindling cold and
-    /// pale; and the door answers: a blow from the other side that shakes it in its frame, and more light seeping
-    /// out under it and through the keyhole each time. At the tenth every stone flares, the light floods out
+    /// pale; and the door answers: a blow from the other side that shakes it in its frame, more light seeping
+    /// out under it and through the keyhole each time, and it creaks a little further open (still locked: a
+    /// glimpse of the room through the crack). At the tenth every stone flares, the light floods out
     /// round the door, and it unlocks. Works round your own door too (the light seeps from its foot).
     /// </summary>
     public sealed class DoorShrine : MonoBehaviour
@@ -28,7 +29,9 @@ namespace Game.World
         public float stoneLight = 4f;
         [Tooltip("The light seeping out round the door when all ten are lit (candela); a share of it before.")]
         public float doorLight = 60f;
-        [Tooltip("How far off the door's blow and the stones waking are heard (metres).")]
+        [Range(0f, 0.6f), Tooltip("How far the door stands open by the ninth lamp (a share of its full swing); it opens a little more with each lamp up to there, and swings open at the tenth.")]
+        public float ajarAtNine = 0.33f;
+                [Tooltip("How far off the door's blow and the stones waking are heard (metres).")]
         public float heardFrom = 160f;
 
         readonly Material[] runes = new Material[Stones];
@@ -241,6 +244,7 @@ namespace Game.World
             }
             seepTarget = Mathf.Clamp01(lit / (float)Stones);
             if (instant) seepLevel = seepTarget;
+            SetAjar(lit, instant);
         }
 
         // A lamp lit: the next stone wakes, and the door answers.
@@ -259,11 +263,12 @@ namespace Game.World
             for (int b = 0; b < blows; b++)
             {
                 Play(Sound.DoorThud, transform.position + Vector3.up * 1.1f, 1f, UnityEngine.Random.Range(0.85f, 1f));
-                StartCoroutine(Rattle(0.45f));
+                if (door != null) door.Rattle(0.45f, 1.6f);
                 seepLevel = Mathf.Min(1f, seepLevel + 0.4f); // (a pulse of it with each blow)
                 yield return new WaitForSeconds(1.2f);
             }
             seepTarget = Mathf.Clamp01(timesLit / (float)Stones);
+            SetAjar(timesLit, false); // (and it creaks a little wider)
 
             if (timesLit >= Stones)
             {
@@ -271,7 +276,20 @@ namespace Game.World
                 for (int i = 0; i < Stones; i++) StartCoroutine(Flare(i, 3.5f));
                 Play(Sound.StoneWake, transform.position + Vector3.up * 2f, 1f, 0.7f);
                 seepLevel = 2f;
+                yield return new WaitForSeconds(0.8f);
+                if (door != null) door.SwingOpen(); // (by itself, slowly: come in)
             }
+        }
+
+        // The door stands a little further open with each lamp lit: a crack after the first, a hand's width
+        // after a few, a third of the way by the ninth (still locked, still solid: a glimpse of the room through
+        // it, no way in). At the tenth it swings open.
+        void SetAjar(int lit, bool instant)
+        {
+            if (door == null || door.IsOpen) return;
+            float share = lit <= 0 ? 0f : lit >= Stones ? ajarAtNine : ajarAtNine * Mathf.Pow(lit / (Stones - 1f), 0.8f);
+            if (instant) door.ajar = share;
+            else door.SetAjar(share);
         }
 
         // A stone's rune flares well past its woken glow, then settles to it.
@@ -284,20 +302,6 @@ namespace Game.World
                 yield return null;
             }
             level[i] = target[i];
-        }
-
-        // Shaking in its frame (while shut): a few quick knocks of the leaf against the stop, dying away.
-        IEnumerator Rattle(float seconds)
-        {
-            if (hinge == null || door == null || door.IsOpen) yield break;
-            Quaternion rest = hinge.localRotation;
-            for (float t = 0f; t < seconds && !door.IsOpen; t += Time.deltaTime)
-            {
-                float k = 1f - t / seconds;
-                hinge.localRotation = rest * Quaternion.Euler(0f, Mathf.Sin(t * 70f) * 1.6f * k, 0f);
-                yield return null;
-            }
-            if (!door.IsOpen) hinge.localRotation = rest;
         }
 
         void Update()

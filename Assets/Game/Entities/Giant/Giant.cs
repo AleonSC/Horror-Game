@@ -25,8 +25,10 @@ namespace Game.Entities
     {
         // Nearer than the camera's far plane (600 m), so it's always drawn.
         // (Well inside the camera's far clip, 600 m: swinging on its chain tips its feet away, and further than the
-        // clip they'd be cut off whenever you look straight at it.)
-        const float RenderDistance = 360f;
+        // clip they'd be cut off whenever you look straight at it. And its chain runs up from its neck only as far
+        // as the clip: hung as high as it is now, at 360 m its neck was 509 m off and the chain had 58 m before
+        // the clip, faded to nothing; at 290 it has 180 m.)
+        const float RenderDistance = 290f;
 
         GiantConfig config;
         GiantSettings s;

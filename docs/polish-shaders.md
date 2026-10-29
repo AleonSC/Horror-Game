@@ -1288,3 +1288,18 @@ It's hard to judge whether horror works when you know every scare. The session r
 - **At ten:** every stone flares, and the light pours out round the door as it unlocks.
 - **Your own door art:** the ring and the light at its foot work round a custom `door` from WorldArtConfig too. The rattle needs a child named `Door`, and the keyhole glow needs one named `Keyhole`.
 - **Clearing:** the door's clearing is 9 m now (was 5) so the stones stand clear of the trees. World-gen tests pass, and no seed is short of structures.
+
+## The door opens with the lamps; the giant's chain back
+
+- **The door, lamp by lamp:**
+  - It creaks a little further open with each lamp lit: a crack after the first, about a hand's width after a few, a third of its swing by the ninth (`DoorShrine.ajarAtNine` 0.33).
+  - It stays locked and solid at every step, so there's no way in. Through the gap you get a glimpse of the dark room: its window now shows while the door is ajar, not only when it's open.
+  - At the tenth lamp, after the stones flare, it swings fully open by itself, slowly.
+- **`Door` changes:**
+  - `ajar` (and `SetAjar`, which creaks there over `creakTime` with a creak sound) is where the door rests while it isn't opened. It's solid at rest there.
+  - `Rattle(seconds, degrees)` and `SwingOpen()` are now part of the door, so the rattle from each blow and the slow opening can't fight over its rotation.
+  - Opening and closing it yourself still take `swingTime`.
+- **The giant's chain:**
+  - The chain only draws up to the camera's far clip (600 m).
+  - After the giant was hung higher, his neck was drawn 509 m away, which left the chain 58 m before the clip. It fades into the sky from 30% of its length, so it was gone.
+  - The giant is now drawn at 290 m (was 360), scaled down to match so he looks exactly the same size. That leaves the chain 180 m, a little more than before he was raised.
