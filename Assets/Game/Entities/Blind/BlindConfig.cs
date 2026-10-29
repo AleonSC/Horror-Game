@@ -52,6 +52,20 @@ namespace Game.Entities
         [Range(0f, 1f), Tooltip("Chance it comes in where you're looking.")]
         public float teleportInView = 0.4f;
 
+        [Header("Striding (in place of the lightning)")]
+        [Tooltip("When it moves on (with Teleporting on), it doesn't vanish in lightning: its legs grow and it walks there in huge, slow steps, crushing trees, each one shaking the ground; then it shrinks back down. Off: the lightning.")]
+        public bool strides = true;
+        [Range(1f, 6f), Tooltip("Its legs grow to this many times their length.")]
+        public float strideGrowth = 3.6f;
+        [Range(1f, 20f), Tooltip("How fast it strides (metres a second).")]
+        public float strideSpeed = 5f;
+        [Range(0.5f, 10f), Tooltip("Seconds for its legs to grow, or shrink back.")]
+        public float growTime = 2.5f;
+
+        [Header("Its neck")]
+        [Range(0f, 40f), Tooltip("Listening hard (and while it stands waiting), its neck lifts its head this far above its shoulders (metres): up over the trees.")]
+        public float neckReach = 16f;
+
         [Header("Following your trail (when it doesn't teleport)")]
         [Tooltip("Roaming, it follows the trail you've left (where you were this many seconds ago), not just wandering.")]
         [Range(0f, 120f)] public float trailBehind = 18f;

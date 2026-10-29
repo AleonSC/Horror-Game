@@ -1,29 +1,72 @@
+using System.Collections.Generic;
 using Game.Rendering;
 using UnityEngine;
 
 namespace Game.Entities
 {
     /// <summary>
-    /// The blind one's body: the built-in one (hunched and long-armed, starved: a spine of knobs down its back, ribs
-    /// showing, shoulder blades jutting, tatters of skin; a smooth, eyeless head with rows of pits and great thin ear
-    /// membranes, the mouth split down its front lined with teeth; knobbed elbows and knees, long two-jointed
-    /// fingers and clawed feet up on their toes) or your own model. One unit tall with its feet at the pivot, facing +Z. It walks, cocks its head to listen,
-    /// opens its mouth to roar, and leans down to your face.
+    /// The blind one's body: the built-in one (the Tall Listener) or your own model. A starved, hunched giant with
+    /// a smooth, eyeless head and two vast membranes of ear, on a long jointed neck folded down over bare shoulders.
+    /// Its arms aren't on its body: they hang from a yoke of bone just under its head, reaching to the ground while
+    /// the neck's folded, so it goes on four long limbs. The neck stretches, lifting the head (and the arms hanging
+    /// under it) up over the trees to listen; the legs grow, three and a half times their length, for long slow
+    /// strides; and the neck curls down to bring its face to yours.
+    /// <para>Built in the mock-up's metres (6.1 m stood) under a model scaled to one unit tall, feet at the pivot,
+    /// facing +Z; the blind one scales it to its height. Its feet are planted in the world where they land, and the
+    /// legs bend to reach them, one lifting and reaching far ahead at a time.</para>
     /// </summary>
     public sealed class BlindBody : MonoBehaviour
     {
-        Transform hips, chest, neck, head, jawL, jawR, armL, armR, foreL, foreR, thighL, thighR, shinL, shinR;
+        const float Standing = 6.1f;          // (its height in the model's own metres)
+        const int NeckSegments = 16;
+        const float NeckShort = 0.11f;        // each vertebra, folded (model metres)
+        const float LegRest = 1.45f;          // thigh and shin, at their own length
+
         Animator animator;
-        Material skin, mouth;
+        Material skin, mouth, bone, membrane, claw;
         bool custom;
-        float walkPhase;
+
+        Transform model, torso, head, jaw, armRoot;
+        readonly Transform[] neck = new Transform[NeckSegments];
+        readonly Transform[] neckBones = new Transform[NeckSegments];
+        readonly Transform[] ears = new Transform[2];
+        readonly Transform[] arms = new Transform[2];
+        readonly Leg[] legs = new Leg[2];
+        readonly List<Mesh> meshes = new List<Mesh>();
+
+        float stretchShown, lookYaw, lookTo, nextLook, snapTilt, nextSnap;
+
+        sealed class Leg
+        {
+            public Transform hip, thigh, knee, shin, ankle;
+            public Vector3 at, from, to;   // the foot (ankle), in the world
+            public bool swing, placed;
+            public float u;
+        }
+
+        int nextLeg;
+        float swingFor = 0.6f;
+        Vector3 lastPos;
+        bool lastPosSet;
+
+        /// <summary>A foot coming down: where, and how big the legs were (0 their own length, 1 grown).</summary>
+        public System.Action<Vector3, float> FootDown;
+
+        /// <summary>Its own planted feet (false for your model: then the blind one times its steps itself).</summary>
+        public bool HasFeet => !custom;
+
+        /// <summary>How far its neck can reach above its shoulders when stretched (metres, world).</summary>
+        public float NeckReach { get; set; } = 16f;
+
+        /// <summary>How many times their length its legs grow to, striding.</summary>
+        public float Growth { get; set; } = 3.6f;
 
         public static BlindBody Create(Transform parent, BlindConfig config)
         {
             var go = new GameObject("Blind one body") { layer = Game.Core.Layers.Entities };
             go.transform.SetParent(parent, false);
             var b = go.AddComponent<BlindBody>();
-            b.skin = RuntimeMaterials.Lit("Blind one skin", new Color(0.035f, 0.032f, 0.03f), 0.35f);
+            b.skin = RuntimeMaterials.Lit("Blind one skin", new Color(0.05f, 0.046f, 0.043f), 0.4f);
             b.mouth = RuntimeMaterials.Glow("Blind one mouth", new Color(0.5f, 0.02f, 0.01f));
             if (config.customModel != null) b.UseYours(config.customModel);
             else b.Build();
@@ -33,165 +76,215 @@ namespace Game.Entities
         void OnDestroy()
         {
             foreach (var m in new[] { skin, mouth, bone, membrane, claw }) if (m != null) Destroy(m);
+            foreach (var m in meshes) if (m != null) Destroy(m);
         }
 
-        /// <summary>The top of its head, in its own space (one unit tall).</summary>
+        /// <summary>The top of its head, in its own space (one unit tall): for your model.</summary>
         public Vector3 HeadLocal => new Vector3(0f, 0.9f, 0.18f);
+
+        /// <summary>Where its head is now, in the world.</summary>
+        public Vector3 HeadWorld => head != null ? head.position : transform.TransformPoint(HeadLocal);
 
         void UseYours(GameObject prefab)
         {
             custom = true;
-            var model = Instantiate(prefab, transform, false);
-            foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
-            var renderers = model.GetComponentsInChildren<Renderer>();
+            var yours = Instantiate(prefab, transform, false);
+            foreach (var c in yours.GetComponentsInChildren<Collider>()) Destroy(c);
+            var renderers = yours.GetComponentsInChildren<Renderer>();
             if (renderers.Length > 0)
             {
                 var b = renderers[0].bounds;
                 foreach (var r in renderers) b.Encapsulate(r.bounds);
-                if (b.size.y > 0.001f) model.transform.localScale = model.transform.localScale / b.size.y;
+                if (b.size.y > 0.001f) yours.transform.localScale = yours.transform.localScale / b.size.y;
             }
-            animator = model.GetComponentInChildren<Animator>();
+            animator = yours.GetComponentInChildren<Animator>();
         }
+
+        // ------------------------------------------------------------------ building
 
         void Build()
         {
-            var t = transform;
-            bone = RuntimeMaterials.Lit("Blind one bone", new Color(0.32f, 0.29f, 0.24f), 0.45f);
-            membrane = RuntimeMaterials.Lit("Blind one membrane", new Color(0.16f, 0.05f, 0.05f), 0.6f, true);
+            bone = RuntimeMaterials.Lit("Blind one bone", new Color(0.3f, 0.27f, 0.23f), 0.45f);
+            membrane = RuntimeMaterials.Lit("Blind one membrane", new Color(0.2f, 0.07f, 0.065f), 0.55f, true);
             claw = RuntimeMaterials.Lit("Blind one claw", new Color(0.02f, 0.018f, 0.016f), 0.8f);
+            model = Joint(transform, Vector3.zero);
+            model.localScale = Vector3.one / Standing;
+            var M = skin;
 
-            // The hips, and the long hunched back over them: a spine of knobs down it, shoulder blades jutting.
-            hips = Joint(t, new Vector3(0f, 0.44f, 0f));
-            Part(hips, PrimitiveType.Capsule, new Vector3(0f, 0.07f, 0f), new Vector3(0.13f, 0.09f, 0.09f), skin);
-            foreach (float x in new[] { -0.055f, 0.055f }) Part(hips, PrimitiveType.Sphere, new Vector3(x, 0.08f, -0.03f), new Vector3(0.05f, 0.04f, 0.04f), bone); // (hip bones)
-            chest = Joint(hips, new Vector3(0f, 0.16f, 0f));
-            chest.localRotation = Quaternion.Euler(45f, 0f, 0f);  // hunched far over
-            Part(chest, PrimitiveType.Capsule, new Vector3(0f, 0.13f, 0.01f), new Vector3(0.19f, 0.16f, 0.12f), skin);
-            Part(chest, PrimitiveType.Capsule, new Vector3(0f, 0.02f, 0.015f), new Vector3(0.1f, 0.06f, 0.08f), skin); // (the sunken belly)
-            for (int k = 0; k < 9; k++) // (the spine's knobs, down the back)
+            // The torso: hips, a gaunt belly, a spine curving forward into the hunch, ribs showing.
+            torso = Joint(model, Vector3.zero);
+            Ball(torso, new Vector3(0f, 3.0f, 0f), new Vector3(0.42f, 0.26f, 0.28f), M);
+            Ball(torso, new Vector3(0f, 3.55f, 0.12f), new Vector3(0.26f, 0.38f, 0.22f), M);
+            Rod(torso, new Vector3(0f, 3.0f, -0.05f), new Vector3(0f, 3.9f, 0.1f), 0.125f, M);
+            Rod(torso, new Vector3(0f, 3.9f, 0.1f), new Vector3(0f, 4.7f, 0.45f), 0.135f, M);
+            Rod(torso, new Vector3(0f, 4.7f, 0.45f), new Vector3(0f, 5.15f, 0.85f), 0.13f, M);
+            for (int k = 0; k < 10; k++) // (the spine's knobs, down its back)
             {
-                float y = Mathf.Lerp(-0.04f, 0.27f, k / 8f);
-                Part(chest, PrimitiveType.Sphere, new Vector3(0f, y, -0.06f - 0.012f * Mathf.Sin(k / 8f * Mathf.PI)), new Vector3(0.026f, 0.02f, 0.03f), bone);
+                float u = k / 9f;
+                Vector3 p = Vector3.Lerp(new Vector3(0f, 3.1f, -0.15f), new Vector3(0f, 5.1f, 0.7f), u) + new Vector3(0f, 0f, -0.1f * Mathf.Sin(u * Mathf.PI));
+                Ball(torso, p, new Vector3(0.07f, 0.055f, 0.07f), bone);
             }
-            for (int k = 0; k < 6; k++) // (ribs, showing through on each side)
+            for (int k = 0; k < 6; k++) // (ribs, each side, from the spine round to the front)
             {
-                float y = Mathf.Lerp(0.07f, 0.22f, k / 5f);
+                float y = Mathf.Lerp(3.95f, 4.75f, k / 5f);
+                float zc = Mathf.Lerp(0.2f, 0.6f, k / 5f);
+                float w = 0.48f * (1f - Mathf.Pow(k / 5f - 0.35f, 2f) * 0.9f);
                 foreach (float s in new[] { -1f, 1f })
                 {
-                    Vector3 a = new Vector3(s * 0.02f, y, -0.055f), m = new Vector3(s * 0.098f, y - 0.01f, -0.005f), b = new Vector3(s * 0.065f, y - 0.025f, 0.055f);
-                    Rod(chest, a, m, 0.009f, bone);
-                    Rod(chest, m, b, 0.008f, bone);
+                    Vector3 a = new Vector3(s * 0.06f, y + 0.05f, zc - 0.25f), m = new Vector3(s * w, y - 0.03f, zc + 0.02f), b = new Vector3(s * w * 0.55f, y - 0.12f, zc + 0.32f);
+                    Rod(torso, a, m, 0.035f, bone);
+                    Rod(torso, m, b, 0.03f, bone);
                 }
             }
-            foreach (float s in new[] { -1f, 1f }) // (shoulder blades)
+
+            // The neck: a chain of vertebrae, each one a joint whose bone lengthens as it stretches.
+            Transform parent = Joint(torso, new Vector3(0f, 5.15f, 0.85f));
+            for (int i = 0; i < NeckSegments; i++)
             {
-                var blade = Part(chest, PrimitiveType.Sphere, new Vector3(s * 0.07f, 0.23f, -0.055f), new Vector3(0.07f, 0.09f, 0.02f), bone);
-                blade.transform.localRotation = Quaternion.Euler(10f, s * 25f, s * 15f);
-            }
-            // Tatters of skin hanging off its back.
-            for (int k = 0; k < 4; k++)
-            {
-                var flap = Part(chest, PrimitiveType.Cube, new Vector3((k - 1.5f) * 0.04f, 0.1f + k * 0.03f, -0.075f), new Vector3(0.03f, 0.1f, 0.004f), membrane);
-                flap.transform.localRotation = Quaternion.Euler(-15f - k * 6f, 0f, (k - 1.5f) * 10f);
+                var seg = Joint(parent, i == 0 ? Vector3.zero : new Vector3(0f, NeckShort, 0f));
+                float r = 0.12f - i * 0.0028f;
+                var boneShape = Shape(PrimitiveType.Cylinder, seg, new Vector3(0f, NeckShort * 0.5f, 0f), new Vector3(r * 2f, NeckShort * 0.5f, r * 2f), M);
+                Ball(seg, Vector3.zero, new Vector3(r * 1.25f, r * 0.9f, r * 1.25f), M);
+                if (i % 2 == 0) Ball(seg, new Vector3(0f, NeckShort * 0.4f, -r), new Vector3(0.04f, 0.04f, 0.05f), bone); // (a ridge down its back)
+                neck[i] = seg;
+                neckBones[i] = boneShape.transform;
+                parent = seg;
             }
 
-            // The neck: knobbed vertebrae. The head: long, smooth and eyeless, a ridge down it, a row of pits each
-            // side (it hears through them), great thin ear membranes, the mouth split down its front with teeth.
-            neck = Joint(chest, new Vector3(0f, 0.26f, 0.02f));
-            Part(neck, PrimitiveType.Capsule, new Vector3(0f, 0.04f, 0f), new Vector3(0.045f, 0.05f, 0.045f), skin);
-            for (int k = 0; k < 3; k++) Part(neck, PrimitiveType.Sphere, new Vector3(0f, 0.015f + k * 0.025f, -0.022f), new Vector3(0.022f, 0.016f, 0.02f), bone);
-            head = Joint(neck, new Vector3(0f, 0.08f, 0f));
-            Part(head, PrimitiveType.Sphere, new Vector3(0f, 0.05f, 0.03f), new Vector3(0.09f, 0.14f, 0.11f), skin);
-            Part(head, PrimitiveType.Sphere, new Vector3(0f, 0.09f, 0.0f), new Vector3(0.075f, 0.09f, 0.1f), skin); // (the swollen back of the skull)
-            Rod(head, new Vector3(0f, 0.12f, -0.03f), new Vector3(0f, 0.1f, 0.07f), 0.008f, bone); // (the ridge)
+            // The head: long, smooth and eyeless (skin over where the sockets would be), rows of pits it hears
+            // through glowing faintly, slits for a nose, a lipless mouth with teeth, and the great ears.
+            head = Joint(parent, new Vector3(0f, NeckShort + 0.08f, 0.05f));
+            Ball(head, new Vector3(0f, 0.05f, 0.05f), new Vector3(0.36f, 0.42f, 0.52f), M);
+            Ball(head, new Vector3(0f, 0.18f, 0.28f), new Vector3(0.3f, 0.16f, 0.3f), M);
             foreach (float s in new[] { -1f, 1f })
             {
-                for (int k = 0; k < 5; k++) // (the pits)
-                    Part(head, PrimitiveType.Sphere, new Vector3(s * 0.04f, 0.1f - k * 0.017f, 0.03f + k * 0.008f), Vector3.one * 0.011f, mouth);
-                var ear = Part(head, PrimitiveType.Sphere, new Vector3(s * 0.055f, 0.06f, -0.01f), new Vector3(0.006f, 0.09f, 0.07f), membrane);
-                ear.transform.localRotation = Quaternion.Euler(-20f, s * 25f, s * 10f);
-                Rod(head, new Vector3(s * 0.05f, 0.02f, -0.01f), new Vector3(s * 0.075f, 0.11f, -0.04f), 0.004f, bone); // (its spine)
+                Ball(head, new Vector3(s * 0.14f, 0.12f, 0.47f), new Vector3(0.09f, 0.055f, 0.04f), bone);           // skin over the sockets
+                Ball(head, new Vector3(s * 0.04f, -0.02f, 0.56f), new Vector3(0.012f, 0.045f, 0.02f), claw);        // nose slits
+                for (int k = 0; k < 5; k++)
+                    Ball(head, new Vector3(s * (0.2f + k * 0.012f), 0.25f - k * 0.07f, 0.3f - k * 0.02f), Vector3.one * 0.022f, mouth); // the pits
             }
-            jawL = Joint(head, new Vector3(-0.012f, 0.02f, 0.07f));
-            jawR = Joint(head, new Vector3(0.012f, 0.02f, 0.07f));
-            Part(jawL, PrimitiveType.Cube, new Vector3(-0.012f, -0.01f, 0f), new Vector3(0.024f, 0.08f, 0.03f), skin);
-            Part(jawR, PrimitiveType.Cube, new Vector3(0.012f, -0.01f, 0f), new Vector3(0.024f, 0.08f, 0.03f), skin);
-            foreach (var (jaw, s) in new[] { (jawL, 1f), (jawR, -1f) }) // (teeth along each edge of the split)
-                for (int k = 0; k < 6; k++)
-                {
-                    var tooth = Part(jaw, PrimitiveType.Capsule, new Vector3(s * 0.002f, 0.022f - k * 0.012f, 0.012f), new Vector3(0.005f, 0.008f, 0.005f), bone);
-                    tooth.transform.localRotation = Quaternion.Euler(0f, 0f, s * 80f);
-                }
-            Part(head, PrimitiveType.Cube, new Vector3(0f, 0.01f, 0.075f), new Vector3(0.018f, 0.07f, 0.01f), mouth); // the glow inside the split
-
-            // The arms: long, knobbed at the elbow, the hands with long two-jointed fingers ending in claws.
-            armL = Joint(chest, new Vector3(-0.12f, 0.22f, 0f));
-            armR = Joint(chest, new Vector3(0.12f, 0.22f, 0f));
-            foreL = Joint(armL, new Vector3(0f, -0.3f, 0f));
-            foreR = Joint(armR, new Vector3(0f, -0.3f, 0f));
-            foreach (var a in new[] { armL, armR })
+            jaw = Joint(head, new Vector3(0f, -0.2f, 0.1f));
+            Ball(jaw, new Vector3(0f, -0.06f, 0.2f), new Vector3(0.26f, 0.12f, 0.36f), M);
+            Ball(head, new Vector3(0f, -0.17f, 0.42f), new Vector3(0.17f, 0.05f, 0.08f), mouth);
+            for (int k = 0; k < 9; k++)
             {
-                Part(a, PrimitiveType.Sphere, Vector3.zero, Vector3.one * 0.055f, skin); // (shoulder)
-                Part(a, PrimitiveType.Capsule, new Vector3(0f, -0.15f, 0f), new Vector3(0.042f, 0.16f, 0.042f), skin);
-                Part(a, PrimitiveType.Sphere, new Vector3(0f, -0.3f, -0.01f), Vector3.one * 0.04f, bone); // (elbow)
-                var tatter = Part(a, PrimitiveType.Cube, new Vector3(0.01f, -0.18f, -0.022f), new Vector3(0.025f, 0.12f, 0.003f), membrane);
-                tatter.transform.localRotation = Quaternion.Euler(-8f, 0f, 6f);
+                float x = (k - 4) * 0.035f;
+                Box(head, new Vector3(x, -0.165f, 0.44f - Mathf.Abs(x) * 0.4f), new Vector3(0.018f, 0.07f, 0.014f), bone, Quaternion.Euler(-8f, 0f, 0f));
+                Box(jaw, new Vector3(x * 0.95f, 0.03f, 0.32f - Mathf.Abs(x) * 0.4f), new Vector3(0.016f, 0.06f, 0.013f), bone, Quaternion.Euler(8f, 0f, 0f));
             }
-            foreach (var f in new[] { foreL, foreR })
+            for (int e = 0; e < 2; e++)
             {
-                Part(f, PrimitiveType.Capsule, new Vector3(0f, -0.16f, 0f), new Vector3(0.032f, 0.17f, 0.032f), skin);
-                Part(f, PrimitiveType.Sphere, new Vector3(0f, -0.32f, 0.005f), new Vector3(0.04f, 0.03f, 0.025f), skin); // (the hand)
-                for (int i = -2; i <= 1; i++)
-                {
-                    float x = (i + 0.5f) * 0.011f;
-                    Vector3 k1 = new Vector3(x, -0.33f, 0.008f), k2 = new Vector3(x * 1.3f, -0.4f, 0.02f), k3 = new Vector3(x * 1.5f, -0.46f, 0.012f);
-                    Rod(f, k1, k2, 0.0045f, skin);
-                    Rod(f, k2, k3, 0.0035f, skin);
-                    Rod(f, k3, k3 + new Vector3(0f, -0.025f, 0.012f), 0.0025f, claw);
-                }
-                Rod(f, new Vector3(0.022f, -0.32f, 0.01f), new Vector3(0.035f, -0.37f, 0.03f), 0.004f, skin); // (thumb)
+                float s = e == 0 ? -1f : 1f;
+                var ear = Joint(head, new Vector3(s * 0.3f, 0.12f, -0.05f));
+                Ear(ear, s);
+                ear.localRotation = Quaternion.Euler(-14f, s * 32f, s * -14f);
+                ears[e] = ear;
             }
 
-            // The legs: thighs, knobbed knees, shins, and a long foot back up off the ground on its toes (it walks
-            // like a dog stands), the toes clawed.
-            thighL = Joint(hips, new Vector3(-0.06f, 0f, 0f));
-            thighR = Joint(hips, new Vector3(0.06f, 0f, 0f));
-            shinL = Joint(thighL, new Vector3(0f, -0.22f, 0f));
-            shinR = Joint(thighR, new Vector3(0f, -0.22f, 0f));
-            foreach (var th in new[] { thighL, thighR })
+            // The arms: hanging from a yoke of bone just under the head, so they go wherever it goes.
+            armRoot = Joint(parent, new Vector3(0f, NeckShort * 0.4f, -0.05f));
+            Rod(armRoot, new Vector3(-0.42f, 0f, 0f), new Vector3(0.42f, 0f, 0f), 0.07f, M);
+            for (int a = 0; a < 2; a++)
             {
-                Part(th, PrimitiveType.Capsule, new Vector3(0f, -0.11f, 0f), new Vector3(0.06f, 0.12f, 0.06f), skin);
-                Part(th, PrimitiveType.Sphere, new Vector3(0f, -0.22f, 0.012f), Vector3.one * 0.042f, bone); // (knee)
+                float s = a == 0 ? -1f : 1f;
+                Ball(armRoot, new Vector3(s * 0.45f, 0f, 0f), Vector3.one * 0.13f, M);
+                arms[a] = Arm(armRoot, new Vector3(s * 0.45f, 0f, 0f), s, 1.55f, M);
             }
-            foreach (var sh in new[] { shinL, shinR })
+
+            // The legs: hip, knee and ankle joints, bones that lengthen.
+            for (int l = 0; l < 2; l++)
             {
-                Part(sh, PrimitiveType.Capsule, new Vector3(0f, -0.1f, 0f), new Vector3(0.042f, 0.11f, 0.042f), skin);
-                Rod(sh, new Vector3(0f, -0.19f, 0f), new Vector3(0f, -0.21f, -0.04f), 0.016f, skin); // (the long foot, heel up)
-                for (int i = -1; i <= 1; i++)
-                {
-                    Vector3 a = new Vector3(i * 0.012f, -0.215f, 0f), b = new Vector3(i * 0.018f, -0.225f, 0.04f);
-                    Rod(sh, a, b, 0.006f, skin);
-                    Rod(sh, b, b + new Vector3(0f, -0.006f, 0.018f), 0.0035f, claw);
-                }
+                float s = l == 0 ? -1f : 1f;
+                var leg = new Leg();
+                leg.hip = Joint(torso, new Vector3(s * 0.35f, 3.0f, 0f));
+                Ball(leg.hip, Vector3.zero, Vector3.one * 0.17f, M);
+                leg.thigh = Shape(PrimitiveType.Cylinder, leg.hip, new Vector3(0f, -LegRest * 0.5f, 0f), new Vector3(0.3f, LegRest * 0.5f, 0.3f), M).transform;
+                leg.knee = Joint(leg.hip, new Vector3(0f, -LegRest, 0f));
+                Ball(leg.knee, Vector3.zero, Vector3.one * 0.12f, M);
+                leg.shin = Shape(PrimitiveType.Cylinder, leg.knee, new Vector3(0f, -LegRest * 0.5f, 0f), new Vector3(0.18f, LegRest * 0.5f, 0.18f), M).transform;
+                leg.ankle = Joint(leg.knee, new Vector3(0f, -LegRest, 0f));
+                Ball(leg.ankle, Vector3.zero, Vector3.one * 0.08f, M);
+                Rod(leg.ankle, Vector3.zero, new Vector3(s * 0.04f, -0.19f, 0.45f), 0.07f, M);
+                for (int t = -1; t <= 1; t++)
+                    Box(leg.ankle, new Vector3(s * 0.04f + t * 0.07f, -0.2f, 0.56f), new Vector3(0.04f, 0.04f, 0.2f), claw, Quaternion.Euler(10f, t * 12f, 0f));
+                legs[l] = leg;
             }
         }
 
-        Material bone, membrane, claw;
-
-        // A capsule from a to b (in the parent's space), this thick.
-        void Rod(Transform parent, Vector3 a, Vector3 b, float radius, Material m)
+        // An arm hanging from `at`: long thin bones down to a hand of four long curled fingers (k: longer).
+        Transform Arm(Transform parent, Vector3 at, float s, float k, Material m)
         {
-            Vector3 d = b - a;
-            if (d.sqrMagnitude < 1e-8f) return;
-            var go = Part(parent, PrimitiveType.Capsule, (a + b) * 0.5f, new Vector3(radius * 2f, d.magnitude * 0.5f + radius, radius * 2f), m);
-            go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, d);
+            var arm = Joint(parent, at);
+            Vector3 elbow = new Vector3(s * 0.18f, -1.35f * k, 0.2f), wrist = new Vector3(s * 0.1f, -2.85f * k, 0.42f);
+            Rod(arm, Vector3.zero, elbow, 0.09f, m);
+            Ball(arm, elbow, Vector3.one * 0.1f, bone);
+            Rod(arm, elbow, wrist, 0.065f, m);
+            Ball(arm, wrist + new Vector3(0f, -0.1f, 0.04f), new Vector3(0.1f, 0.06f, 0.13f), m);
+            for (int f = 0; f < 4; f++)
+            {
+                Vector3 p = wrist + new Vector3(s * (f - 1.5f) * 0.05f, -0.15f, 0.08f);
+                Vector3 d = new Vector3(s * (f - 1.5f) * 0.12f, -0.6f, 0.6f).normalized;
+                float seg = 0.75f * Mathf.Sqrt(k) / 3f;
+                for (int j = 0; j < 3; j++)
+                {
+                    Vector3 next = p + d * seg;
+                    Rod(arm, p, next, 0.025f * (1f - j * 0.2f), m);
+                    p = next;
+                    d = (d + Vector3.down * 0.35f).normalized;
+                }
+                Box(arm, p + d * 0.05f, new Vector3(0.025f, 0.025f, 0.12f), claw, Quaternion.LookRotation(d));
+            }
+            return arm;
         }
+
+        // An ear: a thin membrane fanned out from the side of the head, its edge scalloped, ribbed with bone.
+        void Ear(Transform ear, float s)
+        {
+            Vector2[] edge =
+            {
+                new Vector2(0.35f, -0.55f), new Vector2(0.75f, -0.35f), new Vector2(1.05f, 0.05f), new Vector2(1.2f, 0.5f),
+                new Vector2(1.05f, 0.95f), new Vector2(0.7f, 1.25f), new Vector2(0.3f, 1.2f), new Vector2(0.05f, 0.75f),
+            };
+            var verts = new List<Vector3> { new Vector3(0f, 0.1f, 0f) };
+            Vector2 prev = new Vector2(0f, -0.25f);
+            verts.Add(new Vector3(prev.x * s, prev.y, 0f));
+            foreach (var p in edge)
+            {
+                Vector2 mid = (prev + p) * 0.5f * 0.86f; // (each edge bowing in: scalloped)
+                verts.Add(new Vector3(mid.x * s, mid.y, 0f));
+                verts.Add(new Vector3(p.x * s, p.y, 0f));
+                prev = p;
+            }
+            verts.Add(new Vector3(0f, 0.3f, 0f));
+            var tris = new List<int>();
+            for (int i = 1; i < verts.Count - 1; i++) { tris.Add(0); tris.Add(i); tris.Add(i + 1); }
+            var mesh = new Mesh { name = "Blind one ear" };
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            meshes.Add(mesh);
+            var go = new GameObject("Ear membrane") { layer = Game.Core.Layers.Entities };
+            go.transform.SetParent(ear, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = membrane;
+            for (int b = 0; b < 4; b++)
+            {
+                var tip = edge[Mathf.Min(7, 2 + b * 2)];
+                Rod(ear, new Vector3(0f, 0f, 0.01f), new Vector3(s * tip.x * 0.95f, tip.y * 0.95f, 0.01f), 0.025f, bone);
+            }
+        }
+
+        // ------------------------------------------------------------------ posing
 
         /// <summary>
-        /// The pose for this frame. <paramref name="speed"/> m/s walking; <paramref name="listen"/> 0-1 cocking its head;
-        /// <paramref name="roar"/> 0-1 mouth wide and arms up; <paramref name="lean"/> 0-1 bent down to your face.
+        /// The pose for this frame. <paramref name="speed"/> m/s (for your model's animator; the built-in one walks
+        /// by where it's going); <paramref name="listen"/> 0-1 cocking its head; <paramref name="roar"/> 0-1 mouth
+        /// wide, head up, arms out; <paramref name="lean"/> 0-1 its neck curling down to bring its face to yours;
+        /// <paramref name="stretch"/> 0-1 the neck lifting its head up over the trees (it eases there);
+        /// <paramref name="grow"/> 0-1 its legs grown for striding.
         /// </summary>
-        public void Pose(float speed, float height, float listen, float roar, float lean, float dt)
+        public void Pose(float speed, float listen, float roar, float lean, float stretch, float grow, float dt)
         {
             if (custom)
             {
@@ -202,31 +295,196 @@ namespace Game.Entities
                 }
                 return;
             }
-            walkPhase += dt * speed / Mathf.Max(0.5f, height * 0.55f) * Mathf.PI * 2f;
-            float moving = Mathf.Clamp01(speed / 1.5f);
-            float sw = Mathf.Sin(walkPhase);
-            // A limping gait: one leg drags.
-            thighL.localRotation = Quaternion.Euler(-sw * 28f * moving, 0f, -3f);
-            thighR.localRotation = Quaternion.Euler(sw * 18f * moving, 0f, 3f);
-            shinL.localRotation = Quaternion.Euler(Mathf.Max(0f, Mathf.Sin(walkPhase + 1.2f)) * 40f * moving + 6f, 0f, 0f);
-            shinR.localRotation = Quaternion.Euler(Mathf.Max(0f, -Mathf.Sin(walkPhase + 1.2f)) * 25f * moving + 6f, 0f, 0f);
-            hips.localRotation = Quaternion.Euler(lean * 25f, sw * 6f * moving, sw * 3f * moving);
-            chest.localRotation = Quaternion.Euler(45f + lean * 30f - roar * 35f, 0f, 0f);
-            // Arms swing long and loose, knuckles near the ground; up and wide to roar.
-            armL.localRotation = Quaternion.Euler(sw * 22f * moving - 40f - roar * 60f, 0f, -8f - roar * 50f);
-            armR.localRotation = Quaternion.Euler(-sw * 22f * moving - 40f - roar * 60f, 0f, 8f + roar * 50f);
-            foreL.localRotation = foreR.localRotation = Quaternion.Euler(-10f - roar * 20f, 0f, 0f);
-            neck.localRotation = Quaternion.Euler(-35f + lean * 40f, 0f, 0f);
-            head.localRotation = Quaternion.Euler(-10f + lean * 20f, listen * 12f, listen * 32f);
-            float open = Mathf.Max(roar, lean * 0.6f) * 18f + listen * 3f * (0.5f + 0.5f * Mathf.Sin(Time.time * 30f));
-            jawL.localRotation = Quaternion.Euler(0f, -open, 0f);
-            jawR.localRotation = Quaternion.Euler(0f, open, 0f);
+            if (model == null || dt <= 0f) return;
+            float t = Time.time;
+            float g = grow * grow * (3f - 2f * grow);
+            float legLen = LegRest * (1f + (Growth - 1f) * g);
+            Legs(legLen, g, dt);
+            Neck(listen, roar, lean, stretch, dt, t);
         }
+
+        // The neck and everything hanging from it: head, ears, jaw, arms.
+        void Neck(float listen, float roar, float lean, float stretch, float dt, float t)
+        {
+            stretchShown = Mathf.MoveTowards(stretchShown, Mathf.Clamp01(stretch), dt / (stretch > stretchShown ? 3.2f : 2.6f));
+            float e = stretchShown * stretchShown * (3f - 2f * stretchShown);
+            float scale = Mathf.Max(0.1f, transform.lossyScale.y) / Standing; // (world metres per model metre)
+            float longest = NeckReach / scale / NeckSegments;
+            float len = Mathf.Lerp(NeckShort, Mathf.Max(NeckShort, longest), e);
+            len = Mathf.Lerp(len, NeckShort * 2.6f, lean);                     // (reaching down to you)
+            float total = 0f, sway = 0f;
+            for (int i = 0; i < NeckSegments; i++)
+            {
+                var seg = neck[i];
+                if (i > 0) seg.localPosition = new Vector3(0f, len, 0f); // (all the vertebrae lengthen together)
+                neckBones[i].localScale = new Vector3(neckBones[i].localScale.x, len * 0.5f, neckBones[i].localScale.z);
+                neckBones[i].localPosition = new Vector3(0f, len * 0.5f, 0f);
+                // Folded: curling forward and down over the shoulders. Stretched: up, a slow S of a sway. Leaning:
+                // curling right over and down to your face. Roaring: thrown up.
+                float fold = (i < 5 ? 0.32f : 0.06f) * (1f - e) * (1f - roar * 0.7f);
+                float x = fold + lean * 0.17f;
+                float z = e * Mathf.Sin(t * 0.6f - i * 0.35f) * 0.035f;
+                seg.localRotation = Quaternion.Euler(x * Mathf.Rad2Deg, 0f, z * Mathf.Rad2Deg);
+                total += x;
+                sway += z;
+            }
+            armRoot.localPosition = new Vector3(0f, len * 0.4f, -0.05f);
+
+            // The head kept level whatever the neck's doing; up there it looks round, stopping dead; listening
+            // it cocks over, and now and then snaps toward a sound.
+            if (e > 0.8f)
+            {
+                if (t > nextLook) { nextLook = t + Random.Range(1.2f, 2.8f); lookTo = Random.Range(-75f, 75f); }
+            }
+            else lookTo = 0f;
+            lookYaw = Mathf.Lerp(lookYaw, lookTo, 1f - Mathf.Exp(-(e > 0.8f ? 2.5f : 1.5f) * dt));
+            if (t > nextSnap) { nextSnap = t + Random.Range(2.5f, 5.5f); snapTilt = Random.Range(-30f, 30f); }
+            float tilt = (snapTilt + Mathf.Sin(t * 0.7f) * 7f) * listen;
+            head.localRotation = Quaternion.Euler(-total * Mathf.Rad2Deg + Mathf.Sin(t * 0.4f) * 4f - roar * 25f + lean * 10f, lookYaw, tilt - sway * Mathf.Rad2Deg);
+            jaw.localRotation = Quaternion.Euler(6f + Mathf.Max(roar, lean * 0.6f) * 32f + Mathf.Max(0f, Mathf.Sin(t * 0.5f)) * 8f, 0f, 0f);
+            for (int i = 0; i < 2; i++)
+            {
+                float s = i == 0 ? -1f : 1f;
+                float twitch = Mathf.Sin(t * (1.3f - i * 0.2f) + i) * 7f * (0.4f + listen);
+                ears[i].localRotation = Quaternion.Euler(-14f - roar * 12f, s * (32f + twitch + roar * 20f) + snapTilt * 0.3f * listen, s * -14f);
+            }
+
+            // The arms hang straight down, swinging a little; spread wide to roar; reaching for you as it leans.
+            armRoot.localRotation = Quaternion.Euler(-total * Mathf.Rad2Deg + Mathf.Sin(t * 0.8f) * 2.5f * (0.3f + e) - lean * 25f, 0f, -sway * Mathf.Rad2Deg);
+            for (int i = 0; i < 2; i++)
+            {
+                float s = i == 0 ? -1f : 1f;
+                arms[i].localRotation = Quaternion.Euler(Mathf.Sin(t * 0.6f + i * 1.5f) * 3f - roar * 35f, 0f, s * roar * 40f);
+            }
+        }
+
+        // ------------------------------------------------------------------ the legs
+
+        // Each foot stays planted where it came down while the body moves over it; one at a time lifts, draws up,
+        // reaches far ahead and sets down. The legs bend to reach them (two bones, in the leg's own plane).
+        void Legs(float len, float g, float dt)
+        {
+            Vector3 pos = transform.position;
+            if (!lastPosSet) { lastPos = pos; lastPosSet = true; }
+            Vector3 vel = (pos - lastPos) / Mathf.Max(dt, 1e-4f);
+            lastPos = pos;
+            vel.y = 0f;
+            float scale = Mathf.Max(0.1f, transform.lossyScale.y) / Standing;
+            float speed = vel.magnitude;                       // (world metres a second)
+            float stride = 1.35f * len * scale;                // (world)
+            Vector3 fwd = speed > 0.05f ? vel / speed : transform.forward;
+            bool walking = speed > 0.15f;
+
+            for (int i = 0; i < 2; i++)
+                if (!legs[i].placed) { legs[i].at = Ground(UnderHip(i)); legs[i].placed = true; }
+
+            // Lift a foot when neither's in the air: walking, the one further behind; standing, one that's strayed.
+            if (!legs[0].swing && !legs[1].swing)
+            {
+                int pick = -1;
+                if (walking)
+                {
+                    float behind0 = Vector3.Dot(legs[0].at - pos, fwd), behind1 = Vector3.Dot(legs[1].at - pos, fwd);
+                    int back = behind0 < behind1 ? 0 : 1;
+                    if (Mathf.Min(behind0, behind1) < stride * 0.15f) pick = back;
+                }
+                else
+                {
+                    for (int i = 0; i < 2; i++)
+                        if (Flat(legs[i].at - UnderHip(i)).magnitude > 0.35f * scale * 1.5f + 0.1f) { pick = i; break; }
+                }
+                if (pick >= 0)
+                {
+                    var leg = legs[pick];
+                    leg.swing = true;
+                    leg.u = 0f;
+                    leg.from = leg.at;
+                    swingFor = walking ? Mathf.Clamp(stride / Mathf.Max(speed, 0.5f) * 0.5f, 0.3f, 1.8f) : 0.45f;
+                    Vector3 side = transform.right * (pick == 0 ? -0.35f : 0.35f) * scale;
+                    Vector3 to = walking ? pos + fwd * (speed * swingFor + stride * 0.5f) + side : UnderHip(pick);
+                    leg.to = Ground(to);
+                }
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                var leg = legs[i];
+                if (!leg.swing) continue;
+                leg.u = Mathf.Min(1f, leg.u + dt / swingFor);
+                // Up first, the knee drawn high; then reaching far out ahead; then down.
+                float along = Mathf.Pow(Mathf.Max(0f, (leg.u - 0.15f) / 0.85f), 1.5f);
+                along = along * along * (3f - 2f * along);
+                leg.at = Vector3.Lerp(leg.from, leg.to, along);
+                float lift = len * scale * (walking ? 0.6f : 0.25f);
+                leg.at.y = Mathf.Lerp(leg.from.y, leg.to.y, along) + lift * Mathf.Sin(Mathf.PI * Mathf.Pow(leg.u, 0.7f));
+                if (leg.u >= 1f)
+                {
+                    leg.swing = false;
+                    leg.at = leg.to;
+                    nextLeg = 1 - i;
+                    FootDown?.Invoke(leg.at, g);
+                }
+            }
+
+            // The body: high on its legs, dipping a little as a leg reaches out.
+            float reaching = 0f;
+            foreach (var leg in legs) if (leg.swing) reaching = Mathf.Max(reaching, Mathf.Sin(Mathf.PI * leg.u));
+            float w = walking ? 1f : 0f;
+            float hipH = len * (1.93f - 0.22f * w - 0.1f * reaching * w) + 0.2f;
+            torso.localPosition = new Vector3(0f, hipH - 3.0f, 0f);
+            for (int i = 0; i < 2; i++)
+            {
+                var leg = legs[i];
+                Vector3 local = model.InverseTransformPoint(leg.at);
+                Vector3 hip = new Vector3(i == 0 ? -0.35f : 0.35f, hipH, 0f);
+                float dy = local.y - hip.y, dz = local.z - hip.z;
+                float d = Mathf.Min(Mathf.Sqrt(dy * dy + dz * dz), len * 1.995f);
+                float baseAngle = Mathf.Atan2(dz, -dy);
+                float alpha = Mathf.Acos(Mathf.Clamp01(d / (2f * len)));
+                SetLeg(leg, len, -(baseAngle + alpha), 2f * alpha);
+            }
+        }
+
+        static void SetLeg(Leg leg, float len, float a1, float a2)
+        {
+            leg.thigh.localScale = new Vector3(leg.thigh.localScale.x, len * 0.5f, leg.thigh.localScale.z);
+            leg.thigh.localPosition = new Vector3(0f, -len * 0.5f, 0f);
+            leg.knee.localPosition = new Vector3(0f, -len, 0f);
+            leg.shin.localScale = new Vector3(leg.shin.localScale.x, len * 0.5f, leg.shin.localScale.z);
+            leg.shin.localPosition = new Vector3(0f, -len * 0.5f, 0f);
+            leg.ankle.localPosition = new Vector3(0f, -len, 0f);
+            leg.hip.localRotation = Quaternion.Euler(a1 * Mathf.Rad2Deg, 0f, 0f);
+            leg.knee.localRotation = Quaternion.Euler(a2 * Mathf.Rad2Deg, 0f, 0f);
+            leg.ankle.localRotation = Quaternion.Euler(-(a1 + a2) * Mathf.Rad2Deg, 0f, 0f); // (the foot flat)
+        }
+
+        // Where a foot stands under a hip (in the world).
+        Vector3 UnderHip(int i) => model.TransformPoint(new Vector3(i == 0 ? -0.35f : 0.35f, 0f, 0.08f));
+
+        // On the ground there (the ankle 0.2 model-metres up); or, while it's down in the ground (breaking out of
+        // it), level with its own feet, so its legs don't reach up through the surface.
+        Vector3 Ground(Vector3 p)
+        {
+            float scale = Mathf.Max(0.1f, transform.lossyScale.y) / Standing;
+            float ground = PlayerSense.GroundHeight(p), own = transform.position.y;
+            p.y = (ground > own + 1.5f * scale + 0.5f ? own : ground) + 0.2f * scale;
+            return p;
+        }
+
+        /// <summary>Put its feet back under it (it's just been moved: risen out of the ground, come back).</summary>
+        public void ResetFeet()
+        {
+            foreach (var leg in legs) if (leg != null) { leg.placed = false; leg.swing = false; }
+            lastPosSet = false;
+        }
+
+        static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
 
         public void Trigger(string name)
         {
             if (animator != null) animator.SetTrigger(name);
         }
+
+        // ------------------------------------------------------------------ parts
 
         Transform Joint(Transform parent, Vector3 at)
         {
@@ -236,7 +494,7 @@ namespace Game.Entities
             return j;
         }
 
-        GameObject Part(Transform parent, PrimitiveType type, Vector3 at, Vector3 scale, Material m)
+        GameObject Shape(PrimitiveType type, Transform parent, Vector3 at, Vector3 scale, Material m)
         {
             var go = GameObject.CreatePrimitive(type);
             Destroy(go.GetComponent<Collider>());
@@ -246,6 +504,21 @@ namespace Game.Entities
             go.transform.localScale = scale;
             go.GetComponent<Renderer>().sharedMaterial = m;
             return go;
+        }
+
+        // A ball of these radii.
+        void Ball(Transform parent, Vector3 at, Vector3 radii, Material m) => Shape(PrimitiveType.Sphere, parent, at, radii * 2f, m);
+
+        void Box(Transform parent, Vector3 at, Vector3 size, Material m, Quaternion rotation)
+            => Shape(PrimitiveType.Cube, parent, at, size, m).transform.localRotation = rotation;
+
+        // A rounded bone from a to b, this thick (radius).
+        void Rod(Transform parent, Vector3 a, Vector3 b, float radius, Material m)
+        {
+            Vector3 d = b - a;
+            if (d.sqrMagnitude < 1e-8f) return;
+            var go = Shape(PrimitiveType.Capsule, parent, (a + b) * 0.5f, new Vector3(radius * 2f, d.magnitude * 0.5f + radius, radius * 2f), m);
+            go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, d);
         }
     }
 }

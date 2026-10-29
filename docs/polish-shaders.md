@@ -1343,3 +1343,38 @@ It's hard to judge whether horror works when you know every scare. The session r
   - The music manager then puts its theme back on top, going straight into its hunting loop rather than the slow intro, and fading over 1.2 s.
   - Nothing happens if its theme hasn't started yet.
 - **To check what's playing:** the dev window's Game tab (F11) has a **Music** row showing the mood and the track, e.g. "Danger (Blind theme)".
+
+## The blind one is now the Tall Listener
+
+From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/BlindBody.cs`):
+
+- **Body:**
+  - A starved, hunched giant: hips, a gaunt belly, a spine curving forward with knobs down its back, ribs showing.
+  - A smooth, eyeless head, with skin over where the sockets would be, rows of faintly glowing pits it hears through, nose slits, a lipless toothed mouth and jaw, and two vast scalloped ear membranes ribbed with bone.
+  - A 16-vertebra neck, folded down over bare shoulders.
+  - Its arms hang from a yoke of bone just under its head, so they go wherever the head goes. Long fingers end in claws.
+  - It's built in the mock-up's metres (6.1 m stood) under a model scaled to one unit tall, so `height` still sets its size.
+- **Legs:**
+  - Two-bone legs whose bones lengthen.
+  - Each foot is planted in the world where it lands, on the terrain. One at a time lifts, draws up, reaches far ahead and sets down, and the knees bend to reach the feet.
+  - Standing still, a stray foot steps back under its hip. The body dips as a leg reaches out.
+  - While it's still down in the ground, breaking out, its feet stay level with its body so its legs don't poke up through the surface.
+- **Neck:**
+  - `stretch` lifts the head `neckReach` (16 m) above its shoulders, up over the trees, with a slow S of a sway. Up there the head looks round, stopping dead.
+  - Listening, it cocks its head and snaps toward sounds, ears swivelling.
+  - Roaring throws the head up and spreads the arms.
+  - Taking you, the neck curls right over and down so its face comes to yours (the camera follows `HeadWorld`).
+- **Striding** (`BlindSettings.strides`, on), in place of the lightning teleport:
+  - When it moves on, its legs grow to `strideGrowth` (3.6) times their length over `growTime` (2.5 s).
+  - It walks to its next spot at `strideSpeed` (5 m/s) in huge, slow steps, then its legs shrink back down.
+  - It still hears you all the way, and if it rushes you mid-stride its legs shrink as it comes.
+  - Turning `strides` off brings the lightning back.
+- **Footsteps:** every foot that comes down (`BlindBody.FootDown`) is a heavy step at that foot.
+  - It's louder, deeper and heard further the bigger it's grown (60 m to 200 m).
+  - The camera shakes, and grown steps also heave the ground (`AddRumble`).
+  - A grown foot crushes the trees it lands on.
+  - Your own model still uses the timed steps.
+- **When the neck goes up:**
+  - while it stands waiting, from 1.5 s in until 3 s before it moves on;
+  - all through a hard listen, which now lasts 3× `listenTime` so the head has time to rise and look round;
+  - a little during an ordinary listen.

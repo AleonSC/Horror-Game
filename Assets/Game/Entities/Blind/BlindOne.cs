@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Game.Entities
 {
-    public enum BlindState { Absent, Arriving, Roaming, Listening, Rushing, Searching, Taking, Away, Teleporting }
+    public enum BlindState { Absent, Arriving, Roaming, Listening, Rushing, Searching, Taking, Away, Teleporting, Striding }
 
     /// <summary>
     /// The blind one, "the Auscult" (section 6.8). It comes at the 3rd lamp, breaking out of the ground 45 m away
@@ -36,6 +36,8 @@ namespace Game.Entities
         float timer, stateTime, nextListen, lostFor, deafFor, speed, roar, lean, listen;
         float lastStep;
         bool arrived;
+        // Its neck up over the trees (0-1, where it's heading), and its legs grown for striding (0-1).
+        float stretch, grow;
 
         public BlindState State { get; private set; } = BlindState.Absent;
         public BlindSettings Settings => s;
@@ -65,6 +67,9 @@ namespace Game.Entities
             s = config.settings;
             body = BlindBody.Create(transform, config);
             body.transform.localScale = Vector3.one * s.height;
+            body.NeckReach = s.neckReach;
+            body.Growth = s.strideGrowth;
+            body.FootDown += OnFootDown;
             storm = Storm.Create(s);
             body.gameObject.SetActive(false);
             Services.Register(this);
@@ -113,6 +118,7 @@ namespace Game.Entities
             Face(player.transform.position);
             storm.transform.position = at + Vector3.up * s.stormHeight;
             body.gameObject.SetActive(true);
+            body.ResetFeet();
             SetState(BlindState.Arriving);
             // Your eyes are dragged to where it breaks out, and held on it through its roar.
             player.LockGaze(() => transform.position + Vector3.up * s.height * Mathf.Lerp(0.15f, 0.75f, Mathf.Clamp01((stateTime - 3.5f) / 1.2f)), 10.2f);
@@ -157,7 +163,7 @@ namespace Game.Entities
         void OnFlash(FlashBurst e)
         {
             if (!ThreatVisible || State == BlindState.Taking || State == BlindState.Arriving) return;
-            Vector3 head = transform.position + Vector3.up * s.height * 0.85f;
+            Vector3 head = body.HeadWorld;
             Vector3 to = head - e.Position;
             if (to.magnitude > e.Range || Vector3.Angle(e.Direction, to) > e.HalfAngle || PlayerSense.Occluded(e.Position, head)) return;
             Play(Sound.BlindRoar, 1f, Random.Range(1f, 1.1f), 80f);
@@ -217,6 +223,7 @@ namespace Game.Entities
                 case BlindState.Rushing: UpdateRushing(dt); break;
                 case BlindState.Searching: UpdateSearching(dt); break;
                 case BlindState.Teleporting: UpdateTeleporting(dt); return;
+                case BlindState.Striding: UpdateStriding(dt); break;
                 case BlindState.Taking: UpdateTaking(dt); return;
             }
 
@@ -226,9 +233,10 @@ namespace Game.Entities
                 trail.Enqueue(player.transform.position);
                 while (trail.Count > 60) trail.Dequeue();
             }
+            if (State != BlindState.Striding) grow = Mathf.MoveTowards(grow, 0f, dt / Mathf.Max(0.1f, s.growTime)); // (shrinking back if it was striding)
             CheckTake();
             KeepUp(dt);
-            body.Pose(speed, s.height, listen, roar, lean, dt);
+            body.Pose(speed, listen, roar, lean, stretch, grow, dt);
         }
 
         // Timed to its theme: the storm gathers, it bursts out of the ground at 3.5 s, roars at 7.6 s, stamps twice at 13.1 s.
@@ -248,6 +256,7 @@ namespace Game.Entities
                 }
             }
             transform.position = p;
+            if (t >= 4.2f && t - dt < 4.2f) body.ResetFeet(); // (out of the ground: on its feet)
             roar = t > 7.6f && t < 10f ? Mathf.Sin((t - 7.6f) / 2.4f * Mathf.PI) : 0f;
             if (t >= 7.6f && t - dt < 7.6f)
             {
@@ -319,6 +328,8 @@ namespace Game.Entities
             Face(player.transform.position);
             if (perchLeft < 0f) perchLeft = Random.Range(s.perchMin, Mathf.Max(s.perchMin, s.perchMax));
             perchLeft -= dt;
+            // Standing waiting, it lifts its head up over the trees and listens there; down again before it moves on.
+            stretch = stateTime > 1.5f && perchLeft > 3f ? 1f : 0f;
             // Now and then a click, listening.
             if (Time.time - lastStep > 1.4f)
             {
@@ -335,7 +346,11 @@ namespace Game.Entities
                 return;
             }
             HearClose();
-            if (State == BlindState.Roaming && perchLeft <= 0f) StartTeleport();
+            if (State == BlindState.Roaming && perchLeft <= 0f)
+            {
+                if (s.strides) StartStride();
+                else StartTeleport();
+            }
         }
 
         void StartTeleport()
@@ -375,7 +390,7 @@ namespace Game.Entities
                     // Its storm moves over to where it'll come in (it follows this object).
                     transform.position = comeTo;
                 }
-                body.Pose(0f, s.height, listen, roar, 0f, dt);
+                body.Pose(0f, listen, roar, 0f, stretch, grow, dt);
                 return;
             }
             if (!struckIn)
@@ -390,6 +405,7 @@ namespace Game.Entities
                 storm.StrikeAt(comeTo);
                 Afterglow(comeTo);
                 body.gameObject.SetActive(true);
+                body.ResetFeet();
                 lean = 1f;
                 roar = 0.5f;
                 Play(Sound.GiantStep, 1f, 1.1f, 120f);
@@ -400,11 +416,80 @@ namespace Game.Entities
             // Rising from the crouch, a moment, then it listens.
             lean = Mathf.MoveTowards(lean, 0.4f, dt * 0.8f);
             roar = Mathf.MoveTowards(roar, 0f, dt * 0.6f);
-            body.Pose(0f, s.height, 0.3f, roar, lean, dt);
+            body.Pose(0f, 0.3f, roar, lean, stretch, grow, dt);
             if (t >= fit + goneFor + 1.4f)
             {
                 SetState(BlindState.Roaming);
                 perchLeft = Random.Range(s.perchMin, Mathf.Max(s.perchMin, s.perchMax));
+            }
+        }
+
+        // ------------------------------------------------------------------ striding
+
+        int strideStage; // 0 legs growing, 1 walking, 2 legs shrinking
+
+        void StartStride()
+        {
+            perchLeft = -1f;
+            comeTo = TeleportSpot();
+            strideStage = 0;
+            Play(Sound.BlindGrowl, 0.7f, 0.75f, 90f);
+            SetState(BlindState.Striding);
+        }
+
+        // Moving on: its legs grow (it rises high over the forest floor, three and a half times its height at the
+        // hip), it walks there in huge, slow steps, and its legs shrink back down. It still hears you all the while.
+        void UpdateStriding(float dt)
+        {
+            roar = Mathf.MoveTowards(roar, 0f, dt);
+            lean = Mathf.MoveTowards(lean, 0f, dt);
+            listen = Mathf.MoveTowards(listen, 0.2f, dt);
+            float growRate = dt / Mathf.Max(0.1f, s.growTime);
+            switch (strideStage)
+            {
+                case 0:
+                    speed = 0f;
+                    grow = Mathf.MoveTowards(grow, 1f, growRate);
+                    Face(comeTo);
+                    if (grow >= 1f) strideStage = 1;
+                    break;
+                case 1:
+                    MoveToward(comeTo, s.strideSpeed, dt);
+                    if (Flat(comeTo - transform.position).magnitude < 3f) strideStage = 2;
+                    break;
+                default:
+                    speed = Mathf.MoveTowards(speed, 0f, dt * 4f);
+                    grow = Mathf.MoveTowards(grow, 0f, growRate);
+                    Face(player.transform.position);
+                    if (grow <= 0f)
+                    {
+                        SetState(BlindState.Roaming);
+                        perchLeft = Random.Range(s.perchMin, Mathf.Max(s.perchMin, s.perchMax));
+                    }
+                    break;
+            }
+            HearClose();
+        }
+
+        // One of its feet coming down: a thud you feel, heavier and heard further the bigger it's grown; a tree
+        // where a grown foot lands is crushed.
+        void OnFootDown(Vector3 at, float grown)
+        {
+            if (player == null || State == BlindState.Absent || State == BlindState.Away) return;
+            float reach = 25f + 70f * grown;
+            float near = 1f - Mathf.Clamp01(Vector3.Distance(at, player.transform.position) / reach);
+            if (Services.TryGet<SoundPlayer>(out var sounds))
+                sounds.Play(Sound.GiantStep, at, MixerNames.Entities, Mathf.Lerp(0.45f, 1f, grown), Random.Range(1.5f, 1.8f) - 0.5f * grown, 60f + 140f * grown);
+            if (near > 0f) player.AddShake((0.5f + 1.6f * grown) * near);
+            if (near > 0f && grown > 0.3f) player.AddRumble(grown * near, 1.2f);
+            if (grown > 0.2f && s.knocksTrees && Services.TryGet<WorldBuilder>(out var world))
+            {
+                int n = Physics.OverlapSphereNonAlloc(at + Vector3.up * 1.5f, 1.2f + 1.5f * grown, nearby, Layers.Mask(Layers.Trees), QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < n; i++)
+                {
+                    var tree = nearby[i].GetComponent<ForestTree>();
+                    if (tree != null) tree.Shatter(world.Forest, at);
+                }
             }
         }
 
@@ -454,6 +539,7 @@ namespace Game.Entities
         void UpdateListening(float dt)
         {
             speed = 0f;
+            stretch = hardListening ? 1f : 0.3f; // (listening hard: its head up over the trees)
             listen = Mathf.MoveTowards(listen, 1f, dt * 3f);
             if (Time.time - lastStep > 0.45f)
             {
@@ -468,7 +554,7 @@ namespace Game.Entities
                 RushTo(player.transform.position);
                 return;
             }
-            if (stateTime >= s.listenTime * (hardListening ? 1.5f : 1f))
+            if (stateTime >= s.listenTime * (hardListening ? 3f : 1f)) // (long enough, listening hard, for its head to rise over the trees and look round)
             {
                 hardListening = false;
                 SetState(BlindState.Roaming);
@@ -541,6 +627,7 @@ namespace Game.Entities
             at.y = PlayerSense.GroundHeight(at);
             transform.position = at;
             storm.transform.position = at + Vector3.up * s.stormHeight;
+            body.ResetFeet();
             SetState(BlindState.Roaming);
             target = RoamPoint();
         }
@@ -553,6 +640,7 @@ namespace Game.Entities
             transform.position = at;
             storm.transform.position = at + Vector3.up * s.stormHeight;
             body.gameObject.SetActive(true);
+            body.ResetFeet();
             SetState(BlindState.Roaming);
             target = RoamPoint();
         }
@@ -579,9 +667,10 @@ namespace Game.Entities
             Vector3 toPlayer = Flat(player.transform.position - transform.position);
             if (toPlayer.magnitude > 1.2f) transform.position += toPlayer.normalized * Mathf.Min(toPlayer.magnitude - 1.2f, 2f * dt);
             Face(player.transform.position);
-            body.Pose(0f, s.height, 0f, 0f, lean, dt);
+            body.Pose(0f, 0f, 0f, lean, stretch, grow, dt);
             var cam = player.Head;
-            Vector3 face = transform.TransformPoint(body.transform.localPosition + Vector3.Scale(body.HeadLocal, body.transform.localScale)) - Vector3.up * s.height * 0.25f * lean;
+            Vector3 face = body.HasFeet ? body.HeadWorld // (its neck curls its face right down to yours)
+                : transform.TransformPoint(body.transform.localPosition + Vector3.Scale(body.HeadLocal, body.transform.localScale)) - Vector3.up * s.height * 0.25f * lean;
             cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(face - cam.position), 1f - Mathf.Exp(-4f * dt));
             player.AddShake(0.6f * lean);
             if (stateTime >= leanTime)
@@ -637,6 +726,7 @@ namespace Game.Entities
 
         void Steps()
         {
+            if (body.HasFeet) return; // (its own feet say when they come down: OnFootDown)
             float stepEvery = Mathf.Lerp(1.4f, 0.55f, Mathf.InverseLerp(s.roamSpeed, s.rushSpeed, speed));
             if (speed < 0.2f || Time.time - lastStep < stepEvery) return;
             lastStep = Time.time;
@@ -661,6 +751,7 @@ namespace Game.Entities
 
         void SetState(BlindState next)
         {
+            if (next != State) stretch = 0f; // (each state lifts the neck itself if it wants it up)
             State = next;
             stateTime = 0f;
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Blind, 1, next.ToString()));
