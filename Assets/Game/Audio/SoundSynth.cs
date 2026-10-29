@@ -1489,6 +1489,86 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// The flier's cry as it comes (5 s): a long rasping breath drawn in; then a scream from something far too
+        /// big, several throats at once and not together, cracking and rattling, an octave of something deeper
+        /// under it, its formants dragging as if through a long neck, driven hard; dying into a slow guttural
+        /// clicking; all of it thrown back by the forest.
+        /// </summary>
+        public static float[] FlierCry(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(5f);
+            double[] ph = new double[3];
+            double sub = 0;
+            float[] detune = { 1f, 1.017f, 0.986f };
+            float l1 = 0f, b1 = 0f, l2 = 0f, b2 = 0f, l3 = 0f, b3 = 0f, inL = 0f, inB = 0f, clickL = 0f;
+            int pulse = 0;
+            float pulseGain = 1f;
+            double lastPhase = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                float v = 0f;
+
+                // The breath drawn in (0-0.8 s): rasping, rising, rattling.
+                if (t < 0.9f)
+                {
+                    float u = t / 0.8f;
+                    Band(n, 300f + 900f * u, 0.5f, ref inL, ref inB);
+                    float rattle = 0.6f + 0.4f * (float)Math.Sin(2 * Math.PI * 31f * t);
+                    v += inB * Math.Min(1f, u * u) * (t > 0.8f ? (0.9f - t) / 0.1f : 1f) * rattle * 2f;
+                }
+
+                // The scream (0.75-3.4 s).
+                if (t > 0.75f && t < 3.5f)
+                {
+                    float u = (t - 0.75f) / 2.75f;
+                    float f0 = 430f + 230f * (float)Math.Sin(Math.PI * Math.Min(1f, u * 2.2f)) * (1f - u * 0.4f) - 140f * u * u;
+                    f0 *= 1f + 0.03f * (float)Math.Sin(2 * Math.PI * 5.3f * t); // (a shudder in it)
+                    float src = 0f;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        ph[k] += f0 * detune[k] / SampleRate;
+                        float x = (float)(ph[k] - Math.Floor(ph[k]));
+                        src += (2f * x - 1f) * (k == 0 ? 1f : 0.7f);
+                    }
+                    // The rattle: every other pulse weaker, and the strength jumping about.
+                    if (Math.Floor(ph[0]) != Math.Floor(lastPhase))
+                    {
+                        pulse++;
+                        pulseGain = (0.65f + 0.7f * (float)rng.NextDouble()) * (pulse % 2 == 0 ? 0.45f : 1f);
+                    }
+                    lastPhase = ph[0];
+                    sub += f0 * 0.5f / SampleRate;
+                    src = src * pulseGain + (float)Math.Sin(2 * Math.PI * sub) * 0.8f + n * 0.35f;
+                    // Its throat, dragging: formants that slide.
+                    float drag = (float)Math.Sin(Math.PI * Math.Min(1f, u * 1.6f));
+                    Band(src, 800f + 700f * drag, 0.45f, ref l1, ref b1);
+                    Band(src, 2100f + 1100f * drag, 0.55f, ref l2, ref b2);
+                    Band(src, 3400f + 600f * drag, 0.8f, ref l3, ref b3);
+                    float voice = b1 + b2 * 0.9f + b3 * 0.4f;
+                    voice = (float)Math.Tanh(voice * 2.2f); // (driven hard)
+                    float env = Math.Min(1f, (t - 0.75f) / 0.06f) * (u < 0.75f ? 1f : (float)Math.Pow(1f - (u - 0.75f) / 0.25f, 1.5f));
+                    v += voice * env;
+                }
+
+                // The clicking it dies into (3.1-4.6 s): slowing, guttural.
+                if (t > 3.1f && t < 4.7f)
+                {
+                    float u = (t - 3.1f) / 1.6f;
+                    float rate = 17f - 10f * u;
+                    float local = (float)((t - 3.1f) * rate % 1.0);
+                    float click = local < 0.12f ? n * (1f - local / 0.12f) : 0f;
+                    clickL += (click - clickL) * 0.12f;
+                    v += clickL * 4.5f * (1f - u);
+                }
+                s[i] = v;
+            }
+            return Normalize(Reverb(s, 3f, 0.5f, 0.5f), 0.95f);
+        }
+
+        /// <summary>
         /// The ringing in your ears after a blast (12 s, at full; it's faded as it plays): a thin, piercing tone
         /// round 3.7 kHz, not quite steady (two tones a few hertz apart, beating, and a slow waver), a fainter one
         /// an octave up, and a breath of hiss under it, all of it set back a little at the very start as if the

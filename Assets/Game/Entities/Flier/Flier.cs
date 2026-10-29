@@ -108,7 +108,8 @@ namespace Game.Entities
             eyeLit = false;
             beam.enabled = false;
             SetState(FlierState.Diving);
-            Play2D(Sound.Shriek, 1f, 0.3f);
+            Play2D(Sound.FlierCry, 1f, 1f);
+            Play2D(Sound.Shriek, 0.35f, 0.28f); // (and, under it, the old cry, slowed: a groan of air)
             if (Services.TryGet<EventBus>(out var events))
             {
                 events.Publish(new BossThemeStarted(EntityKind.Flier));

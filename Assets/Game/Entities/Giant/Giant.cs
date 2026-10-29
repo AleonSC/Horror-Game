@@ -247,15 +247,8 @@ namespace Game.Entities
             if (PlayerPlace.InDarkRoom != hiddenForRoom) ShowForRoom(!PlayerPlace.InDarkRoom);
             if (hiddenForRoom) { if (scanRoot != null) scanRoot.gameObject.SetActive(false); return; }
             float dt = Time.deltaTime;
-            // Its eye open in the sky: the far distance comes pin sharp (no softening it away), clearing over a
-            // couple of seconds as it opens, and back to the player's own blur after.
-            if (Services.TryGet<LookController>(out var sharpen))
-            {
-                // The far blur holds while it stares, and lifts the moment the chain snaps (quickly, so you see it
-                // fall and land); once it's up and walking it comes back, slowly.
-                bool clear = State == GiantState.Falling || State == GiantState.Landed;
-                sharpen.FarSharp = Mathf.MoveTowards(sharpen.FarSharp, clear ? 1f : 0f, dt / (clear ? 0.4f : 4f));
-            }
+            // The far blur stays on it the whole time (hanging, staring, falling, walking): nothing sharpens it.
+            if (Services.TryGet<LookController>(out var sharpen)) sharpen.FarSharp = 0f;
             Vector3 p = PlayerFeet;
 
             // Swinging on the chain (jolts), damped.

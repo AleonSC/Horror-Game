@@ -13,6 +13,22 @@ namespace Game.Entities
         public GameObject customModel;
 
         public FlierSettings settings = new FlierSettings();
+
+        // Which defaults this asset's values were saved under (as GiantConfig): older ones are brought up once.
+        const int Version = 2;
+        [SerializeField, HideInInspector] int savedUnder;
+
+        void OnEnable()
+        {
+            if (savedUnder >= Version) return;
+            var fresh = new FlierSettings();
+            var s = settings ?? (settings = fresh);
+            s.wingspan = fresh.wingspan; // (version 2: much bigger)
+            savedUnder = Version;
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
     }
 
     [Serializable]
@@ -21,7 +37,8 @@ namespace Game.Entities
         [Header("Arriving")]
         [Range(1, 10), Tooltip("It comes when this many lamps are lit.")]
         public int arriveAtLamp = 7;
-        [Range(5f, 100f)] public float wingspan = 40f;
+        [Range(5f, 140f), Tooltip("Across its wings (metres).")]
+        public float wingspan = 66f;
         [Range(5f, 80f), Tooltip("How fast it dives in over you (metres a second).")]
         public float diveSpeed = 30f;
         [Range(3f, 40f), Tooltip("How low it passes over you (metres).")]

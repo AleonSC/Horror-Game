@@ -1242,3 +1242,19 @@ It's hard to judge whether horror works when you know every scare. The session r
 - **Bigger:** `eyeSize` defaults to 38° and can go up to 60°. When the swirl around it would reach past the camera's far clip, the eye is drawn nearer (`EyeDistance`): 360 m up to about 30°, 328 m at 38°, 223 m at 60°. It's untouched by fog, so the distance doesn't change how it looks.
 - **Dimmer:** `eyeGlow` now defaults to 0.6.
 - **If it still shows as a plain glowing ball:** that's the fallback eye, used only when the `Game/SkyEye` shader can't load. The Console will show a warning saying the shader is missing or has errors.
+
+## Giant always blurred; a bigger, scarier flier and its cry
+
+- **Blur:** the far blur now stays on the giant the whole time, including while it falls and lands. Nothing sharpens it any more (`FarSharp` is held at 0).
+- **The flier's body**, rebuilt for its outline (it's mostly seen against the sky):
+  - A starved, bat-winged thing with a lean body, a ridged spine, and a long neck curving down to a skull with a long, open, toothed beak and two horns swept back.
+  - Wings of torn membrane stretched between four long finger bones that end in claws past the membrane, with a hooked claw at each wrist. The leading edge arches forward, and the trailing edge is scalloped, nicked and ripped.
+  - Long legs trailing under it with hooked talons, and a whip of a tail ending in rags.
+- **Animation:** the fingers lag the arm and fold on the upstroke, the tail whips, the legs swing, and the head hunts about.
+- **Size:** `wingspan` is now 66 m (was 40). `FlierConfig` upgrades older saved values once, the same way `GiantConfig` does.
+- **Arrival cry**, a new sound `FlierCry`:
+  - a rasping breath drawn in;
+  - a scream from several throats at once, detuned, cracking and rattling, with a sub-octave under it, sliding formants, and driven hard;
+  - a slow guttural clicking as it dies away, with a big forest echo.
+
+  The old shriek still plays quietly under it, slowed down.
