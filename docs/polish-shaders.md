@@ -1331,3 +1331,15 @@ It's hard to judge whether horror works when you know every scare. The session r
   - `CrawlerScreech`: a ragged, cracking, almost human throat with breath tearing through it. It's used for the leap, on your face, and when it's thrown off, replacing the slowed sine-sweep `Shriek`.
   - `CrawlerSkitter`: long nails ticking over the ground in an uneven patter, with dry leaves, as it moves.
   - `CrawlerBreath`: a wet, rasping breath in, a catch, and a long gurgling breath out, when you're within 5 m.
+
+## The blind one's theme: back on top when it hunts
+
+- **Why it was hard to hear:**
+  - The theme itself is loud: about twice the level of the mood tracks.
+  - The music manager plays the theme of whichever creature *started* most recently. The blind one's starts when it arrives (lamp 3), the giant's replaces it when the giant lands (after lamp 5), and the flier's replaces that (lamp 7).
+  - So unless you lingered between lamps 3 and 5, you heard little of it, and never again once the giant was down, even with the blind one right on you.
+  - (The mixer's Hush snapshot takes the Music group to -40 dB, but Music's volume is an exposed parameter set from your settings, so snapshots don't touch it. Hush also only happens within grabbing range.)
+- **The fix:** a new event, `BossThemeFocus`. The blind one publishes it when it starts rushing at you and when it strikes in after a teleport.
+  - The music manager then puts its theme back on top, going straight into its hunting loop rather than the slow intro, and fading over 1.2 s.
+  - Nothing happens if its theme hasn't started yet.
+- **To check what's playing:** the dev window's Game tab (F11) has a **Music** row showing the mood and the track, e.g. "Danger (Blind theme)".

@@ -233,6 +233,18 @@ namespace Game.Core
         public override string ToString() => $"{Kind}'s theme";
     }
 
+    /// <summary>
+    /// It's the one that matters right now (the blind one coming for you, though the giant landed since): its
+    /// theme takes over again from whatever came after it, straight into its loop (no second intro). Nothing
+    /// happens if its theme isn't playing at all (it has to have started).
+    /// </summary>
+    public readonly struct BossThemeFocus : IGameEvent
+    {
+        public readonly EntityKind Kind;
+        public BossThemeFocus(EntityKind kind) { Kind = kind; }
+        public override string ToString() => $"{Kind}'s theme takes over";
+    }
+
     /// <summary>It's gone (driven off, left after taking you, or a restart): its theme fades out.</summary>
     public readonly struct BossThemeEnded : IGameEvent
     {

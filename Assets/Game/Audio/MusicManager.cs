@@ -77,6 +77,7 @@ namespace Game.Audio
             subs.Add(events.Subscribe<MusicMoodChanged>(e => { mood = e.Mood; Refresh(); }));
             subs.Add(events.Subscribe<BossThemeStarted>(e => { bosses.Remove(e.Kind); bosses.Add(e.Kind); Refresh(true); }));
             subs.Add(events.Subscribe<BossThemeEnded>(e => { bosses.Remove(e.Kind); Refresh(); }));
+            subs.Add(events.Subscribe<BossThemeFocus>(e => Focus(e.Kind)));
             subs.Add(events.Subscribe<RunReset>(_ => { bosses.Clear(); mood = MusicMood.Calm; Refresh(); }));
         }
 
@@ -146,6 +147,17 @@ namespace Game.Audio
                 return;
             }
             PlayMood();
+        }
+
+        // Its theme back on top (it's started already, and something's come since): into its loop, not its intro.
+        void Focus(EntityKind kind)
+        {
+            if (!bosses.Contains(kind) || bosses[bosses.Count - 1] == kind || mood == MusicMood.GameOver) return;
+            bosses.Remove(kind);
+            bosses.Add(kind);
+            if (!Theme(kind, out var intro, out var loop)) return;
+            PlayTheme($"{kind} theme", null, loop != null ? loop : intro);
+            fadeTime = 1.2f;
         }
 
         void PlayMood()

@@ -177,6 +177,8 @@ namespace Game.Entities
 
         void RushTo(Vector3 spot)
         {
+            // Coming for you: its music, whatever's come since it arrived.
+            if (State != BlindState.Rushing && Services.TryGet<EventBus>(out var bus)) bus.Publish(new BossThemeFocus(EntityKind.Blind));
             if (State != BlindState.Rushing) Play(Sound.BlindGrowl, 0.9f, Random.Range(0.92f, 1.05f), 60f);
             target = spot;
             SetState(BlindState.Rushing);
@@ -381,6 +383,7 @@ namespace Game.Entities
                 if (t < fit + goneFor) return;
                 // Coming in: the strike, and it's there, low, in the glare.
                 struckIn = true;
+                if (Services.TryGet<EventBus>(out var focusBus)) focusBus.Publish(new BossThemeFocus(EntityKind.Blind)); // (it's here: its music)
                 transform.position = comeTo;
                 Face(player.transform.position);
                 transform.rotation = Quaternion.LookRotation(Flat(player.transform.position - comeTo).sqrMagnitude > 0.01f ? Flat(player.transform.position - comeTo) : Vector3.forward);
