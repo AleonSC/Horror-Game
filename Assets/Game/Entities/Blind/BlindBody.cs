@@ -36,6 +36,9 @@ namespace Game.Entities
 
         float stretchShown, lookYaw, lookTo, nextLook, snapTilt, nextSnap;
 
+        /// <summary>Its head held turned this way (degrees from where it faces), as at a sound; null: it looks round as it likes.</summary>
+        public float? HoldLook;
+
         sealed class Leg
         {
             public Transform hip, thigh, knee, shin, ankle;
@@ -332,12 +335,13 @@ namespace Game.Entities
 
             // The head kept level whatever the neck's doing; up there it looks round, stopping dead; listening
             // it cocks over, and now and then snaps toward a sound.
-            if (e > 0.8f)
+            if (HoldLook.HasValue) lookTo = Mathf.Clamp(HoldLook.Value, -80f, 80f);
+            else if (e > 0.8f)
             {
                 if (t > nextLook) { nextLook = t + Random.Range(1.2f, 2.8f); lookTo = Random.Range(-75f, 75f); }
             }
             else lookTo = 0f;
-            lookYaw = Mathf.Lerp(lookYaw, lookTo, 1f - Mathf.Exp(-(e > 0.8f ? 2.5f : 1.5f) * dt));
+            lookYaw = Mathf.Lerp(lookYaw, lookTo, 1f - Mathf.Exp(-(HoldLook.HasValue ? 8f : e > 0.8f ? 2.5f : 1.5f) * dt)); // (snapping round to a sound)
             if (t > nextSnap) { nextSnap = t + Random.Range(2.5f, 5.5f); snapTilt = Random.Range(-30f, 30f); }
             float tilt = (snapTilt + Mathf.Sin(t * 0.7f) * 7f) * listen;
             head.localRotation = Quaternion.Euler(-total * Mathf.Rad2Deg + Mathf.Sin(t * 0.4f) * 4f - roar * 25f + lean * 10f, lookYaw, tilt - sway * Mathf.Rad2Deg);

@@ -24,6 +24,14 @@ namespace Game.World.Build
 
         /// <summary>Burst a tree standing at <paramref name="at"/> (its parts within <paramref name="bounds"/>, around its foot) away along <paramref name="away"/>.</summary>
         public static void Burst(Vector3 at, Bounds bounds, Vector3 away, Material bark, Material fresh, Material leaf)
+            => Burst(at, bounds, away, bark, fresh, leaf, Quaternion.identity, Vector3.zero);
+
+        /// <summary>
+        /// Burst a tree that's going over: its parts as they'd be standing, turned by <paramref name="lean"/> about
+        /// its foot, and still swinging (<paramref name="spin"/>: radians a second about its foot), which the bits
+        /// carry on with.
+        /// </summary>
+        public static void Burst(Vector3 at, Bounds bounds, Vector3 away, Material bark, Material fresh, Material leaf, Quaternion lean, Vector3 spin)
         {
             if (cube == null)
             {
@@ -36,7 +44,7 @@ namespace Game.World.Build
             }
             var go = new GameObject("Splinters") { layer = Layers.Effects };
             go.transform.position = at;
-            go.AddComponent<TreeSplinters>().Build(at, bounds, away, bark, fresh, leaf);
+            go.AddComponent<TreeSplinters>().Build(at, bounds, away, bark, fresh, leaf, lean, spin);
             if (Services.TryGet<SoundPlayer>(out var sounds))
             {
                 sounds.Play(Sound.Crack, at + Vector3.up * 1.5f, MixerNames.World, 1f, Random.Range(0.55f, 0.7f), 60f);
@@ -46,7 +54,7 @@ namespace Game.World.Build
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(at, 25f, "tree falling"));
         }
 
-        void Build(Vector3 at, Bounds bounds, Vector3 away, Material bark, Material fresh, Material leaf)
+        void Build(Vector3 at, Bounds bounds, Vector3 away, Material bark, Material fresh, Material leaf, Quaternion lean, Vector3 swing)
         {
             int leaves = leaf != null ? LeafBits : 0;
             int n = Shards + leaves;
@@ -84,11 +92,14 @@ namespace Game.World.Build
                     float len = Random.Range(0.25f, 1.1f) * (h < 3f ? 1.2f : 0.8f);
                     size[i] = new Vector3(Random.Range(0.025f, 0.08f), len, Random.Range(0.025f, 0.07f));
                 }
+                float up = p.y / top;
+                p = lean * p;
                 b.localPosition = p;
                 b.localRotation = Random.rotation;
                 b.localScale = size[i];
-                float force = l ? Random.Range(1.5f, 4f) : Random.Range(4f, 11f) * Mathf.Lerp(1.2f, 0.6f, p.y / top);
-                vel[i] = (away * force + side * Random.Range(-0.6f, 0.6f) * force + Vector3.up * Random.Range(1f, 5f) + Random.insideUnitSphere * 1.5f);
+                float force = l ? Random.Range(1.5f, 4f) : Random.Range(4f, 11f) * Mathf.Lerp(1.2f, 0.6f, up);
+                vel[i] = (away * force + side * Random.Range(-0.6f, 0.6f) * force + Vector3.up * Random.Range(1f, 5f) + Random.insideUnitSphere * 1.5f)
+                         + Vector3.Cross(swing, p) * 0.35f; // (what was swinging over carries on, the top the fastest)
                 spin[i] = Random.insideUnitSphere * (l ? 300f : 900f);
                 life[i] = l ? Random.Range(1.8f, 3f) : Random.Range(1.2f, 2.4f);
                 ground[i] = Physics.Raycast(at + new Vector3(p.x, 0f, p.z) + vel[i].normalized * 2f + Vector3.up * 20f, Vector3.down, out var hit, 60f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore)

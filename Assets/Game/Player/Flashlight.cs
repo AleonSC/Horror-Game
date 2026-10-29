@@ -95,11 +95,13 @@ namespace Game.Player
             if (!switchedOn && Battery.Empty)
             {
                 PlayClick(0.7f);
+                Clicked();
                 return;
             }
             switchedOn = !switchedOn;
             ToggleCount++;
             PlayClick(switchedOn ? 1.1f : 0.9f);
+            Clicked();
         }
 
         /// <summary>On, quietly (a restart).</summary>
@@ -109,6 +111,12 @@ namespace Game.Player
         {
             if (Services.TryGet<SoundPlayer>(out var sounds))
                 sounds.Play(Sound.Click, transform.position, MixerNames.Player, 0.5f, pitch, 6f);
+        }
+
+        // (Your doing, not the battery dying: the blind one can hear it.)
+        void Clicked()
+        {
+            if (Services.TryGet<EventBus>(out var events)) events.Publish(new LightClicked(transform.position));
         }
 
         void Update()

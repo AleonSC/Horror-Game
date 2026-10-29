@@ -28,6 +28,8 @@ namespace Game.World
         public float treeFallNear = 12f;
         [Range(5f, 80f), Tooltip("...and this far.")]
         public float treeFallFar = 25f;
+        [Tooltip("When a falling tree hits anything (the ground, another tree, a rock) it bursts into splinters, as when the blind one walks through one. Off: it breaks into logs that roll.")]
+        public bool treeFallSplinters = true;
 
         [Header("Phantoms")]
         [Range(0f, 1f), Tooltip("Chance, each time you turn your head quickly, that something's waiting at the edge of your view.")]

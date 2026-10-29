@@ -90,6 +90,14 @@ namespace Game.Core
         public override string ToString() => $"Noise: {Source} ({Radius:0.#} m)";
     }
 
+    /// <summary>The player's flashlight clicked (switched on or off, or a dead one clicking), where they are.</summary>
+    public readonly struct LightClicked : IGameEvent
+    {
+        public readonly Vector3 Position;
+        public LightClicked(Vector3 position) { Position = position; }
+        public override string ToString() => "Flashlight clicked";
+    }
+
     /// <summary>The player went inside a shelter (shack, cabin, tent, car seat). Each shelter has its own id.</summary>
     public readonly struct EnteredShelter : IGameEvent
     {

@@ -78,6 +78,14 @@ namespace Game.Entities
         [Range(0f, 80f), Tooltip("...and then it hears you moving within this, even crouched.")]
         public float hardListenReach = 30f;
 
+        [Header("Your light clicking (x difficulty)")]
+        [Range(0f, 80f), Tooltip("Click your flashlight on or off within this of it and it hears it: it stops, snaps its head round to the sound and raises it high over the trees, listening...")]
+        public float lightClickHearing = 25f;
+        [Range(0f, 30f), Tooltip("...for this long...")]
+        public float lightClickAlert = 8f;
+        [Range(1f, 4f), Tooltip("...hearing everything (noises, you moving close, you moving while it listens hard) this many times further.")]
+        public float lightClickBoost = 1.8f;
+
         [Header("Hearing (x difficulty)")]
         [Range(0f, 15f), Tooltip("Within this it hears you whatever you do (except crouch).")]
         public float closeHearing = 4f;

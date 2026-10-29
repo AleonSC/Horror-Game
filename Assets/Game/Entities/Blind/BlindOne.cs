@@ -38,6 +38,10 @@ namespace Game.Entities
         bool arrived;
         // Its neck up over the trees (0-1, where it's heading), and its legs grown for striding (0-1).
         float stretch, grow;
+        // Your light clicked near it: where, and how much longer it's listening for you, its hearing sharpened.
+        Vector3 clickedAt;
+        float alertFor;
+        float Sharp => alertFor > 0f ? s.lightClickBoost : 1f;
 
         public BlindState State { get; private set; } = BlindState.Absent;
         public BlindSettings Settings => s;
@@ -86,6 +90,7 @@ namespace Game.Entities
                 subs.Add(events.Subscribe<PlayerRespawned>(_ => { if (arrived) GoAway(45f); }));
                 subs.Add(events.Subscribe<HuntsReset>(_ => LoseInterest(15f)));
                 subs.Add(events.Subscribe<FlashBurst>(OnFlash));
+                subs.Add(events.Subscribe<LightClicked>(OnLightClick));
             }
             Threats.Add(this);
             heat = Heat.Add(body.transform, s.height, s.height * 0.12f);
@@ -176,9 +181,23 @@ namespace Game.Entities
         {
             if (deafFor > 0f || e.Source == "tree falling") return;
             if (State != BlindState.Roaming && State != BlindState.Listening && State != BlindState.Searching && State != BlindState.Rushing) return;
-            float heard = e.Radius * Difficulty.Now.blindHearing * (State == BlindState.Listening ? 1.3f : 1f);
+            float heard = e.Radius * Difficulty.Now.blindHearing * (State == BlindState.Listening ? 1.3f : 1f) * Sharp;
             if (Vector3.Distance(transform.position, e.Position) > heard) return;
             RushTo(e.Position);
+        }
+
+        // Your light clicking: it stops dead, snaps its head round to it and raises it high over the trees, and
+        // listens, hearing everything further for a while.
+        void OnLightClick(LightClicked e)
+        {
+            if (deafFor > 0f) return;
+            if (State != BlindState.Roaming && State != BlindState.Listening && State != BlindState.Searching) return;
+            if (Vector3.Distance(transform.position, e.Position) > s.lightClickHearing * Difficulty.Now.blindHearing) return;
+            clickedAt = e.Position;
+            alertFor = s.lightClickAlert;
+            hardListening = true;
+            SetState(BlindState.Listening);
+            Play(Sound.Click, 1f, 0.3f, 60f); // (it clicks back)
         }
 
         void RushTo(Vector3 spot)
@@ -198,6 +217,9 @@ namespace Game.Entities
             if (PlayerPlace.InDarkRoom) return; // (it can't follow you there: it waits)
             float dt = Time.deltaTime;
             deafFor = Mathf.Max(0f, deafFor - dt);
+            alertFor = Mathf.Max(0f, alertFor - dt);
+            body.HoldLook = State == BlindState.Listening && alertFor > 0f
+                ? Vector3.SignedAngle(transform.forward, Flat(clickedAt - transform.position), Vector3.up) : (float?)null;
             stateTime += dt;
             storm.Strength = Mathf.MoveTowards(storm.Strength, ThreatVisible ? 1f : 0f, dt * (State == BlindState.Arriving ? 0.3f : 0.15f));
             if (storm.Strength > 0f) storm.Follow(transform.position, dt);
@@ -540,6 +562,7 @@ namespace Game.Entities
         {
             speed = 0f;
             stretch = hardListening ? 1f : 0.3f; // (listening hard: its head up over the trees)
+            if (alertFor > 0f) Face(clickedAt); // (turning to where your light clicked, its head there first)
             listen = Mathf.MoveTowards(listen, 1f, dt * 3f);
             if (Time.time - lastStep > 0.45f)
             {
@@ -548,13 +571,13 @@ namespace Game.Entities
             }
             HearClose();
             // Listening hard: you moving anywhere near, crouched or not, and it's coming.
-            if (hardListening && player.Moving && DistanceToPlayer <= s.hardListenReach * Difficulty.Now.blindHearing && deafFor <= 0f)
+            if (hardListening && player.Moving && DistanceToPlayer <= s.hardListenReach * Difficulty.Now.blindHearing * Sharp && deafFor <= 0f)
             {
                 hardListening = false;
                 RushTo(player.transform.position);
                 return;
             }
-            if (stateTime >= s.listenTime * (hardListening ? 3f : 1f)) // (long enough, listening hard, for its head to rise over the trees and look round)
+            if (stateTime >= s.listenTime * (hardListening ? 3f : 1f) && alertFor <= 0f) // (long enough, listening hard, for its head to rise over the trees and look round)
             {
                 hardListening = false;
                 SetState(BlindState.Roaming);
@@ -603,7 +626,7 @@ namespace Game.Entities
         void HearClose()
         {
             if (deafFor > 0f || player.Crouching || !player.Moving) return;
-            if (DistanceToPlayer <= s.closeHearing * Difficulty.Now.blindHearing) RushTo(player.transform.position);
+            if (DistanceToPlayer <= s.closeHearing * Difficulty.Now.blindHearing * Sharp) RushTo(player.transform.position);
         }
 
         void CheckTake()

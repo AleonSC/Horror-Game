@@ -26,10 +26,11 @@ namespace Game.World.Build
         /// <summary>
         /// Knock it over, falling away from <paramref name="pushedFrom"/>. It snaps off above a stump (which stays),
         /// cut into logs that topple together; the crown bursts into a flurry of needles as it hits the ground, and
-        /// a few seconds later the logs come apart and roll. They lie a while, then sink away. False if it's
-        /// already down.
+        /// a few seconds later the logs come apart and roll. They lie a while, then sink away. With
+        /// <paramref name="splinter"/>, the moment it hits anything it bursts into splinters instead (as when the blind
+        /// one walks through a tree), leaving only the stump. False if it's already down.
         /// </summary>
-        public bool KnockDown(InstancedRenderer forest, Vector3 pushedFrom, float shudder = 0f)
+        public bool KnockDown(InstancedRenderer forest, Vector3 pushedFrom, float shudder = 0f, bool splinter = false)
         {
             if (down || forest == null || HasOwl || !Breakable) return false;
             down = true;
@@ -43,6 +44,9 @@ namespace Game.World.Build
             var wood = new List<(Mesh mesh, int sub, Matrix4x4 m, Material mat)>();
             var crown = new Dictionary<Mesh, (Matrix4x4 m, Material[] mats, string name)>();
             var whole = new Dictionary<Mesh, (Matrix4x4 m, Material[] mats, string name)>();
+            var bounds = new Bounds(Vector3.up, Vector3.one);
+            bool any = false;
+            Material bark = null;
             foreach (int k in Kinds)
             {
                 forest.Remove(k, Home, Matrix);
@@ -54,6 +58,8 @@ namespace Game.World.Build
                     Matrix4x4 m = Matrix4x4.Translate(-homeWorld) * Matrix * (part.HasLocal ? part.Local : Matrix4x4.identity);
                     bool leafy = IsLeafy(kind.Name, part.Material);
                     if (!leafy) wood.Add((part.Mesh, part.Submesh, m, part.Material));
+                    if (!leafy && bark == null) bark = part.Material;
+                    Encapsulate(ref bounds, ref any, part.Mesh.bounds, m);
                     var into = leafy ? crown : whole;
                     if (!into.TryGetValue(part.Mesh, out var entry)) entry = (m, new Material[part.Mesh.subMeshCount], kind.Name);
                     if (part.Submesh < entry.mats.Length) entry.mats[part.Submesh] = part.Material;
@@ -84,7 +90,9 @@ namespace Game.World.Build
             var leaves = new List<Renderer>();
             Vector3 pivot = root.position - at;
             foreach (var pair in crown) leaves.Add(Show(root, pair.Key, pair.Value.m, pair.Value.mats, pair.Value.name, pivot));
-            root.gameObject.AddComponent<TreeFall>().Begin(away.normalized, shudder, segments, leaves, stump);
+            var fall = root.gameObject.AddComponent<TreeFall>();
+            if (splinter) fall.SplinterOnImpact(at - root.position, bounds, bark, FreshWood);
+            fall.Begin(away.normalized, shudder, segments, leaves, stump);
             return true;
         }
 
@@ -115,12 +123,7 @@ namespace Game.World.Build
                 {
                     if (part.Mesh == null) continue;
                     Matrix4x4 m = Matrix4x4.Translate(-homeWorld) * Matrix * (part.HasLocal ? part.Local : Matrix4x4.identity);
-                    var b = part.Mesh.bounds;
-                    for (int c = 0; c < 8; c++)
-                    {
-                        Vector3 p = m.MultiplyPoint3x4(b.center + Vector3.Scale(b.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1)));
-                        if (any) bounds.Encapsulate(p); else { bounds = new Bounds(p, Vector3.zero); any = true; }
-                    }
+                    Encapsulate(ref bounds, ref any, part.Mesh.bounds, m);
                     if (IsLeafy(kind.Name, part.Material)) { if (leaf == null) leaf = part.Material; }
                     else if (bark == null) bark = part.Material;
                 }
@@ -131,6 +134,16 @@ namespace Game.World.Build
             if (away.sqrMagnitude < 0.01f) away = Vector3.forward;
             TreeSplinters.Burst(at, bounds, away.normalized, bark, FreshWood, leaf);
             return true;
+        }
+
+        // Grow the tree's bounds (in its own space) by a part's.
+        static void Encapsulate(ref Bounds bounds, ref bool any, Bounds b, Matrix4x4 m)
+        {
+            for (int c = 0; c < 8; c++)
+            {
+                Vector3 p = m.MultiplyPoint3x4(b.center + Vector3.Scale(b.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1)));
+                if (any) bounds.Encapsulate(p); else { bounds = new Bounds(p, Vector3.zero); any = true; }
+            }
         }
 
         // Needles and leaves (they burst), rather than wood (it's cut into logs).

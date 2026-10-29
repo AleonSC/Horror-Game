@@ -1391,3 +1391,12 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Checked offline:** I compared each tree's bounding box at each level against the full-detail one.
   - Oak crowns used to move 5–10% and dead trees changed size by 20–23%. Now oak crowns move at most 3% and dead trees at most 4%.
   - New test: `Tests/EditMode/ForestLodTests.cs`. `MeshBuilder.Bounds` was added for it.
+
+## Falling trees splinter; the blind one hears your light click
+
+- **Falling trees splinter on impact.** A falling tree now bursts into splinters the moment it touches anything (the ground, another tree, a rock). It's the same burst as when the blind one walks through a tree: the pieces carry on the way the tree was swinging, the crown bursts into needles, and only the stump is left. A tree whose meshes can't be read falls whole and splinters when it lands. ForestLifeConfig → Falling trees → **treeFallSplinters** (on by default) switches this; turning it off brings back the old rolling logs. (`TreeFall.SplinterOnImpact`, a leaning/swinging overload of `TreeSplinters.Burst`)
+- **Flashlight click.** Toggling the flashlight now publishes `LightClicked`. A dead battery clicking counts; the battery running out by itself doesn't. If the blind one is roaming, listening or searching within **lightClickHearing** (25 m × difficulty hearing), it does three things:
+  - stops and clicks back;
+  - snaps its head toward the sound and turns its body after it;
+  - lifts its head high over the trees and listens hard for **lightClickAlert** (8 s).
+- While it listens like this, all of its hearing reaches **lightClickBoost** (1.8×) further: noises, close hearing, and you moving while it listens hard. These settings are in BlindConfig → "Your light clicking". (`BlindBody.HoldLook` holds the head's direction.)

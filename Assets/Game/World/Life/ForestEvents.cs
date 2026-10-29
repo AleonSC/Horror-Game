@@ -98,7 +98,7 @@ namespace Game.World
             toTree.y = 0f;
             Vector3 side = Vector3.Cross(Vector3.up, toTree).normalized * (Random.value < 0.5f ? -1f : 1f);
             Vector3 pushFrom = best.transform.position - (side + toTree.normalized * 0.4f);
-            bool fell = best.KnockDown(world.Forest, pushFrom, 0.7f);
+            bool fell = best.KnockDown(world.Forest, pushFrom, 0.7f, s.treeFallSplinters);
             if (fell && Services.TryGet<EventBus>(out var events)) events.Publish(new ScareHappened("a tree fell", best.transform.position));
             return fell;
         }

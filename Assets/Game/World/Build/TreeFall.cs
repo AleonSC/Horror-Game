@@ -38,6 +38,25 @@ namespace Game.World.Build
         Collider ignore;
         readonly Collider[] touching = new Collider[8];
 
+        bool splinter;
+        Vector3 foot;
+        Bounds size;
+        Material bark, fresh;
+
+        /// <summary>
+        /// The moment it hits anything (the ground, another tree, a rock) it bursts into splinters, rather than
+        /// coming apart into logs. <paramref name="foot"/>: where its foot is, from this (as it stands);
+        /// <paramref name="bounds"/>: its parts, around its foot, standing. Call before <see cref="Begin"/>.
+        /// </summary>
+        public void SplinterOnImpact(Vector3 foot, Bounds bounds, Material bark, Material fresh)
+        {
+            splinter = true;
+            this.foot = foot;
+            size = bounds;
+            this.bark = bark;
+            this.fresh = fresh;
+        }
+
         IEnumerator Fall(Vector3 away, float shudder)
         {
             Vector3 axis = Vector3.Cross(Vector3.up, away);
@@ -66,10 +85,21 @@ namespace Game.World.Build
                 if (cut && angle > 6f && Touching())
                 {
                     float spin = (angle - was) / Mathf.Max(0.0001f, Time.deltaTime) * Mathf.Deg2Rad; // (how fast it's swinging over)
+                    if (splinter)
+                    {
+                        Splinter(axis, spin, away);
+                        yield break;
+                    }
                     Snap(axis, spin, away, bodies);
                     break;
                 }
                 yield return null;
+            }
+            if (splinter && bodies.Count == 0)
+            {
+                // (Whole, or it never touched: it bursts as it hits the ground.)
+                Splinter(axis, 2f * 86f / time * Mathf.Deg2Rad, away);
+                yield break;
             }
             if (bodies.Count == 0)
             {
@@ -137,6 +167,18 @@ namespace Game.World.Build
             Play(Sound.TreeImpact, 1f, Random.Range(0.9f, 1.05f));
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(transform.position, 25f, "tree falling"));
             if (crown != null && crown.Count > 0) LeafBurst.Burst(crown, momentum);
+        }
+
+        // It bursts into splinters where it hit, carrying on the way it was swinging, and is gone (the stump stays).
+        void Splinter(Vector3 axis, float spin, Vector3 away)
+        {
+            Vector3 w = axis.normalized * spin;
+            Vector3 from = transform.position + transform.rotation * foot;
+            Vector3 top = transform.rotation * (Vector3.up * Mathf.Max(2f, size.max.y));
+            Landed(away, Vector3.Cross(w, top) * 0.5f + away); // (the thud, and the crown's flurry)
+            foreach (var r in GetComponentsInChildren<Renderer>()) r.enabled = false;
+            TreeSplinters.Burst(from, size, away, bark, fresh, null, transform.rotation, w);
+            Destroy(gameObject);
         }
 
         // The logs snap apart: each its own body, going on the way it was swinging (spin: radians a second about
