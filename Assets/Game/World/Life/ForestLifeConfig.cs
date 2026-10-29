@@ -12,6 +12,21 @@ namespace Game.World
         public GameObject[] phantoms = new GameObject[0];
 
         public ForestLifeSettings settings = new ForestLifeSettings();
+
+        const int Version = 1;
+        [SerializeField, HideInInspector] int savedUnder;
+
+        void OnEnable()
+        {
+            if (savedUnder >= Version) return;
+            var fresh = new ForestLifeSettings();
+            var s = settings ?? (settings = fresh);
+            if (s.fallingLeaves < fresh.fallingLeaves) s.fallingLeaves = fresh.fallingLeaves; // (version 1: many more, off the real trees)
+            savedUnder = Version;
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
     }
 
     [Serializable]
@@ -193,8 +208,24 @@ namespace Game.World
         [Header("Leaves")]
         [Range(0, 2000), Tooltip("Dead leaves lying round you.")]
         public int leaves = 400;
-        [Range(0, 200), Tooltip("Leaves drifting down from the canopy.")]
-        public int fallingLeaves = 30;
+        [Range(0, 400), Tooltip("Leaves on the trees round you that let go and flutter down (at most this many at once).")]
+        public int fallingLeaves = 90;
+        [Range(5f, 60f), Tooltip("From trees within this of you.")]
+        public float fallingLeafReach = 24f;
+        [Range(0.5f, 30f), Tooltip("Each lets go after about this many seconds (sooner in a gust)...")]
+        public float fallingLeafWait = 6f;
+        [Range(0f, 20f), Tooltip("...how much sooner a gust shakes them loose...")]
+        public float fallingLeafGusts = 6f;
+        [Range(2f, 25f), Tooltip("...from up to this high...")]
+        public float fallingLeafHeight = 12f;
+        [Range(0.1f, 3f), Tooltip("...coming down this fast on average (metres a second)...")]
+        public float fallingLeafSpeed = 0.75f;
+        [Range(0f, 60f), Tooltip("...and lies this long where it lands before it's gone.")]
+        public float fallingLeafLie = 15f;
+        [Range(0.3f, 3f), Tooltip("Their size.")]
+        public float fallingLeafSize = 1f;
+        [Tooltip("Their colour.")]
+        public Color fallingLeafColour = new Color(0.34f, 0.18f, 0.07f);
 
         public ForestLifeSettings Clone() => (ForestLifeSettings)MemberwiseClone();
     }

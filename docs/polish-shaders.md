@@ -1408,3 +1408,13 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - snaps its head toward you, and its body turns after it;
   - keeps tracking you while you move, for **lampWatch** seconds (6). Set it to 0 to turn this off. (BlindConfig → Lamps)
 - This doesn't sharpen its hearing or make it come for you; it only watches. The light-click alert reuses the same head-holding (`Watching`/`WatchSpot`).
+
+## Leaves falling from the trees
+
+- **What changed:** the old canopy leaves were 30 small, dark quads dropping straight down, and they were easy to miss. Now up to **90** leaves hang in the crowns of the real trees within 24 m of you.
+- **Letting go:** each leaf lets go after a few seconds. A gust shakes them loose sooner, and a storm sooner still, so they come down in flurries.
+- **Falling:** they flutter down like real leaves. They rock to and fro, swoop through the middle of each swing and almost hang at the ends. They turn slowly, wander, and drift with the wind.
+- **Landing:** a leaf lies where it lands for about 15 s, then shrinks away and another one goes up on a tree.
+- **Look:** the leaves now have a leaf-shaped mesh, and the falling ones are bigger and a warmer, lighter brown so they catch your flashlight.
+- **Settings:** all in ForestLifeConfig → Leaves: `fallingLeaves`, `fallingLeafReach`, `fallingLeafWait`, `fallingLeafGusts`, `fallingLeafHeight`, `fallingLeafSpeed`, `fallingLeafLie`, `fallingLeafSize` and `fallingLeafColour`.
+- **Saved config:** ForestLifeConfig now has a config version, which raises a saved count of 30 up to 90 once.
