@@ -1489,6 +1489,33 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// The ringing in your ears after a blast (12 s, at full; it's faded as it plays): a thin, piercing tone
+        /// round 3.7 kHz, not quite steady (two tones a few hertz apart, beating, and a slow waver), a fainter one
+        /// an octave up, and a breath of hiss under it, all of it set back a little at the very start as if the
+        /// blast drowned it.
+        /// </summary>
+        public static float[] EarRing(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(12f);
+            double a = 0, b = 0, c = 0;
+            float hiss = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float waver = 1f + 0.002f * (float)Math.Sin(2 * Math.PI * 0.35 * t) + 0.001f * (float)Math.Sin(2 * Math.PI * 1.7 * t);
+                a += 3720.0 * waver / SampleRate;
+                b += 3727.5 * waver / SampleRate;
+                c += 7440.0 * waver / SampleRate;
+                float tone = (float)(Math.Sin(2 * Math.PI * a) * 0.5 + Math.Sin(2 * Math.PI * b) * 0.35 + Math.Sin(2 * Math.PI * c) * 0.06);
+                hiss += (Noise(rng) - hiss) * 0.5f;
+                float swell = Math.Min(1f, t / 0.35f); // (coming up out of the blast)
+                s[i] = (tone + hiss * 0.025f) * swell;
+            }
+            return Normalize(s, 0.5f);
+        }
+
+        /// <summary>
         /// The giant's chain snapping, miles off (about 6 s with its echo): a crack like a shot the size of the sky; the deep, clanging
         /// ring of the parted links, out of tune with each other; the whip of it lashing back up; and links clattering
         /// against each other, quick at first, slowing, dying away; all of it rolling off the hills.

@@ -1221,3 +1221,16 @@ It's hard to judge whether horror works when you know every scare. The session r
   - It's only in the editor and development builds, like the rest of the dev tools.
 - **How to read it:** look for contrast. Long flat stretches of pressure, a lot of overlap, or short gaps between beats usually mean the fear is going numb. Long stretches of standing still can mean fear or being lost; watch someone play to tell which.
 - **Code:** `DevTools/SessionTimeline.cs` (the model and the numbers, plain C#), `DevTools/TimelineReport.cs` (the page), `DevTools/SessionRecorder.cs` (sampling and saving). Tests are in `Tests/EditMode/SessionTimelineTests.cs`.
+
+## The silence: snap, fall, blast, ringing
+
+- **The sequence:**
+  1. **Fade to silence:** starting `silenceLead` (4 s) before the chain snaps, all sound (music and every effect) slowly fades to nothing.
+  2. **Heard alone:** in that silence you hear only the chain snapping, the giant hitting the ground (boom, a heavy step, a low thunder) and then the shockwave arriving.
+  3. **The shockwave hits:**
+     - A high ringing starts in your ears: two tones around 3.7 kHz, a few hertz apart so they beat, with a faint octave above and a little hiss (new sound `EarRing`).
+     - The world fades back in over `hearingBack` (9 s), starting dull and muffled and slowly clearing, while the ringing thins away (`ringVolume` 0.35).
+- **How it works:**
+  - The mixer only exposes Master, Music and Effects volumes. A new `Hearing` service fades the Music and Effects faders on top of the player's own volume settings (`AudioStateController.WorldVolume`). The moments that must cut through play on the UI group, the only one outside those two.
+  - Deafness (`SoundPlayer.Deafened`) runs through the same low-pass filters used for muffling under cover, on every pooled sound and every looping source that uses `Muffled`. UI sounds aren't affected.
+  - Safety: hearing is restored at once on a new run, and it comes back on its own if it's ever left silent for 25 s.

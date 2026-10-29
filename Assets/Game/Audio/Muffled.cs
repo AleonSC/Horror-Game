@@ -21,7 +21,7 @@ namespace Game.Audio
             filter.cutoffFrequency = 22000f;
         }
 
-        void Update() => filter.cutoffFrequency = SoundPlayer.CutoffFor(SoundPlayer.Muffle * amount);
+        void Update() => filter.cutoffFrequency = SoundPlayer.CutoffFor(Mathf.Max(SoundPlayer.Muffle * amount, SoundPlayer.Deafened));
 
         /// <summary>Muffle this source under cover.</summary>
         public static void On(AudioSource source, float amount = 1f)

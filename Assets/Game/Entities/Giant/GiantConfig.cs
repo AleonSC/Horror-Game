@@ -107,6 +107,14 @@ namespace Game.Entities
         public float shockwaveRumble = 2.5f;
         [Range(0f, 10f), Tooltip("...and seconds of being knocked groggy.")]
         public float shockwaveDaze = 2.5f;
+
+        [Header("The silence (the snap, the fall, the blast)")]
+        [Range(0f, 15f), Tooltip("Seconds before the chain snaps that all sound starts fading away (to nothing by the snap). Then only the snap, the giant hitting the ground and the shockwave are heard. 0: no silence.")]
+        public float silenceLead = 4f;
+        [Range(1f, 30f), Tooltip("Once the shockwave hits: seconds for the world's sound to come back (dull at first, clearing) and the ringing in your ears to die away.")]
+        public float hearingBack = 9f;
+        [Range(0f, 1f), Tooltip("How loud the ringing in your ears is.")]
+        public float ringVolume = 0.35f;
         [Range(0.5f, 50f)] public float walkSpeed = 7.5f;
         [Range(1f, 30f), Tooltip("Seconds for one stride (two steps).")]
         public float strideTime = 8f;

@@ -62,7 +62,7 @@ namespace Game.Entities
         float swing, swingSpeed;
         float stride, nextScan, scanLeft, scan;
         float shockRadius = -1f;
-        bool eyeDone, searching, hiddenForRoom;
+        bool eyeDone, searching, hiddenForRoom, silenced;
         int lastStep;
         float walkIn;
 
@@ -178,6 +178,8 @@ namespace Game.Entities
             State = GiantState.Hanging;
             bearing = Services.TryGet<WorldBuilder>(out var world) && world.Plan != null ? world.Plan.GiantBearing : 0f;
             eyeDone = searching = false;
+            if (silenced) Hearing.Restore();
+            silenced = false;
             eyesOpen = 0f; // (shut again, hanging)
             timer = 0f;
             swing = swingSpeed = 0f;
@@ -345,6 +347,12 @@ namespace Game.Entities
             player.Dream = dream;
             SetWorldRed(lid);
 
+            // A little before it snaps, every sound starts to fade away: in the silence, only what comes next.
+            if (!silenced && s.silenceLead > 0f && timer >= open + stare + close - s.silenceLead)
+            {
+                silenced = true;
+                Hearing.FadeOut(Mathf.Min(s.silenceLead, open + stare + close - (timer - Time.deltaTime)));
+            }
             if (timer >= open + stare + close)
             {
                 eye.gameObject.SetActive(false);
@@ -395,8 +403,10 @@ namespace Game.Entities
 
             if (Services.TryGet<SoundPlayer>(out var sounds))
             {
-                sounds.Play2D(Sound.ChainSnap, MixerNames.Outside, 1f, Random.Range(0.95f, 1.02f));
-                sounds.Play2D(Sound.Thunder, MixerNames.Outside, 0.7f, 0.7f);
+                // (Through the silence, if there is one: on the UI's group, which the fade leaves alone.)
+                string through = silenced ? MixerNames.UI : MixerNames.Outside;
+                sounds.Play2D(Sound.ChainSnap, through, 1f, Random.Range(0.95f, 1.02f));
+                sounds.Play2D(Sound.Thunder, through, 0.5f, 0.7f);
             }
             player.AddShake(3f);
             player.AddRumble(0.6f, 1.5f);
@@ -503,7 +513,14 @@ namespace Game.Entities
             State = GiantState.Landed;
             timer = 0f;
             landedAt = Time.time;
-            if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play2D(Sound.Boom, MixerNames.Outside, 1f, 0.8f);
+            if (Services.TryGet<SoundPlayer>(out var sounds))
+            {
+                // It hits the ground: heard alone in the silence.
+                string through = silenced ? MixerNames.UI : MixerNames.Outside;
+                sounds.Play2D(Sound.Boom, through, 1f, 0.8f);
+                sounds.Play2D(Sound.GiantStep, through, 0.9f, 0.7f);
+                sounds.Play2D(Sound.Thunder, through, 0.45f, 0.45f);
+            }
             player.AddRumble(0.8f, 2.5f); // (the first of it, through the ground; the wave itself follows)
             if (Services.TryGet<EventBus>(out var events))
             {
@@ -607,9 +624,16 @@ namespace Game.Entities
                 if (s.shockwaveDaze > 0f) player.StartGroggy(s.shockwaveDaze, 0.6f);
                 if (Services.TryGet<SoundPlayer>(out var sounds))
                 {
-                    sounds.Play2D(Sound.Thunder, MixerNames.Outside, 1f, 0.5f);
-                    sounds.Play2D(Sound.Boom, MixerNames.Outside, 0.8f, 0.45f);
-                    sounds.Play2D(Sound.TreeRush, MixerNames.Outside, 0.7f, 0.6f);
+                    string through = silenced ? MixerNames.UI : MixerNames.Outside;
+                    sounds.Play2D(Sound.Thunder, through, 1f, 0.5f);
+                    sounds.Play2D(Sound.Boom, through, 0.8f, 0.45f);
+                    sounds.Play2D(Sound.TreeRush, through, 0.7f, 0.6f);
+                }
+                // And then your ears: ringing, the world coming back in dull and slowly clearing.
+                if (silenced)
+                {
+                    silenced = false;
+                    Hearing.Stun(s.ringVolume, s.hearingBack);
                 }
             }
             if (shockRadius > d + 300f) shockRadius = -1f;

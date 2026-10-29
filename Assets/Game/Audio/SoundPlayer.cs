@@ -18,6 +18,7 @@ namespace Game.Audio
         readonly List<AudioSource> pool = new List<AudioSource>();
         readonly List<AudioLowPassFilter> filters = new List<AudioLowPassFilter>();
         readonly List<bool> outside = new List<bool>();
+        readonly List<bool> ui = new List<bool>();
         readonly HashSet<int> shelters = new HashSet<int>();
         readonly List<System.IDisposable> subs = new List<System.IDisposable>();
 
@@ -27,6 +28,13 @@ namespace Game.Audio
         /// <see cref="Muffled"/>.
         /// </summary>
         public static float Muffle { get; private set; }
+
+        /// <summary>
+        /// How deafened you are (0 not, 1 fully): stunned by something huge (the giant's shockwave), everything
+        /// comes through dull and distant, clearing as your ears come back. The UI's sounds (and whatever's played on
+        /// its group to cut through, like the ringing) aren't touched. Set by <see cref="Hearing"/>.
+        /// </summary>
+        public static float Deafened { get; set; }
 
         /// <summary>The cut-off for a sound muffled this much (22 kHz: clear; 550 Hz: through the walls).</summary>
         public static float CutoffFor(float muffle) => Mathf.Lerp(22000f, 550f, Mathf.Pow(Mathf.Clamp01(muffle), 0.35f));
@@ -57,8 +65,10 @@ namespace Game.Audio
                 filter.cutoffFrequency = 22000f;
                 filters.Add(filter);
                 outside.Add(false);
+                ui.Add(false);
             }
             Muffle = 0f;
+            Deafened = 0f;
             Services.Register(this);
         }
 
@@ -75,9 +85,8 @@ namespace Game.Audio
             // Closing in round you quickly as a door shuts behind you; opening out a little slower.
             float target = shelters.Count > 0 ? 1f : 0f;
             Muffle = Mathf.MoveTowards(Muffle, target, Time.unscaledDeltaTime / (target > Muffle ? 0.35f : 0.8f));
-            float cut = CutoffFor(Muffle);
             for (int i = 0; i < pool.Count; i++)
-                if (pool[i].isPlaying) filters[i].cutoffFrequency = outside[i] ? cut : 22000f;
+                if (pool[i].isPlaying) filters[i].cutoffFrequency = CutoffAt(i);
         }
 
         void OnDestroy()
@@ -161,6 +170,7 @@ namespace Game.Audio
             Add(Sound.SprayHiss, SoundSynth.SprayHiss(69));
             Add(Sound.GiantGroan, SoundSynth.GiantGroan(70));
             Add(Sound.ChainSnap, SoundSynth.ChainSnap(71));
+            Add(Sound.EarRing, SoundSynth.EarRing(72));
         }
 
         void Add(Sound sound, float[] samples)
@@ -216,7 +226,8 @@ namespace Game.Audio
                 var listener = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
                 outside[index] = group == MixerNames.Outside || group == MixerNames.Entities
                                  || (group == MixerNames.World && spatial && (position - listener).sqrMagnitude > 16f);
-                filters[index].cutoffFrequency = outside[index] ? CutoffFor(Muffle) : 22000f;
+                ui[index] = group == MixerNames.UI;
+                filters[index].cutoffFrequency = CutoffAt(index);
             }
             source.volume = volume;
             source.pitch = pitch;
@@ -230,6 +241,9 @@ namespace Game.Audio
             source.Play();
             return source;
         }
+
+        // Muffled under cover (if it's from outside), and dulled by deafness (unless it's the UI's).
+        float CutoffAt(int i) => ui[i] ? 22000f : CutoffFor(Mathf.Max(outside[i] ? Muffle : 0f, Deafened));
 
         // A free source, or the next one round if they're all busy.
         AudioSource NextFree()

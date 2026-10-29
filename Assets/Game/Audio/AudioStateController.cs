@@ -15,6 +15,14 @@ namespace Game.Audio
         AudioConfig config;
         AudioMixerSnapshot[] snapshots;
 
+        PlayerPreferences prefs;
+
+        /// <summary>
+        /// The whole world's sound (music and every effect; not the UI's group), 0-1 on top of the player's own
+        /// volumes: <see cref="Hearing"/> takes it down to silence and brings it back.
+        /// </summary>
+        public float WorldVolume { get; private set; } = 1f;
+
         public AudioState Current => tracker?.Current ?? AudioState.Outdoors;
         public AudioStateInputs Inputs => tracker?.Inputs ?? default;
 
@@ -85,11 +93,22 @@ namespace Game.Audio
         /// <summary>Set the mixer's volumes from the preferences (0-1 sliders to decibels).</summary>
         public void ApplyVolumes(PlayerPreferences prefs)
         {
+            this.prefs = prefs;
             var mixer = config != null ? config.mixer : null;
-            if (mixer == null) return;
+            if (mixer == null || prefs == null) return;
             mixer.SetFloat(MixerNames.MasterVolume, ToDecibels(prefs.masterVolume));
-            mixer.SetFloat(MixerNames.EffectsVolume, ToDecibels(prefs.effectsVolume));
-            mixer.SetFloat(MixerNames.MusicVolume, ToDecibels(prefs.musicVolume));
+            mixer.SetFloat(MixerNames.EffectsVolume, ToDecibels(prefs.effectsVolume * WorldVolume));
+            mixer.SetFloat(MixerNames.MusicVolume, ToDecibels(prefs.musicVolume * WorldVolume));
+        }
+
+        /// <summary>Set <see cref="WorldVolume"/> (0-1) and apply it.</summary>
+        public void SetWorldVolume(float volume)
+        {
+            volume = Mathf.Clamp01(volume);
+            if (Mathf.Abs(volume - WorldVolume) < 1e-4f) return;
+            WorldVolume = volume;
+            if (prefs == null) Services.TryGet(out prefs);
+            ApplyVolumes(prefs);
         }
 
         public static float ToDecibels(float volume) => volume <= 0.0001f ? -80f : Mathf.Log10(volume) * 20f;
