@@ -366,12 +366,26 @@ namespace Game.Entities
             }
         }
 
-        float EyeSize => 2f * RenderDistance * Mathf.Tan(s.eyeSize * 0.5f * Mathf.Deg2Rad);
+        float EyeSize => 2f * EyeDistance * Mathf.Tan(s.eyeSize * 0.5f * Mathf.Deg2Rad);
+
+        // How far off the eye is drawn: as far as the giant, unless it's so big its swirl's corners would pass the
+        // camera's far clip (the quad's half-width is tan(size/2)/0.36 of its distance; its corners are that out
+        // along both edges): then nearer, so it all still shows. (It's untouched by fog, so it looks the same.)
+        float EyeDistance
+        {
+            get
+            {
+                float half = Mathf.Tan(Mathf.Clamp(s.eyeSize, 1f, 80f) * 0.5f * Mathf.Deg2Rad) / 0.36f;
+                float far = Camera.main != null ? Camera.main.farClipPlane : 600f;
+                return Mathf.Min(RenderDistance, 0.92f * far / Mathf.Sqrt(1f + 2f * half * half));
+            }
+        }
 
         Vector3 EyeWorld(Vector3 p)
         {
             float el = s.eyeElevation * Mathf.Deg2Rad;
-            return p + Bearing(bearing) * RenderDistance * Mathf.Cos(el) + Vector3.up * RenderDistance * Mathf.Sin(el);
+            float d = EyeDistance;
+            return p + Bearing(bearing) * d * Mathf.Cos(el) + Vector3.up * d * Mathf.Sin(el);
         }
 
         void SetWorldRed(float amount)

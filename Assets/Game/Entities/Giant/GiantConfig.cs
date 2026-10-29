@@ -13,6 +13,31 @@ namespace Game.Entities
         public GameObject customModel;
 
         public GiantSettings settings = new GiantSettings();
+
+        // Which defaults this asset's values were saved under. Values saved under older ones are brought up to
+        // date once, when it loads (an asset Unity has already saved keeps its old numbers otherwise, whatever the
+        // code's defaults now say).
+        const int Version = 2;
+        [SerializeField, HideInInspector] int savedUnder;
+
+        void OnEnable()
+        {
+            if (savedUnder >= Version) return;
+            var fresh = new GiantSettings();
+            var s = settings ?? (settings = fresh);
+            // (Version 2: hangs higher and bigger, the new eye, a heavier walk.)
+            s.height = fresh.height;
+            s.feetElevation = fresh.feetElevation;
+            s.neckElevation = fresh.neckElevation;
+            s.eyeSize = fresh.eyeSize;
+            s.eyeGlow = fresh.eyeGlow;
+            s.strideTime = fresh.strideTime;
+            s.stepShake = fresh.stepShake;
+            savedUnder = Version;
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
     }
 
     [Serializable]
@@ -72,8 +97,8 @@ namespace Game.Entities
         [Range(1, 10)] public int eyeAtLamp = 5;
         [Range(10f, 89f), Tooltip("Degrees above the horizon.")]
         public float eyeElevation = 68f;
-        [Range(1f, 34f), Tooltip("The width of its opening, as an angle across (degrees). The swirl of cloud round it spreads nearly three times as wide. (Past about 34 the swirl's corners reach the camera's far clip and are cut off.)")]
-        public float eyeSize = 28f;
+        [Range(1f, 60f), Tooltip("The width of its opening, as an angle across (degrees). The swirl of cloud round it spreads nearly three times as wide (so it's drawn nearer the bigger it is, to keep it all inside the camera's reach).")]
+        public float eyeSize = 38f;
         [Range(0.1f, 20f)] public float eyeOpenTime = 4f;
         [Range(0.1f, 60f)] public float eyeStareTime = 11f;
         [Range(0.1f, 20f)] public float eyeCloseTime = 3f;
@@ -84,7 +109,7 @@ namespace Game.Entities
         [Tooltip("Only for the plain red eye, if the eye's shader can't be used.")]
         public Color eyeColor = new Color(1f, 0.08f, 0.03f);
         [Range(0f, 10f), Tooltip("How bright the eye and its clouds are.")]
-        public float eyeGlow = 1f;
+        public float eyeGlow = 0.6f;
         [Range(0f, 0.5f), Tooltip("How fast the clouds swirl round it.")]
         public float eyeSwirl = 0.03f;
         [Tooltip("The fog's colour while it stares.")]

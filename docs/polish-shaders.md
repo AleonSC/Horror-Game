@@ -1234,3 +1234,11 @@ It's hard to judge whether horror works when you know every scare. The session r
   - The mixer only exposes Master, Music and Effects volumes. A new `Hearing` service fades the Music and Effects faders on top of the player's own volume settings (`AudioStateController.WorldVolume`). The moments that must cut through play on the UI group, the only one outside those two.
   - Deafness (`SoundPlayer.Deafened`) runs through the same low-pass filters used for muffling under cover, on every pooled sound and every looping source that uses `Muffled`. UI sounds aren't affected.
   - Safety: hearing is restored at once on a new run, and it comes back on its own if it's ever left silent for 25 s.
+
+## Eye: old saved values replaced, bigger, dimmer
+
+- **Why it still looked small and blown out:** once Unity has saved a config asset, the values in the asset win over the code's defaults. A GiantConfig saved before the new eye kept eye size 9° and brightness 8, which drew a small blob bright enough to bloom white.
+- **Upgrade on load:** `GiantConfig` now records which defaults its values were saved under (`savedUnder`, hidden). When an older asset loads, it replaces the values changed since then (height, feet and neck angles, eye size, eye brightness, stride time, step shake) once, then marks the asset to be saved. Values you set after that are left alone.
+- **Bigger:** `eyeSize` defaults to 38° and can go up to 60°. When the swirl around it would reach past the camera's far clip, the eye is drawn nearer (`EyeDistance`): 360 m up to about 30°, 328 m at 38°, 223 m at 60°. It's untouched by fog, so the distance doesn't change how it looks.
+- **Dimmer:** `eyeGlow` now defaults to 0.6.
+- **If it still shows as a plain glowing ball:** that's the fallback eye, used only when the `Game/SkyEye` shader can't load. The Console will show a warning saying the shader is missing or has errors.
