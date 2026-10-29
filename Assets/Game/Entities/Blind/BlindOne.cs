@@ -42,6 +42,10 @@ namespace Game.Entities
         Vector3 clickedAt;
         float alertFor;
         float Sharp => alertFor > 0f ? s.lightClickBoost : 1f;
+        // You lit a lamp: how much longer it stands, head up over the trees, staring your way.
+        float lampWatchFor;
+        bool Watching => alertFor > 0f || lampWatchFor > 0f;
+        Vector3 WatchSpot => lampWatchFor > 0f ? player.transform.position : clickedAt;
 
         public BlindState State { get; private set; } = BlindState.Absent;
         public BlindSettings Settings => s;
@@ -84,7 +88,7 @@ namespace Game.Entities
             storm.transform.SetParent(transform.parent, true);
             if (Services.TryGet<EventBus>(out var events))
             {
-                subs.Add(events.Subscribe<LampLit>(e => { if (!arrived && e.TimesLit >= s.arriveAtLamp) Arrive(); }));
+                subs.Add(events.Subscribe<LampLit>(e => { if (!arrived && e.TimesLit >= s.arriveAtLamp) Arrive(); else OnLampLit(); }));
                 subs.Add(events.Subscribe<NoiseEmitted>(OnNoise));
                 subs.Add(events.Subscribe<RunReset>(_ => Remove()));
                 subs.Add(events.Subscribe<PlayerRespawned>(_ => { if (arrived) GoAway(45f); }));
@@ -200,6 +204,15 @@ namespace Game.Entities
             Play(Sound.Click, 1f, 0.3f, 60f); // (it clicks back)
         }
 
+        // You lit a lamp: wherever it is, it stops, raises its head high over the trees and turns to stare at you.
+        void OnLampLit()
+        {
+            if (!arrived || s.lampWatch <= 0f) return;
+            if (State != BlindState.Roaming && State != BlindState.Listening && State != BlindState.Searching) return;
+            lampWatchFor = s.lampWatch;
+            SetState(BlindState.Listening);
+        }
+
         void RushTo(Vector3 spot)
         {
             // Coming for you: its music, whatever's come since it arrived.
@@ -218,8 +231,9 @@ namespace Game.Entities
             float dt = Time.deltaTime;
             deafFor = Mathf.Max(0f, deafFor - dt);
             alertFor = Mathf.Max(0f, alertFor - dt);
-            body.HoldLook = State == BlindState.Listening && alertFor > 0f
-                ? Vector3.SignedAngle(transform.forward, Flat(clickedAt - transform.position), Vector3.up) : (float?)null;
+            lampWatchFor = Mathf.Max(0f, lampWatchFor - dt);
+            body.HoldLook = State == BlindState.Listening && Watching
+                ? Vector3.SignedAngle(transform.forward, Flat(WatchSpot - transform.position), Vector3.up) : (float?)null;
             stateTime += dt;
             storm.Strength = Mathf.MoveTowards(storm.Strength, ThreatVisible ? 1f : 0f, dt * (State == BlindState.Arriving ? 0.3f : 0.15f));
             if (storm.Strength > 0f) storm.Follow(transform.position, dt);
@@ -561,8 +575,8 @@ namespace Game.Entities
         void UpdateListening(float dt)
         {
             speed = 0f;
-            stretch = hardListening ? 1f : 0.3f; // (listening hard: its head up over the trees)
-            if (alertFor > 0f) Face(clickedAt); // (turning to where your light clicked, its head there first)
+            stretch = hardListening || lampWatchFor > 0f ? 1f : 0.3f; // (listening hard, or staring at you at a lamp: its head up over the trees)
+            if (Watching) Face(WatchSpot); // (turning to where your light clicked, or to you at the lamp, its head there first)
             listen = Mathf.MoveTowards(listen, 1f, dt * 3f);
             if (Time.time - lastStep > 0.45f)
             {
@@ -577,7 +591,7 @@ namespace Game.Entities
                 RushTo(player.transform.position);
                 return;
             }
-            if (stateTime >= s.listenTime * (hardListening ? 3f : 1f) && alertFor <= 0f) // (long enough, listening hard, for its head to rise over the trees and look round)
+            if (stateTime >= s.listenTime * (hardListening ? 3f : 1f) && !Watching) // (long enough, listening hard, for its head to rise over the trees and look round)
             {
                 hardListening = false;
                 SetState(BlindState.Roaming);

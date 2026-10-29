@@ -1400,3 +1400,11 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - snaps its head toward the sound and turns its body after it;
   - lifts its head high over the trees and listens hard for **lightClickAlert** (8 s).
 - While it listens like this, all of its hearing reaches **lightClickBoost** (1.8×) further: noises, close hearing, and you moving while it listens hard. These settings are in BlindConfig → "Your light clicking". (`BlindBody.HoldLook` holds the head's direction.)
+
+## The blind one stares at you when you light a lamp
+
+- Each time you light a lamp after the blind one has arrived, it stops wherever it is, as long as it's roaming, listening or searching. It doesn't need to be near you. Then it:
+  - raises its head high over the trees;
+  - snaps its head toward you, and its body turns after it;
+  - keeps tracking you while you move, for **lampWatch** seconds (6). Set it to 0 to turn this off. (BlindConfig → Lamps)
+- This doesn't sharpen its hearing or make it come for you; it only watches. The light-click alert reuses the same head-holding (`Watching`/`WatchSpot`).
