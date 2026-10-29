@@ -1489,6 +1489,78 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// The blind one's roar (2.4 s): no clean note in it anywhere. A huge torn throat: rough, irregular pulses
+        /// of a low voice (never steady: jittering, every other one weaker, catching and breaking up), torn breath
+        /// roaring through it, broad formants of a big mouth, a strained, noisy scream riding high on its first
+        /// half, a sub-bass weight under it all, driven hard, shuddering as it goes, and the forest throwing it back.
+        /// </summary>
+        public static float[] BlindRoar(int seed) => Throat(seed, 2.4f, 92f, 68f, 0.9f, new[] { 520f, 1150f, 2500f }, 0.55f, 1f);
+
+        /// <summary>
+        /// The blind one's growl as it hears you (1.7 s): lower, closer and wetter than its roar: a slow, clicking
+        /// rattle in its throat, breath dragged through it, and no scream on top.
+        /// </summary>
+        public static float[] BlindGrowl(int seed) => Throat(seed, 1.7f, 58f, 46f, 0.6f, new[] { 360f, 880f, 2100f }, 0f, 0.6f);
+
+        // A beast's voice: pulses at f0 (from, to) that are anything but regular, breath through it (breathiness
+        // 0-1), shaped by a big mouth's formants, a noisy scream on top (0: none), and reverb (room 0-1).
+        static float[] Throat(int seed, float seconds, float f0From, float f0To, float breathiness, float[] formants, float scream, float room)
+        {
+            var rng = new Random(seed);
+            var s = Make(seconds);
+            double phase = 0;
+            float pulseGain = 1f, jitter = 0f, wobble = 0f, sub = 0f;
+            int pulse = 0;
+            var low = new float[formants.Length];
+            var band = new float[formants.Length];
+            float sl = 0f, sb = 0f, breath = 0f, hp = 0f, prevV = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i), u = t / seconds;
+                float n = Noise(rng);
+                // The voice: a falling, faltering pitch, its pulses jittered, every other one weaker (the rattle),
+                // and now and then dropping out altogether (the voice catching).
+                jitter += (Noise(rng) - jitter) * 0.003f;
+                wobble += (Noise(rng) - wobble) * 0.0008f;
+                float f0 = (f0From + (f0To - f0From) * u) * (1f + 0.18f * jitter + 0.1f * wobble);
+                double before = phase;
+                phase += f0 / SampleRate;
+                if (Math.Floor(phase) != Math.Floor(before))
+                {
+                    pulse++;
+                    pulseGain = (0.5f + (float)rng.NextDouble()) * (pulse % 2 == 0 ? 0.5f : 1f) * (rng.NextDouble() < 0.06 ? 0.1f : 1f);
+                }
+                float ph = (float)(phase - Math.Floor(phase));
+                float glottal = (ph < 0.3f ? (float)Math.Sin(Math.PI * ph / 0.3f) : 0f) * pulseGain;
+                breath += (n - breath) * 0.7f;
+                float src = glottal * 1.6f + breath * breathiness * (0.6f + 0.6f * glottal);
+                // The mouth.
+                float v = 0f;
+                for (int k = 0; k < formants.Length; k++)
+                {
+                    float f = formants[k] * (1f + 0.15f * (float)Math.Sin(Math.PI * u) * (k == 0 ? 1f : 0.5f));
+                    Band(src, f, 0.6f + 0.25f * k, ref low[k], ref band[k]);
+                    v += band[k] * (1f - 0.25f * k);
+                }
+                // A strained, noisy scream high over the first half (breath, not a note).
+                if (scream > 0f)
+                {
+                    Band(n * (0.4f + glottal), 2900f + 500f * (float)Math.Sin(t * 3.1f), 0.5f, ref sl, ref sb);
+                    v += sb * scream * (float)Math.Max(0.0, Math.Sin(Math.PI * Math.Min(1f, u * 1.8f)));
+                }
+                sub += ((float)Math.Sin(2 * Math.PI * f0 * 0.5f * t) * glottal - sub) * 0.05f;
+                v += sub * 0.9f;
+                v = (float)Math.Tanh(v * 2.5f);
+                hp = 0.995f * (hp + v - prevV); prevV = v; // (no DC)
+                // Shuddering, swelling in and dragging out.
+                float shudder = 0.75f + 0.25f * (float)Math.Sin(2 * Math.PI * (6f + 3f * wobble) * t);
+                float env = Math.Min(1f, t / 0.07f) * (u < 0.65f ? 1f : (float)Math.Pow(1f - (u - 0.65f) / 0.35f, 1.4f));
+                s[i] = hp * env * shudder;
+            }
+            return Normalize(Reverb(s, 1.2f + 1.6f * room, 0.2f + 0.3f * room, 0.55f), 0.9f);
+        }
+
+        /// <summary>
         /// Something on the other side of the lone door striking it, once, hard (2 s): a deep thump through heavy
         /// wood, its boom, the door rattling in its frame and settling, and the last of it dying in the trees.
         /// </summary>

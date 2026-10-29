@@ -174,6 +174,8 @@ namespace Game.Audio
             Add(Sound.FlierCry, SoundSynth.FlierCry(73));
             Add(Sound.DoorThud, SoundSynth.DoorThud(74));
             Add(Sound.StoneWake, SoundSynth.StoneWake(75));
+            Add(Sound.BlindRoar, SoundSynth.BlindRoar(76));
+            Add(Sound.BlindGrowl, SoundSynth.BlindGrowl(77));
         }
 
         void Add(Sound sound, float[] samples)

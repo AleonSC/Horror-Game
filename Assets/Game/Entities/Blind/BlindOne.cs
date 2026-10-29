@@ -160,7 +160,7 @@ namespace Game.Entities
             Vector3 head = transform.position + Vector3.up * s.height * 0.85f;
             Vector3 to = head - e.Position;
             if (to.magnitude > e.Range || Vector3.Angle(e.Direction, to) > e.HalfAngle || PlayerSense.Occluded(e.Position, head)) return;
-            Play(Sound.Shriek, 1f, 0.45f, 80f);
+            Play(Sound.BlindRoar, 1f, Random.Range(1f, 1.1f), 80f);
             GoAway(e.Seconds);
         }
 
@@ -177,7 +177,7 @@ namespace Game.Entities
 
         void RushTo(Vector3 spot)
         {
-            if (State != BlindState.Rushing) Play(Sound.Moan, 0.9f, 0.5f, 60f);
+            if (State != BlindState.Rushing) Play(Sound.BlindGrowl, 0.9f, Random.Range(0.92f, 1.05f), 60f);
             target = spot;
             SetState(BlindState.Rushing);
         }
@@ -249,7 +249,7 @@ namespace Game.Entities
             roar = t > 7.6f && t < 10f ? Mathf.Sin((t - 7.6f) / 2.4f * Mathf.PI) : 0f;
             if (t >= 7.6f && t - dt < 7.6f)
             {
-                Play(Sound.Shriek, 1f, 0.35f, 200f);
+                Play(Sound.BlindRoar, 1f, Random.Range(0.85f, 0.93f), 200f);
                 player.AddShake(1f);
             }
             if ((t >= 13.1f && t - dt < 13.1f) || (t >= 13.55f && t - dt < 13.55f))
@@ -360,7 +360,7 @@ namespace Game.Entities
                 roar = Mathf.Clamp01(t / fit) * 0.6f;
                 listen = Random.value;
                 body.transform.localPosition = Random.insideUnitSphere * 0.12f * (t / fit);
-                if (t - dt <= 0f) Play(Sound.Shriek, 0.6f, 0.3f, 60f);
+                if (t - dt <= 0f) Play(Sound.BlindRoar, 0.7f, 0.8f, 60f);
                 if (t >= fit)
                 {
                     struckOut = true;
@@ -390,7 +390,7 @@ namespace Game.Entities
                 lean = 1f;
                 roar = 0.5f;
                 Play(Sound.GiantStep, 1f, 1.1f, 120f);
-                Play(Sound.Moan, 0.8f, 0.4f, 80f);
+                Play(Sound.BlindGrowl, 0.85f, 0.85f, 80f);
                 float near = 1f - Mathf.Clamp01(DistanceToPlayer / 50f);
                 player.AddShake(0.6f + 1.4f * near);
             }
@@ -563,7 +563,7 @@ namespace Game.Entities
             player.SetHeld(true);
             takeFrom = transform.position;
             body.Trigger("Take");
-            Play(Sound.Moan, 1f, 0.4f, 20f);
+            Play(Sound.BlindGrowl, 1f, 0.8f, 20f);
             SetState(BlindState.Taking);
         }
 

@@ -1303,3 +1303,15 @@ It's hard to judge whether horror works when you know every scare. The session r
   - The chain only draws up to the camera's far clip (600 m).
   - After the giant was hung higher, his neck was drawn 509 m away, which left the chain 58 m before the clip. It fades into the sky from 30% of its length, so it was gone.
   - The giant is now drawn at 290 m (was 360), scaled down to match so he looks exactly the same size. That leaves the chain 180 m, a little more than before he was raised.
+
+## The blind one's voice: no more 8-bit death sound
+
+- **What was wrong:** the blind one screamed with the shared `Shriek`, a clean sine sweeping from 1400 down to 700 Hz with vibrato. Played at a third of its pitch, that's the classic falling "pew-wowww" of an 8-bit death sound. It growled with `Moan`, a near-pure harmonic hum.
+- **The new sounds:** both come from one beast-voice generator (`SoundSynth.Throat`) with no clean note anywhere in it:
+  - irregular low pulses that jitter, with every other pulse weaker for the rattle, and that sometimes catch and drop out;
+  - torn breath through them, the broad formants of a big mouth, and a sub-bass weight under it;
+  - driven hard, and shuddering.
+- **`BlindRoar`** (2.4 s): its scream (a flash in its face, arriving, shattering trees, going), with a strained, noisy scream riding high over the first half and a big echo.
+- **`BlindGrowl`** (1.7 s): lower, closer and wetter, a slow clicking rattle with no scream. It plays when it hears you and rushes, when it comes in, and when it takes you.
+- **Check:** the roar's spectral flatness is 0.185, against the old shriek's 0.052, so it's breath and rasp rather than a tone.
+- `Shriek` and `Moan` are untouched for anything else that uses them.
