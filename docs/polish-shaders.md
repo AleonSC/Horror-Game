@@ -1258,3 +1258,15 @@ It's hard to judge whether horror works when you know every scare. The session r
   - a slow guttural clicking as it dies away, with a big forest echo.
 
   The old shriek still plays quietly under it, slowed down.
+
+## The flier: the HDRP build's bird
+
+- The built-in flier is now the bird from the `hdrp` branch (`FlyingEntity.Build`), ported part for part:
+  - a heavy body and a long crooked neck;
+  - a narrow head with a long hooked beak and one great eye under the brow;
+  - wings made of an arm and a hand, with six secondaries hanging off the arm and seven ragged primaries splayed like fingers at the tip;
+  - a fanned tail of seven feathers, and legs with three-clawed talons trailing at 55°.
+- Its parts were in metres for a bird about 48 m across. Here they're scaled to one unit across (`K = 1/47.8`), and the flier scales that to `wingspan` (66 m). Its random feather lengths come from a fixed seed, so it's the same bird every time.
+- Wing animation is the HDRP build's: slow, heavy beats, the hand lagging the arm, wings swept back while diving, and the body heaving with each beat.
+- The eye glows (`FlierBody.SetEyeGlow`), burning in the beam's colour while its searchlight is on and a dull red ember otherwise.
+- The bat-winged body from the previous change is gone.

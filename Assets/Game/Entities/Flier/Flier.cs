@@ -333,6 +333,7 @@ namespace Game.Entities
         void UpdateBeam()
         {
             beam.enabled = eyeLit && root.gameObject.activeSelf;
+            body.SetEyeGlow(eyeLit ? beam.color * 8f : new Color(0.25f, 0.02f, 0.01f) * 0.6f); // (burning while it looks; a dull ember otherwise)
             if (shaft != null) shaft.enabled = beam.enabled && s.beamShaft > 0f;
             if (!beam.enabled) return;
             Vector3 eye = body.Eye != null ? body.Eye.position : root.position;
