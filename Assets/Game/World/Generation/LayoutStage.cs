@@ -203,7 +203,8 @@ namespace Game.World.Generation
             }
             plan.Door = bestSpot;
             plan.DoorYaw = rng.Range(0f, 360f);
-            plan.Clearings.Add(new Clearing { Kind = ClearingKind.Structure, Centre = bestSpot, Radius = 5f, Ragged = 0.2f, Thinning = 0.3f, Seed = rng.Range(0, 100000) });
+            // (Wide enough for the ring of standing stones round it, 6 m out.)
+            plan.Clearings.Add(new Clearing { Kind = ClearingKind.Structure, Centre = bestSpot, Radius = 9f, Ragged = 0.15f, Thinning = 0.3f, Seed = rng.Range(0, 100000) });
         }
 
         static void PlaceGlades(WorldPlan plan, WorldGenSettings s, Rng rng)

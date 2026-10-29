@@ -192,6 +192,8 @@ namespace Game.World.Build
             // The room through it, far below (not wrapped: you're only ever there by the door).
             var lone = door.GetComponentInChildren<LoneDoor>();
             if (lone != null) lone.room = DarkRoom.Build(door.transform.position, plan.DoorYaw, root, made);
+            // The ring of standing stones round it, one for each lamp.
+            DoorShrine.Build(door.transform, w => plan.GroundAt(new Vector2(w.x, w.z)));
 
             // The forest's own life: webs between close trees, vines hanging from a few.
             var life = setup != null ? setup.Get<ForestLifeConfig>() : null;

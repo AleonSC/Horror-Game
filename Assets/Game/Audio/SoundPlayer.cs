@@ -172,6 +172,8 @@ namespace Game.Audio
             Add(Sound.ChainSnap, SoundSynth.ChainSnap(71));
             Add(Sound.EarRing, SoundSynth.EarRing(72));
             Add(Sound.FlierCry, SoundSynth.FlierCry(73));
+            Add(Sound.DoorThud, SoundSynth.DoorThud(74));
+            Add(Sound.StoneWake, SoundSynth.StoneWake(75));
         }
 
         void Add(Sound sound, float[] samples)

@@ -1489,6 +1489,68 @@ namespace Game.Audio
         }
 
         /// <summary>
+        /// Something on the other side of the lone door striking it, once, hard (2 s): a deep thump through heavy
+        /// wood, its boom, the door rattling in its frame and settling, and the last of it dying in the trees.
+        /// </summary>
+        public static float[] DoorThud(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(2f);
+            float low = 0f, rl = 0f, rb = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                low += (n - low) * 0.02f;
+                float thump = (float)Math.Sin(2 * Math.PI * (52f + 30f * (float)Math.Exp(-t * 30f)) * t) * (float)Math.Exp(-t * 9f) * 1.2f
+                              + low * (float)Math.Exp(-t * 14f) * 6f;
+                float boom = ((float)Math.Sin(2 * Math.PI * 108f * t) * 0.5f + (float)Math.Sin(2 * Math.PI * 176f * t) * 0.35f + (float)Math.Sin(2 * Math.PI * 263f * t) * 0.2f) * (float)Math.Exp(-t * 7f);
+                // The rattle: the door knocking in its frame, quick and dying (from 40 ms to half a second).
+                float rattle = 0f;
+                if (t > 0.04f && t < 0.6f)
+                {
+                    float local = (float)((t - 0.04f) * (34f - 30f * t) % 1.0);
+                    float click = local < 0.08f ? n : 0f;
+                    Band(click, 1100f, 0.5f, ref rl, ref rb);
+                    rattle = rb * 1.4f * (0.6f - t) / 0.56f;
+                }
+                s[i] = thump + boom * 0.7f + rattle;
+            }
+            return Normalize(Reverb(s, 1.6f, 0.32f, 0.6f), 0.9f);
+        }
+
+        /// <summary>
+        /// One of the standing stones round the lone door waking (3.5 s): a low grinding rumble, as if deep in the
+        /// rock, swelling; then a cold, glassy chord rising out of it, out of tune with itself, and a breath of air
+        /// drawn up past it; fading slowly.
+        /// </summary>
+        public static float[] StoneWake(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(3.5f);
+            float brown = 0f, airL = 0f, airB = 0f;
+            float[] chord = { 523.3f, 784.9f, 1174.7f, 1663.5f, 2489.3f };
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                brown = brown * 0.995f + n * 0.03f;
+                float swell = (float)Math.Sin(Math.PI * Math.Min(1f, t / 2.2f));
+                float grind = brown * (0.6f + 0.4f * (float)Math.Sin(2 * Math.PI * 7f * t + Math.Sin(t * 3f))) * swell * 3f;
+                float glass = 0f;
+                float rise = Math.Min(1f, Math.Max(0f, (t - 0.5f) / 0.8f));
+                float fade = t < 1.6f ? 1f : (float)Math.Exp(-(t - 1.6f) * 1.4f);
+                for (int k = 0; k < chord.Length; k++)
+                    glass += (float)Math.Sin(2 * Math.PI * chord[k] * (1f + 0.004f * k) * t + Math.Sin(t * (1.3f + k)) * 0.6f) / (k + 1.5f);
+                glass *= rise * rise * fade * 0.55f;
+                Band(n, 600f + 2200f * Math.Min(1f, t / 2.5f), 0.7f, ref airL, ref airB);
+                float air = airB * swell * 0.25f;
+                s[i] = grind + glass + air;
+            }
+            return Normalize(Reverb(s, 2.4f, 0.45f, 0.5f), 0.85f);
+        }
+
+        /// <summary>
         /// The flier's cry as it comes (5 s): a long rasping breath drawn in; then a scream from something far too
         /// big, several throats at once and not together, cracking and rattling, an octave of something deeper
         /// under it, its formants dragging as if through a long neck, driven hard; dying into a slow guttural

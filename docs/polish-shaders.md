@@ -1270,3 +1270,21 @@ It's hard to judge whether horror works when you know every scare. The session r
 - Wing animation is the HDRP build's: slow, heavy beats, the hand lagging the arm, wings swept back while diving, and the body heaving with each beat.
 - The eye glows (`FlierBody.SetEyeGlow`), burning in the beam's colour while its searchlight is on and a dull red ember otherwise.
 - The bat-winged body from the previous change is gone.
+
+## The lone door: grander, a ring of ten stones, and it answers the lamps
+
+- **The door** (built-in) is now:
+  - a flush stone threshold slab;
+  - fluted wooden posts on stone plinths with stone capitals;
+  - a heavy lintel and stone cornice, with an arch of nine wedge stones over it, a keystone standing proud, and a dark tympanum under it;
+  - the door itself with four raised panels each side, two long iron straps with studs, a brass ring knocker on its boss, and a brass keyhole plate.
+
+  The threshold is flush so the doorway, its window into the dark room, and the room's own doorway all still start at the ground. The keyhole is named `Keyhole` so the light can shine through it.
+- **The ring** (`World/Places/DoorShrine.cs`): ten rough standing stones, 6 m out and none straight in front of or behind the door. Each is a jittered, tapering slab, leaning a little and sunk into the ground, with moss on its back. A different rune is cut into the face it turns toward the door. Stones lit = lamps lit; each lit stone's rune glows a cold pale blue (`glow`, `runeGlow`), with a small light on the ground (`stoneLight`).
+- **When a lamp is lit:**
+  - The next stone wakes with a new `StoneWake` sound (a grinding rumble deep in the rock, then a cold, glassy, detuned chord and a breath of air). Its rune flares, then settles.
+  - The door is struck from the other side: once, twice from the 7th lamp, three times at the 10th. Each blow plays a new `DoorThud` sound (a deep thump, boom, and the door rattling in its frame) and the door shakes in its frame while shut.
+  - More light seeps out along its foot and through the keyhole each time, on both sides (`doorLight`), pulsing with each blow.
+- **At ten:** every stone flares, and the light pours out round the door as it unlocks.
+- **Your own door art:** the ring and the light at its foot work round a custom `door` from WorldArtConfig too. The rattle needs a child named `Door`, and the keyhole glow needs one named `Keyhole`.
+- **Clearing:** the door's clearing is 9 m now (was 5) so the stones stand clear of the trees. World-gen tests pass, and no seed is short of structures.

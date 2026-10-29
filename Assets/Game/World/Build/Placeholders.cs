@@ -744,14 +744,65 @@ namespace Game.World.Build
             root.transform.SetParent(parent, false);
             root.transform.SetPositionAndRotation(new Vector3(position.x, ground, position.y), Quaternion.Euler(0f, yaw, 0f));
             var t = root.transform;
-            Box(t, new Vector3(-0.65f, 1.15f, 0f), new Vector3(0.14f, 2.3f, 0.2f), darkWood);
-            Box(t, new Vector3(0.65f, 1.15f, 0f), new Vector3(0.14f, 2.3f, 0.2f), darkWood);
-            Box(t, new Vector3(0f, 2.36f, 0f), new Vector3(1.44f, 0.14f, 0.2f), darkWood);
+            // An old, grand door standing on its own: a worn stone step, carved posts on plinths with capitals, a
+            // heavy lintel and cornice, and an arch of stones over it with a keystone; the door itself panelled,
+            // studded, hung on long iron straps, with a ring knocker and a keyhole. (The opening's 1.16 x 2.2.)
+            var doorStone = Keep(RuntimeMaterials.Lit("Door stone", new Color(0.2f, 0.195f, 0.185f), 0.2f));
+            var iron = Keep(RuntimeMaterials.Lit("Black iron", new Color(0.035f, 0.033f, 0.032f), 0.45f));
+            var brass = Keep(RuntimeMaterials.Lit("Old brass", new Color(0.32f, 0.23f, 0.1f), 0.6f));
+            // (The threshold's flush with the ground: the doorway, its window into the room and the room's own
+            // doorway all start at the ground.)
+            Box(t, new Vector3(0f, 0.015f, 0f), new Vector3(2.3f, 0.03f, 1.05f), doorStone);              // the threshold slab
+            foreach (int side in new[] { -1, 1 })
+            {
+                float x = side * 0.7f;
+                Box(t, new Vector3(x, 0.18f, 0f), new Vector3(0.3f, 0.3f, 0.34f), doorStone);             // plinth
+                Box(t, new Vector3(x, 1.255f, 0f), new Vector3(0.2f, 1.86f, 0.26f), darkWood);            // post
+                for (int f = -1; f <= 1; f += 2) Box(t, new Vector3(x + f * 0.055f, 1.3f, 0.131f), new Vector3(0.025f, 1.6f, 0.012f), wood, false); // fluting
+                for (int f = -1; f <= 1; f += 2) Box(t, new Vector3(x + f * 0.055f, 1.3f, -0.131f), new Vector3(0.025f, 1.6f, 0.012f), wood, false);
+                Box(t, new Vector3(x, 2.24f, 0f), new Vector3(0.3f, 0.12f, 0.34f), doorStone);            // capital
+            }
+            Box(t, new Vector3(0f, 2.39f, 0f), new Vector3(1.76f, 0.18f, 0.32f), darkWood);              // lintel
+            Box(t, new Vector3(0f, 2.51f, 0f), new Vector3(1.92f, 0.07f, 0.38f), doorStone);             // cornice
+            // The arch over it: wedge stones round a half circle, the keystone at the top standing proud.
+            const float archR = 0.72f, archY = 2.55f;
+            for (int k = 0; k <= 8; k++)
+            {
+                float a = k / 8f * Mathf.PI;
+                bool key = k == 4;
+                var wedge = Box(t, new Vector3(Mathf.Cos(a) * archR, archY + Mathf.Sin(a) * archR, 0f), new Vector3(key ? 0.24f : 0.2f, key ? 0.3f : 0.22f, key ? 0.36f : 0.3f), doorStone, false);
+                wedge.transform.localRotation = Quaternion.Euler(0f, 0f, a * Mathf.Rad2Deg - 90f);
+            }
+            Box(t, new Vector3(0f, archY + 0.22f, 0f), new Vector3(1.2f, 0.42f, 0.16f), darkWood, false); // the tympanum, under the arch
             // The door itself hangs from the left post.
             var hinge = new GameObject("Door") { layer = Layers.Props }.transform;
             hinge.SetParent(t, false);
             hinge.localPosition = new Vector3(-0.58f, 0f, 0f);
-            Box(hinge, new Vector3(0.58f, 1.1f, 0f), new Vector3(1.16f, 2.2f, 0.06f), wood);
+            Box(hinge, new Vector3(0.58f, 1.1f, 0f), new Vector3(1.16f, 2.2f, 0.07f), wood);
+            foreach (int face in new[] { 1, -1 })
+            {
+                float z = face * 0.042f;
+                // Four raised panels.
+                foreach (var (px, py, ph) in new[] { (0.31f, 0.55f, 0.75f), (0.85f, 0.55f, 0.75f), (0.31f, 1.55f, 0.95f), (0.85f, 1.55f, 0.95f) })
+                {
+                    Box(hinge, new Vector3(px, py, z), new Vector3(0.42f, ph, 0.016f), darkWood, false);
+                    Box(hinge, new Vector3(px, py, z + face * 0.01f), new Vector3(0.32f, ph - 0.1f, 0.012f), wood, false);
+                }
+                // Iron straps from the hinge side, studded.
+                foreach (float y in new[] { 0.32f, 1.88f })
+                {
+                    Box(hinge, new Vector3(0.42f, y, z + face * 0.02f), new Vector3(0.84f, 0.06f, 0.012f), iron, false);
+                    for (int st = 0; st < 5; st++)
+                        Shape(PrimitiveType.Sphere, hinge, new Vector3(0.08f + st * 0.18f, y, z + face * 0.028f), Vector3.one * 0.028f, iron, false);
+                }
+                // The ring knocker on its boss, and the keyhole plate (the keyhole lets light through later).
+                Shape(PrimitiveType.Sphere, hinge, new Vector3(0.58f, 1.32f, z + face * 0.025f), new Vector3(0.07f, 0.07f, 0.03f), brass, false);
+                var ring = Shape(PrimitiveType.Cylinder, hinge, new Vector3(0.58f, 1.24f, z + face * 0.034f), new Vector3(0.16f, 0.004f, 0.16f), brass, false);
+                ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                Box(hinge, new Vector3(1.0f, 1.02f, z + face * 0.022f), new Vector3(0.06f, 0.15f, 0.008f), brass, false);
+                var keyhole = Box(hinge, new Vector3(1.0f, 1.0f, z + face * 0.027f), new Vector3(0.012f, 0.035f, 0.004f), iron, false);
+                keyhole.name = "Keyhole";
+            }
             hinge.gameObject.AddComponent<Door>();
             hinge.gameObject.AddComponent<LoneDoor>();
             return root;
