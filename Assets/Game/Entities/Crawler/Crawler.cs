@@ -9,7 +9,9 @@ namespace Game.Entities
     public enum CrawlerState { Lurking, Crawling, Leaping, Latched, Fleeing }
 
     /// <summary>
-    /// A crawler (section 6.9): a head on four long thin arms, lying low in the mist. Its eyes shine in your beam.
+    /// A crawler (section 6.9): a pale, too-human head with a gaping mouth and long black hair, on four long arms
+    /// with their elbows jutting high, lying low in the mist. Its eyes shine in your beam; its face follows you;
+    /// it twitches; in your light it goes still, out of it it scuttles in bursts.
     /// Come close walking (or closer running) and it leaps onto your face: you can't see or move, it shrieks (the
     /// blind one hears), and you mash Space to throw it off (or it lets go after a while). Being latched onto
     /// brings another scour. Crouch past it and it doesn't notice. It keeps out of safe lights (your beam doesn't bother it).
@@ -41,7 +43,7 @@ namespace Game.Entities
             Id = id;
             s = config.settings;
             gameObject.layer = Layers.Entities;
-            skin = RuntimeMaterials.Lit("Crawler skin", new Color(0.05f, 0.045f, 0.04f), 0.45f);
+            skin = RuntimeMaterials.Lit("Crawler skin", new Color(0.36f, 0.33f, 0.3f), 0.42f); // (pale, damp: it shows in your beam)
             eyeMat = RuntimeMaterials.Glow("Crawler eyes", Color.black);
             if (config.customModel != null) UseYours(config.customModel);
             else Build(rng);
@@ -67,6 +69,7 @@ namespace Game.Entities
             if (OnFace) LetGo(false);
             if (skin != null) Destroy(skin);
             if (eyeMat != null) Destroy(eyeMat);
+            foreach (var m in extra) if (m != null) Destroy(m);
         }
 
         // ------------------------------------------------------------------ the body
@@ -82,6 +85,10 @@ namespace Game.Entities
                 if (t.name == "Eyes") foreach (var r in t.GetComponentsInChildren<Renderer>()) r.sharedMaterial = eyeMat;
         }
 
+        // A pale, hairless head, too much like a person's, lying low: sunken sockets with the eyes deep in them, a
+        // mouth hanging open far too wide with teeth in it, long black hair hanging down over its face to the
+        // ground; and four long human arms from under it, their elbows jutting up high over the head like a
+        // spider's legs, coming down to long-fingered hands splayed on the ground.
         void Build(System.Random rng)
         {
             model = new GameObject("Crawler body").transform;
@@ -89,13 +96,42 @@ namespace Game.Entities
             head = new GameObject("Head").transform;
             head.SetParent(model, false);
             head.localPosition = new Vector3(0f, 0.28f, 0f);
-            Part(PrimitiveType.Sphere, head, Vector3.zero, new Vector3(0.3f, 0.26f, 0.34f), skin);
-            Part(PrimitiveType.Sphere, head, new Vector3(0f, -0.1f, 0.06f), new Vector3(0.2f, 0.1f, 0.2f), skin); // jaw
-            Part(PrimitiveType.Cylinder, head, new Vector3(0f, -0.05f, -0.15f), new Vector3(0.12f, 0.06f, 0.12f), skin); // the neck's stump
+            var dark = RuntimeMaterials.Lit("Crawler mouth", new Color(0.01f, 0.005f, 0.005f), 0.6f);
+            var teeth = RuntimeMaterials.Lit("Crawler teeth", new Color(0.42f, 0.38f, 0.28f), 0.5f);
+            var hair = RuntimeMaterials.Lit("Crawler hair", new Color(0.012f, 0.011f, 0.01f), 0.35f);
+            extra.Add(dark); extra.Add(teeth); extra.Add(hair);
+            face = new GameObject("Face").transform;
+            face.SetParent(head, false);
+            Part(PrimitiveType.Sphere, face, new Vector3(0f, 0.02f, 0f), new Vector3(0.24f, 0.29f, 0.3f), skin);               // skull, long
+            Part(PrimitiveType.Sphere, face, new Vector3(0f, -0.06f, 0.07f), new Vector3(0.2f, 0.16f, 0.2f), skin);            // cheeks
             for (int e = -1; e <= 1; e += 2)
-                Part(PrimitiveType.Sphere, head, new Vector3(e * 0.065f, 0.04f, 0.155f), Vector3.one * 0.045f, eyeMat);
+            {
+                Part(PrimitiveType.Sphere, face, new Vector3(e * 0.055f, 0.05f, 0.125f), new Vector3(0.07f, 0.06f, 0.05f), dark); // socket
+                Part(PrimitiveType.Sphere, face, new Vector3(e * 0.055f, 0.05f, 0.135f), Vector3.one * 0.028f, eyeMat);         // eye, deep in it
+            }
+            Part(PrimitiveType.Sphere, face, new Vector3(0f, -0.075f, 0.14f), new Vector3(0.13f, 0.15f, 0.06f), dark);        // the mouth, gaping
+            var jaw = Part(PrimitiveType.Sphere, face, new Vector3(0f, -0.17f, 0.08f), new Vector3(0.15f, 0.07f, 0.17f), skin); // jaw, hanging
+            jaw.transform.localRotation = Quaternion.Euler(25f, 0f, 0f);
+            for (int k = 0; k < 6; k++)
+            {
+                float x = (k - 2.5f) * 0.018f;
+                Part(PrimitiveType.Cube, face, new Vector3(x, -0.012f, 0.155f), new Vector3(0.011f, 0.026f, 0.008f), teeth);
+                Part(PrimitiveType.Cube, face, new Vector3(x * 0.9f, -0.14f, 0.15f), new Vector3(0.01f, 0.022f, 0.008f), teeth);
+            }
+            Part(PrimitiveType.Cylinder, head, new Vector3(0f, -0.05f, -0.15f), new Vector3(0.11f, 0.06f, 0.11f), skin); // the neck's stump
+            // Hair: long black strands from the crown, hanging down over the face and round to the ground.
+            for (int k = 0; k < 18; k++)
+            {
+                float a = (k / 18f - 0.5f) * 2.6f;
+                var strand = new GameObject("Hair").transform;
+                strand.SetParent(face, false);
+                strand.localPosition = new Vector3(Mathf.Sin(a) * 0.1f, 0.15f, Mathf.Cos(a) * 0.04f + 0.02f);
+                strand.localRotation = Quaternion.Euler(Mathf.Cos(a) * 25f + (float)rng.NextDouble() * 10f, 0f, -Mathf.Sin(a) * 20f);
+                float len = 0.32f + (float)rng.NextDouble() * 0.2f;
+                Part(PrimitiveType.Cube, strand, new Vector3(0f, -len * 0.5f, 0f), new Vector3(0.012f, len, 0.004f), hair);
+            }
 
-            // Four long thin arms from under the stump, out and down to the ground, like a spider's legs.
+            // Four long arms from under the stump, elbows high, hands splayed on the ground.
             for (int i = 0; i < 4; i++)
             {
                 float yaw = 45f + i * 90f;
@@ -103,16 +139,35 @@ namespace Game.Entities
                 arm.SetParent(head, false);
                 arm.localPosition = new Vector3(0f, -0.08f, -0.08f);
                 arm.localRotation = Quaternion.Euler(0f, yaw, 0f);
-                var upper = Part(PrimitiveType.Capsule, arm, new Vector3(0f, 0.12f, 0.25f), new Vector3(0.035f, 0.28f, 0.035f), skin);
-                upper.transform.localRotation = Quaternion.Euler(60f, 0f, 0f);
+                Limb(arm, Vector3.zero, new Vector3(0f, 0.36f, 0.32f), 0.04f);                   // upper arm, up and out
+                Part(PrimitiveType.Sphere, arm, new Vector3(0f, 0.36f, 0.32f), Vector3.one * 0.05f, skin); // the elbow, jutting
                 var fore = new GameObject("Forearm").transform;
                 fore.SetParent(arm, false);
-                fore.localPosition = new Vector3(0f, 0.26f, 0.5f);
-                var lower = Part(PrimitiveType.Capsule, fore, new Vector3(0f, -0.3f, 0.12f), new Vector3(0.025f, 0.33f, 0.025f), skin);
-                lower.transform.localRotation = Quaternion.Euler(-20f, 0f, 0f);
+                fore.localPosition = new Vector3(0f, 0.36f, 0.32f);
+                Vector3 wrist = new Vector3(0f, -0.6f, 0.26f);
+                Limb(fore, Vector3.zero, wrist, 0.03f);                                         // forearm, down to the ground
+                Part(PrimitiveType.Cube, fore, wrist + new Vector3(0f, 0.01f, 0.03f), new Vector3(0.05f, 0.012f, 0.06f), skin); // palm
+                for (int f = 0; f < 4; f++)
+                {
+                    float spread = (f - 1.5f) * 18f;
+                    Vector3 dir = Quaternion.Euler(0f, spread, 0f) * new Vector3(0f, -0.004f, 1f);
+                    Limb(fore, wrist + new Vector3(0f, 0f, 0.05f), wrist + new Vector3(0f, 0f, 0.05f) + dir * (0.11f + (f == 1 || f == 2 ? 0.03f : 0f)), 0.009f);
+                }
                 arms[i] = arm;
                 fores[i] = fore;
             }
+        }
+
+        Transform face;
+        readonly System.Collections.Generic.List<Material> extra = new System.Collections.Generic.List<Material>();
+        float twitch, twitchTo, nextTwitch, lookYaw, lookPitch;
+
+        // A thin limb from a to b.
+        void Limb(Transform parent, Vector3 a, Vector3 b, float thickness)
+        {
+            Vector3 d = b - a;
+            var go = Part(PrimitiveType.Capsule, parent, (a + b) * 0.5f, new Vector3(thickness, d.magnitude * 0.5f + thickness * 0.5f, thickness), skin);
+            go.transform.localRotation = Quaternion.FromToRotation(Vector3.up, d);
         }
 
         GameObject Part(PrimitiveType type, Transform parent, Vector3 at, Vector3 scale, Material m)
@@ -143,6 +198,23 @@ namespace Game.Entities
                 fores[i].localRotation = Quaternion.Euler(lift * 0.8f, 0f, 0f);
             }
             if (head != null) head.localPosition = new Vector3(0f, 0.28f + Mathf.Sin(phase * 2f) * 0.01f, 0f);
+            if (face == null || player == null) return;
+            // It watches you: the face turns after you when you're near (as far as its neck lets it), tilted up.
+            Vector3 to = transform.InverseTransformDirection(player.Head.position - face.position);
+            bool near = DistanceToPlayer < 9f;
+            lookYaw = Mathf.LerpAngle(lookYaw, near ? Mathf.Clamp(Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg, -75f, 75f) : 0f, 1f - Mathf.Exp(-3f * dt));
+            lookPitch = Mathf.Lerp(lookPitch, near ? Mathf.Clamp(-Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg, -40f, 10f) : 0f, 1f - Mathf.Exp(-3f * dt));
+            // And twitches: the head snapping over to one side and back, more often in your light.
+            nextTwitch -= dt;
+            if (nextTwitch <= 0f)
+            {
+                bool lit = InBeam();
+                nextTwitch = lit ? Random.Range(0.4f, 1.4f) : Random.Range(1.5f, 4.5f);
+                twitchTo = Random.value < 0.5f ? Random.Range(-35f, 35f) : 0f;
+            }
+            twitch = Mathf.MoveTowards(twitch, twitchTo, dt * 600f);
+            if (Mathf.Abs(twitch - twitchTo) < 0.1f && twitchTo != 0f && Random.value < dt * 3f) twitchTo = 0f;
+            face.localRotation = Quaternion.Euler(lookPitch, lookYaw, twitch);
         }
 
         // ------------------------------------------------------------------ every frame
@@ -174,7 +246,13 @@ namespace Game.Entities
             Pose(0f, dt);
             float d = DistanceToPlayer;
             if (d < 6f) FaceToward(player.transform.position, dt * 0.5f);
-            if (d < 3f && Time.time - lastClick > 1.2f)
+            if (d < 5f && Time.time >= nextBreath)
+            {
+                // Close: its wet, rasping breath.
+                nextBreath = Time.time + Random.Range(2.6f, 4f);
+                Play(Sound.CrawlerBreath, Mathf.Lerp(0.7f, 0.35f, d / 5f), Random.Range(0.9f, 1.1f), 8f);
+            }
+            else if (d < 3f && Time.time - lastClick > 1.2f)
             {
                 lastClick = Time.time;
                 Play(Sound.Click, 0.45f, Random.Range(1.5f, 2.2f), 6f);
@@ -201,6 +279,19 @@ namespace Game.Entities
                 Pose(0f, dt);
                 return;
             }
+            // In your light it goes still (only its head moves); otherwise it scuttles in quick bursts and stops,
+            // never a steady crawl.
+            if (State == CrawlerState.Crawling)
+            {
+                if (InBeam()) { Pose(0f, dt); return; }
+                float burst = Mathf.PerlinNoise(Time.time * 0.9f, Id * 7.3f);
+                speed *= burst > 0.55f ? 3.2f : 0.15f;
+            }
+            if (speed > 0.6f && Time.time >= nextSkitter)
+            {
+                nextSkitter = Time.time + Random.Range(0.35f, 0.55f);
+                Play(Sound.CrawlerSkitter, Mathf.Clamp01(speed / 4f) * 0.8f + 0.2f, Random.Range(0.9f, 1.15f), 12f);
+            }
             Vector3 step = to.normalized * Mathf.Min(to.magnitude, speed * dt);
             Vector3 next = transform.position + step;
             next.y = PlayerSense.GroundHeight(next);
@@ -219,7 +310,7 @@ namespace Game.Entities
             away.y = 0f;
             target = transform.position + away.normalized * 12f;
             SetState(CrawlerState.Fleeing);
-            Play(Sound.Click, 0.6f, 2.5f, 8f);
+            Play(Sound.CrawlerSkitter, 1f, 1.2f, 14f);
             return true;
         }
 
@@ -234,7 +325,7 @@ namespace Game.Entities
             if (flow != null && !flow.CanTake) return false;
             leapFrom = transform.position;
             if (animator != null) animator.SetTrigger("Leap");
-            Play(Sound.Shriek, 0.8f, 1.8f, 20f);
+            Play(Sound.CrawlerScreech, 0.9f, Random.Range(1f, 1.1f), 20f);
             SetState(CrawlerState.Leaping);
             return true;
         }
@@ -269,7 +360,7 @@ namespace Game.Entities
             if (Time.time >= nextShriek)
             {
                 nextShriek = Time.time + 1.6f;
-                Play(Sound.Shriek, 1f, Random.Range(1.4f, 1.7f), s.shriekNoise);
+                Play(Sound.CrawlerScreech, 1f, Random.Range(0.92f, 1.08f), s.shriekNoise);
                 if (Services.TryGet<EventBus>(out var events)) events.Publish(new NoiseEmitted(player.transform.position, s.shriekNoise, "crawler shriek"));
             }
             if (Services.TryGet<ScreenFade>(out var fade))
@@ -305,11 +396,17 @@ namespace Game.Entities
             transform.position = at;
             transform.rotation = Quaternion.LookRotation(ahead);
             target = at + ahead * 14f;
-            Play(Sound.Shriek, 0.7f, 2f, 15f);
+            Play(Sound.CrawlerScreech, 0.7f, 1.2f, 15f);
             SetState(CrawlerState.Fleeing);
         }
 
         // ------------------------------------------------------------------ helpers
+
+        // In your flashlight's beam (lit up, close enough to see).
+        bool InBeam() => player != null && player.Flashlight != null && player.Flashlight.IsOn && DistanceToPlayer < s.eyeshineDistance * 1.5f
+                         && PlayerSense.InBeam(player, transform.position + Vector3.up * 0.3f, 4f);
+
+        float nextSkitter, nextBreath;
 
         // Its eyes catch the beam from several metres: a pair of points shining back.
         void Eyes()

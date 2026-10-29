@@ -1315,3 +1315,19 @@ It's hard to judge whether horror works when you know every scare. The session r
 - **`BlindGrowl`** (1.7 s): lower, closer and wetter, a slow clicking rattle with no scream. It plays when it hears you and rushes, when it comes in, and when it takes you.
 - **Check:** the roar's spectral flatness is 0.185, against the old shriek's 0.052, so it's breath and rasp rather than a tone.
 - `Shriek` and `Moan` are untouched for anything else that uses them.
+
+## Scarier crawlers
+
+- **Body:**
+  - A pale, damp, too-human head lying low: a long skull, sunken dark sockets with the eyes deep in them (they still shine in your beam), and a mouth gaping far too wide with teeth top and bottom.
+  - A hanging jaw, and 18 long black strands of hair falling from the crown over the face to the ground.
+  - Four long arms whose elbows jut up high over the head like a spider's, coming down to palms with four long splayed fingers on the ground.
+  - The skin is pale (it was near-black), so you actually see it in your flashlight.
+- **Behaviour:**
+  - Its face turns to follow you within 9 m.
+  - Its head twitches sideways and back now and then, much more often while it's in your beam.
+  - In your light it goes still and only its head moves. Out of it, it scuttles in quick bursts and stops, rather than crawling steadily.
+- **Sounds:**
+  - `CrawlerScreech`: a ragged, cracking, almost human throat with breath tearing through it. It's used for the leap, on your face, and when it's thrown off, replacing the slowed sine-sweep `Shriek`.
+  - `CrawlerSkitter`: long nails ticking over the ground in an uneven patter, with dry leaves, as it moves.
+  - `CrawlerBreath`: a wet, rasping breath in, a catch, and a long gurgling breath out, when you're within 5 m.

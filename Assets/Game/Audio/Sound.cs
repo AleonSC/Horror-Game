@@ -17,6 +17,6 @@ namespace Game.Audio
         Screech, LeavesLoop, CarAlarm, FireLoop,
         Disperse, ScourClick, RadioCreep, BushRustle, ScourSnap,
         TreeBreak, TreeRush, TreeImpact, PhoneRing, TvStatic, SprayHiss, GiantGroan,
-        ChainSnap, EarRing, FlierCry, DoorThud, StoneWake, BlindRoar, BlindGrowl,
+        ChainSnap, EarRing, FlierCry, DoorThud, StoneWake, BlindRoar, BlindGrowl, CrawlerScreech, CrawlerSkitter, CrawlerBreath,
     }
 }

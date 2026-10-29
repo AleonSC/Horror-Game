@@ -1502,6 +1502,75 @@ namespace Game.Audio
         /// </summary>
         public static float[] BlindGrowl(int seed) => Throat(seed, 1.7f, 58f, 46f, 0.6f, new[] { 360f, 880f, 2100f }, 0f, 0.6f);
 
+        /// <summary>
+        /// A crawler's screech (1.3 s): too nearly human. A ragged, cracking throat high up, breath tearing
+        /// through it, a noisy scream over all of it, little room round it (it's right on you).
+        /// </summary>
+        public static float[] CrawlerScreech(int seed) => Throat(seed, 1.3f, 430f, 300f, 1f, new[] { 950f, 2500f, 3700f }, 1f, 0.35f);
+
+        /// <summary>
+        /// A crawler moving (0.7 s): long nails ticking and scraping over the ground in a quick, uneven patter,
+        /// dry leaves stirring under its hands.
+        /// </summary>
+        public static float[] CrawlerSkitter(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(0.7f);
+            float l = 0f, b = 0f, ll = 0f, lb = 0f;
+            int nextClick = 0;
+            float clickLeft = 0f, clickGain = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                if (i >= nextClick)
+                {
+                    nextClick = i + (int)(SampleRate * (0.012f + (float)rng.NextDouble() * 0.04f));
+                    clickLeft = 0.003f;
+                    clickGain = 0.4f + (float)rng.NextDouble() * 0.6f;
+                }
+                float n = Noise(rng);
+                float click = 0f;
+                if (clickLeft > 0f) { click = n * clickGain; clickLeft -= 1f / SampleRate; }
+                Band(click, 3400f, 0.35f, ref l, ref b);
+                Band(n, 2600f, 0.9f, ref ll, ref lb);
+                float env = Math.Min(1f, t / 0.03f) * Math.Min(1f, (0.7f - t) / 0.15f);
+                s[i] = (b * 1.4f + lb * 0.07f) * env;
+            }
+            return Normalize(s, 0.6f);
+        }
+
+        /// <summary>
+        /// A crawler's breath, close (2.4 s): a wet, rasping draw in, a catch, and a long gurgling breath out,
+        /// bubbling in its throat.
+        /// </summary>
+        public static float[] CrawlerBreath(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(2.4f);
+            float l1 = 0f, b1 = 0f, l2 = 0f, b2 = 0f;
+            float bubble = 0f, bubbleF = 300f, bubbleT = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                float shape = t < 0.9f ? (float)Math.Sin(Math.PI * t / 0.9f) * 0.8f : t < 1.1f ? 0f : t < 2.35f ? (float)Math.Sin(Math.PI * (t - 1.1f) / 1.25f) : 0f;
+                bool outBreath = t > 1.1f;
+                Band(n, outBreath ? 520f : 760f, 0.5f, ref l1, ref b1);
+                Band(n, outBreath ? 1500f : 2100f, 0.6f, ref l2, ref b2);
+                float rasp = (b1 + b2 * 0.6f) * (0.7f + 0.3f * (float)Math.Sin(2 * Math.PI * 38f * t));
+                // Bubbles in its throat on the way out.
+                if (outBreath && bubbleT <= 0f && rng.NextDouble() < 0.0016) { bubbleT = 0.035f; bubbleF = 220f + (float)rng.NextDouble() * 260f; }
+                if (bubbleT > 0f)
+                {
+                    bubbleT -= 1f / SampleRate;
+                    bubble = (float)Math.Sin(2 * Math.PI * bubbleF * (0.035f - bubbleT) * (1f + 3f * (0.035f - bubbleT))) * (bubbleT / 0.035f);
+                }
+                else bubble = 0f;
+                s[i] = rasp * shape + bubble * 0.5f * shape;
+            }
+            return Normalize(Reverb(s, 0.6f, 0.12f, 0.6f), 0.6f);
+        }
+
         // A beast's voice: pulses at f0 (from, to) that are anything but regular, breath through it (breathiness
         // 0-1), shaped by a big mouth's formants, a noisy scream on top (0: none), and reverb (room 0-1).
         static float[] Throat(int seed, float seconds, float f0From, float f0To, float breathiness, float[] formants, float scream, float room)
