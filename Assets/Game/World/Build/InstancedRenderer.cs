@@ -116,9 +116,9 @@ namespace Game.World.Build
 
         // Lean the copy's top over (a shear about its base): its height times the wind's push, plus a lean away from
         // whoever's pushing through it.
-        static void Bend(ref Matrix4x4 m, Wind wind, Kind kind, Vector3 pusher)
+        static void Bend(ref Matrix4x4 m, Wind wind, Kind kind, Vector3 pusher, float amount = 1f)
         {
-            Vector2 push = wind.At(m.m03, m.m23) * kind.Sway;
+            Vector2 push = wind.At(m.m03, m.m23) * kind.Sway * amount;
             if (kind.Pushed)
             {
                 float dx = m.m03 - pusher.x, dz = m.m23 - pusher.z;
@@ -190,17 +190,27 @@ namespace Game.World.Build
                     var kind = kinds[k];
                     float most = panorama && kind.Layer == Layers.Trees ? Mathf.Max(kind.MaxDistance, Panorama.Reach) : kind.MaxDistance;
                     if (dist > most) continue;
-                    int lod = 0;
-                    while (lod < kind.LodDistances.Length && lod < kind.Lods.Length - 1 && dist > kind.LodDistances[lod]) lod++;
-                    var gather = gathers[k][lod];
+                    // Each copy picks its own level of detail and sways by its own distance (not the chunk's: then a
+                    // whole chunk of trees would change at once as you crossed a line, or stop swaying all at once,
+                    // snapping upright). The sway fades out over its last 15 m.
                     bool sway = wind != null && kind.Sway > 0f && dist < SwayDistance;
+                    int lods = Mathf.Min(kind.LodDistances.Length, kind.Lods.Length - 1);
                     for (int i = 0; i < list.Count; i++)
                     {
                         var m = list[i];
                         m.m03 += offset.x;
                         m.m23 += offset.y;
-                        if (sway) Bend(ref m, wind, kind, pusher);
-                        gather.Add(m);
+                        float dx = m.m03 - eye.x, dz = m.m23 - eye.z;
+                        float d = Mathf.Sqrt(dx * dx + dz * dz);
+                        if (d > most) continue;
+                        int lod = 0;
+                        while (lod < lods && d > kind.LodDistances[lod]) lod++;
+                        if (sway)
+                        {
+                            float amount = Mathf.Clamp01((SwayDistance - d) / 15f);
+                            if (amount > 0f) Bend(ref m, wind, kind, pusher, amount);
+                        }
+                        gathers[k][lod].Add(m);
                     }
                 }
             }

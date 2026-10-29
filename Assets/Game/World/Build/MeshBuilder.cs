@@ -16,6 +16,18 @@ namespace Game.World.Build
 
         public int VertexCount => vertices.Count;
 
+        /// <summary>The box round everything built so far.</summary>
+        public Bounds Bounds
+        {
+            get
+            {
+                if (vertices.Count == 0) return default;
+                var b = new Bounds(vertices[0], Vector3.zero);
+                foreach (var v in vertices) b.Encapsulate(v);
+                return b;
+            }
+        }
+
         public int AddVertex(Vector3 position, Vector2 uv)
         {
             vertices.Add(position);

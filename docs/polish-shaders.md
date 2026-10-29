@@ -1378,3 +1378,16 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - while it stands waiting, from 1.5 s in until 3 s before it moves on;
   - all through a hard listen, which now lasts 3× `listenTime` so the head has time to rise and look round;
   - a little during an ordinary listen.
+
+## Trees no longer turn into other trees in the distance
+
+- **What it was:**
+  - **Different tree per detail level.** Each tree has three levels of detail, all built from the same random seed, but the simpler levels skipped some of the random draws (fewer limbs, side branches or twigs). From that point every later number came out different, so the far versions were effectively other trees, with limbs pointing elsewhere and a differently shaped crown. Crossing 40 m or 95 m, a tree snapped into another one.
+  - **Whole patches switched at once.** The level was picked per chunk of forest from the chunk's nearest edge, so every tree in it changed together, even ones much further off.
+  - **Sway stopped all at once.** Wind sway was switched off per chunk at 70 m, so a whole patch snapped upright together.
+- **Fixes:**
+  - `ForestMeshes.Oak`, `DeadTree` and `Pine` draw everything that shapes the tree the same way at every level: the same limbs, side branches, twigs and clumps. Far off they only leave out the small geometry (side-branch tubes, twigs) and use fewer tube sides and fewer, bigger leaf cards. Leaf cards and roots draw from their own random streams, and pine tiers sample a fixed reach profile.
+  - `InstancedRenderer` picks each copy's level of detail by its own distance. Each copy's sway fades out over its last 15 m (`Bend` takes an amount), and copies past a kind's maximum distance are dropped one by one.
+- **Checked offline:** I compared each tree's bounding box at each level against the full-detail one.
+  - Oak crowns used to move 5–10% and dead trees changed size by 20–23%. Now oak crowns move at most 3% and dead trees at most 4%.
+  - New test: `Tests/EditMode/ForestLodTests.cs`. `MeshBuilder.Bounds` was added for it.

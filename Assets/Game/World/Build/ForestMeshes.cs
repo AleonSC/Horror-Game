@@ -25,19 +25,29 @@ namespace Game.World.Build
             trunk.AddTube(Vector3.down * 0.3f, Vector3.up * height, radius * 1.25f, 0.03f, lod == 0 ? 8 : lod == 1 ? 6 : 4);
 
             float crownStart = height * Range(rng, 0.4f, 0.55f);
-            int tiers = lod == 0 ? rng.Next(9, 12) : lod == 1 ? 7 : 4;
+            // (Everything that shapes the tree is drawn the same way at every level of detail, so the far version
+            // is the same tree with less in it, not another tree: the tiers' reach is a fixed profile sampled at
+            // however many tiers there are, and the needles' own jitter comes from a stream of its own.)
+            var profile = new float[12];
+            for (int k = 0; k < profile.Length; k++) profile[k] = Range(rng, 2.2f, 3.1f);
+            var detail = new System.Random(rng.Next());
+            var rootRng = new System.Random(rng.Next());
+            int tiers = lod == 0 ? 11 : lod == 1 ? 7 : 4;
             int segments = lod == 0 ? 13 : lod == 1 ? 9 : 6;
             int sprays = lod == 0 ? 2 : 0;
             for (int t = 0; t < tiers; t++)
             {
                 float f = t / (float)(tiers - 1);              // 0 bottom tier, 1 top
                 float y = Mathf.Lerp(crownStart, height - 0.6f, f);
-                float reach = Mathf.Lerp(Range(rng, 2.2f, 3.1f), 0.4f, Mathf.Pow(f, 0.85f));
+                float p = f * (profile.Length - 1);
+                int p0 = Mathf.Min(profile.Length - 2, Mathf.FloorToInt(p));
+                float baseReach = Mathf.Lerp(profile[p0], profile[p0 + 1], p - p0);
+                float reach = Mathf.Lerp(baseReach, 0.4f, Mathf.Pow(f, 0.85f));
                 float droop = Mathf.Lerp(1.3f, 0.45f, f) * (lod == 2 ? 2f : 1f);
-                AddSkirt(needles, rng, y, reach, droop, segments, lod < 2);
-                if (sprays > 0) AddBoughs(needles, rng, y, reach, droop, segments, sprays);
+                AddSkirt(needles, detail, y, reach, droop, segments, lod < 2);
+                if (sprays > 0) AddBoughs(needles, detail, y, reach, droop, segments, sprays);
             }
-            AddRoots(trunk, rng, radius * 1.25f, lod == 0 ? 6 : lod == 1 ? 4 : 0, lod == 0 ? 5 : 4);
+            AddRoots(trunk, rootRng, radius * 1.25f, lod == 0 ? 6 : lod == 1 ? 4 : 0, lod == 0 ? 5 : 4);
             return (trunk, needles);
         }
 
@@ -61,7 +71,12 @@ namespace Game.World.Build
             float crownTop = height, crownRadius = height * Range(rng, 0.38f, 0.48f);
 
             var clumps = new List<(Vector3 at, float size)>();
-            int limbs = lod == 2 ? 4 : rng.Next(4, 7);
+            // (Every limb, branch and clump is drawn at every level of detail, so the crown's the same shape near
+            // and far; only the tubes' sides and the leaf cards thin out. The cards and roots draw from their own
+            // streams.)
+            var leafRng = new System.Random(rng.Next());
+            var rootRng = new System.Random(rng.Next());
+            int limbs = rng.Next(4, 7);
             float turn = Range(rng, 0f, Mathf.PI * 2f);
             for (int i = 0; i < limbs; i++)
             {
@@ -78,9 +93,8 @@ namespace Game.World.Build
                 trunk.AddTube(bend, end, r0 * 0.65f, r0 * 0.2f, Mathf.Max(3, sides - 3));
                 clumps.Add((end, Range(rng, 2.2f, 3f)));
                 clumps.Add((bend + Vector3.up * 0.6f, Range(rng, 1.8f, 2.5f))); // (and along it, so the crown's full, not tufts on sticks)
-                if (lod == 2) continue;
-                // Side branches off it, each ending in a clump.
-                int side = lod == 0 ? rng.Next(2, 4) : 1;
+                // Side branches off it, each ending in a clump (far off, the clumps without the branch).
+                int side = rng.Next(2, 4);
                 for (int k = 0; k < side; k++)
                 {
                     float t = Range(rng, 0.35f, 0.85f);
@@ -88,7 +102,7 @@ namespace Game.World.Build
                     Vector3 dir = (outward + new Vector3(Range(rng, -0.9f, 0.9f), Range(rng, 0.1f, 0.9f), Range(rng, -0.9f, 0.9f))).normalized;
                     Vector3 tip = from + dir * length * Range(rng, 0.3f, 0.5f);
                     float r = r0 * Mathf.Lerp(0.5f, 0.2f, t);
-                    trunk.AddTube(from, tip, r, r * 0.2f, 3);
+                    if (lod < 2) trunk.AddTube(from, tip, r, r * 0.2f, 3);
                     clumps.Add((tip, Range(rng, 1.8f, 2.5f)));
                 }
             }
@@ -101,18 +115,19 @@ namespace Game.World.Build
                 float a = turn + (i + 0.5f) / 4f * Mathf.PI * 2f;
                 clumps.Add((dome + new Vector3(Mathf.Cos(a), -0.35f, Mathf.Sin(a)) * crownRadius * 0.55f, crownRadius * 0.42f));
             }
-            AddRoots(trunk, rng, radius * 1.3f, lod == 0 ? 6 : lod == 1 ? 4 : 0, Mathf.Max(3, sides - 4), roots);
+            AddRoots(trunk, rootRng, radius * 1.3f, lod == 0 ? 6 : lod == 1 ? 4 : 0, Mathf.Max(3, sides - 4), roots);
 
             // The leaves: each clump a cluster of cards, the canopy's shading rounded (normals out from its middle).
+            // (Far off: fewer, bigger cards, spread to fill the same clumps.)
             int cards = lod == 0 ? 34 : lod == 1 ? 14 : 7;
             float cardSize = lod == 0 ? 1.4f : lod == 1 ? 2.3f : 3.4f;
             foreach (var (at, size) in clumps)
                 for (int c = 0; c < cards; c++)
                 {
-                    Vector3 offset = Random3(rng) * size * Mathf.Sqrt((float)rng.NextDouble());
+                    Vector3 offset = Random3(leafRng) * size * Mathf.Sqrt((float)leafRng.NextDouble());
                     Vector3 centre = at + offset;
                     Vector3 normal = (offset + Vector3.up * size * 0.3f).normalized;
-                    LeafCard(leaves, centre, normal, cardSize * Range(rng, 0.8f, 1.25f), rng);
+                    LeafCard(leaves, centre, normal, cardSize * Range(leafRng, 0.8f, 1.25f), leafRng);
                 }
             return (trunk, leaves);
         }
@@ -152,7 +167,9 @@ namespace Game.World.Build
             Vector3 top = new Vector3(Range(rng, -0.6f, 0.6f), height, Range(rng, -0.6f, 0.6f));
             b.AddTube(Vector3.down * 0.3f, top, radius, radius * 0.25f, lod == 0 ? 7 : 4);
 
-            int limbs = lod == 2 ? 3 : rng.Next(3, 7);
+            // (The same limbs at every level of detail: only the twigs, drawn the same way, are left off far away.)
+            var rootRng = new System.Random(rng.Next());
+            int limbs = rng.Next(3, 7);
             for (int i = 0; i < limbs; i++)
             {
                 float along = Range(rng, 0.4f, 0.9f);
@@ -163,16 +180,15 @@ namespace Game.World.Build
                 Vector3 end = start + dir * length;
                 float r = radius * Mathf.Lerp(0.5f, 0.2f, along);
                 b.AddTube(start, end, r, r * 0.2f, lod == 0 ? 5 : 3);
-                if (lod > 0) continue;
-                // A twig or two off each limb.
+                // A twig or two off each limb (up close).
                 for (int k = 0; k < 2; k++)
                 {
                     Vector3 s = Vector3.Lerp(start, end, Range(rng, 0.4f, 0.8f));
                     Vector3 d = (dir + new Vector3(Range(rng, -0.8f, 0.8f), Range(rng, 0f, 0.6f), Range(rng, -0.8f, 0.8f))).normalized;
-                    b.AddTube(s, s + d * length * 0.45f, r * 0.35f, 0.005f, 4);
+                    if (lod == 0) b.AddTube(s, s + d * length * 0.45f, r * 0.35f, 0.005f, 4);
                 }
             }
-            AddRoots(b, rng, radius, lod == 0 ? 5 : lod == 1 ? 3 : 0, lod == 0 ? 5 : 4, roots);
+            AddRoots(b, rootRng, radius, lod == 0 ? 5 : lod == 1 ? 3 : 0, lod == 0 ? 5 : 4, roots);
             return b;
         }
 
