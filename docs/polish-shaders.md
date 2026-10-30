@@ -1465,3 +1465,8 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 
 - **The problem:** the scan beam (and the 10th-lamp searchlights) came from a fixed point in the giant's body space: where its eyes sit at rest. Once it woke and its head bent and turned, the real eyes moved away from that point, and the beam was left coming out of its mouth.
 - **The fix:** `GiantBody.EyesWorld(side)` gives where the eyes actually are now, the midpoint for the scan and the left and right eye for the two searchlights. For your own model, it falls back to the rest point.
+
+## Scours: no more standoff at a lamp's edge; heavier the closer you come
+
+- **The standoff:** stood in a lamp's light, you couldn't face a scour down. With your light on it, it just stood at the edge shuddering for as long as you watched, and only walking out of the light let it go. Now your light on it within react range starts the crescendo wherever you're standing, so you can drive one off from inside the light too.
+- **Slowing:** while you hold one in your light you're slowed more the closer you come. It goes from **faceDownSlow** (0.5 of your speed) at the edge of its range down to **faceDownSlowNear** (0.2) right up against it, and lasts until it's driven off or your light leaves it. (ScourConfig → Facing it down.)

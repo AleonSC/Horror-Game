@@ -104,6 +104,8 @@ namespace Game.Entities
         public float dismissCost = 0.1f;
         [Range(0.1f, 1f), Tooltip("While you hold one in your light you move at this share of your speed, whichever way you go (it never stops you): so with others behind you, choose when to face one down.")]
         public float faceDownSlow = 0.5f;
+        [Range(0.05f, 1f), Tooltip("...slowing more the closer you come to it: this share of your speed right up against it.")]
+        public float faceDownSlowNear = 0.2f;
         [Range(0f, 10f), Tooltip("Degrees of camera shake as the crescendo peaks.")]
         public float faceDownShake = 0.9f;
 

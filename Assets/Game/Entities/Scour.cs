@@ -279,15 +279,17 @@ namespace Game.Entities
             bool lit = LitByBeam(s.beamMargin);
             bool advancing = false;
 
+            if (lit && dist < s.reactDistance)
+            {
+                // Your light on it, anywhere in range (from inside a lamp's light too: it used to stand there
+                // shuddering at the edge for as long as you watched it, and only moving on let it go): the crescendo
+                // starts building.
+                StartFacedDown();
+                return;
+            }
             if (playerSafe)
             {
                 if (!LookedAt()) CircleLight(safe, dt);
-            }
-            else if (lit && dist < s.reactDistance)
-            {
-                // Your light on it, anywhere in range: the crescendo starts building.
-                StartFacedDown();
-                return;
             }
             else if (!lit && dist < s.reactDistance)
             {
@@ -574,7 +576,9 @@ namespace Game.Entities
             // The blue stays in the eyes: they burn brighter, but the light they throw barely rises.
             body.SetEyes(Mathf.Lerp(1.6f, 3f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 0.5f, e), blue, 0f, s.eyeLight * (1f + 0.6f * blue), s.eyeLightRange);
             player.AddShake(s.faceDownShake * e);
-            player.SlowThisFrame(s.faceDownSlow);
+            // Holding it in your light, you're slowed, and the nearer you come to it the heavier every step, until
+            // it's gone.
+            player.SlowThisFrame(Mathf.Lerp(s.faceDownSlow, s.faceDownSlowNear, closeness));
             if (c >= 1f) Dispel();
         }
 
