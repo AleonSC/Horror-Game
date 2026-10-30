@@ -9,7 +9,7 @@ namespace Game.World.Build
     /// <summary>
     /// Fits out a place, built-in or your own prefab: the loot from the plan (on the table, in the tent, in the
     /// backpack, glove box and trunk), its shelter, its door, and the car's fob response. Your prefab can say where
-    /// things go with children named <c>Table</c>, <c>Tent</c>, <c>Backpack</c>, <c>GloveBox</c>, <c>Trunk</c>
+    /// things go with children named <c>Table</c>, <c>Nightstand</c>, <c>Workbench</c>, <c>Tent</c>, <c>Backpack</c>, <c>GloveBox</c>, <c>Trunk</c>
     /// (a spot), <c>Deck</c> (the watchtower's, where the map lies), <c>Inside</c> (a Box Collider: the shelter's inside) and <c>Door</c> (swings about its pivot;
     /// needs a collider). Anything not named uses the built-in layout's spot.
     /// </summary>
@@ -17,7 +17,10 @@ namespace Game.World.Build
     {
         // The built-in layout's spots (local to the place).
         public static readonly Vector3 TableSpot = new Vector3(0.9f, 0f, -1.4f);
-        public static readonly Vector3 CabinTableSpot = new Vector3(2.2f, 0f, -1.8f);
+        public static readonly Vector3 CabinSize = new Vector3(9f, 3.2f, 8f);
+        public static readonly Vector3 CabinTableSpot = new Vector3(2.3f, 0f, 2.0f);            // (the front room)
+        public static readonly Vector3 CabinNightstandSpot = new Vector3(-2.0f, 0f, -3.55f);    // (the bedroom, by the bed)
+        public static readonly Vector3 CabinWorkbenchSpot = new Vector3(2.2f, 0f, -3.45f);      // (the storeroom, against the back wall)
         public static readonly Vector3 BunkerCrateSpot = new Vector3(0f, 0f, -2.65f); // (the crate at the back of its room)
         public static readonly Vector3 TentSpot = new Vector3(-2f, 0f, 0f);
         public const float TentYaw = 90f; // (opening toward the fire)
@@ -47,6 +50,8 @@ namespace Game.World.Build
             if (loot == null || loot.Count == 0) return;
 
             var onTable = new List<Loot>();
+            var onNightstand = new List<Loot>();
+            var onWorkbench = new List<Loot>();
             var inTent = new List<Loot>();
             var onDeck = new List<Loot>();
             var byBackpack = new List<Loot>();
@@ -56,6 +61,8 @@ namespace Game.World.Build
                 switch (l.Place)
                 {
                     case LootPlace.Table: onTable.Add(l); break;
+                    case LootPlace.Nightstand: onNightstand.Add(l); break;
+                    case LootPlace.Workbench: onWorkbench.Add(l); break;
                     case LootPlace.Tent: inTent.Add(l); break;
                     case LootPlace.Deck: onDeck.Add(l); break;
                     case LootPlace.Backpack: byBackpack.Add(l); break;
@@ -68,6 +75,8 @@ namespace Game.World.Build
 
             // Laid out in a row along the table top, or along the tent floor.
             Lay(root, onTable, Spot(root, "Table", kind == StructureKind.Cabin ? CabinTableSpot : kind == StructureKind.Bunker ? BunkerCrateSpot : TableSpot) + Vector3.up * 0.77f, root.right, 0.22f);
+            Lay(root, onNightstand, Spot(root, "Nightstand", CabinNightstandSpot) + Vector3.up * 0.6f, root.right, 0.14f);
+            Lay(root, onWorkbench, Spot(root, "Workbench", CabinWorkbenchSpot) + Vector3.up * 0.93f, root.right, 0.3f);
             Vector3 tentFloor = Spot(root, "Tent", TentSpot) + Vector3.up * 0.06f;
             Lay(root, inTent, tentFloor, root.right, 0.25f); // (the tent lies across the campsite)
             Lay(root, onDeck, Spot(root, "Deck", DeckSpot) + Vector3.up * 0.01f, root.right, 0.3f);

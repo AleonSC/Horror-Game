@@ -39,7 +39,14 @@ namespace Game.World.Generation
                         if (loot.Chance(s.radioChance)) Add(plan, i, LootPlace.Table, LootKind.Radio, 1);
                         break;
                     case StructureKind.Cabin:
+                        // The front room's table; the bedroom's nightstand (a lighter, glowsticks); the storeroom's
+                        // workbench (a flare gun in its case, more batteries).
                         Add(plan, i, LootPlace.Table, LootKind.Battery, s.batteriesInCabin);
+                        Add(plan, i, LootPlace.Nightstand, LootKind.Lighter, 1);
+                        Add(plan, i, LootPlace.Nightstand, LootKind.Glowsticks, s.glowsticksInCabin);
+                        Add(plan, i, LootPlace.Workbench, LootKind.FlareGun, 1);
+                        Add(plan, i, LootPlace.Workbench, LootKind.Battery, s.batteriesOnWorkbench);
+                        if (loot.Chance(s.radioChance)) Add(plan, i, LootPlace.Workbench, LootKind.Radio, 1);
                         break;
                     case StructureKind.Campsite:
                         Add(plan, i, LootPlace.Tent, LootKind.Snack, 1);

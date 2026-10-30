@@ -149,6 +149,8 @@ namespace Game.World.Generation
         public float shackBatteryChance = 0.5f;
         [Tooltip("Batteries always on each shack's table, and on the cabin's.")]
         public int batteriesInShack = 2, batteriesInCabin = 3;
+        [Tooltip("The cabin's bedroom nightstand: glowsticks (and a lighter); its storeroom workbench: batteries (and a flare gun).")]
+        public int glowsticksInCabin = 2, batteriesOnWorkbench = 2;
         [Range(0f, 1f), Tooltip("Chance of the car's key fob on a shack's table, and in a campsite's backpack.")]
         public float keyFobChance = 0.2f;
         [Range(0f, 1f), Tooltip("Chance of a radio on a shack's table, and in a campsite's backpack (the car always has one).")]

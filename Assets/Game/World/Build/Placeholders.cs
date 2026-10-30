@@ -122,8 +122,8 @@ namespace Game.World.Build
             {
                 case StructureKind.Cabin:
                 {
-                    var door = Room(t, new Vector3(8f, 3.2f, 7f), 1.6f, 2.3f, wood, darkWood, false);
-                    new HutModel(made, stone).Build(t, door, new Vector3(8f, 3.2f, 7f), 1.6f, 2.3f, true, PlaceFittings.CabinTableSpot, Rng(site));
+                    var door = Room(t, PlaceFittings.CabinSize, 1.6f, 2.3f, wood, darkWood, false);
+                    new HutModel(made, stone).Build(t, door, PlaceFittings.CabinSize, 1.6f, 2.3f, true, PlaceFittings.CabinTableSpot, Rng(site));
                     break;
                 }
                 case StructureKind.Shack:

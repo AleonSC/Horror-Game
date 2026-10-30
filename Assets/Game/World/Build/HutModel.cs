@@ -62,8 +62,10 @@ namespace Game.World.Build
             float w = size.x, h = size.y, d = size.z;
             float hw = w * 0.5f, hd = d * 0.5f;
             // Windows: (wall: 0 left, 1 right, 2 front; where along it; boarded up?)
-            var windows = new List<(int wall, float at, bool boarded)> { (0, 0f, false), (1, 0f, !cabin) };
-            if (cabin) { windows.Add((2, -2.4f, false)); windows.Add((2, 2.4f, false)); }
+            // (The cabin's side windows light its back rooms; the front room has two each side of the door.)
+            var windows = cabin
+                ? new List<(int wall, float at, bool boarded)> { (0, -CabinBackRoom, false), (1, -CabinBackRoom, false), (2, -2.7f, false), (2, 2.7f, false) }
+                : new List<(int wall, float at, bool boarded)> { (0, 0f, false), (1, 0f, true) };
             const float winBottom = 1.0f, winTop = 1.8f, winHalf = 0.45f;
 
             // Footings under the corners and along the sides.
@@ -110,9 +112,18 @@ namespace Game.World.Build
 
             // Inside.
             Table(t, tableSpot, cabin);
-            if (cabin) CabinInside(t, hw, hd, h);
-            else ShackInside(t, hw, hd);
+            if (cabin) CabinRooms(t, hw, hd, h);
+            else
+            {
+                ShackInside(t, hw, hd, h);
+                ShackOutside(t, hw, hd, h, doorWidth, doorHeight);
+            }
         }
+
+        /// <summary>Where the cabin's back rooms' windows are (their middle, metres behind the cabin's middle).</summary>
+        const float CabinBackRoom = 2.3f;
+        /// <summary>The cabin's two doorways through to the back rooms (each this far either side of the middle), this wide.</summary>
+        const float BackDoorAt = 2.3f, BackDoorWidth = 1.0f, BackDoorHeight = 2.1f;
 
         static Vector3 WallPoint(int wall, float at, float hw, float hd) => wall switch
         {
@@ -446,8 +457,31 @@ namespace Game.World.Build
             Box(b, "Blanket (hanging)", new Vector3(wid * 0.5f + 0.01f, top - 0.05f, 0.35f), new Vector3(0.02f, 0.3f, len * 0.5f), blanket);
         }
 
-        void ShackInside(Transform t, float hw, float hd)
+        void ShackInside(Transform t, float hw, float hd, float h)
         {
+            // A little pot-belly stove against the right wall, its pipe out through the tin.
+            var stove = new Vector3(hw - 0.4f, 0f, -0.2f);
+            Cyl(t, "Stove", stove + new Vector3(0f, 0.42f, 0f), 0.24f, 0.5f, iron, Vector3.up, true);
+            Shape(PrimitiveType.Sphere, t, "Stove belly", stove + new Vector3(0f, 0.45f, 0f), new Vector3(0.56f, 0.4f, 0.56f), iron);
+            Cyl(t, "Stove top", stove + new Vector3(0f, 0.7f, 0f), 0.2f, 0.04f, iron, Vector3.up);
+            for (int i = 0; i < 3; i++)
+            {
+                float a = i / 3f * Mathf.PI * 2f;
+                Rod(t, stove + new Vector3(Mathf.Cos(a) * 0.15f, 0.2f, Mathf.Sin(a) * 0.15f), stove + new Vector3(Mathf.Cos(a) * 0.22f, 0f, Mathf.Sin(a) * 0.22f), 0.02f, iron);
+            }
+            Cyl(t, "Stove pipe", stove + new Vector3(0f, (0.72f + h + 1.4f) * 0.5f, 0f), 0.06f, h + 1.4f - 0.72f, iron, Vector3.up);
+            Cyl(t, "Pipe cap", stove + new Vector3(0f, h + 1.42f, 0f), 0.11f, 0.04f, iron, Vector3.up);
+            // A rag hung over the plain window, half drawn; a rifle rack (empty) over the cot; a sack in the corner.
+            var rag = Box(t, "Rag curtain", new Vector3(-hw + 0.1f, 1.45f, -0.2f), new Vector3(0.02f, 0.8f, 0.5f), Keep(RuntimeMaterials.Lit("Rag", new Color(0.26f, 0.22f, 0.15f), 0.05f)));
+            rag.transform.localRotation = Quaternion.Euler(4f, 0f, 0f);
+            foreach (float y in new[] { 1.55f, 1.85f })
+                for (int side = -1; side <= 1; side += 2)
+                    Box(t, "Rack peg", new Vector3(-hw + 0.1f, y, -hd + 1.15f + side * 0.45f), new Vector3(0.12f, 0.04f, 0.04f), plankC);
+            Shape(PrimitiveType.Sphere, t, "Sack", new Vector3(-hw + 0.4f, 0.22f, hd - 1.1f), new Vector3(0.4f, 0.45f, 0.34f), Keep(RuntimeMaterials.Lit("Sacking", new Color(0.3f, 0.26f, 0.18f), 0.05f)));
+            // Traps on a nail by the door.
+            var trap = new Vector3(0.95f, 1.6f, hd - 0.09f);
+            Cyl(t, "Trap", trap, 0.12f, 0.02f, tin, Vector3.forward);
+            Rod(t, trap + Vector3.up * 0.12f, trap + Vector3.up * 0.26f, 0.006f, iron);
             Bed(t, new Vector3(-hw + 0.5f, 0.05f, -hd + 1.15f), 0f, true);
             Shelf(t, new Vector3(hw - 0.17f, 1.5f, 1.0f), Vector3.forward, 5);
             Shelf(t, new Vector3(0.6f, 1.6f, -hd + 0.17f), Vector3.right, 4);
@@ -459,12 +493,128 @@ namespace Game.World.Build
             Box(t, "Calendar", new Vector3(-0.95f, 1.5f, hd - 0.075f), new Vector3(0.28f, 0.38f, 0.005f), paper);
         }
 
-        void CabinInside(Transform t, float hw, float hd, float h)
+        // Round the shack: a lean-to woodshed down its left side (posts, a sloping tin roof, split logs stacked
+        // under it), a chopping block out front with an axe in it and chips round it, a rain barrel under the
+        // right eave, a skull of antlers over the door.
+        void ShackOutside(Transform t, float hw, float hd, float h, float doorWidth, float doorHeight)
         {
-            Box(t, "Rug", new Vector3(0f, 0.065f, -0.3f), new Vector3(2.4f, 0.01f, 1.7f), rug);
-            Bed(t, new Vector3(-hw + 1.1f, 0.05f, -hd + 1.15f), 90f, false);
+            const float depth = 1.0f;
+            float x0 = -hw, x1 = -hw - depth;
+            float back = -hd + 0.3f, front = hd - 0.6f;
+            foreach (float z in new[] { back, front })
+                Box(t, "Lean-to post", new Vector3(x1 + 0.06f, (h - 0.6f) * 0.5f, z), new Vector3(0.1f, h - 0.6f, 0.1f), plankC, true);
+            var roof = new GameObject("Lean-to roof").transform;
+            roof.SetParent(t, false);
+            float drop = 0.45f;
+            roof.localPosition = new Vector3((x0 + x1) * 0.5f - 0.1f, h - 0.4f - drop * 0.5f, (back + front) * 0.5f);
+            roof.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(drop, depth + 0.2f) * Mathf.Rad2Deg);
+            Box(roof, "Lean-to tin", Vector3.zero, new Vector3(depth + 0.4f, 0.03f, front - back + 0.5f), tin);
+            for (float z = -(front - back) * 0.5f - 0.2f; z < (front - back) * 0.5f + 0.25f; z += 0.16f)
+                Box(roof, "Rib", new Vector3(0f, 0.02f, z), new Vector3(depth + 0.4f, 0.02f, 0.03f), tin);
+            // The woodpile: split logs, ends out, stacked along the wall.
+            for (int row = 0; row < 6; row++)
+                for (float z = back + 0.2f; z < front - 0.15f; z += 0.17f)
+                {
+                    if (row >= 4 && rng.Next(3) == 0) continue; // (the top rows ragged)
+                    Cyl(t, "Firewood", new Vector3(x0 - 0.45f + R(-0.04f, 0.04f), 0.09f + row * 0.15f, z + R(-0.02f, 0.02f)), R(0.065f, 0.085f), 0.7f, log, Vector3.right);
+                }
+            Box(t, "Woodpile", new Vector3(x0 - 0.45f, 0.5f, (back + front) * 0.5f), new Vector3(0.7f, 1.0f, front - back - 0.2f), plankC, true).GetComponent<Renderer>().enabled = false;
+            // The chopping block, the axe in it, chips about.
+            var block = new Vector3(hw + 0.2f, 0f, hd + 1.1f);
+            Cyl(t, "Chopping block", block + new Vector3(0f, 0.25f, 0f), 0.28f, 0.5f, log, Vector3.up, true);
+            Cyl(t, "Block top", block + new Vector3(0f, 0.505f, 0f), 0.27f, 0.01f, logEnd, Vector3.up);
+            Rod(t, block + new Vector3(0.02f, 0.52f, 0f), block + new Vector3(0.3f, 1.1f, 0.15f), 0.02f, plankB);
+            Box(t, "Axe head", block + new Vector3(0.02f, 0.53f, 0f), new Vector3(0.05f, 0.1f, 0.16f), iron).transform.localRotation = Quaternion.Euler(0f, 30f, -25f);
+            for (int i = 0; i < 10; i++)
+            {
+                float a = R(0f, Mathf.PI * 2f), r = R(0.35f, 0.9f);
+                var chip = Box(t, "Wood chip", block + new Vector3(Mathf.Cos(a) * r, 0.01f, Mathf.Sin(a) * r), new Vector3(R(0.04f, 0.09f), 0.01f, R(0.02f, 0.04f)), logEnd);
+                chip.transform.localRotation = Quaternion.Euler(0f, R(0f, 180f), 0f);
+            }
+            // The rain barrel at the back right corner.
+            var barrel = new Vector3(hw + 0.4f, 0f, -hd + 0.5f);
+            Cyl(t, "Rain barrel", barrel + new Vector3(0f, 0.45f, 0f), 0.3f, 0.9f, plankB, Vector3.up, true);
+            foreach (float y in new[] { 0.15f, 0.75f })
+                Cyl(t, "Hoop", barrel + new Vector3(0f, y, 0f), 0.31f, 0.04f, iron, Vector3.up);
+            Cyl(t, "Water", barrel + new Vector3(0f, 0.86f, 0f), 0.27f, 0.01f, Keep(RuntimeMaterials.Lit("Black water", new Color(0.01f, 0.012f, 0.012f), 0.95f)), Vector3.up);
+            // Antlers over the door.
+            Antlers(t, new Vector3(0f, doorHeight + 0.35f, hd + 0.04f), Vector3.forward);
+        }
+
+        // The cabin, in three rooms: the front room (the door, the stove, the table, a counter and basin, a rug and
+        // the hanging lantern); through a doorway on the left, behind its own door, the bedroom (a bed, a
+        // nightstand, a wardrobe, a bookshelf, a rug); and through an open doorway on the right, the storeroom (a
+        // workbench under a pegboard of tools, shelves of jars, crates, sacks, a barrel, traps hung up). A plank
+        // partition across the middle and another between the back rooms (solid: you can't walk through them).
+        void CabinRooms(Transform t, float hw, float hd, float h)
+        {
+            // The partitions: across at the middle (doorways left and right), and down the middle behind it.
+            Partition(t, new Vector3(0f, 0f, 0f), Vector3.right, hw * 2f, h, new[] { -BackDoorAt, BackDoorAt });
+            Partition(t, new Vector3(0f, 0f, -hd * 0.5f), Vector3.forward, hd, h, new float[0]);
+            // The bedroom's door (it swings in), on its own hinge.
+            var hinge = new GameObject("Door") { layer = Layers.Props }.transform;
+            hinge.SetParent(t, false);
+            hinge.localPosition = new Vector3(-BackDoorAt - BackDoorWidth * 0.5f, 0f, -0.02f);
+            for (int i = 0; i < 4; i++)
+            {
+                float pw = (BackDoorWidth - 0.04f) / 4f;
+                Box(hinge, "Door plank", new Vector3(0.02f + pw * (i + 0.5f), BackDoorHeight * 0.5f, 0f), new Vector3(pw - 0.008f, BackDoorHeight - 0.03f, 0.045f), Plank, i == 1);
+            }
+            foreach (float y in new[] { 0.35f, BackDoorHeight - 0.35f })
+                Box(hinge, "Brace", new Vector3(BackDoorWidth * 0.5f, y, 0.035f), new Vector3(BackDoorWidth - 0.1f, 0.1f, 0.025f), plankC);
+            Cyl(hinge, "Knob", new Vector3(BackDoorWidth - 0.12f, 1.0f, -0.05f), 0.03f, 0.05f, iron, Vector3.forward);
+            hinge.gameObject.AddComponent<Door>().ajar = 0.25f; // (left standing a little open: what's in there?)
+
+            FrontRoom(t, hw, hd, h);
+            Bedroom(t, hw, hd);
+            Storeroom(t, hw, hd);
+        }
+
+        // A plank wall inside: boards standing side by side, broken by doorways (their middles along it, each
+        // BackDoorWidth wide, BackDoorHeight high), with a frame round each and a solid run you can't walk through.
+        void Partition(Transform t, Vector3 middle, Vector3 along, float length, float h, float[] doorways)
+        {
+            var wall = new GameObject("Partition").transform;
+            wall.SetParent(t, false);
+            wall.localPosition = middle;
+            wall.localRotation = Quaternion.LookRotation(Vector3.Cross(along, Vector3.up), Vector3.up); // (its length along local x)
+            bool Open(float a, float y)
+            {
+                foreach (float d in doorways) if (Mathf.Abs(a - d) < BackDoorWidth * 0.5f && y < BackDoorHeight) return true;
+                return false;
+            }
+            for (float a = -length * 0.5f + 0.1f; a < length * 0.5f; a += 0.2f)
+            {
+                bool open = false;
+                foreach (float d in doorways) if (Mathf.Abs(a - d) < BackDoorWidth * 0.5f + 0.05f) open = true;
+                if (open)
+                    Box(wall, "Board", new Vector3(a, (BackDoorHeight + h) * 0.5f, 0f), new Vector3(0.19f, h - BackDoorHeight, 0.05f), Plank);
+                else
+                    Box(wall, "Board", new Vector3(a, h * 0.5f, 0f), new Vector3(0.19f, h, 0.05f), Plank);
+            }
+            // (What you bump into: one block over each solid run.)
+            Runs(length, a => !Open(a, 1f), (from, to) => Box(wall, "Wall", new Vector3((from + to) * 0.5f, h * 0.5f, 0f), new Vector3(to - from, h, 0.1f), plankC, true).GetComponent<Renderer>().enabled = false);
+            foreach (float d in doorways)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                    Box(wall, "Door frame", new Vector3(d + side * (BackDoorWidth * 0.5f + 0.04f), BackDoorHeight * 0.5f, 0f), new Vector3(0.08f, BackDoorHeight, 0.12f), plankC);
+                Box(wall, "Lintel", new Vector3(d, BackDoorHeight + 0.05f, 0f), new Vector3(BackDoorWidth + 0.2f, 0.1f, 0.13f), plankC);
+            }
+        }
+
+        void FrontRoom(Transform t, float hw, float hd, float h)
+        {
+            Box(t, "Rug", new Vector3(-0.4f, 0.065f, hd * 0.5f), new Vector3(2.6f, 0.01f, 1.7f), rug);
+            // A counter along the left wall by the partition, a basin let into it, a shelf over it.
+            var counterAt = new Vector3(-hw + 0.4f, 0f, 0.85f);
+            Box(t, "Counter", counterAt + new Vector3(0f, 0.43f, 0f), new Vector3(0.6f, 0.86f, 1.3f), plankC, true);
+            Box(t, "Counter top", counterAt + new Vector3(0.02f, 0.88f, 0f), new Vector3(0.66f, 0.04f, 1.36f), plankB);
+            Cyl(t, "Basin", counterAt + new Vector3(0.02f, 0.92f, 0.25f), 0.2f, 0.08f, tin, Vector3.up);
+            Cyl(t, "Pump", counterAt + new Vector3(-0.2f, 1.1f, 0.25f), 0.03f, 0.4f, iron, Vector3.up);
+            Box(t, "Cupboard door", counterAt + new Vector3(0.31f, 0.43f, -0.3f), new Vector3(0.02f, 0.65f, 0.55f), plankB);
+            Shelf(t, new Vector3(-hw + 0.17f, 1.65f, 0.85f), Vector3.back, 6);
             // The stove by the left wall, its pipe up through the roof.
-            var stoveAt = new Vector3(-hw + 0.65f, 0f, 1.1f);
+            var stoveAt = new Vector3(-hw + 0.65f, 0f, hd - 1.3f);
             Box(t, "Stove", stoveAt + new Vector3(0f, 0.45f, 0f), new Vector3(0.6f, 0.55f, 0.75f), iron, true);
             Box(t, "Stove top", stoveAt + new Vector3(0f, 0.74f, 0f), new Vector3(0.66f, 0.04f, 0.8f), iron);
             Box(t, "Stove door", stoveAt + new Vector3(0.31f, 0.45f, 0f), new Vector3(0.02f, 0.3f, 0.36f), iron);
@@ -472,11 +622,90 @@ namespace Game.World.Build
                 Box(t, "Stove leg", stoveAt + new Vector3(i % 2 == 0 ? -0.25f : 0.25f, 0.09f, i < 2 ? -0.3f : 0.3f), new Vector3(0.05f, 0.18f, 0.05f), iron);
             Cyl(t, "Stove pipe", stoveAt + new Vector3(0f, (0.76f + h + 2f) * 0.5f, 0f), 0.07f, h + 2f - 0.76f, iron, Vector3.up);
             Cyl(t, "Pipe cap", stoveAt + new Vector3(0f, h + 2.02f, 0f), 0.13f, 0.04f, iron, Vector3.up);
-            // A bookshelf against the right wall.
+            // Split logs stacked by it, and a kettle on it.
+            for (int i = 0; i < 7; i++)
+                Cyl(t, "Firewood", stoveAt + new Vector3(0.1f + (i % 4) * 0.12f - 0.15f, 0.07f + (i / 4) * 0.12f, -0.75f), 0.055f, 0.45f, log, Vector3.right);
+            Cyl(t, "Kettle", stoveAt + new Vector3(0.05f, 0.85f, 0.15f), 0.11f, 0.16f, iron, Vector3.up);
+            // A ceiling beam across, and a lantern hanging from it on a chain (click it on and off).
+            Box(t, "Beam", new Vector3(0f, h - 0.1f, hd * 0.5f), new Vector3(hw * 2f - 0.2f, 0.18f, 0.18f), plankC);
+            LanternModel.Hanging(t, new Vector3(0.3f, h - 0.19f, hd * 0.5f), 0.4f, tin, iron, made, 6f, 3f);
+            Cyl(t, "Lantern cap", new Vector3(0.3f, h - 0.6f, hd * 0.5f), 0.08f, 0.03f, iron, Vector3.up);
+            Cyl(t, "Lantern base", new Vector3(0.3f, h - 0.83f, hd * 0.5f), 0.08f, 0.03f, iron, Vector3.up);
+            // A coat hook by the door, an old coat on it; antlers over the table; a framed photo, crooked.
+            Box(t, "Coat", new Vector3(1.4f, 1.3f, hd - 0.12f), new Vector3(0.45f, 0.8f, 0.08f), Keep(RuntimeMaterials.Lit("Coat", new Color(0.12f, 0.12f, 0.1f), 0.1f)));
+            Antlers(t, new Vector3(hw - 0.12f, 2.2f, hd * 0.5f), Vector3.left);
+            var photo = Box(t, "Photo", new Vector3(hw - 0.09f, 1.5f, 1.0f), new Vector3(0.02f, 0.3f, 0.24f), paper);
+            photo.transform.localRotation = Quaternion.Euler(R(-12f, 12f), 0f, 0f);
+            Box(t, "Photo frame", new Vector3(hw - 0.1f, 1.5f, 1.0f), new Vector3(0.015f, 0.34f, 0.28f), plankC).transform.localRotation = photo.transform.localRotation;
+        }
+
+        void Bedroom(Transform t, float hw, float hd)
+        {
+            Box(t, "Rug", new Vector3(-hw * 0.5f, 0.065f, -hd * 0.45f), new Vector3(1.6f, 0.01f, 1.2f), Keep(RuntimeMaterials.Lit("Bedroom rug", new Color(0.12f, 0.1f, 0.14f), 0.05f)));
+            Bed(t, new Vector3(-hw + 1.05f, 0.05f, -hd + 0.8f), 90f, false);
+            // The nightstand by the bed, a drawer left pulled out (things on top: see PlaceFittings).
+            var ns = PlaceFittings.CabinNightstandSpot;
+            Box(t, "Nightstand", ns + new Vector3(0f, 0.29f, 0f), new Vector3(0.46f, 0.58f, 0.4f), plankB, true);
+            Box(t, "Drawer", ns + new Vector3(0f, 0.43f, 0.24f), new Vector3(0.38f, 0.12f, 0.2f), plankC);
+            Cyl(t, "Candle", ns + new Vector3(0.15f, 0.64f, -0.1f), 0.022f, 0.12f, Keep(RuntimeMaterials.Lit("Candle", new Color(0.55f, 0.52f, 0.44f), 0.3f)), Vector3.up);
+            // A wardrobe in the corner by the doorway, one door hanging open.
+            var wardrobe = new Vector3(-hw + 0.38f, 0f, -0.75f);
+            Box(t, "Wardrobe", wardrobe + new Vector3(0f, 1.0f, 0f), new Vector3(0.6f, 2.0f, 1.1f), plankC, true);
+            Box(t, "Wardrobe door", wardrobe + new Vector3(0.31f, 1.0f, 0.27f), new Vector3(0.02f, 1.85f, 0.5f), plankB);
+            var hanging = Box(t, "Wardrobe door", wardrobe + new Vector3(0.55f, 1.0f, -0.42f), new Vector3(0.02f, 1.85f, 0.5f), plankB);
+            hanging.transform.localRotation = Quaternion.Euler(0f, 55f, 0f);
+            // A bookshelf against the partition between the back rooms.
+            Bookshelf(t, new Vector3(-0.35f, 0f, -hd * 0.45f), -90f);
+            // A chair by the window, a shirt over its back.
+            Chair(t, new Vector3(-1.1f, 0f, -0.75f), 200f, false); // (clear of the door's swing)
+        }
+
+        void Storeroom(Transform t, float hw, float hd)
+        {
+            // The workbench against the back wall, a vise on its end, a pegboard of tools over it (things on top: see
+            // PlaceFittings).
+            var wb = PlaceFittings.CabinWorkbenchSpot;
+            Box(t, "Workbench top", wb + new Vector3(0f, 0.88f, 0f), new Vector3(1.8f, 0.07f, 0.65f), plankB, true);
+            Box(t, "Workbench shelf", wb + new Vector3(0f, 0.25f, 0f), new Vector3(1.7f, 0.04f, 0.55f), plankC);
+            for (int i = 0; i < 4; i++)
+                Box(t, "Workbench leg", wb + new Vector3(i % 2 == 0 ? -0.82f : 0.82f, 0.43f, i < 2 ? -0.26f : 0.26f), new Vector3(0.08f, 0.86f, 0.08f), plankC);
+            Box(t, "Vise", wb + new Vector3(0.8f, 0.98f, 0.28f), new Vector3(0.14f, 0.12f, 0.16f), iron);
+            Box(t, "Pegboard", wb + new Vector3(0f, 1.55f, -0.36f), new Vector3(1.6f, 0.9f, 0.02f), plankC);
+            Box(t, "Saw", wb + new Vector3(-0.45f, 1.6f, -0.34f), new Vector3(0.55f, 0.13f, 0.005f), tin);
+            Box(t, "Hammer", wb + new Vector3(0.1f, 1.55f, -0.33f), new Vector3(0.03f, 0.32f, 0.03f), plankB);
+            Box(t, "Hammer head", wb + new Vector3(0.1f, 1.7f, -0.33f), new Vector3(0.12f, 0.04f, 0.04f), iron);
+            Rod(t, wb + new Vector3(0.4f, 1.3f, -0.33f), wb + new Vector3(0.55f, 1.8f, -0.33f), 0.012f, iron);
+            Cyl(t, "Coil of rope", wb + new Vector3(0.62f, 1.45f, -0.31f), 0.14f, 0.05f, Keep(RuntimeMaterials.Lit("Rope", new Color(0.3f, 0.25f, 0.16f), 0.1f)), Vector3.forward);
+            // Shelves of jars on the walls.
+            Shelf(t, new Vector3(hw - 0.17f, 1.55f, -0.75f), Vector3.forward, 6);
+            Shelf(t, new Vector3(0.17f, 1.6f, -hd * 0.45f), Vector3.back, 5);
+            Shelf(t, new Vector3(0.17f, 1.1f, -hd * 0.45f), Vector3.back, 4);
+            // Crates stacked in the corner, sacks slumped against them, a barrel.
+            Box(t, "Crate", new Vector3(hw - 0.48f, 0.3f, -hd + 0.45f), new Vector3(0.6f, 0.6f, 0.6f), plankB, true);
+            var top = Box(t, "Crate", new Vector3(hw - 0.5f, 0.8f, -hd + 0.47f), new Vector3(0.45f, 0.4f, 0.45f), plankC, true);
+            top.transform.localRotation = Quaternion.Euler(0f, R(-20f, 20f), 0f);
+            var sack = Keep(RuntimeMaterials.Lit("Sacking", new Color(0.3f, 0.26f, 0.18f), 0.05f));
+            for (int i = 0; i < 2; i++)
+            {
+                var s = Shape(PrimitiveType.Sphere, t, "Sack", new Vector3(0.6f + i * 0.45f, 0.25f, -0.55f), new Vector3(0.42f, 0.5f, 0.36f), sack);
+                s.transform.localRotation = Quaternion.Euler(R(-10f, 10f), R(0f, 180f), R(-15f, 15f));
+            }
+            Cyl(t, "Barrel", new Vector3(hw - 0.45f, 0.48f, -0.4f), 0.28f, 0.85f, plankB, Vector3.up, true);
+            // Traps hung up on the wall by the doorway: rusted jaws.
+            for (int i = 0; i < 2; i++)
+            {
+                var trap = new Vector3(BackDoorAt + 0.95f + i * 0.35f, 1.8f, -0.045f);
+                Cyl(t, "Trap", trap, 0.13f, 0.02f, tin, Vector3.forward);
+                Rod(t, trap + Vector3.up * 0.13f, trap + Vector3.up * 0.3f, 0.006f, iron);
+            }
+        }
+
+        void Bookshelf(Transform t, Vector3 at, float yaw)
+        {
             var books = new GameObject("Bookshelf").transform;
             books.SetParent(t, false);
-            books.localPosition = new Vector3(hw - 0.35f, 0f, 1.3f);
-            books.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            books.localPosition = at;
+            books.localRotation = Quaternion.Euler(0f, yaw, 0f);
             Box(books, "Case", new Vector3(0f, 0.95f, -0.1f), new Vector3(1.0f, 1.9f, 0.04f), plankC, true);
             for (int side = -1; side <= 1; side += 2) Box(books, "Side", new Vector3(side * 0.5f, 0.95f, 0.05f), new Vector3(0.04f, 1.9f, 0.32f), plankC);
             for (int shelf = 0; shelf < 4; shelf++)
@@ -494,15 +723,41 @@ namespace Game.World.Build
                     x += bw + 0.005f;
                 }
             }
-            Shelf(t, new Vector3(-hw + 0.17f, 1.6f, -1.6f), Vector3.back, 6); // (over the bed, clear of the window)
-            Shelf(t, new Vector3(1.8f, 1.6f, -hd + 0.17f), Vector3.right, 5);
-            // A ceiling beam across, and a lantern hanging from it on a chain (click it on and off).
-            Box(t, "Beam", new Vector3(0f, h - 0.1f, -0.3f), new Vector3(hw * 2f - 0.2f, 0.18f, 0.18f), plankC);
-            LanternModel.Hanging(t, new Vector3(0.3f, h - 0.19f, -0.3f), 0.4f, tin, iron, made, 6f, 3f);
-            Cyl(t, "Lantern cap", new Vector3(0.3f, h - 0.6f, -0.3f), 0.08f, 0.03f, iron, Vector3.up);
-            Cyl(t, "Lantern base", new Vector3(0.3f, h - 0.83f, -0.3f), 0.08f, 0.03f, iron, Vector3.up);
-            // A coat hook by the door, an old coat on it.
-            Box(t, "Coat", new Vector3(1.4f, 1.3f, hd - 0.12f), new Vector3(0.45f, 0.8f, 0.08f), Keep(RuntimeMaterials.Lit("Coat", new Color(0.12f, 0.12f, 0.1f), 0.1f)));
+        }
+
+        // A pair of antlers on a little plaque, on a wall (facing: out from it into the room).
+        void Antlers(Transform t, Vector3 at, Vector3 facing)
+        {
+            var a = new GameObject("Antlers").transform;
+            a.SetParent(t, false);
+            a.localPosition = at;
+            a.localRotation = Quaternion.LookRotation(facing);
+            var bone = Keep(RuntimeMaterials.Lit("Antler", new Color(0.42f, 0.36f, 0.27f), 0.25f));
+            Box(a, "Plaque", Vector3.zero, new Vector3(0.22f, 0.3f, 0.03f), plankB);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 b = new Vector3(side * 0.05f, 0.05f, 0.05f), m = new Vector3(side * 0.3f, 0.3f, 0.12f), tip = new Vector3(side * 0.42f, 0.55f, 0.08f);
+                Rod(a, b, m, 0.018f, bone);
+                Rod(a, m, tip, 0.013f, bone);
+                for (int k = 0; k < 3; k++)
+                {
+                    Vector3 from = Vector3.Lerp(b, tip, 0.35f + k * 0.2f);
+                    Rod(a, from, from + new Vector3(side * 0.02f, 0.16f, 0.05f), 0.009f, bone);
+                }
+            }
+        }
+
+        static GameObject Shape(PrimitiveType type, Transform parent, string name, Vector3 at, Vector3 size, Material m)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.layer = Layers.Props;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = at;
+            go.transform.localScale = size;
+            go.GetComponent<Renderer>().sharedMaterial = m;
+            Object.Destroy(go.GetComponent<Collider>());
+            return go;
         }
 
         // ------------------------------------------------------------------ bits

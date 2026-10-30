@@ -53,6 +53,7 @@ the ground. Your colliders are kept.
 | Child | What it marks |
 | --- | --- |
 | `Table` | where the shack's items are laid out (on top of it) |
+| `Nightstand`, `Workbench` | the cabin's bedroom nightstand and storeroom workbench: where their items are laid out (a spot on the floor; the items go 0.6 m and 0.93 m above it) |
 | `Tent` | the tent's floor, where the snack lies |
 | `Backpack`, `GloveBox`, `Trunk` | what you click to search |
 | `Deck` | (the watchtower) where the map lies |

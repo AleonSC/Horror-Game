@@ -106,8 +106,8 @@ namespace Game.World.Generation
         {
             switch (kind)
             {
-                case StructureKind.Cabin: return new Vector2(5f, 4.5f);
-                case StructureKind.Shack: return new Vector2(3f, 3.5f);
+                case StructureKind.Cabin: return new Vector2(5.5f, 5.5f);  // (9 x 8 m, its porch out the front)
+                case StructureKind.Shack: return new Vector2(3.4f, 3.8f);  // (its woodshed down the left, the block out front)
                 case StructureKind.Campsite: return new Vector2(5f, 5f);
                 case StructureKind.Watchtower: return new Vector2(3f, 3f);
                 case StructureKind.Car: return new Vector2(2.5f, 3.5f);

@@ -1519,3 +1519,39 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - is a few short strokes: a hook, a stem with a cross-bar and a foot, a little loop of three, a forked stroke, or two ticks on a bar;
   - is laid flat on one of the stone's side faces and turned a little.
   - When the stone wakes they light one after another, after its main rune, and flare with it.
+
+## A fancier cabin in three rooms; a fancier shack
+
+- **The cabin** is now 9 × 8 m (from 8 × 7), in three rooms. A plank partition runs across the middle with a doorway each side, and another runs down the middle behind it. The partitions are solid: a hidden block over each solid run.
+  - **Front room** (through the front door):
+    - the stove on the left wall, with split logs stacked by it and a kettle on top;
+    - a counter by the partition with a basin, a hand pump, a cupboard door and a shelf of jars over it;
+    - the table with its chairs (one knocked over), on the right;
+    - a rug, and the hanging lantern on a beam;
+    - the coat by the door, antlers on the right wall and a crooked framed photo.
+    - **Loot:** batteries on the table.
+  - **Bedroom** (left, behind its own plank door, which stands a quarter open):
+    - the bed, with a nightstand beside it (a drawer pulled out, a candle);
+    - a wardrobe in the corner, one door hanging open;
+    - a bookshelf against the middle partition, a rug, and a chair.
+    - **Loot:** a **lighter** and **glowsticks** on the nightstand.
+  - **Storeroom** (right, an open doorway):
+    - a workbench against the back wall, with a vise and a lower shelf;
+    - a pegboard over it with a saw, a hammer, a pry bar and a coil of rope;
+    - shelves of jars on two walls;
+    - crates stacked in the corner, sacks slumped, a barrel, and traps hung by the doorway.
+    - **Loot:** a **flare gun** and batteries on the workbench (and a radio, by the radio chance).
+  - Windows: the side windows now light the back rooms, and the front room has one each side of the door.
+- **The shack** gains:
+  - **Inside:** a pot-belly stove on the right with its pipe out through the tin, a rag hung over the plain window, an empty rifle rack over the cot, a sack in the corner, and traps on a nail by the door.
+  - **Outside:**
+    - a lean-to woodshed down its left side: posts, a sloping ribbed tin roof, and a ragged stack of split firewood;
+    - a chopping block out front with an axe in it and chips round it;
+    - a rain barrel of black water under the back right eave;
+    - antlers over the door.
+- **Plan changes:**
+  - new loot places `Nightstand` and `Workbench`, appended to `LootPlace`;
+  - WorldGenConfig: `glowsticksInCabin` (2) and `batteriesOnWorkbench` (2);
+  - keep-out half sizes: the cabin's is now 5.5 × 5.5, the shack's 3.4 × 3.8;
+  - your own cabin prefab can mark spots with children named `Nightstand` and `Workbench`;
+  - WorldGenTests now check the cabin's nightstand and workbench loot. All 23 world-gen tests pass, and 0 of 60 seeds are short.

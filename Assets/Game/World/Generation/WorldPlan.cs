@@ -12,7 +12,7 @@ namespace Game.World.Generation
     /// <summary>What can be found in the places (section 3.7). Snacks are eaten where they're found.</summary>
     public enum LootKind { Battery, Torch, Lighter, KeyFob, Snack, FlareGun, Glowsticks, Camera, Map, Radio }
     /// <summary>Where in a place it is.</summary>
-    public enum LootPlace { Table, Tent, Backpack, GloveBox, Trunk, Deck, BackSeat }
+    public enum LootPlace { Table, Tent, Backpack, GloveBox, Trunk, Deck, BackSeat, Nightstand, Workbench }
 
     /// <summary>Something to find: which place (an index into the plan's structures), where in it, what and how many.</summary>
     public struct Loot
