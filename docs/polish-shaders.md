@@ -1460,3 +1460,8 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 
 - **No more overlap:** the eye's elevation is now raised when needed, so the bottom of its opening sits **eyeClearance** (4°) of sky above the crown of the giant's head as drawn, capped at 86°. It used to sit over the head. Its swirl of cloud can still spread round behind. (GiantConfig → The eye.)
 - **Blur follows the eye:** the far blur now tracks how open the eye is. As it opens, the blur lifts until the eye and the giant are pin sharp. As it shuts, the blur comes back, and it stays on through the fall, the landing and the walk, as before.
+
+## The giant's search beam stays at its eyes
+
+- **The problem:** the scan beam (and the 10th-lamp searchlights) came from a fixed point in the giant's body space: where its eyes sit at rest. Once it woke and its head bent and turned, the real eyes moved away from that point, and the beam was left coming out of its mouth.
+- **The fix:** `GiantBody.EyesWorld(side)` gives where the eyes actually are now, the midpoint for the scan and the left and right eye for the two searchlights. For your own model, it falls back to the rest point.

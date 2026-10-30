@@ -220,6 +220,17 @@ namespace Game.Entities
         }
 
         Transform[] eyes = new Transform[0];
+
+        /// <summary>
+        /// Where its eyes are now, in the world (one of them, or between the two: -1 left, 0 between, 1 right). They
+        /// move with its head as it bends and looks; <see cref="EyesLocal"/> is only where they'd be at rest.
+        /// </summary>
+        public Vector3 EyesWorld(float side = 0f)
+        {
+            if (eyes.Length == 2 && eyes[0] != null && eyes[1] != null)
+                return Vector3.LerpUnclamped(eyes[0].position, eyes[1].position, (side + 1f) * 0.5f);
+            return transform.TransformPoint(EyesLocal + new Vector3(side * 0.02f, 0f, 0f));
+        }
         Material eyeMat;
 
         /// <summary>Its own eyes (once it wakes): <paramref name="open"/> 0 shut to 1 wide, glowing this colour.</summary>

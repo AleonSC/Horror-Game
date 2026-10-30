@@ -789,7 +789,7 @@ namespace Game.Entities
             if (scanRoot.gameObject.activeSelf != on) scanRoot.gameObject.SetActive(on);
             if (!on) return;
 
-            Vector3 from = bodyRoot.TransformPoint(body.EyesLocal);
+            Vector3 from = body.EyesWorld(); // (where its eyes are now, its head bent or turned, not where they'd be at rest)
             Vector3 gaze = body.HeadJoint.forward;
             float yaw = Mathf.Atan2(gaze.x, gaze.z) * Mathf.Rad2Deg;
             float sweep = State == GiantState.Walking && scanLeft <= 0f ? Mathf.Sin(Time.time * s.scanSweepSpeed * Mathf.PI * 2f * 0.25f) * s.scanSweep : 0f;
@@ -858,7 +858,7 @@ namespace Game.Entities
             for (int i = 0; i < 2; i++)
             {
                 var l = searchlights[i];
-                Vector3 from = bodyRoot.TransformPoint(body.EyesLocal + new Vector3(i == 0 ? -0.02f : 0.02f, 0f, 0f));
+                Vector3 from = body.EyesWorld(i == 0 ? -1f : 1f);
                 float dist = Vector3.Distance(from, searchAim);
                 l.transform.SetPositionAndRotation(from, Quaternion.LookRotation(searchAim - from));
                 l.spotAngle = Mathf.Clamp(2f * Mathf.Atan(s.searchlightRadius / Mathf.Max(1f, dist)) * Mathf.Rad2Deg, 0.5f, 60f);
