@@ -1496,3 +1496,12 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - The buzz pauses in the dark room and when the game is paused.
 - **Looks:** a 9 mm dark body with two faint wing blurs.
 - **Settings:** ForestLifeConfig → Flies: `flies`, `flyRange`, `flyVisit`, `flyHeard`, `flyVolume`.
+
+## Distant trees jumping; leaf piles floating off the crowns
+
+- **Trees jumping in the distance:** the map (320 m) wraps. Each 32 m chunk of ground and trees is kept at its copy nearest you, and a chunk half a map away (160 m) flips to its copy on the far side as you move. Trees were drawn out to 200 m, past that line, so distant trees could be seen jumping from one side to the other. Trees and boulders now stop half a chunk short of the line (`ForestPopulator.TreeRange` = min(200, mapSize/2 − 18) = 142 m), so the flip happens where nothing is drawn. Drawing extra copies instead was tried and rejected, because the ground only exists at the nearest copy and trees would have floated over nothing.
+- **Leaves reshuffling between detail levels:** each oak clump's cards used to be dealt out afresh at each level of detail, so as you came nearer or went away, the crown's leaves jumped about. Each clump now has its own random stream. The far levels' cards are the first few of the near level's: in the same places and turned the same way, only bigger and pulled in a little so the clump stays the same size.
+- **Floating leaf piles:** the side branches ran out up to half a limb's length, each ending in a clump of 1.8–2.5 m. Their branch was a thin twig, and at the far level of detail it wasn't drawn at all, so the clump hung out on its own like a pile of leaves floating off the rest. Side branches are now shorter (0.18–0.3 of the limb, from 0.3–0.5), so their clumps sit into the crown's mass, and the branch is drawn at every distance.
+- **Offline check** (`lodcheck`, oak crowns from the nearest level to the farthest):
+  - crown size change was 8–15%, now 3–6%;
+  - trunk size change was 5–14% (the missing side branches), now 0%.

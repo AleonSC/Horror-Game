@@ -13,7 +13,13 @@ namespace Game.World.Build
     /// </summary>
     public sealed class ForestPopulator
     {
-        const float GrassRange = 45f, TallGrassRange = 60f, BushRange = 65f, RockRange = 75f, TreeRange = 200f;
+        const float GrassRange = 45f, TallGrassRange = 60f, BushRange = 65f, RockRange = 75f;
+
+        // Trees (and boulders) out to 200 m, but never as far as half the map: the world wraps, each 32 m chunk of
+        // it (ground and trees) kept at its copy nearest you, and a chunk half a map off flips to its copy on the
+        // far side as you move. Drawn out past that line, distant trees could be seen jumping from one side to the
+        // other; so they stop short of it, by half a chunk.
+        float TreeRange => Mathf.Min(200f, plan.Size * 0.5f - TerrainBuilder.ChunkSize * 0.5f - 2f);
         static readonly float[] TreeLods = { 40f, 95f };
 
         readonly WorldPlan plan;

@@ -100,9 +100,11 @@ namespace Game.World.Build
                     float t = Range(rng, 0.35f, 0.85f);
                     Vector3 from = t < 0.5f ? Vector3.Lerp(start, bend, t * 2f) : Vector3.Lerp(bend, end, (t - 0.5f) * 2f);
                     Vector3 dir = (outward + new Vector3(Range(rng, -0.9f, 0.9f), Range(rng, 0.1f, 0.9f), Range(rng, -0.9f, 0.9f))).normalized;
-                    Vector3 tip = from + dir * length * Range(rng, 0.3f, 0.5f);
+                    // (Short, so its clump sits into the crown's mass rather than hanging out on its own like a pile of
+                    // leaves floating off the rest; its branch drawn at every distance.)
+                    Vector3 tip = from + dir * length * Range(rng, 0.18f, 0.3f);
                     float r = r0 * Mathf.Lerp(0.5f, 0.2f, t);
-                    if (lod < 2) trunk.AddTube(from, tip, r, r * 0.2f, 3);
+                    trunk.AddTube(from, tip, r, r * 0.2f, 3);
                     clumps.Add((tip, Range(rng, 1.8f, 2.5f)));
                 }
             }
@@ -118,17 +120,24 @@ namespace Game.World.Build
             AddRoots(trunk, rootRng, radius * 1.3f, lod == 0 ? 6 : lod == 1 ? 4 : 0, Mathf.Max(3, sides - 4), roots);
 
             // The leaves: each clump a cluster of cards, the canopy's shading rounded (normals out from its middle).
-            // (Far off: fewer, bigger cards, spread to fill the same clumps.)
+            // (Far off: fewer, bigger cards. Each clump's cards come from its own stream, so the far ones are the
+            // first few of the near ones, in the same places and turned the same way, only bigger and pulled in a
+            // little so the clump stays the same size: it used to deal them all out afresh, and the crown's leaves
+            // jumped about as you came nearer or went away.)
             int cards = lod == 0 ? 34 : lod == 1 ? 14 : 7;
             float cardSize = lod == 0 ? 1.4f : lod == 1 ? 2.3f : 3.4f;
             foreach (var (at, size) in clumps)
+            {
+                var clumpRng = new System.Random(leafRng.Next());
+                float pull = Mathf.Clamp01((size - (cardSize - 1.4f) * 0.5f) / size);
                 for (int c = 0; c < cards; c++)
                 {
-                    Vector3 offset = Random3(leafRng) * size * Mathf.Sqrt((float)leafRng.NextDouble());
-                    Vector3 centre = at + offset;
+                    Vector3 offset = Random3(clumpRng) * size * Mathf.Sqrt((float)clumpRng.NextDouble());
+                    Vector3 centre = at + offset * pull;
                     Vector3 normal = (offset + Vector3.up * size * 0.3f).normalized;
-                    LeafCard(leaves, centre, normal, cardSize * Range(leafRng, 0.8f, 1.25f), leafRng);
+                    LeafCard(leaves, centre, normal, cardSize * Range(clumpRng, 0.8f, 1.25f), clumpRng);
                 }
+            }
             return (trunk, leaves);
         }
 
