@@ -42,6 +42,10 @@ namespace Game.Entities
         public float arriveFar = 30f;
         [Range(0f, 15f), Tooltip("Coming up in the trees, it bursts every tree within this of it.")]
         public float arriveBreakRadius = 6f;
+        [Range(0f, 80f), Tooltip("Out of the ground, it stretches its neck up this far above its shoulders (metres; the trees are 11-22 m), its head high over the treetops, looking round (0: it doesn't).")]
+        public float arriveNeck = 30f;
+        [Tooltip("It flings its arms wide as it roars on arriving (off: they hang).")]
+        public bool arriveArms = false;
         [Range(10f, 120f), Tooltip("Gone a while (driven off, after taking you), it comes back this far from you.")]
         public float arriveDistance = 45f;
         [Range(2f, 20f)] public float height = 7.4f;

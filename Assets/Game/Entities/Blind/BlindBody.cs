@@ -38,6 +38,8 @@ namespace Game.Entities
 
         /// <summary>Its head held turned this way (degrees from where it faces), as at a sound; null: it looks round as it likes.</summary>
         public float? HoldLook;
+        /// <summary>How far its arms spread when it roars (0: they hang, 1: flung wide).</summary>
+        public float ArmRoar = 1f;
         /// <summary>Its head held tipped down this far (degrees), as at you far below; null: level.</summary>
         public float? HoldPitch;
         float pitchShown;
@@ -409,7 +411,7 @@ namespace Game.Entities
             for (int i = 0; i < 2; i++)
             {
                 float s = i == 0 ? -1f : 1f;
-                arms[i].localRotation = Quaternion.Euler(Mathf.Sin(t * 0.6f + i * 1.5f) * 3f - roar * 35f, 0f, s * roar * 40f);
+                arms[i].localRotation = Quaternion.Euler(Mathf.Sin(t * 0.6f + i * 1.5f) * 3f - roar * ArmRoar * 35f, 0f, s * roar * ArmRoar * 40f);
             }
         }
 

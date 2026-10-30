@@ -1614,3 +1614,10 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
     - glow over the rim: a fifth of what it was, and smaller;
     - light: **intensity** 2.5 (from 6).
   - All of these can be tweaked on the components.
+
+## The blind one's entrance: no arms flung up, its head stretched high looking round; the barrel's light lower still
+
+- **Arms:** on arriving, its arms no longer fling wide as it roars; they hang (BlindConfig → **arriveArms**, off). It still roars, head thrown back and jaw wide. `BlindBody.ArmRoar` scales the spread, and goes back to 1 once it's out.
+- **Neck:** from 8 s, just after the roar, its neck stretches up and up until its head is **arriveNeck** (30 m) above its shoulders, high over the treetops, and it looks round (the head turning this way and that) until it moves off at 14.5 s.
+- **Your view:** your locked gaze follows its head up as the neck rises.
+- **Burn barrel:** light **intensity** 0.8 (from 2.5) over a smaller **range** (6 m, from 9), and flames at **flameBrightness** 0.45 (from 0.7).

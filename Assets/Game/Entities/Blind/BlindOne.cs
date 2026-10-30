@@ -129,7 +129,9 @@ namespace Game.Entities
             body.ResetFeet();
             SetState(BlindState.Arriving);
             // Your eyes are dragged to where it breaks out, and held on it through its roar.
-            player.LockGaze(() => transform.position + Vector3.up * s.height * Mathf.Lerp(0.15f, 0.75f, Mathf.Clamp01((stateTime - 3.5f) / 1.2f)), 10.2f);
+            // (Then up after its head, as its neck stretches it high over the trees.)
+            player.LockGaze(() => Vector3.Lerp(transform.position + Vector3.up * s.height * Mathf.Lerp(0.15f, 0.75f, Mathf.Clamp01((stateTime - 3.5f) / 1.2f)),
+                body.HeadWorld, s.arriveNeck > 0f ? Mathf.SmoothStep(0f, 0.8f, (stateTime - 8f) / 2.5f) : 0f), 10.2f);
             if (Services.TryGet<EventBus>(out var events))
             {
                 events.Publish(new BossThemeStarted(EntityKind.Blind));
@@ -369,6 +371,9 @@ namespace Game.Entities
             transform.position = p;
             if (t >= 4.2f && t - dt < 4.2f) body.ResetFeet(); // (out of the ground: on its feet)
             roar = t > 7.6f && t < 10f ? Mathf.Sin((t - 7.6f) / 2.4f * Mathf.PI) : 0f;
+            body.ArmRoar = s.arriveArms ? 1f : 0f;
+            // After its roar, its neck stretches up and up, its head high over the treetops, looking round.
+            stretch = t > 8f && s.arriveNeck > 0f ? s.arriveNeck / Mathf.Max(1f, s.neckReach) : 0f;
             if (t >= 7.6f && t - dt < 7.6f)
             {
                 Play(Sound.BlindRoar, 1f, Random.Range(0.85f, 0.93f), 200f);
@@ -383,6 +388,7 @@ namespace Game.Entities
             Face(player.transform.position);
             if (t >= 14.5f)
             {
+                body.ArmRoar = 1f;
                 SetState(BlindState.Roaming);
                 target = RoamPoint();
             }

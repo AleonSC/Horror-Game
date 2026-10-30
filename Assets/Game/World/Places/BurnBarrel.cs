@@ -24,12 +24,12 @@ namespace Game.World
         [Tooltip("Radius of the safe circle round it while it burns (metres).")]
         public float safeRadius = 4f;
         public Color fireColor = new Color(1f, 0.48f, 0.18f);
-        [Range(0f, 100f)] public float intensity = 2.5f;
+        [Range(0f, 100f)] public float intensity = 0.8f;
         [Tooltip("How bright the flames themselves are (keep it low: they bloom).")]
-        public float flameBrightness = 0.7f;
+        public float flameBrightness = 0.45f;
         [Tooltip("How bright the air holes and the embers glow.")]
         public float emberGlow = 0.25f;
-        [Range(1f, 30f)] public float range = 9f;
+        [Range(1f, 30f)] public float range = 6f;
         [Tooltip("How tall the top of the barrel is (metres): the flames come up out of it.")]
         public float top = 0.88f;
         [Tooltip("The holes round its foot (they glow while it burns), and what's inside (it chars).")]
