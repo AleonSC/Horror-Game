@@ -123,7 +123,7 @@ namespace Game.World.Build
         /// <summary>Where the cabin's back rooms' windows are (their middle, metres behind the cabin's middle).</summary>
         const float CabinBackRoom = 2.3f;
         /// <summary>The cabin's two doorways through to the back rooms (each this far either side of the middle), this wide.</summary>
-        const float BackDoorAt = 2.3f, BackDoorWidth = 1.0f, BackDoorHeight = 2.1f;
+        const float BackDoorAt = 2.3f, BackDoorWidth = 1.25f, BackDoorHeight = 2.1f;
 
         static Vector3 WallPoint(int wall, float at, float hw, float hd) => wall switch
         {

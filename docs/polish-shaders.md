@@ -1579,3 +1579,26 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Untested in Unity:**
   - The black fog needs volumetric fog on (as the ground mist does). With it off, the steps fade only by the dark.
   - Check the loop is seamless. If the hallway behind visibly jumps, set `loopSteps` lower.
+
+## Bunker: roomier way through; no flicker at the entrance; a burn barrel; flashing bulkhead lamps
+
+- **Getting stuck:**
+  - The doorway from the room to the hallway was 1.0 m wide. Unity's default player capsule (0.5 m radius plus its skin) needs about 1.16 m, so you caught on it. It's now 1.3 m wide and 2.2 m high (`BunkerPlan.DoorWidth`, `DoorHeight`).
+  - The hallway is wider and taller: 1.4 m × 2.4 m, from 1.2 m × 2.15 m.
+  - The stair ramp no longer sticks out a lip past the top step.
+  - The cabin's inner doorways had the same 1.0 m problem; they're now 1.25 m.
+  - Anything placed in the way dug for the hallway and stairs is removed at the end of generation (`BunkerPlan.ClearWay`): trees, bushes, rocks, boulders, logs, grass, batteries. A few seeds had put a rock, a log or a battery there.
+- **Flicker at the entrance:** two sets of faces sat in the same planes and z-fought.
+  - The entrance corridor's walls and ceiling ran on through the room's front wall, in the same planes as that doorway's sides and top. They now stop at the wall.
+  - The lips round the front doorway were sunk 1 cm into the face, their sides in the doorway's planes. They now stand in front of it.
+- **The burn barrel** replaces the plain rusted drum (now by the front corner of the room). It's an oil drum made a burn barrel:
+  - **Model:** ribbed rusty steel with rolling hoops and chimes, patches of flaking olive paint, rust streaks, soot up over the rim, a dent, a ragged rim where the lid was cut off, a ring of air holes punched round its foot, split wood and old paper heaped inside, and a scorch on the floor round it.
+  - **Lighting it:** click it with a lighter (`World.BurnBarrel`, 5% of a lighter's fuel) and it catches.
+  - **Burning:** flames lick up out of the top, the air holes glow orange, a warm light dances over the room (soft shadows), it crackles, smoke rises off it, and it makes a small safe circle (4 m).
+  - **Burning out:** after 5 minutes it dies down over 45 s, the wood chars, and it's spent.
+  - All of this is tweakable on the component.
+- **Bulkhead lamps** either side of the bunker door, after the reference photo:
+  - an oval black housing on the concrete, a frosted glass dome, and a black cage over it (a rim round the oval, a bar bowing down the middle and two across), with screws top and bottom;
+  - each slowly swells green and fades, then swells red and fades, the two out of step so one is green while the other's red (`World.BunkerLights`: `period` 6 s, `glassGlow`, `lightIntensity`, `lightRange`);
+  - each throws a matching coloured light on the front and the ground.
+- All tests pass, and the bunker is still placed on all 60 test seeds.

@@ -31,8 +31,9 @@ namespace Game.World.Generation
                 var watch = Stopwatch.StartNew();
                 Stages[i].Run(plan, s, new Rng(seed, i + 1));
                 timings?.Add($"{Stages[i].Name}: {watch.ElapsedMilliseconds} ms");
-                if (Stages[i].Name == stopAfter) break;
+                if (Stages[i].Name == stopAfter) return plan;
             }
+            BunkerPlan.ClearWay(plan);
             return plan;
         }
     }

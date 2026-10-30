@@ -549,9 +549,12 @@ namespace Game.World.Build
             Box(t, new Vector3(0f, (doorH + faceH) * 0.5f, F - faceD * 0.5f), new Vector3(doorW, faceH - doorH, faceD), concrete);
             Box(t, new Vector3(0f, faceH + 0.17f, F - faceD * 0.5f + 0.05f), new Vector3(faceW + 0.4f, 0.34f, faceD + 0.3f), concrete);
             // (A lip round the doorway, a touch proud of the face.)
-            Box(t, new Vector3(-hw - 0.1f, doorH * 0.5f, F + 0.04f), new Vector3(0.2f, doorH + 0.1f, 0.1f), concrete, false);
-            Box(t, new Vector3(hw + 0.1f, doorH * 0.5f, F + 0.04f), new Vector3(0.2f, doorH + 0.1f, 0.1f), concrete, false);
-            Box(t, new Vector3(0f, doorH + 0.1f, F + 0.05f), new Vector3(doorW + 0.4f, 0.22f, 0.12f), concrete, false);
+            // (Standing out in front of the face, not sunk into it: their sides were in the same planes as the
+            // doorway's, and flickered.)
+            Box(t, new Vector3(-hw - 0.1f, doorH * 0.5f, F + 0.05f), new Vector3(0.2f, doorH + 0.1f, 0.1f), concrete, false);
+            Box(t, new Vector3(hw + 0.1f, doorH * 0.5f, F + 0.05f), new Vector3(0.2f, doorH + 0.1f, 0.1f), concrete, false);
+            Box(t, new Vector3(0f, doorH + 0.11f, F + 0.06f), new Vector3(doorW + 0.4f, 0.22f, 0.12f), concrete, false);
+            BunkerLamps(t, new[] { new Vector3(-hw - 0.75f, doorH - 0.05f, F), new Vector3(hw + 0.75f, doorH - 0.05f, F) });
 
             // The wing walls, angling out and stepping down.
             for (int side = -1; side <= 1; side += 2)
@@ -570,7 +573,9 @@ namespace Game.World.Build
             // Inside: the corridor, then the room (walls, floor and ceiling of darker, damp concrete).
             float corridorBack = F - faceD - 2.6f, roomFront = corridorBack, roomBack = roomFront - 3f;
             const float roomHalf = 1.6f, roomH = 2.3f;
-            float cz = (F - faceD + corridorBack) * 0.5f, cl = F - faceD - corridorBack;
+            // (The corridor runs back to the room's front wall, not into it: its walls and ceiling used to carry on
+            // through the wall's thickness, in the same planes as the doorway's sides and top, and flickered.)
+            float cz = (F - faceD + corridorBack + wall) * 0.5f, cl = F - faceD - corridorBack - wall;
             Box(t, new Vector3(-hw - wall * 0.5f, doorH * 0.5f, cz), new Vector3(wall, doorH, cl), concreteDark);
             Box(t, new Vector3(hw + wall * 0.5f, doorH * 0.5f, cz), new Vector3(wall, doorH, cl), concreteDark);
             Box(t, new Vector3(0f, doorH + 0.15f, cz), new Vector3(doorW + wall * 2f, 0.3f, cl), concreteDark);
@@ -580,12 +585,12 @@ namespace Game.World.Build
             Box(t, new Vector3(roomHalf + wall * 0.5f, roomH * 0.5f, rz), new Vector3(wall, roomH, rl), concreteDark);
             // The back wall, a doorway through it to the hallway.
             {
-                const float dw = 1.0f;
+                float dw = BunkerPlan.DoorWidth, dh = BunkerPlan.DoorHeight;
                 float dx = BunkerPlan.HallX, l = -roomHalf - wall, r = roomHalf + wall;
                 float a = dx - dw * 0.5f, b = dx + dw * 0.5f;
                 Box(t, new Vector3((l + a) * 0.5f, roomH * 0.5f, roomBack - wall * 0.5f), new Vector3(a - l, roomH, wall), concreteDark);
                 Box(t, new Vector3((b + r) * 0.5f, roomH * 0.5f, roomBack - wall * 0.5f), new Vector3(r - b, roomH, wall), concreteDark);
-                Box(t, new Vector3(dx, (doorH + roomH) * 0.5f, roomBack - wall * 0.5f), new Vector3(dw, roomH - doorH, wall), concreteDark);
+                Box(t, new Vector3(dx, (dh + roomH) * 0.5f, roomBack - wall * 0.5f), new Vector3(dw, roomH - dh, wall), concreteDark);
             }
             BunkerHallway(t, rng);
             float flank = roomHalf - hw;
@@ -597,7 +602,7 @@ namespace Game.World.Build
             // What's left in it: the crate (its loot goes on top), a drum, some rubble.
             Box(t, PlaceFittings.BunkerCrateSpot + new Vector3(0f, 0.37f, 0f), new Vector3(1f, 0.74f, 0.6f), wood);
             for (int i = 0; i < 3; i++) Box(t, PlaceFittings.BunkerCrateSpot + new Vector3(0f, 0.15f + i * 0.22f, 0.305f), new Vector3(1.02f, 0.04f, 0.02f), darkWood, false);
-            Shape(PrimitiveType.Cylinder, t, new Vector3(-roomHalf + 0.4f, 0.45f, roomFront - 0.5f), new Vector3(0.58f, 0.45f, 0.58f), rust, true);
+            BurnBarrel(t, new Vector3(-roomHalf + 0.45f, 0f, roomFront - 0.55f), rng);
             for (int i = 0; i < 9; i++)
             {
                 float sz = R(0.08f, 0.25f);
@@ -669,7 +674,7 @@ namespace Game.World.Build
             ceiling.transform.localRotation = Quaternion.Euler(-slope, 0f, 0f);
             Box(t, new Vector3(x, bottom * 0.5f, zEnd - 0.2f), new Vector3(half * 2f, height - bottom + 1f, 0.4f), Keep(RuntimeMaterials.Unlit("Nothing", Color.black, false)));
             // The ramp you actually walk on (unseen), along the middles of the steps' tops.
-            var ramp = Box(t, new Vector3(x, -0.1f + bottom * 0.5f - rise * 0.5f, (z1 + zEnd) * 0.5f), new Vector3(half * 2f, 0.2f, along + 0.4f), concreteDark);
+            var ramp = Box(t, new Vector3(x, -0.1f + bottom * 0.5f - rise * 0.5f, (z1 + zEnd) * 0.5f), new Vector3(half * 2f, 0.2f, along), concreteDark);
             ramp.transform.localRotation = Quaternion.Euler(-slope, 0f, 0f);
             ramp.GetComponent<Renderer>().enabled = false;
 
@@ -688,6 +693,154 @@ namespace Game.World.Build
             // Going down... and never getting any further.
             var loop = t.gameObject.AddComponent<StairLoop>();
             loop.Set(new Vector3(x, 0f, z1), half, rise, run);
+        }
+
+        // An old oil drum made a burn barrel (light it with a lighter: see World.BurnBarrel): ribbed steel gone to
+        // rust, a band of its old olive paint flaking off, rust running down it in streaks, a dent in its side, its
+        // lid cut off and the rim left ragged, a ring of holes punched round its foot for air, split wood and
+        // rubbish heaped inside, a scorch on the floor round it.
+        void BurnBarrel(Transform t, Vector3 at, System.Random rng)
+        {
+            float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
+            const float r = 0.29f, hgt = 0.88f;
+            var root = new GameObject("Burn barrel") { layer = Layers.Props }.transform;
+            root.SetParent(t, false);
+            root.localPosition = at;
+            root.localRotation = Quaternion.Euler(0f, R(0f, 360f), 0f);
+            var paint = Keep(RuntimeMaterials.Lit("Drum paint", new Color(0.13f, 0.15f, 0.08f), 0.3f));
+            var streak = Keep(RuntimeMaterials.Lit("Rust streak", new Color(0.24f, 0.09f, 0.03f), 0.2f));
+            var soot = Keep(RuntimeMaterials.Lit("Soot", new Color(0.015f, 0.013f, 0.012f), 0.1f));
+            var dark = Keep(RuntimeMaterials.Lit("Inside the drum", new Color(0.02f, 0.015f, 0.012f), 0.1f));
+            var wood = Keep(RuntimeMaterials.Lit("Split wood", new Color(0.22f, 0.16f, 0.1f), 0.1f));
+            var charred = Keep(RuntimeMaterials.Lit("Charred wood", new Color(0.03f, 0.025f, 0.02f), 0.15f));
+            // The drum: its wall (what you click), the rolling hoops and the chimes top and bottom.
+            Shape(PrimitiveType.Cylinder, root, new Vector3(0f, hgt * 0.5f, 0f), new Vector3(r * 2f, hgt * 0.5f, r * 2f), rust, true);
+            foreach (float y in new[] { hgt * 0.34f, hgt * 0.66f })
+                Shape(PrimitiveType.Cylinder, root, new Vector3(0f, y, 0f), new Vector3(r * 2f + 0.025f, 0.012f, r * 2f + 0.025f), rust, false);
+            foreach (float y in new[] { 0.015f, hgt - 0.012f })
+                Shape(PrimitiveType.Cylinder, root, new Vector3(0f, y, 0f), new Vector3(r * 2f + 0.03f, 0.014f, r * 2f + 0.03f), rust, false);
+            // The paint band, flaking: patches of it left round the upper part.
+            for (int i = 0; i < 9; i++)
+            {
+                float a = R(0f, Mathf.PI * 2f), w = R(0.06f, 0.16f), h = R(0.05f, 0.14f);
+                var patch = Shape(PrimitiveType.Cube, root, new Vector3(Mathf.Cos(a) * (r + 0.004f), R(0.5f, 0.78f), Mathf.Sin(a) * (r + 0.004f)), new Vector3(w, h, 0.004f), paint, false);
+                patch.transform.localRotation = Quaternion.LookRotation(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)));
+            }
+            // Rust running down it, and soot up over the rim.
+            for (int i = 0; i < 7; i++)
+            {
+                float a = R(0f, Mathf.PI * 2f), len = R(0.15f, 0.5f);
+                var s = Shape(PrimitiveType.Cube, root, new Vector3(Mathf.Cos(a) * (r + 0.006f), hgt - 0.05f - len * 0.5f, Mathf.Sin(a) * (r + 0.006f)), new Vector3(R(0.015f, 0.04f), len, 0.004f), streak, false);
+                s.transform.localRotation = Quaternion.LookRotation(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)));
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                float a = i / 10f * Mathf.PI * 2f + R(-0.1f, 0.1f);
+                var s = Shape(PrimitiveType.Cube, root, new Vector3(Mathf.Cos(a) * (r + 0.005f), hgt - 0.07f, Mathf.Sin(a) * (r + 0.005f)), new Vector3(0.2f, R(0.08f, 0.16f), 0.004f), soot, false);
+                s.transform.localRotation = Quaternion.LookRotation(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)));
+            }
+            // A dent in its side.
+            var dent = Shape(PrimitiveType.Sphere, root, new Vector3(r * 0.93f, 0.32f, 0.05f), new Vector3(0.05f, 0.16f, 0.14f), soot, false);
+            dent.GetComponent<Renderer>().sharedMaterial = streak;
+            // The rim, cut ragged: teeth of the old lid standing up round it.
+            for (int i = 0; i < 14; i++)
+            {
+                float a = i / 14f * Mathf.PI * 2f;
+                if (rng.NextDouble() < 0.4) continue;
+                var tooth = Shape(PrimitiveType.Cube, root, new Vector3(Mathf.Cos(a) * (r - 0.005f), hgt + R(0.01f, 0.03f), Mathf.Sin(a) * (r - 0.005f)), new Vector3(0.09f, R(0.02f, 0.06f), 0.006f), rust, false);
+                tooth.transform.localRotation = Quaternion.LookRotation(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a))) * Quaternion.Euler(R(-15f, 15f), 0f, 0f);
+            }
+            // Its dark inside (seen over the rim), and the wood and rubbish heaped in it.
+            Shape(PrimitiveType.Cylinder, root, new Vector3(0f, hgt - 0.1f, 0f), new Vector3(r * 2f - 0.02f, 0.09f, r * 2f - 0.02f), dark, false);
+            var fuel = new List<Renderer>();
+            for (int i = 0; i < 7; i++)
+            {
+                var stick = Shape(PrimitiveType.Cylinder, root, new Vector3(R(-0.12f, 0.12f), hgt + R(-0.02f, 0.08f), R(-0.12f, 0.12f)), new Vector3(R(0.04f, 0.07f), R(0.14f, 0.24f), R(0.04f, 0.07f)), wood, false);
+                stick.transform.localRotation = Quaternion.Euler(R(40f, 80f), R(0f, 360f), 0f);
+                fuel.Add(stick.GetComponent<Renderer>());
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                var junk = Shape(PrimitiveType.Cube, root, new Vector3(R(-0.1f, 0.1f), hgt - 0.02f, R(-0.1f, 0.1f)), new Vector3(R(0.08f, 0.15f), 0.01f, R(0.08f, 0.13f)), Keep(RuntimeMaterials.Lit("Old paper", new Color(0.4f, 0.37f, 0.3f), 0.1f)), false);
+                junk.transform.localRotation = Quaternion.Euler(R(-20f, 20f), R(0f, 360f), R(-20f, 20f));
+                fuel.Add(junk.GetComponent<Renderer>());
+            }
+            // The holes punched round its foot.
+            var vents = new List<Renderer>();
+            for (int i = 0; i < 8; i++)
+            {
+                float a = (i + 0.5f) / 8f * Mathf.PI * 2f;
+                var hole = Shape(PrimitiveType.Cube, root, new Vector3(Mathf.Cos(a) * (r + 0.003f), 0.12f, Mathf.Sin(a) * (r + 0.003f)), new Vector3(0.05f, 0.035f, 0.004f), dark, false);
+                hole.transform.localRotation = Quaternion.LookRotation(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)));
+                vents.Add(hole.GetComponent<Renderer>());
+            }
+            // A scorch on the floor round it.
+            Shape(PrimitiveType.Cylinder, root, new Vector3(0f, 0.045f, 0f), new Vector3(0.95f, 0.002f, 0.95f), soot, false);
+
+            var barrel = root.gameObject.AddComponent<Game.World.BurnBarrel>();
+            barrel.top = hgt;
+            barrel.vents = vents.ToArray();
+            barrel.fuel = fuel.ToArray();
+            barrel.charred = charred;
+        }
+
+        // The two bulkhead lamps either side of the door (at these points on the front, local): each an oval black
+        // housing on the concrete, a frosted ribbed glass dome, and a black cage over it (a rim round the oval, a
+        // bar down the middle and two across), screws top and bottom. They swell green and red in turn, slowly,
+        // out of step (see World.BunkerLights).
+        void BunkerLamps(Transform t, Vector3[] spots)
+        {
+            var housing = Keep(RuntimeMaterials.Lit("Lamp housing", new Color(0.02f, 0.02f, 0.022f), 0.45f));
+            var glassMats = new Material[spots.Length];
+            var lights = new Light[spots.Length];
+            const float hx = 0.11f, hy = 0.17f; // (half the oval's width and height)
+            for (int i = 0; i < spots.Length; i++)
+            {
+                var lamp = new GameObject("Bulkhead lamp") { layer = Layers.Props }.transform;
+                lamp.SetParent(t, false);
+                lamp.localPosition = spots[i];
+                // The housing: an oval back plate standing off the wall, and its rim.
+                Shape(PrimitiveType.Cylinder, lamp, new Vector3(0f, 0f, 0.03f), new Vector3(hx * 2f + 0.05f, 0.03f, hy * 2f + 0.05f), housing, false).transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                // The frosted glass: half an oval dome (bright when it's lit).
+                glassMats[i] = Keep(RuntimeMaterials.LitGlow("Bulkhead glass", new Color(0.75f, 0.74f, 0.7f), Color.black));
+                Shape(PrimitiveType.Sphere, lamp, new Vector3(0f, 0f, 0.06f), new Vector3(hx * 2f, hy * 2f, 0.12f), glassMats[i], false);
+                // The cage: a rim round the oval (short bars), a bar down the middle, two across.
+                const int segs = 16;
+                for (int k = 0; k < segs; k++)
+                {
+                    float a0 = k / (float)segs * Mathf.PI * 2f, a1 = (k + 1) / (float)segs * Mathf.PI * 2f;
+                    Rod(lamp, new Vector3(Mathf.Cos(a0) * hx, Mathf.Sin(a0) * hy, 0.07f), new Vector3(Mathf.Cos(a1) * hx, Mathf.Sin(a1) * hy, 0.07f), 0.009f, housing);
+                }
+                // (The bars bow out over the dome.)
+                for (int k = 0; k < 6; k++)
+                {
+                    float y0 = Mathf.Lerp(-hy, hy, k / 6f), y1 = Mathf.Lerp(-hy, hy, (k + 1) / 6f);
+                    float z0 = 0.07f + 0.06f * Mathf.Sqrt(Mathf.Max(0f, 1f - (y0 / hy) * (y0 / hy))), z1 = 0.07f + 0.06f * Mathf.Sqrt(Mathf.Max(0f, 1f - (y1 / hy) * (y1 / hy)));
+                    Rod(lamp, new Vector3(0f, y0, z0), new Vector3(0f, y1, z1), 0.008f, housing);
+                }
+                foreach (float y in new[] { -hy * 0.42f, hy * 0.42f })
+                {
+                    float w = hx * Mathf.Sqrt(1f - (y / hy) * (y / hy));
+                    for (int k = 0; k < 4; k++)
+                    {
+                        float x0 = Mathf.Lerp(-w, w, k / 4f), x1 = Mathf.Lerp(-w, w, (k + 1) / 4f);
+                        float z0 = 0.07f + 0.05f * Mathf.Sqrt(Mathf.Max(0f, 1f - (x0 / w) * (x0 / w))), z1 = 0.07f + 0.05f * Mathf.Sqrt(Mathf.Max(0f, 1f - (x1 / w) * (x1 / w)));
+                        Rod(lamp, new Vector3(x0, y, z0), new Vector3(x1, y, z1), 0.008f, housing);
+                    }
+                }
+                foreach (float y in new[] { -hy - 0.012f, hy + 0.012f })
+                    Shape(PrimitiveType.Cylinder, lamp, new Vector3(0f, y, 0.065f), new Vector3(0.022f, 0.004f, 0.022f), housing, false).transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                // Its light, out from the glass.
+                var lightGo = new GameObject("Bulkhead light");
+                lightGo.transform.SetParent(lamp, false);
+                lightGo.transform.localPosition = new Vector3(0f, 0f, 0.25f);
+                UnityEngine.Rendering.HighDefinition.GameObjectExtension.AddHDLight(lightGo, LightType.Point);
+                var l = lightGo.GetComponent<Light>();
+                l.shadows = LightShadows.None;
+                l.enabled = false;
+                lights[i] = l;
+            }
+            t.gameObject.AddComponent<Game.World.BunkerLights>().Set(glassMats, lights);
         }
 
         // A heightfield of earth over the bunker: full height over the box (|x| < half.x, back < z < half.y),
