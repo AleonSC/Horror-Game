@@ -165,6 +165,17 @@ namespace Game.World.Build
                 var lamp = lamps.Create(site.Index, pos, site.Index * 37f, root);
                 wrap.Add(lamp.transform, pos);
             }
+            // By each lamp, a signpost pointing to the nearest other one.
+            var signs = new SignpostFactory(art != null ? art.signpost : null);
+            made.AddRange(signs.Materials);
+            foreach (var site in plan.Lamps)
+            {
+                if (!SignpostFactory.Place(plan, site, out var at, out var toward)) continue;
+                at = Wrap.Into(at, plan.Size);
+                var foot = new Vector3(at.x, plan.GroundAt(at) - 0.05f, at.y);
+                var sign = signs.Create(foot, toward, root, site.Index * 7919 + 13);
+                wrap.Add(sign.transform, foot);
+            }
 
             var props = new Placeholders(made, populator.Bark, populator.Needles, art, ground);
             var loot = new List<Loot>();

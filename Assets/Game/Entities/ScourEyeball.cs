@@ -129,6 +129,11 @@ namespace Game.Entities
                 moteSize[i] = Random.Range(0.02f, 0.05f);
             }
             ball.localScale = Vector3.zero;
+            // (Nothing shows until its first Update poses it: made mid-frame, it's drawn once as it is, and every
+            // mote was a metre-wide black cube and the strand two-metre cylinders, all at the spot: a flicker of
+            // something big and dark as the eye began.)
+            foreach (var m in motes) m.localScale = Vector3.zero;
+            foreach (var p in strand) p.localScale = Vector3.zero;
         }
 
         // A wet gathering as it starts to form.

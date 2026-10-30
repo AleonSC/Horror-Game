@@ -522,11 +522,16 @@ namespace Game.Entities
         float faceDown;   // 0-1: how far the crescendo has built
 
         /// <summary>Your beam on it, anywhere on its body (chest, head or hips), with nothing in the way.</summary>
+        // (A trunk right against it doesn't shade it: standing beside one, or with its body half in one, or its head
+        // peeking round one, the ray to it grazed the bark and your light did nothing, so you could walk right up
+        // to it. Only something solid well clear of it, between you and it, hides it from your beam.)
+        const float ShadeClear = 1.1f;
+
         bool LitByBeam(float margin)
         {
-            return PlayerSense.InBeam(player, body.Chest, margin)
-                || PlayerSense.InBeam(player, body.EyePoint, margin)
-                || PlayerSense.InBeam(player, transform.position + Vector3.up * s.height * growth * 0.35f, margin);
+            return PlayerSense.InBeam(player, body.Chest, margin, false, ShadeClear)
+                || PlayerSense.InBeam(player, body.EyePoint, margin, false, ShadeClear)
+                || PlayerSense.InBeam(player, transform.position + Vector3.up * s.height * growth * 0.35f, margin, false, ShadeClear);
         }
 
         void StartFacedDown()

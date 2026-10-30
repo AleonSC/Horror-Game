@@ -47,6 +47,8 @@ namespace Game.World
         [Header("Places (prefabs placed where the plan puts them)")]
         [Tooltip("A lamp post. Give it a Lamp component (or name its parts Light, Marker, Glass and Crank).")]
         public GameObject lamp;
+        [Tooltip("The signpost by each lamp, pointing to the nearest other lamp: pointing along +Z, its foot at the pivot. Empty: the built-in one.")]
+        public GameObject signpost;
         public GameObject cabin;
         public GameObject shack;
         public GameObject campsite;

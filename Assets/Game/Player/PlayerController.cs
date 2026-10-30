@@ -510,6 +510,8 @@ namespace Game.Player
         /// <summary>Slow the player approaching a point from slowFrom metres, stopping at stopAt. Call every frame.</summary>
         public void LimitApproach(Vector3 point, float slowFrom, float stopAt)
         {
+            // (Two at once: the nearer one holds you off; the last to ask used to win, so you could walk into the other.)
+            if (limitFrame == Time.frameCount && (point - transform.position).sqrMagnitude - stopAt * stopAt > (limitPoint - transform.position).sqrMagnitude - limitStopAt * limitStopAt) return;
             limitPoint = point;
             limitSlowFrom = slowFrom;
             limitStopAt = stopAt;

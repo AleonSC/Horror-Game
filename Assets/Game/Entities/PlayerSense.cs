@@ -23,7 +23,8 @@ namespace Game.Entities
         }
 
         /// <summary>Is the flashlight on and lighting the point (with a margin in degrees round the beam's edge)?</summary>
-        public static bool InBeam(PlayerController player, Vector3 point, float marginDegrees, bool ignoreBlockers = false)
+        /// <param name="clearNear">Anything solid within this of the point doesn't count (a trunk the thing's standing against, or half in).</param>
+        public static bool InBeam(PlayerController player, Vector3 point, float marginDegrees, bool ignoreBlockers = false, float clearNear = 0.35f)
         {
             var light = player != null ? player.Flashlight : null;
             if (light == null || !light.IsOn) return false;
@@ -32,16 +33,16 @@ namespace Game.Entities
             float dist = to.magnitude;
             if (dist > light.Reach) return false;
             if (Vector3.Angle(beam.forward, to) > light.Settings.beamAngle * 0.5f + marginDegrees) return false;
-            return ignoreBlockers || !Occluded(beam.position, point);
+            return ignoreBlockers || !Occluded(beam.position, point, clearNear);
         }
 
         /// <summary>Is something solid between the two points (stopping a little short of the far one)?</summary>
-        public static bool Occluded(Vector3 from, Vector3 to)
+        public static bool Occluded(Vector3 from, Vector3 to, float shortBy = 0.35f)
         {
             Vector3 d = to - from;
             float dist = d.magnitude;
-            if (dist < 0.4f) return false;
-            return Physics.Raycast(from, d / dist, dist - 0.35f, Blockers, QueryTriggerInteraction.Ignore);
+            if (dist < shortBy + 0.05f) return false;
+            return Physics.Raycast(from, d / dist, dist - shortBy, Blockers, QueryTriggerInteraction.Ignore);
         }
 
         /// <summary>Horizontal distance between two points.</summary>
