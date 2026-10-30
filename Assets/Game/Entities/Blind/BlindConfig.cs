@@ -13,6 +13,21 @@ namespace Game.Entities
         public GameObject customModel;
 
         public BlindSettings settings = new BlindSettings();
+
+        const int Version = 1;
+        [SerializeField, HideInInspector] int savedUnder;
+
+        void OnEnable()
+        {
+            if (savedUnder >= Version) return;
+            var fresh = new BlindSettings();
+            var s = settings ?? (settings = fresh);
+            s.lampWatch = fresh.lampWatch; // (version 1: a lamp lit is its extreme listening, longer)
+            savedUnder = Version;
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
     }
 
     [Serializable]
@@ -79,8 +94,12 @@ namespace Game.Entities
         public float hardListenReach = 30f;
 
         [Header("Lamps")]
-        [Range(0f, 30f), Tooltip("Each time you light a lamp, wherever it is it stops, raises its head high over the trees and turns to stare at you, this long (0: never).")]
-        public float lampWatch = 6f;
+        [Range(0f, 30f), Tooltip("Each time you light a lamp, wherever it is and whatever it's doing (unless it's taking you), it stops dead and listens its hardest: its neck runs up and up until its head is high over the treetops, turned to stare down at you. This long (0: never)...")]
+        public float lampWatch = 12f;
+        [Range(10f, 80f), Tooltip("...its head this far above its shoulders (metres; the trees are 11-22 m)...")]
+        public float lampNeckReach = 34f;
+        [Range(1f, 4f), Tooltip("...hearing everything this many times further: move at all within its hard-listening reach x this, even crouched, and it comes. Stand still till its head comes down.")]
+        public float lampHearing = 2f;
 
         [Header("Your light clicking (x difficulty)")]
         [Range(0f, 80f), Tooltip("Click your flashlight on or off within this of it and it hears it: it stops, snaps its head round to the sound and raises it high over the trees, listening...")]

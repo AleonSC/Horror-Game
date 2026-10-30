@@ -1418,3 +1418,14 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Look:** the leaves now have a leaf-shaped mesh, and the falling ones are bigger and a warmer, lighter brown so they catch your flashlight.
 - **Settings:** all in ForestLifeConfig → Leaves: `fallingLeaves`, `fallingLeafReach`, `fallingLeafWait`, `fallingLeafGusts`, `fallingLeafHeight`, `fallingLeafSpeed`, `fallingLeafLie`, `fallingLeafSize` and `fallingLeafColour`.
 - **Saved config:** ForestLifeConfig now has a config version, which raises a saved count of 30 up to 90 once.
+
+## Lamp lit = the blind one's extreme listening
+
+- **What happens:** lighting a lamp now triggers its hardest listening, wherever it is and whatever it's doing. It reacts while perched, listening, searching, rushing or striding; only taking you, being away or arriving are left alone. It then:
+  - stops dead and gives one slow, deep click that carries 120 m;
+  - runs its neck up until its head is **34 m** above its shoulders (`lampNeckReach`), well over the 11–22 m treetops. It gets there in about 3 s;
+  - turns its head and body to you and tips its head down to stare at you (`BlindBody.HoldPitch`);
+  - holds this for **12 s** (`lampWatch`; the config version upgrades a saved 6).
+- **Hearing:** while it stares, its hearing reaches `lampHearing` (2×) further. Move at all within 60 m, even crouched, and it comes. The safe move is to stand still in the lamp light until its head comes down.
+- **Neck:** `BlindBody.Pose` now takes a stretch above 1, meaning a neck longer than `neckReach`. The neck sway is scaled down on long necks so the head doesn't swing wildly.
+- **Fix:** a rush toward a noise inside lamp light used to leave it waiting at the edge forever. Now, after 3 s blocked by the light, it switches to searching where it stands, and goes back to perching after about 50 s.

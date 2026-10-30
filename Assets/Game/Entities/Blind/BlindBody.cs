@@ -38,6 +38,9 @@ namespace Game.Entities
 
         /// <summary>Its head held turned this way (degrees from where it faces), as at a sound; null: it looks round as it likes.</summary>
         public float? HoldLook;
+        /// <summary>Its head held tipped down this far (degrees), as at you far below; null: level.</summary>
+        public float? HoldPitch;
+        float pitchShown;
 
         sealed class Leg
         {
@@ -309,11 +312,16 @@ namespace Game.Entities
         // The neck and everything hanging from it: head, ears, jaw, arms.
         void Neck(float listen, float roar, float lean, float stretch, float dt, float t)
         {
-            stretchShown = Mathf.MoveTowards(stretchShown, Mathf.Clamp01(stretch), dt / (stretch > stretchShown ? 3.2f : 2.6f));
-            float e = stretchShown * stretchShown * (3f - 2f * stretchShown);
+            // (Past 1, further than NeckReach: the neck runs on up, as far again for each 1 over; it gets there as
+            // quickly as to 1.)
+            stretch = Mathf.Max(0f, stretch);
+            stretchShown = Mathf.MoveTowards(stretchShown, stretch, dt * Mathf.Max(1f, Mathf.Max(stretch, stretchShown)) / (stretch > stretchShown ? 3.2f : 2.6f));
+            float upTo = Mathf.Min(1f, stretchShown);
+            float e = upTo * upTo * (3f - 2f * upTo);                       // (0-1: how far up; the sway and the fold go by this)
+            float reach = e + Mathf.Max(0f, stretchShown - 1f);            // (and past 1, the neck running on up)
             float scale = Mathf.Max(0.1f, transform.lossyScale.y) / Standing; // (world metres per model metre)
             float longest = NeckReach / scale / NeckSegments;
-            float len = Mathf.Lerp(NeckShort, Mathf.Max(NeckShort, longest), e);
+            float len = Mathf.LerpUnclamped(NeckShort, Mathf.Max(NeckShort, longest), reach);
             len = Mathf.Lerp(len, NeckShort * 2.6f, lean);                     // (reaching down to you)
             float total = 0f, sway = 0f;
             for (int i = 0; i < NeckSegments; i++)
@@ -326,7 +334,7 @@ namespace Game.Entities
                 // curling right over and down to your face. Roaring: thrown up.
                 float fold = (i < 5 ? 0.32f : 0.06f) * (1f - e) * (1f - roar * 0.7f);
                 float x = fold + lean * 0.17f;
-                float z = e * Mathf.Sin(t * 0.6f - i * 0.35f) * 0.035f;
+                float z = e * Mathf.Sin(t * 0.6f - i * 0.35f) * 0.035f / Mathf.Max(1f, reach); // (a longer neck: a gentler sway, or the head would swing a mile)
                 seg.localRotation = Quaternion.Euler(x * Mathf.Rad2Deg, 0f, z * Mathf.Rad2Deg);
                 total += x;
                 sway += z;
@@ -344,7 +352,8 @@ namespace Game.Entities
             lookYaw = Mathf.Lerp(lookYaw, lookTo, 1f - Mathf.Exp(-(HoldLook.HasValue ? 8f : e > 0.8f ? 2.5f : 1.5f) * dt)); // (snapping round to a sound)
             if (t > nextSnap) { nextSnap = t + Random.Range(2.5f, 5.5f); snapTilt = Random.Range(-30f, 30f); }
             float tilt = (snapTilt + Mathf.Sin(t * 0.7f) * 7f) * listen;
-            head.localRotation = Quaternion.Euler(-total * Mathf.Rad2Deg + Mathf.Sin(t * 0.4f) * 4f - roar * 25f + lean * 10f, lookYaw, tilt - sway * Mathf.Rad2Deg);
+            pitchShown = Mathf.Lerp(pitchShown, HoldPitch.HasValue ? Mathf.Clamp(HoldPitch.Value, -20f, 75f) : 0f, 1f - Mathf.Exp(-3f * dt)); // (peering down at you)
+            head.localRotation = Quaternion.Euler(-total * Mathf.Rad2Deg + Mathf.Sin(t * 0.4f) * 4f - roar * 25f + lean * 10f + pitchShown, lookYaw, tilt - sway * Mathf.Rad2Deg);
             jaw.localRotation = Quaternion.Euler(6f + Mathf.Max(roar, lean * 0.6f) * 32f + Mathf.Max(0f, Mathf.Sin(t * 0.5f)) * 8f, 0f, 0f);
             for (int i = 0; i < 2; i++)
             {

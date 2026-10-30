@@ -41,7 +41,7 @@ namespace Game.Entities
         // Your light clicked near it: where, and how much longer it's listening for you, its hearing sharpened.
         Vector3 clickedAt;
         float alertFor;
-        float Sharp => alertFor > 0f ? s.lightClickBoost : 1f;
+        float Sharp => Mathf.Max(alertFor > 0f ? s.lightClickBoost : 1f, lampWatchFor > 0f ? s.lampHearing : 1f);
         // You lit a lamp: how much longer it stands, head up over the trees, staring your way.
         float lampWatchFor;
         bool Watching => alertFor > 0f || lampWatchFor > 0f;
@@ -204,13 +204,18 @@ namespace Game.Entities
             Play(Sound.Click, 1f, 0.3f, 60f); // (it clicks back)
         }
 
-        // You lit a lamp: wherever it is, it stops, raises its head high over the trees and turns to stare at you.
+        // You lit a lamp: its extreme listening. Wherever it is, whatever it's doing, it stops dead, its neck runs up
+        // until its head is high over the treetops, turned to stare down at you, and it listens its hardest: move
+        // at all within reach and it comes.
         void OnLampLit()
         {
             if (!arrived || s.lampWatch <= 0f) return;
-            if (State != BlindState.Roaming && State != BlindState.Listening && State != BlindState.Searching) return;
+            if (State != BlindState.Roaming && State != BlindState.Listening && State != BlindState.Searching
+                && State != BlindState.Rushing && State != BlindState.Striding) return;
             lampWatchFor = s.lampWatch;
+            hardListening = true;
             SetState(BlindState.Listening);
+            Play(Sound.Click, 1f, 0.25f, 120f); // (one slow, deep click, heard a long way)
         }
 
         void RushTo(Vector3 spot)
@@ -232,8 +237,15 @@ namespace Game.Entities
             deafFor = Mathf.Max(0f, deafFor - dt);
             alertFor = Mathf.Max(0f, alertFor - dt);
             lampWatchFor = Mathf.Max(0f, lampWatchFor - dt);
-            body.HoldLook = State == BlindState.Listening && Watching
-                ? Vector3.SignedAngle(transform.forward, Flat(WatchSpot - transform.position), Vector3.up) : (float?)null;
+            bool watching = State == BlindState.Listening && Watching;
+            body.HoldLook = watching ? Vector3.SignedAngle(transform.forward, Flat(WatchSpot - transform.position), Vector3.up) : (float?)null;
+            if (watching)
+            {
+                // (tipped down to look at you, from up there)
+                Vector3 head = body.HeadWorld, at = lampWatchFor > 0f ? player.Head.position : clickedAt;
+                body.HoldPitch = Mathf.Atan2(head.y - at.y, Mathf.Max(1f, Flat(at - head).magnitude)) * Mathf.Rad2Deg;
+            }
+            else body.HoldPitch = null;
             stateTime += dt;
             storm.Strength = Mathf.MoveTowards(storm.Strength, ThreatVisible ? 1f : 0f, dt * (State == BlindState.Arriving ? 0.3f : 0.15f));
             if (storm.Strength > 0f) storm.Follow(transform.position, dt);
@@ -575,7 +587,8 @@ namespace Game.Entities
         void UpdateListening(float dt)
         {
             speed = 0f;
-            stretch = hardListening || lampWatchFor > 0f ? 1f : 0.3f; // (listening hard, or staring at you at a lamp: its head up over the trees)
+            stretch = lampWatchFor > 0f ? s.lampNeckReach / Mathf.Max(1f, s.neckReach) // (a lamp lit: its head way up over the treetops)
+                : hardListening ? 1f : 0.3f; // (listening hard: its head up over the trees)
             if (Watching) Face(WatchSpot); // (turning to where your light clicked, or to you at the lamp, its head there first)
             listen = Mathf.MoveTowards(listen, 1f, dt * 3f);
             if (Time.time - lastStep > 0.45f)
@@ -603,6 +616,16 @@ namespace Game.Entities
             listen = Mathf.MoveTowards(listen, 0f, dt * 4f);
             MoveToward(target, s.rushSpeed, dt);
             HearClose();
+            if (State != BlindState.Rushing) return;
+            // Stopped at the edge of a light (the noise was inside it): it gives up the rush there in a few seconds
+            // and searches round where it stands, rather than waiting at your light forever.
+            blockedFor = blockedByLight ? blockedFor + dt : 0f;
+            if (blockedFor > 3f)
+            {
+                searchSpot = target = transform.position;
+                SetState(BlindState.Searching);
+                return;
+            }
             if (Flat(target - transform.position).magnitude < 1.5f)
             {
                 searchSpot = target;
@@ -720,16 +743,21 @@ namespace Game.Entities
 
         // ------------------------------------------------------------------ moving
 
+        bool blockedByLight;
+        float blockedFor;
+
         void MoveToward(Vector3 goal, float maxSpeed, float dt)
         {
             Vector3 pos = transform.position;
             Vector3 to = Flat(goal - pos);
             float dist = to.magnitude;
+            blockedByLight = false;
             if (dist < 0.05f) { speed = 0f; return; }
             Vector3 dir = to / dist;
 
             // Lights stop it: it won't step into a safe circle.
-            if (Services.TryGet<SafeZones>(out var zones) && zones.Contains(pos + dir * 1.5f, 1f)) { speed = 0f; return; }
+            blockedByLight = Services.TryGet<SafeZones>(out var zones) && zones.Contains(pos + dir * 1.5f, 1f);
+            if (blockedByLight) { speed = 0f; return; }
 
             // Rocks, boulders and buildings it steps round (trees it goes through).
             int props = Layers.Mask(Layers.Props);
@@ -789,6 +817,7 @@ namespace Game.Entities
         void SetState(BlindState next)
         {
             if (next != State) stretch = 0f; // (each state lifts the neck itself if it wants it up)
+            blockedFor = 0f;
             State = next;
             stateTime = 0f;
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Blind, 1, next.ToString()));
