@@ -115,6 +115,17 @@ namespace Game.World
         [Tooltip("A deer you startle drops a battery as it bolts.")]
         public bool deerDropBattery = true;
 
+        [Header("Flies")]
+        [Range(0, 40), Tooltip("Flies about in the forest round you (on Restart). You only hear one close, as with a real fly.")]
+        public int flies = 8;
+        [Range(5f, 60f), Tooltip("They're about within this of you.")]
+        public float flyRange = 20f;
+        [Range(0f, 1f), Tooltip("Every so often one comes and buzzes round your head a while: the chance a minute, for each.")]
+        public float flyVisit = 0.12f;
+        [Range(1f, 30f), Tooltip("Heard out to this far (metres), loudest right by your ear.")]
+        public float flyHeard = 7f;
+        [Range(0f, 1f)] public float flyVolume = 0.55f;
+
         [Header("Lightning bugs")]
         [Range(0, 200), Tooltip("How many round you (on Restart).")]
         public int lightningBugs = 40;

@@ -179,6 +179,7 @@ namespace Game.Audio
             Add(Sound.CrawlerScreech, SoundSynth.CrawlerScreech(78));
             Add(Sound.CrawlerSkitter, SoundSynth.CrawlerSkitter(79));
             Add(Sound.CrawlerBreath, SoundSynth.CrawlerBreath(80));
+            Add(Sound.FlyBuzz, SoundSynth.FlyBuzz(81));
         }
 
         void Add(Sound sound, float[] samples)

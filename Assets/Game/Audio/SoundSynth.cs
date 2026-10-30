@@ -1946,6 +1946,43 @@ namespace Game.Audio
             return o;
         }
 
+        /// <summary>
+        /// A housefly, looped: its wings' buzz (a raspy saw about 190 Hz, thick with harmonics through the resonance
+        /// of its body), the pitch never still, wavering and swooping as it banks and turns, the loudness fluttering.
+        /// </summary>
+        public static float[] FlyBuzz(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(4.5f);
+            double phase = 0;
+            float bp1 = 0f, bp2 = 0f, lp = 0f, wob = 0f, wobTo = 0f, swoop = 0f;
+            float r = 0.985f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                // Its pitch: a slow wander, quick small wobbles, and a swoop up or down now and then (a turn).
+                if (i % 2205 == 0) wobTo = Noise(rng) * 0.05f;
+                wob += (wobTo - wob) * 0.0008f;
+                if (rng.NextDouble() < 0.9 / SampleRate) swoop = Noise(rng) * 0.18f;
+                swoop *= 0.99993f;
+                float f = 192f * (1f + wob + swoop + 0.012f * (float)Math.Sin(2 * Math.PI * 23 * t));
+                phase += f / SampleRate;
+                float saw = (float)(phase - Math.Floor(phase)) * 2f - 1f;
+                // (raspy: a little noise in each stroke)
+                float x = saw + Noise(rng) * 0.08f;
+                // Through a body resonance about 1.1 kHz, and the plain buzz under it.
+                float fc = 1100f * (1f + swoop * 0.5f);
+                float c = 2f * r * (float)Math.Cos(2 * Math.PI * fc / SampleRate);
+                float y = c * bp1 - r * r * bp2 + x * (1f - r);
+                bp2 = bp1;
+                bp1 = y;
+                lp += (x - lp) * 0.25f;
+                float flutter = 0.8f + 0.2f * (float)Math.Sin(2 * Math.PI * 7.3 * t + Math.Sin(2 * Math.PI * 0.6 * t) * 2);
+                s[i] = (y * 6f + lp * 0.5f) * flutter;
+            }
+            return Loop(s, 0.8f);
+        }
+
         static float[] Loop(float[] s, float peak)
         {
             int fade = Math.Min(s.Length / 4, SampleRate / 3);

@@ -1485,3 +1485,14 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - Turning **frameSkip** off brings back the old shudder and camera shake.
 - **View closing in** (**faceDownNarrow**, 0.75): as the crescendo builds, the edges of your view darken and the colour drains, until only the scour and your beam are left. It snaps wide open again (5×/s) the moment it bursts or your light leaves it. (`LookController.Narrow`: with several scours at once, the strongest wins. It drives the vignette and saturation.)
 - **The giant's eye is drawn behind the giant:** the SkyEye shader now puts the eye at the far end of the sky's depth, whatever distance its quad is at, so the giant, its chain and the trees all hide it. It also draws after the night-sky dome and before the giant's haze (render queue 2960). The elevation lift from before still keeps its opening clear of the head by default; set **eyeClearance** to 0 to let the giant stand in front of it.
+
+## Flies
+
+- **What they are:** a few flies (`flies`, 8) are about in the forest within `flyRange` (20 m) of you. Each one hangs around its own spot 0.4–2 m above the ground and darts about it: a quick, jittery dash to a new point every 0.15–0.7 s.
+- **Coming to you:** now and then one comes and buzzes round your head for 4–10 s, staying just clear of your eye, then goes back to a new spot. The chance is `flyVisit`, 12% a minute for each fly.
+- **The buzz:** a new synthesized loop, `Sound.FlyBuzz`: a raspy ~190 Hz saw through a body resonance, its pitch wavering and swooping, its loudness fluttering. Each fly has its own looping 3D source.
+  - It falls off steeply, like a real fly: loudest at your ear (min distance 0.12 m) and gone by `flyHeard` (7 m).
+  - Doppler bends the pitch as one passes, and its pitch rises a little as it speeds up.
+  - The buzz pauses in the dark room and when the game is paused.
+- **Looks:** a 9 mm dark body with two faint wing blurs.
+- **Settings:** ForestLifeConfig → Flies: `flies`, `flyRange`, `flyVisit`, `flyHeard`, `flyVolume`.
