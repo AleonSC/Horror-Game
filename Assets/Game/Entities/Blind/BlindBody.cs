@@ -64,6 +64,43 @@ namespace Game.Entities
         /// <summary>How far its neck can reach above its shoulders when stretched (metres, world).</summary>
         public float NeckReach { get; set; } = 16f;
 
+        /// <summary>How dark its head and neck show through the fog when they're up over the trees (0 not at all, 1 black).</summary>
+        public float FogShow { get; set; } = 0.8f;
+
+        Material fogShape;
+
+        // Its neck, head and arms again, as a silhouette the fog doesn't touch: up over the trees in the distance
+        // they'd be lost in the fog; this darkens the fog where they are, so they show against it (trees in front
+        // still hide them).
+        void ThroughFog()
+        {
+            fogShape = RuntimeMaterials.Silhouette("Blind one through the fog");
+            RuntimeMaterials.SetSilhouetteShade(fogShape, 1f);
+            foreach (var r in neck[0].GetComponentsInChildren<MeshRenderer>())
+            {
+                var filter = r.GetComponent<MeshFilter>();
+                if (filter == null || filter.sharedMesh == null) continue;
+                var go = new GameObject("Through the fog") { layer = r.gameObject.layer };
+                go.transform.SetParent(r.transform, false);
+                go.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
+                var shape = go.AddComponent<MeshRenderer>();
+                shape.sharedMaterial = fogShape;
+                shape.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                shape.receiveShadows = false;
+            }
+        }
+
+        // How much it shows through the fog now: by how far up its head is, and how far off it is (near, the fog's
+        // thin and it shows as itself).
+        void ShowThroughFog()
+        {
+            if (fogShape == null) return;
+            var cam = Camera.main;
+            float far = cam != null ? Mathf.Clamp01((Vector3.Distance(cam.transform.position, HeadWorld) - 12f) / 30f) : 1f;
+            float up = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 1f, stretchShown));
+            RuntimeMaterials.SetSilhouetteShade(fogShape, 1f - Mathf.Clamp01(FogShow) * up * far);
+        }
+
         /// <summary>How many times their length its legs grow to, striding.</summary>
         public float Growth { get; set; } = 3.6f;
 
@@ -75,13 +112,17 @@ namespace Game.Entities
             b.skin = RuntimeMaterials.Lit("Blind one skin", new Color(0.05f, 0.046f, 0.043f), 0.4f);
             b.mouth = RuntimeMaterials.Glow("Blind one mouth", new Color(0.5f, 0.02f, 0.01f));
             if (config.customModel != null) b.UseYours(config.customModel);
-            else b.Build();
+            else
+            {
+                b.Build();
+                b.ThroughFog();
+            }
             return b;
         }
 
         void OnDestroy()
         {
-            foreach (var m in new[] { skin, mouth, bone, membrane, claw }) if (m != null) Destroy(m);
+            foreach (var m in new[] { skin, mouth, bone, membrane, claw, fogShape }) if (m != null) Destroy(m);
             foreach (var m in meshes) if (m != null) Destroy(m);
         }
 
@@ -307,6 +348,7 @@ namespace Game.Entities
             float legLen = LegRest * (1f + (Growth - 1f) * g);
             Legs(legLen, g, dt);
             Neck(listen, roar, lean, stretch, dt, t);
+            ShowThroughFog();
         }
 
         // The neck and everything hanging from it: head, ears, jaw, arms.

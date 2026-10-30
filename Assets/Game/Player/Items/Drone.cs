@@ -52,6 +52,8 @@ namespace Game.Player
         public float FromYou { get; private set; }
         /// <summary>Static over its picture at full signal.</summary>
         public float BaseStatic => s != null ? s.droneStatic : 0f;
+        /// <summary>How thick all its static is, as a share.</summary>
+        public float StaticAmount => s != null ? s.droneStaticAmount : 1f;
 
         public string Prompt => "Pick up drone";
         public bool CanInteract => !Flying;

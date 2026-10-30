@@ -1429,3 +1429,10 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Hearing:** while it stares, its hearing reaches `lampHearing` (2×) further. Move at all within 60 m, even crouched, and it comes. The safe move is to stand still in the lamp light until its head comes down.
 - **Neck:** `BlindBody.Pose` now takes a stretch above 1, meaning a neck longer than `neckReach`. The neck sway is scaled down on long necks so the head doesn't swing wildly.
 - **Fix:** a rush toward a noise inside lamp light used to leave it waiting at the edge forever. Now, after 3 s blocked by the light, it switches to searching where it stands, and goes back to perching after about 50 s.
+
+## The blind one's head through the fog; drone static halved
+
+- **Head through the fog:** its neck, head and arms now each carry a second copy drawn with the fog-proof silhouette material, the same one the giant and the flier use. When the head is up over the trees and off in the distance, the copy darkens the fog where it is, so the head shows as a dark shape against the haze. Trees in front still hide it.
+  - It scales with how high the neck is (none until it's past halfway up) and with distance from you (none within 12 m, full at 42 m and beyond).
+  - BlindConfig → Lamps → **headThroughFog** (0.8; can be changed live) sets how dark it shows: 0 lets the fog hide it, 1 is black.
+- **Drone static halved:** ItemsConfig → **droneStaticAmount** (0.5) scales all the drone's static: the baseline, the bursts and the thickening as the signal weakens. Set it to 1 for the old amount.

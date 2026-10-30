@@ -76,6 +76,7 @@ namespace Game.Entities
             body = BlindBody.Create(transform, config);
             body.transform.localScale = Vector3.one * s.height;
             body.NeckReach = s.neckReach;
+            body.FogShow = s.headThroughFog;
             body.Growth = s.strideGrowth;
             body.FootDown += OnFootDown;
             storm = Storm.Create(s);
@@ -284,6 +285,7 @@ namespace Game.Entities
             if (State != BlindState.Striding) grow = Mathf.MoveTowards(grow, 0f, dt / Mathf.Max(0.1f, s.growTime)); // (shrinking back if it was striding)
             CheckTake();
             KeepUp(dt);
+            body.FogShow = s.headThroughFog; // (live)
             body.Pose(speed, listen, roar, lean, stretch, grow, dt);
         }
 

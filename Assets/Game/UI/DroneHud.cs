@@ -172,7 +172,7 @@ namespace Game.UI
             if (Time.unscaledTime > burstUntil + 0.2f && Random.value < Time.unscaledDeltaTime * 0.35f) burstUntil = Time.unscaledTime + Random.Range(0.06f, 0.25f);
             float burst = Time.unscaledTime < burstUntil ? 0.25f : 0f;
             stat = Mathf.Max(baseline, stat * 0.75f) + burst + (drone.Battery < 0.05f ? 0.3f : 0f);
-            noise.style.opacity = stat * Random.Range(0.75f, 1f);
+            noise.style.opacity = stat * drone.StaticAmount * Random.Range(0.75f, 1f);
             noise.style.translate = new Translate(Random.Range(-128f, 0f), Random.Range(-128f, 0f));
         }
     }

@@ -100,6 +100,8 @@ namespace Game.Entities
         public float lampNeckReach = 34f;
         [Range(1f, 4f), Tooltip("...hearing everything this many times further: move at all within its hard-listening reach x this, even crouched, and it comes. Stand still till its head comes down.")]
         public float lampHearing = 2f;
+        [Range(0f, 1f), Tooltip("Its head and neck up over the trees show through the fog this dark (a silhouette against it), the further off the more: 0 the fog hides them, 1 black.")]
+        public float headThroughFog = 0.8f;
 
         [Header("Your light clicking (x difficulty)")]
         [Range(0f, 80f), Tooltip("Click your flashlight on or off within this of it and it hears it: it stops, snaps its head round to the sound and raises it high over the trees, listening...")]
