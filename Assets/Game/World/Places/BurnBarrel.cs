@@ -24,7 +24,11 @@ namespace Game.World
         [Tooltip("Radius of the safe circle round it while it burns (metres).")]
         public float safeRadius = 4f;
         public Color fireColor = new Color(1f, 0.48f, 0.18f);
-        [Range(0f, 100f)] public float intensity = 6f;
+        [Range(0f, 100f)] public float intensity = 2.5f;
+        [Tooltip("How bright the flames themselves are (keep it low: they bloom).")]
+        public float flameBrightness = 0.7f;
+        [Tooltip("How bright the air holes and the embers glow.")]
+        public float emberGlow = 0.25f;
         [Range(1f, 30f)] public float range = 9f;
         [Tooltip("How tall the top of the barrel is (metres): the flames come up out of it.")]
         public float top = 0.88f;
@@ -64,8 +68,8 @@ namespace Game.World
             var at = new[] { new Vector3(0f, y, 0f), new Vector3(0.1f, y, 0.06f), new Vector3(-0.09f, y, 0.07f), new Vector3(0.03f, y, -0.11f) };
             flameSizes = new[] { new Vector3(0.4f, 0.75f, 0f), new Vector3(0.26f, 0.45f, 0f), new Vector3(0.24f, 0.5f, 0f), new Vector3(0.22f, 0.4f, 0f) };
             flames = new MeshRenderer[at.Length];
-            for (int i = 0; i < at.Length; i++) flames[i] = Effects.Flame(transform, at[i], flameSizes[i].x, flameSizes[i].y, Color.white * 2f, "Barrel flame");
-            embers = Effects.Glow(transform, Vector3.up * (top + 0.05f), 0.9f, fireColor * 0.3f, 0.6f, 2.5f, "Barrel glow");
+            for (int i = 0; i < at.Length; i++) flames[i] = Effects.Flame(transform, at[i], flameSizes[i].x, flameSizes[i].y, Color.white * flameBrightness, "Barrel flame");
+            embers = Effects.Glow(transform, Vector3.up * (top + 0.05f), 0.6f, fireColor * 0.05f, 0.3f, 2.5f, "Barrel glow");
 
             var lightGo = new GameObject("Barrel light");
             lightGo.transform.SetParent(transform, false);
@@ -129,8 +133,8 @@ namespace Game.World
                 flames[i].transform.localScale = new Vector3(flameSizes[i].x * Mathf.Lerp(0.5f, 1f, level), flameSizes[i].y * Mathf.Max(0.05f, level) * lick, flameSizes[i].x);
                 flames[i].enabled = level > 0.08f;
             }
-            if (embers != null) Effects.SetGlow(embers, fireColor * (0.1f + 0.25f * level) * flicker);
-            RuntimeMaterials.SetGlow(ventGlow, fireColor * (0.15f + 0.9f * level) * flicker);
+            if (embers != null) Effects.SetGlow(embers, fireColor * (0.02f + 0.06f * level) * flicker);
+            RuntimeMaterials.SetGlow(ventGlow, fireColor * emberGlow * (0.15f + 0.85f * level) * flicker);
             if (crackle != null) crackle.volume = Mathf.Lerp(0.12f, 0.8f, level);
             if (charred != null && burnt > burnTime * 0.3f)
                 foreach (var f in fuel) if (f != null && f.sharedMaterial != charred) f.sharedMaterial = charred;

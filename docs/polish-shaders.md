@@ -1602,3 +1602,15 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - each slowly swells green and fades, then swells red and fades, the two out of step so one is green while the other's red (`World.BunkerLights`: `period` 6 s, `glassGlow`, `lightIntensity`, `lightRange`);
   - each throws a matching coloured light on the front and the ground.
 - All tests pass, and the bunker is still placed on all 60 test seeds.
+
+## Bunker: no falling through before the stairs; the lamps and the fire toned down
+
+- **Falling through:** the hallway's floor had no collider; you walked on the ground under it. The pit dug for the stairs starts 0.6 m before the top step (and slopes in over the metre before that), so you dropped into it just short of the stairs. The hallway's floor is now a solid slab of its own (top at the same height as before).
+- **Bloom:**
+  - **Bulkhead lamps:** the glass now peaks at **glassGlow** 0.3 (from 1.2), and their light at **lightIntensity** 2.5 cd (from 6).
+  - **Burn barrel:**
+    - flames: **flameBrightness** 0.7 (from 2);
+    - air holes: **emberGlow** 0.25 at full (from about 1);
+    - glow over the rim: a fifth of what it was, and smaller;
+    - light: **intensity** 2.5 (from 6).
+  - All of these can be tweaked on the components.

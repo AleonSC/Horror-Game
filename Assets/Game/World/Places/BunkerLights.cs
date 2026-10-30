@@ -14,9 +14,9 @@ namespace Game.World
         public Color green = new Color(0.25f, 1f, 0.35f);
         public Color red = new Color(1f, 0.12f, 0.08f);
         [Tooltip("How bright the frosted glass glows at the top of a swell.")]
-        public float glassGlow = 1.2f;
+        public float glassGlow = 0.3f;
         [Tooltip("Each lamp's light on the front and the ground (candela).")]
-        public float lightIntensity = 6f;
+        public float lightIntensity = 2.5f;
         [Range(1f, 20f)] public float lightRange = 7f;
 
         Material[] glass;

@@ -630,7 +630,8 @@ namespace Game.World.Build
             float x = BunkerPlan.HallX, half = BunkerPlan.HallHalf, height = BunkerPlan.HallHeight;
             float z0 = BunkerPlan.HallStart, z1 = BunkerPlan.HallEnd, len = z0 - z1;
             // The hallway.
-            Box(t, new Vector3(x, 0.02f, (z0 + z1) * 0.5f), new Vector3(half * 2f, 0.04f, len), concreteDark, false);
+            // (Its floor solid itself: the ground's dug away under its last stretch, for the stairs.)
+            Box(t, new Vector3(x, -0.08f, (z0 + z1) * 0.5f), new Vector3(half * 2f, 0.24f, len), concreteDark);
             for (int side = -1; side <= 1; side += 2)
                 Box(t, new Vector3(x + side * (half + wall * 0.5f), height * 0.5f, (z0 + z1) * 0.5f), new Vector3(wall, height, len), concreteDark);
             Box(t, new Vector3(x, height + 0.15f, (z0 + z1) * 0.5f), new Vector3(half * 2f + wall * 2f, 0.3f, len), concreteDark);
