@@ -36,7 +36,13 @@ namespace Game.Entities
         [Header("Arriving")]
         [Range(1, 10), Tooltip("It comes when this many lamps are lit.")]
         public int arriveAtLamp = 3;
-        [Range(10f, 120f), Tooltip("It breaks out of the ground this far from you.")]
+        [Range(8f, 80f), Tooltip("It breaks out of the ground between this close to you...")]
+        public float arriveNear = 16f;
+        [Range(10f, 100f), Tooltip("...and this far: in a clearing you can see from where you stand if there's one (nearest where you're looking first), or else in the trees ahead of you, bursting the trees round it as it comes up.")]
+        public float arriveFar = 30f;
+        [Range(0f, 15f), Tooltip("Coming up in the trees, it bursts every tree within this of it.")]
+        public float arriveBreakRadius = 6f;
+        [Range(10f, 120f), Tooltip("Gone a while (driven off, after taking you), it comes back this far from you.")]
         public float arriveDistance = 45f;
         [Range(2f, 20f)] public float height = 7.4f;
 

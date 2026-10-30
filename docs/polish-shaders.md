@@ -1442,3 +1442,16 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Signposts:** each lamp now has an old wooden signpost 2.4 m from it, toward the nearest other lamp. The world wraps, so "nearest" is measured the short way round. Its plank is cut to a point and aimed at that lamp, with a smear of the lamps' red on the point. There's also a broken-off second plank lower down. The post is solid and the planks aren't. (`SignpostFactory`, placed in `WorldBuilder` and wrapped with the world.) To use your own model, set WorldArtConfig → Places → **signpost**, pointing along +Z with its foot at the pivot.
 - **Scours that ignored your light:** a scour could be standing against a trunk, half inside one, or peeking round one. In those cases the ray from your beam to its chest, eyes and body grazed the trunk's collider, so it never counted as lit. It was never faced down, never slowed you, and you could walk right up to it. Now anything solid within 1.1 m of the point being checked doesn't shade it (`PlayerSense.InBeam`/`Occluded` take a `clearNear`/`shortBy`). Only something well clear of the scour, between you and it, hides it from your beam. Separately, with two scours faced down at once, the last one to ask was the one that held you off, so you could walk into the other. Now the nearer one wins (`PlayerController.LimitApproach`).
 - **The eye's flash:** the eye a dispelled scour leaves behind was drawn for one frame before its first update posed it. At that moment its 46 motes were metre-wide black cubes and its nerve strand was 2 m cylinders, all at the spot. They now start at zero size. The intended red flash when its lids snap open is unchanged.
+
+## The blind one breaks out closer, in a clearing you can see
+
+- **Distance:** its entrance (at the 3rd lamp) now happens 16–30 m from you (`arriveNear`/`arriveFar`), not 45 m.
+- **Clearing first:** it looks through the plan's clearings (the copy of each nearest you, since the world wraps) for a spot that meets all of these:
+  - within that range;
+  - not in a lamp's light;
+  - not on a rock or building;
+  - with a clear line from your eyes to its middle as it will stand.
+  - It tries each clearing's middle, and points 55% of the radius nearer and further. Of the spots that qualify, it picks the one nearest where you're looking, with closer spots slightly preferred.
+- **Coming up in a clearing:** only a tree right on top of it (within 3 m) bursts.
+- **No clearing in sight:** it comes up in the trees ahead of you (±30°, about 21 m off). As it bursts out of the ground, every tree within **arriveBreakRadius** (6 m) shatters into splinters.
+- **Coming back later:** `arriveDistance` (45 m) is now only used when it returns after being away.

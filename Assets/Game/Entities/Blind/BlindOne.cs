@@ -4,6 +4,7 @@ using Game.Core;
 using Game.Player;
 using Game.Rendering;
 using Game.World.Build;
+using Game.World.Generation;
 using UnityEngine;
 
 namespace Game.Entities
@@ -119,11 +120,8 @@ namespace Game.Entities
         {
             if (!Services.TryGet(out player)) return;
             arrived = true;
-            Vector3 ahead = Vector3.ProjectOnPlane(player.Head.forward, Vector3.up).normalized;
-            if (ahead.sqrMagnitude < 0.01f) ahead = player.transform.forward;
-            Vector3 dir = Quaternion.Euler(0f, Random.Range(-40f, 40f), 0f) * ahead;
-            Vector3 at = player.transform.position + dir * s.arriveDistance;
-            at.y = PlayerSense.GroundHeight(at);
+            Vector3 at = ArrivalSpot(out bool inClearing);
+            emergeBreak = inClearing ? 3f : s.arriveBreakRadius; // (in a clearing, only what's right on top of it)
             transform.position = at - Vector3.up * s.height; // (under the ground: it breaks out)
             Face(player.transform.position);
             storm.transform.position = at + Vector3.up * s.stormHeight;
@@ -136,6 +134,68 @@ namespace Game.Entities
             {
                 events.Publish(new BossThemeStarted(EntityKind.Blind));
                 events.Publish(new EntitySpawned(EntityKind.Blind, 1, at));
+            }
+        }
+
+        float emergeBreak;
+
+        // Where it breaks out: in a clearing you can see from where you stand, between arriveNear and arriveFar,
+        // the nearest to where you're looking; if there's none, in the trees ahead of you (it bursts them).
+        Vector3 ArrivalSpot(out bool inClearing)
+        {
+            Vector3 you = player.transform.position;
+            Vector3 eye = player.Head.position;
+            Vector3 ahead = Vector3.ProjectOnPlane(player.Head.forward, Vector3.up).normalized;
+            if (ahead.sqrMagnitude < 0.01f) ahead = player.transform.forward;
+            float near = s.arriveNear, far = Mathf.Max(s.arriveNear + 1f, s.arriveFar);
+            var zones = Services.TryGet<SafeZones>(out var z) ? z : null;
+            inClearing = false;
+            Vector3 best = default;
+            float bestScore = float.MaxValue;
+            if (Services.TryGet<WorldBuilder>(out var world) && world.Plan != null)
+            {
+                var plan = world.Plan;
+                Vector2 here = Wrap.Into(new Vector2(you.x, you.z), plan.Size);
+                foreach (var c in plan.Clearings)
+                {
+                    Vector2 d = Wrap.Delta(here, c.Centre, plan.Size); // (the world wraps: the copy of it nearest you)
+                    float dist = d.magnitude;
+                    if (dist - c.Radius > far) continue;
+                    Vector2 toYou = dist > 0.01f ? -d / dist : Vector2.zero;
+                    // Its middle, or nearer you (or further off) inside it, to bring it into range.
+                    for (int k = -1; k <= 1; k++)
+                    {
+                        Vector2 off = d + toYou * (k * c.Radius * 0.55f);
+                        float r = off.magnitude;
+                        if (r < near || r > far) continue;
+                        var p = new Vector3(you.x + off.x, 0f, you.z + off.y);
+                        p.y = PlayerSense.GroundHeight(p);
+                        if (zones != null && zones.Contains(p, 4f)) continue;
+                        if (Physics.CheckSphere(p + Vector3.up * 2f, 1.5f, Layers.Mask(Layers.Props), QueryTriggerInteraction.Ignore)) continue;
+                        // You have to be able to see it: from your eyes to its middle as it stands, nothing in the way.
+                        if (PlayerSense.Occluded(eye, p + Vector3.up * s.height * 0.5f, 1.5f)) continue;
+                        float score = Vector3.Angle(ahead, Vector3.ProjectOnPlane(p - you, Vector3.up)) + r * 0.5f;
+                        if (score < bestScore) { bestScore = score; best = p; inClearing = true; }
+                    }
+                }
+            }
+            if (inClearing) return best;
+            // No clearing in sight: in the trees ahead.
+            Vector3 dir = Quaternion.Euler(0f, Random.Range(-30f, 30f), 0f) * ahead;
+            Vector3 at = you + dir * Mathf.Lerp(near, far, 0.35f);
+            at.y = PlayerSense.GroundHeight(at);
+            return at;
+        }
+
+        // Breaking out of the ground: the trees round it burst.
+        void BreakOut(Vector3 at)
+        {
+            if (emergeBreak <= 0f || !Services.TryGet<WorldBuilder>(out var world)) return;
+            var hits = Physics.OverlapSphere(at + Vector3.up * 2f, emergeBreak, Layers.Mask(Layers.Trees), QueryTriggerInteraction.Ignore);
+            foreach (var h in hits)
+            {
+                var tree = h.GetComponent<ForestTree>();
+                if (tree != null) tree.Shatter(world.Forest, at);
             }
         }
 
@@ -301,6 +361,7 @@ namespace Game.Entities
                 p.y = ground - s.height * (1f - Mathf.SmoothStep(0f, 1f, rise));
                 if (t - dt < 3.5f)
                 {
+                    BreakOut(new Vector3(p.x, ground, p.z));
                     player.AddShake(1.5f);
                     Play(Sound.Boom, 0.8f, 1.6f, 120f);
                 }
