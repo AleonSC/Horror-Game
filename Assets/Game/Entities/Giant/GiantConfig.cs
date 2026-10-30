@@ -97,6 +97,8 @@ namespace Game.Entities
         [Range(1, 10)] public int eyeAtLamp = 5;
         [Range(10f, 89f), Tooltip("Degrees above the horizon.")]
         public float eyeElevation = 68f;
+        [Range(0f, 30f), Tooltip("It's raised if need be so its opening clears the top of the giant's head by this many degrees of sky.")]
+        public float eyeClearance = 4f;
         [Range(1f, 60f), Tooltip("The width of its opening, as an angle across (degrees). The swirl of cloud round it spreads nearly three times as wide (so it's drawn nearer the bigger it is, to keep it all inside the camera's reach).")]
         public float eyeSize = 38f;
         [Range(0.1f, 20f)] public float eyeOpenTime = 4f;

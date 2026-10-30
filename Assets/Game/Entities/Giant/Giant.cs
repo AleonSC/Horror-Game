@@ -249,8 +249,10 @@ namespace Game.Entities
             if (PlayerPlace.InDarkRoom != hiddenForRoom) ShowForRoom(!PlayerPlace.InDarkRoom);
             if (hiddenForRoom) { if (scanRoot != null) scanRoot.gameObject.SetActive(false); return; }
             float dt = Time.deltaTime;
-            // The far blur stays on it the whole time (hanging, staring, falling, walking): nothing sharpens it.
-            if (Services.TryGet<LookController>(out var sharpen)) sharpen.FarSharp = 0f;
+            // The far blur stays on it the whole time (hanging, falling, walking), save while the eye's looking at
+            // you: as it opens the blur lifts (the eye and the giant pin sharp), and as it shuts it comes back.
+            sharpShown = Mathf.MoveTowards(sharpShown, State == GiantState.Staring ? eyeLid : 0f, dt * 2f);
+            if (Services.TryGet<LookController>(out var sharpen)) sharpen.FarSharp = sharpShown;
             Vector3 p = PlayerFeet;
 
             // Swinging on the chain (jolts), damped.
@@ -298,6 +300,9 @@ namespace Game.Entities
 
         // ------------------------------------------------------------------ the eye
 
+        // How open the eye is (0-1), and how far the blur's lifted.
+        float eyeLid, sharpShown;
+
         void StartStaring()
         {
             State = GiantState.Staring;
@@ -314,6 +319,7 @@ namespace Game.Entities
             float lid = timer < open ? Mathf.SmoothStep(0f, 1f, timer / open)
                 : timer < open + stare ? 1f
                 : 1f - Mathf.SmoothStep(0f, 1f, (timer - open - stare) / close);
+            eyeLid = lid;
             if (skyEyeMat != null)
             {
                 // The clouds gather and start to turn before it opens, and drift apart after it shuts.
@@ -352,6 +358,7 @@ namespace Game.Entities
             {
                 eye.gameObject.SetActive(false);
                 eyeDone = true;
+                eyeLid = 0f;
                 player.Dream = 0f;
                 SetWorldRed(0f);
                 // The chain snaps, and it falls.
@@ -378,9 +385,24 @@ namespace Game.Entities
 
         Vector3 EyeWorld(Vector3 p)
         {
-            float el = s.eyeElevation * Mathf.Deg2Rad;
+            float el = EyeElevation(p) * Mathf.Deg2Rad;
             float d = EyeDistance;
             return p + Bearing(bearing) * d * Mathf.Cos(el) + Vector3.up * d * Mathf.Sin(el);
+        }
+
+        // Its elevation: as set, but always high enough that its opening clears the top of the giant's head (it
+        // used to sit over it), with a few degrees of sky between.
+        float EyeElevation(Vector3 p)
+        {
+            float el = s.eyeElevation;
+            if (bodyRoot != null && player != null)
+            {
+                Vector3 eyeFrom = player.Head != null ? player.Head.position : p + Vector3.up * 1.6f;
+                Vector3 top = bodyRoot.TransformPoint(new Vector3(0f, 1.03f, 0f)) - eyeFrom; // (the crown of its head, as drawn)
+                float headTop = Mathf.Atan2(top.y, Mathf.Max(0.01f, new Vector2(top.x, top.z).magnitude)) * Mathf.Rad2Deg;
+                el = Mathf.Max(el, headTop + Mathf.Clamp(s.eyeSize, 1f, 80f) * 0.5f + s.eyeClearance);
+            }
+            return Mathf.Min(el, 86f);
         }
 
         void SetWorldRed(float amount)

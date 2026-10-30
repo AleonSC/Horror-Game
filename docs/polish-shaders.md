@@ -1455,3 +1455,8 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Coming up in a clearing:** only a tree right on top of it (within 3 m) bursts.
 - **No clearing in sight:** it comes up in the trees ahead of you (±30°, about 21 m off). As it bursts out of the ground, every tree within **arriveBreakRadius** (6 m) shatters into splinters.
 - **Coming back later:** `arriveDistance` (45 m) is now only used when it returns after being away.
+
+## The eye clears the giant, and the blur lifts while it looks at you
+
+- **No more overlap:** the eye's elevation is now raised when needed, so the bottom of its opening sits **eyeClearance** (4°) of sky above the crown of the giant's head as drawn, capped at 86°. It used to sit over the head. Its swirl of cloud can still spread round behind. (GiantConfig → The eye.)
+- **Blur follows the eye:** the far blur now tracks how open the eye is. As it opens, the blur lifts until the eye and the giant are pin sharp. As it shuts, the blur comes back, and it stays on through the fall, the landing and the walk, as before.
