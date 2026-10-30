@@ -106,8 +106,18 @@ namespace Game.Entities
         public float faceDownSlow = 0.5f;
         [Range(0.05f, 1f), Tooltip("...slowing more the closer you come to it: this share of your speed right up against it.")]
         public float faceDownSlowNear = 0.2f;
-        [Range(0f, 10f), Tooltip("Degrees of camera shake as the crescendo peaks.")]
+        [Range(0f, 10f), Tooltip("Degrees of camera shake as the crescendo peaks (only with Frame Skip off).")]
         public float faceDownShake = 0.9f;
+        [Tooltip("Faced down, it skips like a video dropping frames: held dead still, then all at once in a new shape, a little nearer, its head at a new angle, its mouth wider, the holds shortening as it builds. Off: it shudders (and your view shakes).")]
+        public bool frameSkip = true;
+        [Range(0.05f, 2f), Tooltip("Seconds it holds still between skips as it starts...")]
+        public float skipHoldStart = 0.55f;
+        [Range(0.02f, 1f), Tooltip("...and as it's about to go.")]
+        public float skipHoldEnd = 0.06f;
+        [Range(0f, 1f), Tooltip("Metres nearer it jolts with each skip (never past where it would stop you).")]
+        public float skipStep = 0.12f;
+        [Range(0f, 1f), Tooltip("Your view closing in on it as it builds: the edges darkening and the colour draining (0 none, 1 all but black round it).")]
+        public float faceDownNarrow = 0.75f;
 
         [Header("Clicking")]
         [Range(1f, 60f), Tooltip("Seconds between its runs of clicks when it's far off (calling to the others)...")]

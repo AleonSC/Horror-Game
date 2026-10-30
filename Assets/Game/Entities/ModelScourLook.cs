@@ -125,6 +125,19 @@ namespace Game.Entities
             if (animator != null && hasAppear) animator.SetTrigger(AppearId);
         }
 
+        protected override void FreezeAnimation(bool frozen)
+        {
+            if (animator != null) animator.speed = frozen ? 0f : 1f;
+        }
+
+        protected override void StepAnimation()
+        {
+            if (animator == null || !animator.isActiveAndEnabled) return;
+            animator.speed = 1f;
+            animator.Update(0.25f);
+            animator.speed = 0f;
+        }
+
         protected override void Animate(float dt, float open)
         {
             Vector3 v = dt > 0f ? (transform.position - lastPosition) / dt : Vector3.zero;

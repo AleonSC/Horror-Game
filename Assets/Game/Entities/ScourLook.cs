@@ -289,9 +289,41 @@ namespace Game.Entities
             if (d.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(d);
         }
 
+        /// <summary>
+        /// Held still, as if its frames had stopped coming: its body keeps the shape it had until <see cref="Step"/>
+        /// lets one more through (faced down, it moves only in jumps, skipping like a video dropping frames).
+        /// </summary>
+        public bool Frozen
+        {
+            get => frozen;
+            set
+            {
+                if (frozen == value) return;
+                frozen = value;
+                FreezeAnimation(value);
+            }
+        }
+
+        bool frozen, stepping;
+
+        /// <summary>Frozen: let one frame through (its pose jumps straight to whatever it's been set to).</summary>
+        public void Step()
+        {
+            stepping = true;
+            StepAnimation();
+        }
+
+        /// <summary>For an animator: stop it (or start it again).</summary>
+        protected virtual void FreezeAnimation(bool frozen) { }
+
+        /// <summary>For an animator: one jump forward, while frozen.</summary>
+        protected virtual void StepAnimation() { }
+
         void LateUpdate()
         {
             if (!Visible) return;
+            if (frozen && !stepping) return;
+            stepping = false;
             float open = Mathf.Clamp01(mouth);
             if (glare != null)
             {

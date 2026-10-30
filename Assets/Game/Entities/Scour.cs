@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Audio;
 using Game.Core;
+using Game.Rendering;
 using Game.Player;
 using UnityEngine;
 
@@ -139,6 +140,7 @@ namespace Game.Entities
 
         void SetState(ScourState next, string note = null)
         {
+            if (next != ScourState.FacedDown && body != null) body.Frozen = false; // (its frames flowing again)
             State = next;
             timer = 0f;
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Scour, id, note ?? next.ToString()));
@@ -540,6 +542,9 @@ namespace Game.Entities
         {
             SetState(ScourState.FacedDown, "faced down");
             faceDown = 0f;
+            nextSkip = 0f;
+            body.Shudder(0f);
+            body.Frozen = s.frameSkip;
             lastLitTime = Time.time;
             Play(Sound.Crescendo, 0.9f, 1f, 30f);
         }
@@ -549,7 +554,7 @@ namespace Game.Entities
         void UpdateFacedDown()
         {
             float dt = Time.deltaTime;
-            body.Face(player.transform.position);
+            if (!s.frameSkip) body.Face(player.transform.position); // (skipping, it turns only in its jumps)
             float dist = DistanceToPlayer;
             // You can't walk into it (slowing over the last stretch only).
             player.LimitApproach(transform.position, s.stopDistance + 1.5f, s.stopDistance);
@@ -570,16 +575,60 @@ namespace Game.Entities
 
             float c = faceDown;
             float e = c * c; // slow build, violent finish
-            body.Shudder(Mathf.Lerp(s.vibration, s.crescendoVibration, e), e);
             body.SetMouth(Mathf.Lerp(0.7f, 1.5f, e)); // stretching wider and wider
             blue = Mathf.SmoothStep(0f, 1f, c);
-            // The blue stays in the eyes: they burn brighter, but the light they throw barely rises.
-            body.SetEyes(Mathf.Lerp(1.6f, 3f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 0.5f, e), blue, 0f, s.eyeLight * (1f + 0.6f * blue), s.eyeLightRange);
-            player.AddShake(s.faceDownShake * e);
+            if (s.frameSkip)
+            {
+                // It skips, like a video dropping frames: held dead still, then all at once in a new shape, a
+                // little nearer, its head at a new angle, its mouth wider; the holds shortening as it builds, till it
+                // hardly holds at all.
+                body.Frozen = true;
+                nextSkip -= dt;
+                if (nextSkip <= 0f)
+                {
+                    nextSkip = Mathf.Lerp(s.skipHoldStart, s.skipHoldEnd, Mathf.Sqrt(c)) * Random.Range(0.6f, 1.4f);
+                    SkipFrame(dist, c, e);
+                }
+            }
+            else
+            {
+                body.Frozen = false;
+                body.Shudder(Mathf.Lerp(s.vibration, s.crescendoVibration, e), e);
+                body.SetEyes(Mathf.Lerp(1.6f, 3f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 0.5f, e), blue, 0f, s.eyeLight * (1f + 0.6f * blue), s.eyeLightRange);
+                player.AddShake(s.faceDownShake * e);
+            }
+            // Your view closing in on it: the edges darkening and the colour draining, until only it and your beam
+            // are left (it snaps wide open again as it bursts, or as your light leaves it).
+            if (Services.TryGet<LookController>(out var look)) look.Narrow(s.faceDownNarrow * Mathf.SmoothStep(0f, 1f, c));
             // Holding it in your light, you're slowed, and the nearer you come to it the heavier every step, until
             // it's gone.
             player.SlowThisFrame(Mathf.Lerp(s.faceDownSlow, s.faceDownSlowNear, closeness));
             if (c >= 1f) Dispel();
+        }
+
+        float nextSkip;
+        static readonly ScourPose[] SkipPoses = { ScourPose.HeadTilt, ScourPose.HangingHead, ScourPose.Reach, ScourPose.ArmsUp, ScourPose.Crouch, ScourPose.Lunge, ScourPose.Neutral };
+
+        // One dropped frame's worth: a new shape, a jolt nearer, the eyes and mouth caught up all at once.
+        void SkipFrame(float dist, float c, float e)
+        {
+            var next = SkipPoses[Random.Range(0, SkipPoses.Length)];
+            if (next == body.Pose) next = SkipPoses[(System.Array.IndexOf(SkipPoses, next) + 1) % SkipPoses.Length];
+            body.SetPose(next, Random.value < 0.5f ? -1 : 1, true);
+            body.Face(player.transform.position);
+            // (Nearer: resisting the light, never past where it would stop you.)
+            float room = dist - (s.stopDistance + 0.3f);
+            if (room > 0f)
+            {
+                Vector3 to = player.transform.position - transform.position;
+                to.y = 0f;
+                MoveTo(transform.position + to.normalized * Mathf.Min(room, s.skipStep * Random.Range(0.5f, 1.5f)));
+            }
+            // A twitch of its whole body off true, held till the next.
+            body.Shudder(Mathf.Lerp(0.01f, s.crescendoVibration * 0.6f, e), e);
+            body.SetEyes(Mathf.Lerp(1.6f, 3f, c), Mathf.Lerp(s.endEyeGlow, s.spawnEyeGlow * 0.5f, e), blue, 0f, s.eyeLight * (1f + 0.6f * blue), s.eyeLightRange);
+            body.Step();
+            Play(Sound.Click, Mathf.Lerp(0.25f, 0.6f, c), Random.Range(0.5f, 0.75f), 12f); // (a wet tick with each)
         }
 
         // Driven off: it comes apart into dark motes that scatter on the wind. The light pays for it.

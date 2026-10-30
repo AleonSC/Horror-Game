@@ -111,6 +111,7 @@ namespace Game.Entities
             if (eyeShader != null)
             {
                 skyEyeMat = new Material(eyeShader) { name = "The eye" };
+                skyEyeMat.renderQueue = 2960; // (after the night sky dome, before the rest of the see-through things: the giant's haze and its chain draw over it)
                 eye = Bar("The eye", skyEyeMat);
                 var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 eye.GetComponent<MeshFilter>().sharedMesh = quad.GetComponent<MeshFilter>().sharedMesh;

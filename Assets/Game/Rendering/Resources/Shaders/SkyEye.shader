@@ -60,6 +60,13 @@ Shader "Game/SkyEye"
             {
                 Varyings o;
                 o.positionCS = TransformWorldToHClip(TransformObjectToWorld(input.positionOS));
+                // Drawn at the far end of the sky, whatever distance its quad is at: everything in front of it (the
+                // giant, its chain, the trees) hides it, as the sky would be hidden.
+                #if UNITY_REVERSED_Z
+                o.positionCS.z = o.positionCS.w * 1e-6;
+                #else
+                o.positionCS.z = o.positionCS.w * (1.0 - 1e-6);
+                #endif
                 o.uv = input.uv * 2.0 - 1.0;
                 return o;
             }

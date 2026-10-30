@@ -52,6 +52,20 @@ namespace Game.Rendering
         public float FarSharp;
         /// <summary>The world going (a scour has you), 0-1: the fog turns black and stops glowing, the moon goes out.</summary>
         public float Void;
+
+        float narrowAsked, narrowShown;
+        int narrowFrame = -10;
+
+        /// <summary>
+        /// Your view closing in (a scour faced down), 0-1, for this frame: the edges dark, the colour draining. Call
+        /// each frame it holds (several at once: the most wins). It eases in, and snaps open when no one asks.
+        /// </summary>
+        public void Narrow(float amount)
+        {
+            if (narrowFrame != Time.frameCount) narrowAsked = 0f;
+            narrowAsked = Mathf.Max(narrowAsked, Mathf.Clamp01(amount));
+            narrowFrame = Time.frameCount;
+        }
         /// <summary>While it goes: how far you can still see (metres).</summary>
         public float VoidSight = 30f;
 
@@ -248,10 +262,14 @@ namespace Game.Rendering
 
             colorAdjustments.postExposure.Override(s.postExposure);
             colorAdjustments.contrast.Override(s.contrast);
-            colorAdjustments.saturation.Override(s.saturation);
+            // (Asked this frame or the last: the order scripts run in needn't matter.)
+            float narrowTo = Time.frameCount - narrowFrame <= 1 ? narrowAsked : 0f;
+            narrowShown = Mathf.MoveTowards(narrowShown, narrowTo, Time.deltaTime * (narrowTo > narrowShown ? 1.5f : 5f));
+            float n = narrowShown * narrowShown * (3f - 2f * narrowShown);
+            colorAdjustments.saturation.Override(Mathf.Lerp(s.saturation, -100f, n * 0.85f));
             colorAdjustments.colorFilter.Override(s.colorFilter);
             float b = Mathf.Clamp01(Blur);
-            vignette.intensity.Override(Mathf.Clamp01(s.vignette));
+            vignette.intensity.Override(Mathf.Lerp(Mathf.Clamp01(s.vignette), 0.85f, n));
             grain.intensity.Override(s.grain);
             grain.type.Override(FilmGrainLookup.Medium3);
             // Motion blur is the player's choice (options), not part of the look.

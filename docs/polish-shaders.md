@@ -1470,3 +1470,18 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 
 - **The standoff:** stood in a lamp's light, you couldn't face a scour down. With your light on it, it just stood at the edge shuddering for as long as you watched, and only walking out of the light let it go. Now your light on it within react range starts the crescendo wherever you're standing, so you can drive one off from inside the light too.
 - **Slowing:** while you hold one in your light you're slowed more the closer you come. It goes from **faceDownSlow** (0.5 of your speed) at the edge of its range down to **faceDownSlowNear** (0.2) right up against it, and lasts until it's driven off or your light leaves it. (ScourConfig → Facing it down.)
+
+## Scours skip frames as you face them down; your view closes in; the eye drawn behind the giant
+
+- **Frame skip** (ScourConfig → Facing it down → **frameSkip**, on): faced down, a scour no longer shudders. It holds dead still, as if its frames had stopped coming. Then, all at once, it's in a new shape, nearer you, with its head at a new angle and its mouth wider. Each jump does all of these:
+  - a new pose (head tilt, hanging head, reach, arms up, crouch, lunge);
+  - turns to face you;
+  - jolts up to **skipStep** (0.12 m) nearer, but never past where it would stop you;
+  - its body is held a little off true;
+  - its eyes catch up in one go;
+  - a wet tick sounds.
+  - The holds shorten from **skipHoldStart** (0.55 s) to **skipHoldEnd** (0.06 s) as the crescendo builds, so at the end it hardly holds at all.
+  - How it works: `ScourLook.Frozen` skips its animation until `Step()` lets one frame through. A model with an Animator is paused (speed 0) and moved on a quarter-second per step.
+  - Turning **frameSkip** off brings back the old shudder and camera shake.
+- **View closing in** (**faceDownNarrow**, 0.75): as the crescendo builds, the edges of your view darken and the colour drains, until only the scour and your beam are left. It snaps wide open again (5×/s) the moment it bursts or your light leaves it. (`LookController.Narrow`: with several scours at once, the strongest wins. It drives the vignette and saturation.)
+- **The giant's eye is drawn behind the giant:** the SkyEye shader now puts the eye at the far end of the sky's depth, whatever distance its quad is at, so the giant, its chain and the trees all hide it. It also draws after the night-sky dome and before the giant's haze (render queue 2960). The elevation lift from before still keeps its opening clear of the head by default; set **eyeClearance** to 0 to let the giant stand in front of it.
