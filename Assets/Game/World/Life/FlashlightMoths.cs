@@ -12,7 +12,8 @@ namespace Game.World
     /// flutter about in the beam, trailing after it as you swing it. Turn it off and they're lost, milling about
     /// where they were; turn it on again and the ones still close find it again (where you stand, most of them;
     /// switched off and on while running, you've left them behind and few do). Lost ones give up after a few
-    /// seconds and are gone.
+    /// seconds and are gone. And a few always wander the dark round you, light or none, fluttering about their
+    /// own spots: sweep your beam over one and it's drawn in, and follows the beam with the rest.
     /// </summary>
     public sealed class FlashlightMoths : MonoBehaviour
     {
@@ -21,6 +22,8 @@ namespace Game.World
             public Vector3 At, Velocity;
             public float Along, Out, Phase, Seed, GiveUp, Fade;
             public bool Lost, Leaving;
+            public bool Wild;     // wandering on its own (not drawn to your light yet)
+            public Vector3 Home;
         }
 
         readonly List<Moth> moths = new List<Moth>();
@@ -69,6 +72,7 @@ namespace Game.World
         void Update()
         {
             if (player == null && !Services.TryGet(out player)) return;
+            if (PlayerPlace.InDarkRoom) return; // (none down there: they wait where they were)
             float dt = Time.deltaTime;
             var light = player.Flashlight;
             bool on = light != null && light.IsOn && light.Beam != null && GameFlow.IsPlaying && !PlayerPlace.InDarkRoom;
@@ -82,13 +86,19 @@ namespace Game.World
                 wasOn = on;
             }
 
+            // The wanderers: a few always about round you in the dark (new ones in further off, out of sight).
+            int wild = 0;
+            foreach (var m in moths) if (m.Wild) wild++;
+            for (; wild < s.wanderingMoths; wild++) SpawnWild(s, wild < s.wanderingMoths / 2 && !placedWild);
+            placedWild = true;
+
             if (on)
             {
                 // The longer it's on, the more there are (up to the most).
                 onTime = Mathf.Min(gather, onTime + dt);
                 int want = Mathf.RoundToInt(s.flashlightMoths * Mathf.SmoothStep(0f, 1f, onTime / gather));
                 int following = 0;
-                foreach (var m in moths) if (!m.Lost) following++;
+                foreach (var m in moths) if (!m.Lost && !m.Wild) following++;
                 spawnTimer -= dt;
                 if (following < want && spawnTimer <= 0f)
                 {
@@ -105,7 +115,23 @@ namespace Game.World
                 var m = moths[i];
                 Vector3 target;
                 float speed = s.mothSpeed;
-                if (!m.Lost)
+                if (m.Wild)
+                {
+                    // Wandering: fluttering about its own spot, low, slowly drifting.
+                    if ((m.Home - player.transform.position).sqrMagnitude > s.wanderingMothRange * s.wanderingMothRange * 2f) { moths.RemoveAt(i); continue; }
+                    target = m.Home + new Vector3(Mathf.Sin(Time.time * 0.5f + m.Seed * 9f) * 2f, Mathf.Sin(Time.time * 0.8f + m.Seed * 5f) * 0.6f, Mathf.Cos(Time.time * 0.4f + m.Seed * 7f) * 2f);
+                    speed *= 0.6f;
+                    m.Fade = Mathf.MoveTowards(m.Fade, 1f, dt);
+                    // Your beam on it: drawn in, it joins the others in the light.
+                    if (on && InLight(m.At, from, dir, coneTan, light))
+                    {
+                        m.Wild = false;
+                        m.Lost = false;
+                        m.Along = Mathf.Clamp(Vector3.Dot(m.At - from, dir), 1.2f, Mathf.Min(7f, light.Settings.range * 0.4f));
+                        m.Out = Random.Range(0.1f, 0.9f);
+                    }
+                }
+                else if (!m.Lost)
                 {
                     // Its own spot in the beam: so far along it, so far out from the middle, wobbling round.
                     float a = m.Seed * 10f + Time.time * (0.8f + m.Seed);
@@ -139,6 +165,29 @@ namespace Game.World
             Draw();
         }
 
+        bool placedWild;
+
+        // In your beam (its cone, out to where it fades), with a little to spare: a moth there sees it.
+        static bool InLight(Vector3 p, Vector3 from, Vector3 dir, float coneTan, Flashlight light)
+        {
+            Vector3 to = p - from;
+            float along = Vector3.Dot(to, dir);
+            if (along < 0.3f || along > light.Settings.range * 0.85f) return false;
+            float off = (to - dir * along).magnitude;
+            return off <= along * coneTan * 1.3f + 0.4f;
+        }
+
+        // A wanderer, somewhere round you (at the start, anywhere; after, further off, coming in out of the dark).
+        void SpawnWild(ForestLifeSettings s, bool anywhere)
+        {
+            Vector3 you = player.transform.position;
+            float a = Random.Range(0f, Mathf.PI * 2f);
+            float r = s.wanderingMothRange * (anywhere ? Mathf.Sqrt(Random.Range(0.1f, 1f)) : Random.Range(0.75f, 1f));
+            var home = new Vector3(you.x + Mathf.Cos(a) * r, 0f, you.z + Mathf.Sin(a) * r);
+            home.y = (Physics.Raycast(home + Vector3.up * 30f, Vector3.down, out var hit, 80f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore) ? hit.point.y : you.y) + Random.Range(0.8f, 3f);
+            moths.Add(new Moth { At = home, Home = home, Wild = true, Seed = Random.value, Phase = Random.value * 10f, Fade = 0f });
+        }
+
         void Spawn(Flashlight light)
         {
             var s = S;
@@ -161,7 +210,7 @@ namespace Game.World
         {
             foreach (var m in moths)
             {
-                if (m.Lost) continue;
+                if (m.Lost || m.Wild) continue;
                 m.Lost = true;
                 m.Leaving = false;
                 m.GiveUp = Random.Range(Mathf.Min(s.mothGiveUp.x, s.mothGiveUp.y), Mathf.Max(s.mothGiveUp.x, s.mothGiveUp.y));

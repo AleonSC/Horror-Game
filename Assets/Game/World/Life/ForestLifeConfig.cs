@@ -143,6 +143,10 @@ namespace Game.World
         public float lightningBugsSitting = 0.15f;
 
         [Header("Moths round your flashlight")]
+        [Range(0, 60), Tooltip("Moths wandering the dark round you whether your light's on or not: sweep your beam over one and it's drawn in and follows it.")]
+        public int wanderingMoths = 16;
+        [Range(5f, 40f), Tooltip("They wander within this of you.")]
+        public float wanderingMothRange = 16f;
         [Range(0, 80), Tooltip("Most moths drawn to your beam at once.")]
         public int flashlightMoths = 28;
         [Range(10f, 600f), Tooltip("Seconds of the light being on to gather all of them (the difficulty's moth time scales it).")]

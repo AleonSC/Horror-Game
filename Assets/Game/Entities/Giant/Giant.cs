@@ -443,17 +443,8 @@ namespace Game.Entities
             player.AddShake(3f);
             player.AddRumble(0.6f, 1.5f);
 
-            // The flash where it parts.
-            if (snapFlash == null)
-            {
-                snapFlash = Effects.Glow(transform, Vector3.zero, 1f, Color.black, 0f, 2f, "Chain snap flash");
-            }
-            if (snapFlash != null)
-            {
-                snapFlash.gameObject.SetActive(true);
-                snapFlash.transform.position = p + snapBreak;
-                snapFlash.transform.localScale = Vector3.one * snapThickness * 40f;
-            }
+            // (No flash where it parts: a glowing ball hung round its neck for half a second, a yellow orb that read as
+            // something else. The crack, the jolt and the chain whipping away say it.)
 
             // The loose links.
             for (int i = 0; i < 9; i++)

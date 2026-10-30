@@ -23,18 +23,25 @@ namespace Game.World
 
         [Tooltip("The colour the runes and the door's light burn.")]
         public Color glow = new Color(0.62f, 0.8f, 1f);
-        [Tooltip("How bright a woken rune is.")]
-        public float runeGlow = 2.2f;
+        [Tooltip("How bright a woken rune is (and the glyphs on its stone).")]
+        public float runeGlow = 0.9f;
+        [Tooltip("How far past its woken glow a rune flares as it wakes (1: twice as bright).")]
+        public float runeFlare = 1.1f;
+        [Range(0, 20), Tooltip("Glyphs cut all over each stone's faces, lighting up one after another as it wakes (on Restart).")]
+        public int glyphsPerStone = 9;
         [Tooltip("Each woken stone's light on the ground round it (candela).")]
         public float stoneLight = 4f;
         [Tooltip("The light seeping out round the door when all ten are lit (candela); a share of it before.")]
-        public float doorLight = 60f;
+        public float doorLight = 30f;
+        [Tooltip("How bright the line of light under the door and the keyhole burn, all ten lit.")]
+        public float seepGlow = 1.4f;
         [Range(0f, 0.6f), Tooltip("How far the door stands open by the ninth lamp (a share of its full swing); it opens a little more with each lamp up to there, and swings open at the tenth.")]
         public float ajarAtNine = 0.33f;
                 [Tooltip("How far off the door's blow and the stones waking are heard (metres).")]
         public float heardFrom = 160f;
 
         readonly Material[] runes = new Material[Stones];
+        readonly List<Material>[] glyphs = new List<Material>[Stones];
         readonly Light[] lights = new Light[Stones];
         readonly float[] level = new float[Stones];   // each stone's rune now (0 dark, 1 woken; above 1 flaring)
         readonly float[] target = new float[Stones];
@@ -96,6 +103,12 @@ namespace Game.World
                 // The rune, cut into the face toward the door, at chest height.
                 runes[i] = Keep(RuntimeMaterials.LitGlow($"Rune {i + 1}", new Color(0.05f, 0.05f, 0.05f), Color.black));
                 Rune(at, new Vector3(0f, height * 0.58f, depth * 1.06f + 0.01f), rng, runes[i]);
+                glyphs[i] = new List<Material>();
+                for (int g = 0; g < glyphsPerStone; g++)
+                {
+                    var gm = Keep(RuntimeMaterials.LitGlow($"Glyph {i + 1}.{g + 1}", new Color(0.05f, 0.05f, 0.05f), Color.black));
+                    if (Glyph(at, mesh, rng, gm)) glyphs[i].Add(gm);
+                }
 
                 var lightGo = new GameObject("Stone light");
                 lightGo.transform.SetParent(at, false);
@@ -218,6 +231,78 @@ namespace Game.World
             if (rng.NextDouble() < 0.5) Stroke(new Vector2(-0.07f, h * 0.95f), new Vector2(0.07f, h * 0.95f));
         }
 
+        // A glyph cut into the stone's surface: a few short strokes (a hook, a cross-bar, a little loop of three),
+        // laid flat on one of its faces somewhere from knee to near the top, all round it.
+        static bool Glyph(Transform stone, Mesh mesh, System.Random rng, Material m)
+        {
+            var v = mesh.vertices;
+            var t = mesh.triangles;
+            // A face of its sides (not the top's fan, nor the bottom ring): somewhere up its height, any way round.
+            for (int tries = 0; tries < 12; tries++)
+            {
+                int tri = rng.Next(t.Length / 3) * 3;
+                Vector3 a = v[t[tri]], b = v[t[tri + 1]], c = v[t[tri + 2]];
+                Vector3 n = Vector3.Cross(b - a, c - a);
+                if (n.sqrMagnitude < 1e-8f) continue;
+                n.Normalize();
+                if (Mathf.Abs(n.y) > 0.5f) continue;
+                float u = (float)rng.NextDouble(), w = (float)rng.NextDouble();
+                if (u + w > 1f) { u = 1f - u; w = 1f - w; }
+                Vector3 p = a + (b - a) * u + (c - a) * w;
+                float top = mesh.bounds.max.y;
+                if (p.y < 0.45f || p.y > top * 0.85f) continue;
+                // (Facing out: the normal pointing away from the stone's middle.)
+                if (Vector3.Dot(n, new Vector3(p.x, 0f, p.z)) < 0f) n = -n;
+                var glyph = new GameObject("Glyph").transform;
+                glyph.SetParent(stone, false);
+                glyph.localPosition = p + n * 0.007f;
+                glyph.localRotation = Quaternion.LookRotation(n, Vector3.up) * Quaternion.Euler(0f, 0f, (float)(rng.NextDouble() - 0.5) * 30f);
+                float s = 0.05f + (float)rng.NextDouble() * 0.03f;
+                void Stroke(Vector2 from, Vector2 to)
+                {
+                    var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    Destroy(go.GetComponent<Collider>());
+                    go.transform.SetParent(glyph, false);
+                    Vector2 d = (to - from) * s;
+                    go.transform.localPosition = (Vector3)((from + to) * 0.5f * s);
+                    go.transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+                    go.transform.localScale = new Vector3(d.magnitude + 0.012f, 0.013f, 0.006f);
+                    var r = go.GetComponent<Renderer>();
+                    r.sharedMaterial = m;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+                switch (rng.Next(5))
+                {
+                    case 0: // a hook
+                        Stroke(new Vector2(0f, -1f), new Vector2(0f, 1f));
+                        Stroke(new Vector2(0f, 1f), new Vector2(0.6f, 0.5f));
+                        break;
+                    case 1: // a cross-bar on a stem, a foot
+                        Stroke(new Vector2(0f, -1f), new Vector2(0f, 1f));
+                        Stroke(new Vector2(-0.6f, 0.3f), new Vector2(0.6f, 0.3f));
+                        Stroke(new Vector2(0f, -1f), new Vector2(-0.5f, -1.3f));
+                        break;
+                    case 2: // a little loop of three
+                        Stroke(new Vector2(-0.6f, -0.5f), new Vector2(0.6f, -0.5f));
+                        Stroke(new Vector2(0.6f, -0.5f), new Vector2(0f, 0.7f));
+                        Stroke(new Vector2(0f, 0.7f), new Vector2(-0.6f, -0.5f));
+                        break;
+                    case 3: // a forked stroke
+                        Stroke(new Vector2(0f, -1f), new Vector2(0f, 0.2f));
+                        Stroke(new Vector2(0f, 0.2f), new Vector2(-0.5f, 1f));
+                        Stroke(new Vector2(0f, 0.2f), new Vector2(0.5f, 1f));
+                        break;
+                    default: // two ticks and a bar
+                        Stroke(new Vector2(-0.7f, 0f), new Vector2(0.7f, 0f));
+                        Stroke(new Vector2(-0.35f, 0f), new Vector2(-0.15f, 0.8f));
+                        Stroke(new Vector2(0.35f, 0f), new Vector2(0.15f, -0.8f));
+                        break;
+                }
+                return true;
+            }
+            return false;
+        }
+
         void Start()
         {
             int lit = Services.TryGet<GameRun>(out var run) ? run.LampsLit : 0;
@@ -298,7 +383,7 @@ namespace Game.World
             for (float t = 0f; t < seconds; t += Time.deltaTime)
             {
                 float k = t / seconds;
-                level[i] = Mathf.Max(target[i], Mathf.SmoothStep(0f, 1f, Mathf.Min(1f, k * 4f)) * (1f + 2.5f * (1f - k) * (1f - k)));
+                level[i] = Mathf.Max(target[i], Mathf.SmoothStep(0f, 1f, Mathf.Min(1f, k * 4f)) * (1f + runeFlare * (1f - k) * (1f - k)));
                 yield return null;
             }
             level[i] = target[i];
@@ -313,6 +398,15 @@ namespace Game.World
                 if (level[i] != target[i] && level[i] <= 1f) level[i] = Mathf.MoveTowards(level[i], target[i], dt / 1.5f);
                 float l = level[i];
                 if (runes[i] != null) RuntimeMaterials.SetGlow(runes[i], glow * runeGlow * l * flicker);
+                // Its glyphs light one after another as it wakes (the rune first), and go dark together.
+                var gs = glyphs[i];
+                if (gs != null)
+                    for (int g = 0; g < gs.Count; g++)
+                    {
+                        float from = 0.15f + 0.75f * g / Mathf.Max(1, gs.Count);
+                        float lg = Mathf.Clamp01((Mathf.Min(l, 1f) - from) / 0.12f) * Mathf.Max(1f, l);
+                        RuntimeMaterials.SetGlow(gs[g], glow * runeGlow * 0.8f * lg * flicker);
+                    }
                 if (lights[i] != null)
                 {
                     lights[i].enabled = l > 0.01f;
@@ -321,7 +415,7 @@ namespace Game.World
             }
             seepLevel = Mathf.MoveTowards(seepLevel, seepTarget, dt / (seepLevel > seepTarget ? 2f : 1f));
             float sl = seepLevel * (0.85f + 0.15f * Mathf.PerlinNoise(Time.time * 5f, 2.1f));
-            if (seep != null) RuntimeMaterials.SetGlow(seep, glow * 4f * sl);
+            if (seep != null) RuntimeMaterials.SetGlow(seep, glow * seepGlow * sl);
             foreach (var dl in doorLights)
             {
                 dl.enabled = sl > 0.01f;

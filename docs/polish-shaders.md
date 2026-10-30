@@ -1505,3 +1505,17 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Offline check** (`lodcheck`, oak crowns from the nearest level to the farthest):
   - crown size change was 8–15%, now 3–6%;
   - trunk size change was 5–14% (the missing side branches), now 0%.
+
+## Wandering moths; no orb at the chain's snap; the door's stones calmer and covered in glyphs
+
+- **Wandering moths:** a few moths (`wanderingMoths`, 16) now wander the dark within `wanderingMothRange` (16 m) of you, whether your light's on or not. Each flutters about its own spot, 0.8–3 m up, drifting slowly. Sweep your beam over one (inside the cone with a little to spare, out to 85% of its range) and it's drawn in. It joins the swarm in the beam and follows it as you swing it, getting lost when you switch off like the others. New wanderers come in from the edge of the range to replace them. None appear in the dark room. (ForestLifeConfig → Moths round your flashlight.)
+- **Chain snap:** the glowing ball at the break was a warm glow 40× the chain's thickness, held for half a second, and it read as a yellow orb round the giant's neck. It's gone. The crack, the jolt, the thunder and the chain whipping away carry the moment.
+- **Door lights toned down** (less bloom):
+  - a woken rune burns at **runeGlow** 0.9 (from 2.2);
+  - its wake flare peaks at 2.1× (**runeFlare** 1.1, from a built-in 3.5×);
+  - the line of light under the door and the keyhole: **seepGlow** 1.4 (from 4);
+  - the door's light: **doorLight** 30 cd (from 60).
+- **Glyphs:** each standing stone now also has **glyphsPerStone** (9) small glyphs cut all over its faces, from knee height to near its top, every way round. Each glyph:
+  - is a few short strokes: a hook, a stem with a cross-bar and a foot, a little loop of three, a forked stroke, or two ticks on a bar;
+  - is laid flat on one of the stone's side faces and turned a little.
+  - When the stone wakes they light one after another, after its main rune, and flare with it.
