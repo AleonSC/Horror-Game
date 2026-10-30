@@ -523,7 +523,11 @@ namespace Game.World.Build
         // An old concrete bunker dug into the hillside: a thick, stained front with a dark doorway under a heavy
         // lintel and a capping slab, stepped wing walls angling out either side to hold back the earth, and an
         // earth mound heaped over it all. Through the doorway a short corridor runs back into a small dark room,
-        // a crate at its back (its loot on it), an old drum in a corner, rubble on the floor.
+        // a crate at its back (its loot on it), an old drum in a corner, rubble on the floor. Through a doorway in
+        // the room's back wall, a long hallway runs on back into the hill, dead lamps in cages along its ceiling, to
+        // a staircase going down into the ground: down into a dark that swallows the steps a few metres below you.
+        // Walk on down and you're going down, step after step... but turn round and the top's right behind you,
+        // as close as it ever was (see StairLoop).
         void Bunker(Transform t, System.Random rng)
         {
             float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
@@ -574,7 +578,16 @@ namespace Game.World.Build
             float rz = (roomFront + roomBack) * 0.5f, rl = roomFront - roomBack;
             Box(t, new Vector3(-roomHalf - wall * 0.5f, roomH * 0.5f, rz), new Vector3(wall, roomH, rl), concreteDark);
             Box(t, new Vector3(roomHalf + wall * 0.5f, roomH * 0.5f, rz), new Vector3(wall, roomH, rl), concreteDark);
-            Box(t, new Vector3(0f, roomH * 0.5f, roomBack - wall * 0.5f), new Vector3(roomHalf * 2f + wall * 2f, roomH, wall), concreteDark);
+            // The back wall, a doorway through it to the hallway.
+            {
+                const float dw = 1.0f;
+                float dx = BunkerPlan.HallX, l = -roomHalf - wall, r = roomHalf + wall;
+                float a = dx - dw * 0.5f, b = dx + dw * 0.5f;
+                Box(t, new Vector3((l + a) * 0.5f, roomH * 0.5f, roomBack - wall * 0.5f), new Vector3(a - l, roomH, wall), concreteDark);
+                Box(t, new Vector3((b + r) * 0.5f, roomH * 0.5f, roomBack - wall * 0.5f), new Vector3(r - b, roomH, wall), concreteDark);
+                Box(t, new Vector3(dx, (doorH + roomH) * 0.5f, roomBack - wall * 0.5f), new Vector3(dw, roomH - doorH, wall), concreteDark);
+            }
+            BunkerHallway(t, rng);
             float flank = roomHalf - hw;
             Box(t, new Vector3(-(hw + flank * 0.5f), roomH * 0.5f, roomFront + wall * 0.5f), new Vector3(flank, roomH, wall), concreteDark);
             Box(t, new Vector3(hw + flank * 0.5f, roomH * 0.5f, roomFront + wall * 0.5f), new Vector3(flank, roomH, wall), concreteDark);
@@ -584,7 +597,7 @@ namespace Game.World.Build
             // What's left in it: the crate (its loot goes on top), a drum, some rubble.
             Box(t, PlaceFittings.BunkerCrateSpot + new Vector3(0f, 0.37f, 0f), new Vector3(1f, 0.74f, 0.6f), wood);
             for (int i = 0; i < 3; i++) Box(t, PlaceFittings.BunkerCrateSpot + new Vector3(0f, 0.15f + i * 0.22f, 0.305f), new Vector3(1.02f, 0.04f, 0.02f), darkWood, false);
-            Shape(PrimitiveType.Cylinder, t, new Vector3(roomHalf - 0.4f, 0.45f, roomBack + 0.45f), new Vector3(0.58f, 0.45f, 0.58f), rust, true);
+            Shape(PrimitiveType.Cylinder, t, new Vector3(-roomHalf + 0.4f, 0.45f, roomFront - 0.5f), new Vector3(0.58f, 0.45f, 0.58f), rust, true);
             for (int i = 0; i < 9; i++)
             {
                 float sz = R(0.08f, 0.25f);
@@ -594,9 +607,87 @@ namespace Game.World.Build
 
             // The earth heaped over it: high and flat over the rooms (so nothing pokes out), falling away round
             // the sides and back, banked against the front's sides, open in front of the doorway.
-            EarthMound(t, new Vector2(roomHalf + wall + 0.3f, F - 0.05f), roomBack - wall - 0.3f, faceH, F - faceD, faceW * 0.5f + 0.1f, rng);
+            EarthMound(t, new Vector2(roomHalf + wall + 0.3f, F - 0.05f), BunkerPlan.StairsEnd - wall - 0.3f, faceH, F - faceD, faceW * 0.5f + 0.1f, rng);
 
             PlaceFittings.AddShelter(t, "Bunker", new Bounds(new Vector3(0f, roomH * 0.5f, (F - faceD + roomBack) * 0.5f), new Vector3(roomHalf * 2f, roomH, F - faceD - roomBack)));
+        }
+
+        // The hallway back from the room and the stairs at its end (see BunkerPlan for where; the ground's dug out
+        // for them). Concrete all round, a dead lamp in a wire cage every few metres along the ceiling, the old
+        // steel door off its hinges leant against the wall; the stairs solid blocks of concrete under an invisible
+        // ramp (so you walk down them smoothly, not in a jolt at every step); a black fog filling the stairwell from
+        // the top step down, the same all through it, so the steps fade to black the same few metres ahead of you
+        // wherever you are on them; and a StairLoop to take you back up without your knowing.
+        void BunkerHallway(Transform t, System.Random rng)
+        {
+            float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
+            const float wall = 0.3f;
+            float x = BunkerPlan.HallX, half = BunkerPlan.HallHalf, height = BunkerPlan.HallHeight;
+            float z0 = BunkerPlan.HallStart, z1 = BunkerPlan.HallEnd, len = z0 - z1;
+            // The hallway.
+            Box(t, new Vector3(x, 0.02f, (z0 + z1) * 0.5f), new Vector3(half * 2f, 0.04f, len), concreteDark, false);
+            for (int side = -1; side <= 1; side += 2)
+                Box(t, new Vector3(x + side * (half + wall * 0.5f), height * 0.5f, (z0 + z1) * 0.5f), new Vector3(wall, height, len), concreteDark);
+            Box(t, new Vector3(x, height + 0.15f, (z0 + z1) * 0.5f), new Vector3(half * 2f + wall * 2f, 0.3f, len), concreteDark);
+            for (float z = z0 - 1.5f; z > z1 + 0.8f; z -= 2.6f)
+            {
+                Shape(PrimitiveType.Sphere, t, new Vector3(x, height - 0.12f, z), new Vector3(0.12f, 0.16f, 0.12f), Keep(RuntimeMaterials.Lit("Dead bulb", new Color(0.12f, 0.11f, 0.09f), 0.8f)), false);
+                for (int k = 0; k < 4; k++)
+                {
+                    float ang = k * Mathf.PI * 0.5f;
+                    Rod(t, new Vector3(x + Mathf.Cos(ang) * 0.1f, height, z + Mathf.Sin(ang) * 0.1f), new Vector3(x + Mathf.Cos(ang) * 0.09f, height - 0.24f, z + Mathf.Sin(ang) * 0.09f), 0.005f, rust);
+                }
+                Rod(t, new Vector3(x - half, height - 0.04f, z), new Vector3(x + half, height - 0.04f, z), 0.012f, rust); // (a conduit across)
+            }
+            // The steel door, off its hinges, leant against the left wall just in from the room.
+            var door = Box(t, new Vector3(x - half + 0.15f, 1.0f, z0 - 1.0f), new Vector3(0.06f, 2.0f, 0.95f), rust, false);
+            door.transform.localRotation = Quaternion.Euler(0f, 0f, -8f);
+            // Rubble and old papers down its length.
+            for (int i = 0; i < 6; i++)
+            {
+                float sz = R(0.06f, 0.18f);
+                var lump = Box(t, new Vector3(x + R(-half + 0.1f, half - 0.1f), sz * 0.3f, R(z1 + 0.5f, z0 - 0.5f)), new Vector3(sz, sz * 0.6f, sz), concrete, false);
+                lump.transform.localRotation = Quaternion.Euler(R(-20f, 20f), R(0f, 360f), R(-20f, 20f));
+            }
+
+            // The stairs: solid blocks, each step's top a rise lower and a run further.
+            float rise = BunkerPlan.Rise, run = BunkerPlan.Run;
+            int steps = BunkerPlan.Steps;
+            var stepMat = concreteDark;
+            for (int k = 1; k <= steps; k++)
+            {
+                float top = -k * rise, zc = z1 - (k - 0.5f) * run;
+                Box(t, new Vector3(x, top - 0.4f, zc), new Vector3(half * 2f, 0.8f, run + 0.005f), stepMat, false);
+                Box(t, new Vector3(x, top - 0.012f, zc + run * 0.5f - 0.03f), new Vector3(half * 2f, 0.025f, 0.06f), concrete, false); // (the worn nosing)
+            }
+            // The stairwell: walls the whole way down, a ceiling sloping down over the steps, black at the bottom.
+            float bottom = BunkerPlan.Bottom, zEnd = BunkerPlan.StairsEnd, sl = z1 - zEnd;
+            for (int side = -1; side <= 1; side += 2)
+                Box(t, new Vector3(x + side * (half + wall * 0.5f), (height + bottom - 1f) * 0.5f, (z1 + zEnd) * 0.5f), new Vector3(wall, height - bottom + 1f, sl), concreteDark);
+            float slope = Mathf.Atan2(rise, run) * Mathf.Rad2Deg, along = Mathf.Sqrt(sl * sl + bottom * bottom);
+            var ceiling = Box(t, new Vector3(x, height + 0.15f + bottom * 0.5f, (z1 + zEnd) * 0.5f), new Vector3(half * 2f + wall * 2f, 0.3f, along), concreteDark);
+            ceiling.transform.localRotation = Quaternion.Euler(-slope, 0f, 0f);
+            Box(t, new Vector3(x, bottom * 0.5f, zEnd - 0.2f), new Vector3(half * 2f, height - bottom + 1f, 0.4f), Keep(RuntimeMaterials.Unlit("Nothing", Color.black, false)));
+            // The ramp you actually walk on (unseen), along the middles of the steps' tops.
+            var ramp = Box(t, new Vector3(x, -0.1f + bottom * 0.5f - rise * 0.5f, (z1 + zEnd) * 0.5f), new Vector3(half * 2f, 0.2f, along + 0.4f), concreteDark);
+            ramp.transform.localRotation = Quaternion.Euler(-slope, 0f, 0f);
+            ramp.GetComponent<Renderer>().enabled = false;
+
+            // The dark: a black fog all through the stairwell from the top step down.
+            var fogGo = new GameObject("Stairwell dark");
+            fogGo.transform.SetParent(t, false);
+            fogGo.transform.localPosition = new Vector3(x, (height + bottom) * 0.5f, (z1 + zEnd) * 0.5f - 0.1f);
+            var fog = fogGo.AddComponent<UnityEngine.Rendering.HighDefinition.LocalVolumetricFog>();
+            fog.parameters.albedo = Color.black;
+            fog.parameters.meanFreePath = 1.3f;
+            fog.parameters.size = new Vector3(half * 2f + 0.2f, height - bottom + 0.4f, sl + 0.2f);
+            fog.parameters.blendingMode = UnityEngine.Rendering.HighDefinition.LocalVolumetricFogBlendingMode.Additive;
+            fog.parameters.positiveFade = new Vector3(0f, 0f, 0.6f / (sl + 0.2f)); // (thinning out just over the top step)
+            fog.parameters.negativeFade = Vector3.zero;
+
+            // Going down... and never getting any further.
+            var loop = t.gameObject.AddComponent<StairLoop>();
+            loop.Set(new Vector3(x, 0f, z1), half, rise, run);
         }
 
         // A heightfield of earth over the bunker: full height over the box (|x| < half.x, back < z < half.y),

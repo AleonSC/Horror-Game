@@ -1555,3 +1555,27 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
   - keep-out half sizes: the cabin's is now 5.5 × 5.5, the shack's 3.4 × 3.8;
   - your own cabin prefab can mark spots with children named `Nightstand` and `Workbench`;
   - WorldGenTests now check the cabin's nightstand and workbench loot. All 23 world-gen tests pass, and 0 of 60 seeds are short.
+
+## The bunker's hallway and the stairs that never end
+
+- **The hallway:** a doorway now opens in the back of the bunker's room. The crate moved beside it, and the drum to the front corner. Through it, a concrete hallway runs 8.5 m straight back into the hill:
+  - dead bulbs in wire cages every 2.6 m along the ceiling, each with a rusted conduit across;
+  - the old steel door off its hinges, leant against the wall;
+  - rubble along the floor.
+- **The stairs:** at the hallway's end a staircase goes down into the ground. There are 26 solid concrete steps (rise 0.18 m, run 0.28 m) with worn nosings, between walls that go all the way down, under a ceiling sloping down with them, ending in black.
+  - You walk on an invisible ramp along the middles of the step tops, so the descent is smooth rather than a jolt at every step.
+  - **The dark:** a black local volumetric fog (mean free path 1.3 m) fills the stairwell, from just over the top step down. Because it's the same all the way through, the steps fade to black the same few metres ahead of you wherever you are on them.
+- **The loop** (`StairLoop`, on the bunker): six steps down, you're quietly put back up four (`stepsDown`, `loopSteps`).
+  - The steps ahead and the dark ahead are the same before and after, so you feel yourself going down and down.
+  - Turn round and the top of the stairs and the hallway are right there behind you, as near as they ever were.
+  - Walk back up and you're out.
+  - It uses `PlayerController.Shift`, a new method that moves you without touching your speed, fall or view.
+- **The ground** (`BunkerPlan.Dig`, in PathStage once the bunker's been turned to face its trail):
+  - it's levelled to the floor down the length of the hallway and stairs, so no ground shows through their walls;
+  - it's dug out deep under the stairs, 3 m below their bottom, so they go down into it;
+  - a clearing goes over it all, so no trees grow down through it;
+  - the bunker's earth mound now runs back over the whole length.
+- **Placement:** nothing else may now stand within `BunkerPlan.Reach` (24 m) of the bunker, whichever way it ends up facing: lamps (+7 m), other buildings, the cabin and shacks, and the lone door (+9 m). The bunker's still placed on all 60 test seeds, and all 23 world-gen tests pass.
+- **Untested in Unity:**
+  - The black fog needs volumetric fog on (as the ground mist does). With it off, the steps fade only by the dark.
+  - Check the loop is seamless. If the hallway behind visibly jumps, set `loopSteps` lower.

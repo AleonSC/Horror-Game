@@ -49,6 +49,9 @@ namespace Game.World.Generation
                 }
                 plan.Trails.Add(MakeTrail(plan, from, to, s, rng));
             }
+            // Its hallway and stairs, back into the hill (now it's turned whichever way it faces).
+            foreach (var st in plan.Structures)
+                if (st.Kind == StructureKind.Bunker) BunkerPlan.Dig(plan, st);
         }
 
         // A building beside a trail, its front (local +z, where the door is) facing it, a couple of metres off.
@@ -84,6 +87,7 @@ namespace Game.World.Generation
                 {
                     bool same = o.Kind == StructureKind.Shack || o.Kind == StructureKind.Cabin;
                     float need = same ? Mathf.Max(s.shacksApart * spacing, 15f) : 15f * spacing + reach + o.HalfSize.magnitude;
+                    if (o.Kind == StructureKind.Bunker) need = Mathf.Max(need, BunkerPlan.Reach + reach); // (its hallway and stairs run back into the hill)
                     if (plan.Distance(centre, o.Position) < need) { clash = true; break; }
                 }
                 if (clash || plan.Distance(centre, plan.Door) < 20f) continue;

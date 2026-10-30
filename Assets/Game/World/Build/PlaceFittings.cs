@@ -21,7 +21,7 @@ namespace Game.World.Build
         public static readonly Vector3 CabinTableSpot = new Vector3(2.3f, 0f, 2.0f);            // (the front room)
         public static readonly Vector3 CabinNightstandSpot = new Vector3(-2.0f, 0f, -3.55f);    // (the bedroom, by the bed)
         public static readonly Vector3 CabinWorkbenchSpot = new Vector3(2.2f, 0f, -3.45f);      // (the storeroom, against the back wall)
-        public static readonly Vector3 BunkerCrateSpot = new Vector3(0f, 0f, -2.65f); // (the crate at the back of its room)
+        public static readonly Vector3 BunkerCrateSpot = new Vector3(-0.8f, 0f, -2.65f); // (the crate at the back of its room, beside the doorway through)
         public static readonly Vector3 TentSpot = new Vector3(-2f, 0f, 0f);
         public const float TentYaw = 90f; // (opening toward the fire)
         public static readonly Vector3 BackpackSpot = new Vector3(0.3f, 0f, 1.5f);

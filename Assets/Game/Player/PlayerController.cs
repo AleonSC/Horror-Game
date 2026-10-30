@@ -552,6 +552,18 @@ namespace Game.Player
             }
         }
 
+        /// <summary>
+        /// Move the player by this much without a break in their stride (their speed, their fall, where they're
+        /// looking all as they were): for a place that quietly puts you back where you were.
+        /// </summary>
+        public void Shift(Vector3 by)
+        {
+            bool wasEnabled = body.enabled;
+            body.enabled = false;
+            transform.position += by;
+            body.enabled = wasEnabled;
+        }
+
         /// <summary>Move the player (waking up, restarting).</summary>
         public void Teleport(Vector3 position, Quaternion facing, bool keepPitch = false)
         {

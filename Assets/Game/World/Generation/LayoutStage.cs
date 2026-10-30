@@ -38,7 +38,11 @@ namespace Game.World.Generation
         /// Flatten the ground over a box (turned by yaw) plus a margin, to the box's average height, blending back
         /// into the slope over <paramref name="blend"/> metres beyond that.
         /// </summary>
-        public static void Level(WorldPlan plan, Vector2 centre, float yaw, Vector2 half, float margin, float blend)
+        public static void Level(WorldPlan plan, Vector2 centre, float yaw, Vector2 half, float margin, float blend) =>
+            LevelTo(plan, centre, yaw, half, margin, blend, float.NaN);
+
+        /// <summary>As <see cref="Level"/>, to this height (NaN: the box's average).</summary>
+        public static void LevelTo(WorldPlan plan, Vector2 centre, float yaw, Vector2 half, float margin, float blend, float to)
         {
             var h = plan.Height;
             float a = yaw * Mathf.Deg2Rad, cos = Mathf.Cos(a), sin = Mathf.Sin(a);
@@ -55,7 +59,7 @@ namespace Game.World.Generation
                 sum += h.Sample(centre.x + x * cos + z * sin, centre.y - x * sin + z * cos);
                 n++;
             }
-            float level = n > 0 ? sum / n : h.Sample(centre);
+            float level = !float.IsNaN(to) ? to : n > 0 ? sum / n : h.Sample(centre);
 
             for (int dz = -r; dz <= r; dz++)
             for (int dx = -r; dx <= r; dx++)
@@ -149,10 +153,12 @@ namespace Game.World.Generation
                 if (pass == 3 && plan.InWater(p)) continue;
                 bool clash = false;
                 foreach (var l in plan.Lamps)
-                    if (plan.Distance(p, l.Position) < 7f + reach) { clash = true; break; }
+                    if (plan.Distance(p, l.Position) < 7f + (kind == StructureKind.Bunker ? BunkerPlan.Reach : reach)) { clash = true; break; }
                 foreach (var o in plan.Structures)
                 {
                     float need = (o.Kind == same1 || o.Kind == same2) ? Mathf.Max(apart * spacing, 15f) : (15f * spacing + reach + o.HalfSize.magnitude);
+                    if (kind == StructureKind.Bunker) need = Mathf.Max(need, BunkerPlan.Reach + o.HalfSize.magnitude);
+                    if (o.Kind == StructureKind.Bunker) need = Mathf.Max(need, BunkerPlan.Reach + reach);
                     if (plan.Distance(p, o.Position) < need) { clash = true; break; }
                 }
                 if (clash) continue;
@@ -184,7 +190,7 @@ namespace Game.World.Generation
                 if (!GoodGround(plan, p, 8f)) continue;
                 bool clash = false;
                 foreach (var o in plan.Structures)
-                    if (plan.Distance(p, o.Position) < s.doorFromStructures) { clash = true; break; }
+                    if (plan.Distance(p, o.Position) < (o.Kind == StructureKind.Bunker ? Mathf.Max(s.doorFromStructures, BunkerPlan.Reach + 9f) : s.doorFromStructures)) { clash = true; break; }
                 foreach (var l in plan.Lamps)
                     if (plan.Distance(p, l.Position) < 12f) { clash = true; break; }
                 if (clash) continue;
