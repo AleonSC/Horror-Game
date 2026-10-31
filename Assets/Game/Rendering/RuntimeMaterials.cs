@@ -72,6 +72,18 @@ namespace Game.Rendering
         }
 
         /// <summary>
+        /// A blended surface lying on another (the trails' earth on the ground) must be gone where its alpha is:
+        /// HDRP keeps a see-through material's full shine regardless ("preserve specular") and lets it take
+        /// screen-space reflections, so a light catching the faded-out edge shows the mesh's cells as a blocky rim.
+        /// </summary>
+        public static void SetFadingEdges(Material m)
+        {
+            m.SetFloat("_EnableBlendModePreserveSpecularLighting", 0f);
+            m.SetFloat("_ReceivesSSRTransparent", 0f);
+            HDMaterial.ValidateMaterial(m);
+        }
+
+        /// <summary>
         /// Make a blended material a soft wisp (smoke, breath): its quad must vanish where its texture does. HDRP's
         /// see-through lit materials keep their full shine across the whole quad unless told not to ("preserve
         /// specular"), and can take screen-space reflections and write depth and motion, each of which shows the
