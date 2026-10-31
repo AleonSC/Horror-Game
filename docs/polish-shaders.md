@@ -1677,3 +1677,11 @@ From the car-site mock-ups, the car's site is now "Into the pine": it ran off th
   - glass strewn round the front;
   - snapped branches down from the tree.
 - **Loot:** where it was, in the glove box, the trunk and on the back seat.
+
+## Nothing takes you through the bunker's mound
+
+- **The problem:** scours, the blind one and crawlers judge their reach flat, ignoring height. The bunker's earth mound is ground (they stand on it), so one up there, over the hallway or the stairs, could take you through the ceiling.
+- **The fix:** `PlayerSense.OutOfReach` (added for the watchtower: feet 2.5 m or more over the ground below you) now also counts feet 2.5 m or more under the ground over you. That covers the bunker's rooms, hallway and stairs, with the mound over them.
+  - Out of reach, nothing on the surface can take you.
+  - A scour above stops advancing and creeping and waits, as under the watchtower.
+  - Crawlers don't leap at you either (they now check it too).

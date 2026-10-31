@@ -321,6 +321,7 @@ namespace Game.Entities
             if (d > reach) return false;
             if (Services.TryGet<SafeZones>(out var zones) && zones.Contains(player.transform.position)) return false;
             if (Spawner != null && Spawner.SomeoneOnFace) return false;
+            if (PlayerSense.OutOfReach(player)) return false; // (up the watchtower, or under the bunker's mound)
             var flow = player.GetComponent<CatchFlow>();
             if (flow != null && !flow.CanTake) return false;
             leapFrom = transform.position;
