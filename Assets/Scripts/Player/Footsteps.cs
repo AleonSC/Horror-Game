@@ -26,10 +26,10 @@ public class Footsteps : MonoBehaviour
 
     [Header("Water")]
     [Tooltip("Volume of a wading step in deep water (half a metre or more); shallower is quieter.")]
-    [Range(0f, 1f)] public float wadeVolume = 0.22f;
-    [Range(0f, 1f)] public float puddleVolume = 0.1f;
+    [Range(0f, 1f)] public float wadeVolume = 0.15f;
+    [Range(0f, 1f)] public float puddleVolume = 0.07f;
     [Tooltip("Volume of the continuous swish of moving through deep water.")]
-    [Range(0f, 1f)] public float wadeLoopVolume = 0.18f;
+    [Range(0f, 1f)] public float wadeLoopVolume = 0.1f;
 
     FirstPersonController controller;
     AudioSource source, wadeLoop;
