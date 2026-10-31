@@ -67,8 +67,8 @@ other `"quoted"` words are italic, and `-WORD-` is one red word.
 ## Part 4: the drone, your body, the radio
 
 - **The drone** is at the cabin's table, on the watchtower's deck or on the car's back seat: whichever you get
-  to first (the others stay empty). Hold it and press **F**: it's set down and lifts off, and you see through
-  its camera. **WASD** fly, **mouse** look, **Space / Ctrl** up and down, **Shift** faster, **click** its lamp,
+  to first (the others stay empty). Hold it and press **F**: it's set down where you're looking. Walk off if you
+  like; **F** again (from anywhere in range) lifts it off and you see through its camera. **WASD** fly, **mouse** look, **Space / Ctrl** up and down, **Shift** faster, **click** its lamp,
   **T** (or right click) thermal: grey-blue, no fog, and living things glow. **F** brings your eyes back and
   it settles to the ground; click it to pick it up, or F with it in hand to fly it again. While you fly you
   stand where you are, blind and deaf: the scours treat you as not looking. Its signal only reaches about

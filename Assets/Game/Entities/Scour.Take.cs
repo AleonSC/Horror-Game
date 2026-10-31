@@ -20,6 +20,7 @@ namespace Game.Entities
         {
             var flow = player.GetComponent<CatchFlow>();
             if (flow != null && !flow.CanTake) return;
+            if (PlayerSense.OutOfReach(player)) return; // (up the watchtower: it can't get hold of you from the ground)
 
             peekTree = null;
             player.SetHeld(true);

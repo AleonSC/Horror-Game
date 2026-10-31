@@ -754,6 +754,7 @@ namespace Game.Entities
             var flow = player.GetComponent<CatchFlow>();
             if (flow == null || !flow.CanTake) return;
             if (Services.TryGet<SafeZones>(out var zones) && zones.Contains(player.transform.position)) return;
+            if (PlayerSense.OutOfReach(player)) return; // (up the watchtower)
             StartTaking();
         }
 

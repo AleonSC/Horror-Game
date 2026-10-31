@@ -10,7 +10,8 @@ using UnityEngine.Rendering.HighDefinition;
 namespace Game.Player
 {
     /// <summary>
-    /// The drone (section 6.3). Set down with F, it lifts off and you fly it from the remote: WASD, the mouse,
+    /// The drone (section 6.3). F sets it down where you're looking; F again (from wherever you've walked to,
+    /// within range) lifts it off and you fly it from the remote: WASD, the mouse,
     /// Space and Ctrl to climb and sink, Shift for speed; click for its lamp, T for thermal. You see and hear only
     /// through it, standing where you are, blind. Its signal only reaches so far; its motors carry (the blind one
     /// hears them); its battery runs down and it drops when it's flat. F brings your eyes back and it hovers where
@@ -92,7 +93,7 @@ namespace Game.Player
             var d = go.AddComponent<Drone>();
             d.Build(player, s, battery, art);
             Current = d;
-            d.StartFlying();
+            SwitchedFrame = Time.frameCount; // (it's only set down: F again, from wherever you are, flies it)
             return d;
         }
 

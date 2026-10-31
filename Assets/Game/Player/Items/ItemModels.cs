@@ -67,7 +67,10 @@ namespace Game.Player
             }
             // The screen, sunk in a bezel, and its LEDs.
             Part(PrimitiveType.Cube, t, new Vector3(0f, 0.0115f, 0.012f), new Vector3(0.062f, 0.002f, 0.044f), grip);
-            var screen = Part(PrimitiveType.Cube, t, new Vector3(0f, 0.0128f, 0.012f), new Vector3(0.054f, 0.001f, 0.036f), shell);
+            // (A quad lying face up, so the picture's the right way round: its right is the remote's right, its
+            // top the far edge.)
+            var screen = Part(PrimitiveType.Quad, t, new Vector3(0f, 0.0128f, 0.012f), new Vector3(0.054f, 0.036f, 1f), shell);
+            screen.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             screen.name = "Screen";
             Part(PrimitiveType.Sphere, t, new Vector3(-0.02f, 0.0125f, -0.022f), Vector3.one * 0.005f, GlowMat("Remote LED red", new Color(1f, 0.08f, 0.04f) * 1.5f));
             Part(PrimitiveType.Sphere, t, new Vector3(0.02f, 0.0125f, -0.022f), Vector3.one * 0.005f, GlowMat("Remote LED green", new Color(0.2f, 1f, 0.3f) * 1.2f));

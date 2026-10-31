@@ -52,6 +52,17 @@ namespace Game.Entities
             return Mathf.Sqrt(dx * dx + dz * dz);
         }
 
+        /// <summary>
+        /// Up where nothing on the ground can get hold of them: their feet this far or more above the ground
+        /// under them (up a watchtower, high on its ladder). A jump doesn't count.
+        /// </summary>
+        public static bool OutOfReach(PlayerController player, float above = 2.5f)
+        {
+            if (player == null) return false;
+            Vector3 feet = player.transform.position;
+            return feet.y - GroundHeight(feet) > above;
+        }
+
         /// <summary>The ground under a point (or the point itself if there's none).</summary>
         public static float GroundHeight(Vector3 p)
         {

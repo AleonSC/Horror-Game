@@ -70,7 +70,9 @@ namespace Game.Player
                 Vector3 off = drone.transform.position - player.transform.position;
                 off.y = 0f;
                 Vector3 local = Quaternion.Euler(0f, -player.transform.eulerAngles.y, 0f) * off;
-                float d = Mathf.Min(1f, local.magnitude / Mathf.Max(1f, range));
+                // Squeezed toward the ring the further it is, so the near ground (where you mostly fly it) is
+                // spread out: linear, anything within 20 m of you sat on your own cross.
+                float d = Mathf.Min(1f, Squeeze(local.magnitude) / Squeeze(Mathf.Max(1f, range)));
                 Vector2 dir = local.sqrMagnitude > 0.01f ? new Vector2(local.x, local.z).normalized : Vector2.zero;
                 int dx = cx + Mathf.RoundToInt(dir.x * d * R), dy = cy + Mathf.RoundToInt(dir.y * d * R);
                 // The ping: a ring spreading out from it, and a soft beep.
@@ -92,6 +94,9 @@ namespace Game.Player
             tex.SetPixels32(px);
             tex.Apply(false);
         }
+
+        const float Near = 15f;
+        static float Squeeze(float metres) => metres / (metres + Near);
 
         void Bar(int x, int y, int w, float fill)
         {
