@@ -84,22 +84,6 @@ public class HorrorBuildSetup : IPreprocessBuildWithReport
             }
             m.renderQueue = (int)RenderQueue.Transparent - 50;
         });
-        changed |= Ensure("LitTransparentNormalMap", lit, m => // water: see-through, rippled
-        {
-            if (m.HasProperty("_Surface"))
-            {
-                m.SetFloat("_Surface", 1f);
-                m.SetFloat("_Blend", 0f);
-                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            }
-            else if (m.HasProperty("_Mode"))
-            {
-                m.SetFloat("_Mode", 2f);
-                m.EnableKeyword("_ALPHABLEND_ON");
-            }
-            m.EnableKeyword("_NORMALMAP");
-            m.renderQueue = (int)RenderQueue.Transparent - 50;
-        });
         changed |= Ensure("Unlit", unlit, m => { });
         changed |= Ensure("UnlitColor", Shader.Find("Unlit/Color"), m => { });
 

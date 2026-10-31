@@ -98,8 +98,6 @@ public class DarkForestGenerator : MonoBehaviour
     public float maxPondRadius = 13f;
     [Tooltip("Shallow puddles on flat ground.")]
     public int puddleCount = 40;
-    [Tooltip("Little puddles, many of them gathered round the bigger ones.")]
-    public int smallPuddleCount = 160;
     public float minBoulderSize = 2.5f;
     public float maxBoulderSize = 6f;
     public int fallenLogCount = 140;
@@ -464,9 +462,9 @@ public class DarkForestGenerator : MonoBehaviour
             {
                 // Water level: the lowest point round the rim.
                 float level = float.MaxValue;
-                for (int k = 0; k < 64; k++)
+                for (int k = 0; k < 24; k++)
                 {
-                    float a = k / 64f * Mathf.PI * 2f;
+                    float a = k / 24f * Mathf.PI * 2f;
                     level = Mathf.Min(level, GetGroundHeight(c.x + Mathf.Cos(a) * pond.radius, c.y + Mathf.Sin(a) * pond.radius));
                 }
                 pond.level = level - 0.1f;
@@ -1508,16 +1506,14 @@ public class DarkForestGenerator : MonoBehaviour
 
     // ---------------------------------------------------------------- Water
 
-    /// <summary>The ponds' water and reeds, and puddles in the hollows of flat ground.</summary>
+    /// <summary>The ponds' water and reeds, and puddles on flat ground.</summary>
     void BuildWater()
     {
         var parent = new GameObject("Water").transform;
         parent.SetParent(root, false);
-        puddleSpots.Clear();
 
-        // Dark, glassy, slowly rippling, and a little see-through: near the shore you can just make out the
-        // mud under it, further out it's black. It mostly shows what light falls on it (lamps, moon, flashlight).
-        var water = WaterMaterial(Texture2D.whiteTexture, new Color(0.025f, 0.04f, 0.045f, 0.86f));
+        // Dark, glassy, slowly rippling: it only shows what light falls on it (lamps, moon, flashlight).
+        var water = MaterialFactory.LitTextured(null, ProceduralTextures.WaterNormal, new Color(0.012f, 0.016f, 0.02f), 0.96f);
         water.mainTextureScale = Vector2.one;
         parent.gameObject.AddComponent<WaterRipples>().material = water;
         var reedMat = MaterialFactory.Lit(new Color(0.07f, 0.08f, 0.04f), 0.1f);
@@ -1528,7 +1524,7 @@ public class DarkForestGenerator : MonoBehaviour
             var go = new GameObject("Pond");
             go.transform.SetParent(parent, false);
             go.transform.localPosition = new Vector3(pond.center.x, pond.level, pond.center.y);
-            go.AddComponent<MeshFilter>().sharedMesh = PondMesh(pond);
+            go.AddComponent<MeshFilter>().sharedMesh = DiscMesh(pond.radius * 1.45f, 48, 0.25f);
             var renderer = go.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = water;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
@@ -1536,227 +1532,86 @@ public class DarkForestGenerator : MonoBehaviour
             AddReeds(go.transform, pond, reedMat, headMat);
         }
 
-        // Puddles: each shape stretched over its own quad, so they're soft-edged and none is a circle. They
-        // don't drift (the shape is in the texture); the rain on them is still enough.
-        var puddleMats = new Material[ProceduralTextures.PuddleMaskCount];
-        for (int i = 0; i < puddleMats.Length; i++)
-            puddleMats[i] = WaterMaterial(ProceduralTextures.PuddleMask(i), new Color(0.03f, 0.04f, 0.045f, 1f));
-
         float half = areaSize * 0.5f - 4f;
-        // A few bigger puddles, then lots of small ones, half of those gathered round the big ones.
-        var big = new List<Vector2>();
-        int placed = 0;
-        for (int attempt = 0; attempt < puddleCount * 30 && placed < puddleCount; attempt++)
+        int puddles = 0;
+        for (int attempt = 0; attempt < puddleCount * 30 && puddles < puddleCount; attempt++)
         {
             var p = new Vector2(Range(-half, half), Range(-half, half));
-            if (TryPuddle(parent, puddleMats, p, Range(0.7f, 1.6f), 0.07f)) { big.Add(p); placed++; }
-        }
-        placed = 0;
-        for (int attempt = 0; attempt < smallPuddleCount * 30 && placed < smallPuddleCount; attempt++)
-        {
-            Vector2 p = big.Count > 0 && Range(0f, 1f) < 0.5f
-                ? big[rng.Next(big.Count)] + Random2(Range(1.5f, 4f))
-                : new Vector2(Range(-half, half), Range(-half, half));
-            if (Mathf.Abs(p.x) > half || Mathf.Abs(p.y) > half) continue;
-            if (TryPuddle(parent, puddleMats, p, Range(0.25f, 0.65f), 0.05f)) placed++;
-        }
-    }
-
-    Vector2 Random2(float length)
-    {
-        float a = Range(0f, Mathf.PI * 2f);
-        return new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * length;
-    }
-
-    /// <summary>Lit, see-through water: the ripple normal map over a tint (its alpha is how see-through).</summary>
-    static Material WaterMaterial(Texture albedo, Color tint)
-    {
-        var mat = MaterialFactory.LitTransparent(albedo, tint, 0.93f);
-        if (mat.HasProperty("_BumpMap"))
-        {
-            mat.SetTexture("_BumpMap", ProceduralTextures.WaterNormal);
-            mat.EnableKeyword("_NORMALMAP");
-            if (mat.HasProperty("_BumpScale")) mat.SetFloat("_BumpScale", 0.6f);
-        }
-        if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
-        if (mat.HasProperty("_SpecularHighlights")) mat.SetFloat("_SpecularHighlights", 1f);
-        if (mat.HasProperty("_EnvironmentReflections")) mat.SetFloat("_EnvironmentReflections", 1f);
-        return mat;
-    }
-
-    /// <summary>
-    /// A puddle at p, if the ground there will hold one: nearly level, clear of trees and buildings and other
-    /// puddles, and not up on a rise (water runs off those; it gathers in dips).
-    /// </summary>
-    bool TryPuddle(Transform parent, Material[] mats, Vector2 p, float radius, float maxSlope)
-    {
-        if (p.magnitude < 6f || IsNearStructure(new Vector3(p.x, 0f, p.y), 2f) || NearAnyTree(p, radius + 0.5f)) return false;
-        if (Water.NearPond(new Vector3(p.x, 0f, p.y), 3f) > 0f) return false;
-        foreach (var other in puddleSpots)
-            if ((other - p).sqrMagnitude < 0.25f) return false; // (overlapping a little is fine: they merge)
-
-        float lo = float.MaxValue, hi = float.MinValue, around = 0f;
-        for (int k = 0; k < 8; k++)
-        {
-            float a = k / 8f * Mathf.PI * 2f;
-            float h = MeshGroundHeight(p.x + Mathf.Cos(a) * radius, p.y + Mathf.Sin(a) * radius);
-            lo = Mathf.Min(lo, h);
-            hi = Mathf.Max(hi, h);
-            around += MeshGroundHeight(p.x + Mathf.Cos(a) * radius * 3f, p.y + Mathf.Sin(a) * radius * 3f) / 8f;
-        }
-        if (hi - lo > maxSlope) return false;
-        float here = MeshGroundHeight(p.x, p.y);
-        if (here > around + 0.01f && Range(0f, 1f) < 0.8f) return false; // mostly in hollows
-
-        var go = new GameObject("Puddle");
-        go.transform.SetParent(parent, false);
-        go.transform.localPosition = new Vector3(p.x, here, p.y);
-        float stretch = Range(0.75f, 1.3f);
-        Vector2 size = new Vector2(radius * stretch, radius / stretch) * 1.8f; // the quad's half-size; the shape fills ~60%
-        go.AddComponent<MeshFilter>().sharedMesh = PuddleMesh(go.transform.localPosition, size, Range(0f, 360f));
-        var renderer = go.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = mats[rng.Next(mats.Length)];
-        renderer.shadowCastingMode = ShadowCastingMode.Off;
-        Water.AddPuddle(go.transform.position, Mathf.Min(size.x, size.y) * 0.5f);
-        puddleSpots.Add(p);
-        return true;
-    }
-
-    readonly List<Vector2> puddleSpots = new List<Vector2>();
-
-    /// <summary>
-    /// The height of the ground mesh as it's actually drawn (flat triangles between the vertices), rather than
-    /// the smooth height it was sampled from: what something lying flat on the ground has to sit on.
-    /// </summary>
-    public float MeshGroundHeight(float x, float z)
-    {
-        int res = Mathf.Clamp(Mathf.RoundToInt(areaSize / groundVertexSpacing), 2, 512);
-        float half = areaSize * 0.5f, step = areaSize / res;
-        float gx = (x + half) / step, gz = (z + half) / step;
-        int ix = Mathf.FloorToInt(gx), iz = Mathf.FloorToInt(gz);
-        float fx = gx - ix, fz = gz - iz;
-        float x0 = -half + ix * step, z0 = -half + iz * step;
-        float h00 = GetGroundHeight(x0, z0), h10 = GetGroundHeight(x0 + step, z0);
-        float h01 = GetGroundHeight(x0, z0 + step), h11 = GetGroundHeight(x0 + step, z0 + step);
-        // Each cell is split along the diagonal from (1, 0) to (0, 1), as BuildGround triangulates it.
-        return fx + fz <= 1f
-            ? h00 + (h10 - h00) * fx + (h01 - h00) * fz
-            : h11 + (h01 - h11) * (1f - fx) + (h10 - h11) * (1f - fz);
-    }
-
-    /// <summary>
-    /// A pond's surface: a flat grid covering only the water the bowl actually holds (the cells whose ground
-    /// dips below the water level, flooded out from the middle), so it ends at the shore, never hangs out over
-    /// the bank where the land falls away beyond the rim. Where it overlaps the bank the ground hides it.
-    /// </summary>
-    Mesh PondMesh(PondShape pond)
-    {
-        const float cell = 0.5f;
-        float extent = pond.radius * 1.3f;
-        int n = Mathf.CeilToInt(extent * 2f / cell);
-        float origin = -n * cell * 0.5f;
-
-        // Which grid points are under water.
-        var wet = new bool[(n + 1) * (n + 1)];
-        for (int z = 0; z <= n; z++)
-            for (int x = 0; x <= n; x++)
+            float radius = Range(0.6f, 1.8f);
+            if (p.magnitude < 6f || IsNearStructure(new Vector3(p.x, 0f, p.y), 2f) || NearAnyTree(p, radius + 0.6f)) continue;
+            // Only where the ground is nearly level, or the water would run off.
+            float lo = float.MaxValue, hi = float.MinValue;
+            for (int k = 0; k < 8; k++)
             {
-                float lx = origin + x * cell, lz = origin + z * cell;
-                wet[z * (n + 1) + x] = lx * lx + lz * lz < extent * extent
-                    && MeshGroundHeight(pond.center.x + lx, pond.center.y + lz) < pond.level + 0.02f;
+                float a = k / 8f * Mathf.PI * 2f;
+                float h = GetGroundHeight(p.x + Mathf.Cos(a) * radius, p.y + Mathf.Sin(a) * radius);
+                lo = Mathf.Min(lo, h);
+                hi = Mathf.Max(hi, h);
             }
-        bool CellWet(int x, int z) =>
-            wet[z * (n + 1) + x] || wet[z * (n + 1) + x + 1] || wet[(z + 1) * (n + 1) + x] || wet[(z + 1) * (n + 1) + x + 1];
+            if (hi - lo > 0.07f) continue;
 
-        // Flood out from the middle through cells with water in them, so a separate hollow outside isn't filled.
-        var keep = new bool[n * n];
-        var queue = new Queue<Vector2Int>();
-        int mid = n / 2;
-        if (CellWet(mid, mid)) { keep[mid * n + mid] = true; queue.Enqueue(new Vector2Int(mid, mid)); }
-        var steps = new[] { new Vector2Int(1, 0), new Vector2Int(-1, 0), new Vector2Int(0, 1), new Vector2Int(0, -1) };
-        while (queue.Count > 0)
-        {
-            var c = queue.Dequeue();
-            foreach (var s in steps)
-            {
-                var q = c + s;
-                if (q.x < 0 || q.y < 0 || q.x >= n || q.y >= n || keep[q.y * n + q.x] || !CellWet(q.x, q.y)) continue;
-                keep[q.y * n + q.x] = true;
-                queue.Enqueue(q);
-            }
+            var go = new GameObject("Puddle");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(p.x, GetGroundHeight(p.x, p.y), p.y);
+            go.AddComponent<MeshFilter>().sharedMesh = PuddleMesh(go.transform.localPosition, radius);
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = water;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            Water.AddPuddle(go.transform.position, radius * 0.9f);
+            puddles++;
         }
+    }
 
-        var verts = new List<Vector3>();
-        var uvs = new List<Vector2>();
-        var tris = new List<int>();
-        var index = new int[(n + 1) * (n + 1)];
-        for (int i = 0; i < index.Length; i++) index[i] = -1;
-        int Vertex(int x, int z)
+    /// <summary>A flat disc, its UVs in metres times uvScale (so ripples keep their size whatever the disc).</summary>
+    static Mesh DiscMesh(float radius, int segments, float uvScale)
+    {
+        var verts = new Vector3[segments + 1];
+        var uvs = new Vector2[segments + 1];
+        var tris = new int[segments * 3];
+        for (int i = 0; i < segments; i++)
         {
-            int k = z * (n + 1) + x;
-            if (index[k] >= 0) return index[k];
-            var v = new Vector3(origin + x * cell, 0f, origin + z * cell);
-            index[k] = verts.Count;
-            verts.Add(v);
-            uvs.Add(new Vector2(v.x, v.z) * 0.25f); // ripples keep their size whatever the pond
-            return index[k];
+            float a = i / (float)segments * Mathf.PI * 2f;
+            verts[i + 1] = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius;
+            uvs[i + 1] = new Vector2(verts[i + 1].x, verts[i + 1].z) * uvScale;
+            tris[i * 3] = 0;
+            tris[i * 3 + 1] = 1 + (i + 1) % segments;
+            tris[i * 3 + 2] = 1 + i;
         }
-        for (int z = 0; z < n; z++)
-            for (int x = 0; x < n; x++)
-            {
-                if (!keep[z * n + x]) continue;
-                int a = Vertex(x, z), b = Vertex(x + 1, z), c = Vertex(x, z + 1), d = Vertex(x + 1, z + 1);
-                tris.Add(a); tris.Add(c); tris.Add(b);
-                tris.Add(b); tris.Add(c); tris.Add(d);
-            }
-
-        var mesh = new Mesh { name = "Pond Water", indexFormat = IndexFormat.UInt32 };
-        mesh.SetVertices(verts);
-        mesh.SetUVs(0, uvs);
-        mesh.SetTriangles(tris, 0);
-        var normals = new Vector3[verts.Count];
-        for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.up;
-        mesh.normals = normals;
-        mesh.RecalculateTangents();
+        var mesh = new Mesh { name = "Water" };
+        mesh.vertices = verts;
+        mesh.uv = uvs;
+        mesh.triangles = tris;
+        mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         return mesh;
     }
 
-    /// <summary>
-    /// A puddle: a quad (a small grid, so it can follow the ground's slight unevenness) lying just on the drawn
-    /// ground, rotated and stretched; the texture puts the puddle's shape on it.
-    /// </summary>
-    Mesh PuddleMesh(Vector3 center, Vector2 halfSize, float angle)
+    /// <summary>An irregular puddle, its edge hugging the ground just above it.</summary>
+    Mesh PuddleMesh(Vector3 center, float radius)
     {
-        const int n = 6;
-        var rot = Quaternion.Euler(0f, angle, 0f);
-        var verts = new Vector3[(n + 1) * (n + 1)];
-        var uvs = new Vector2[verts.Length];
-        var normals = new Vector3[verts.Length];
-        var tris = new int[n * n * 6];
-        for (int z = 0, i = 0; z <= n; z++)
-            for (int x = 0; x <= n; x++, i++)
-            {
-                float u = x / (float)n, v = z / (float)n;
-                Vector3 local = rot * new Vector3((u * 2f - 1f) * halfSize.x, 0f, (v * 2f - 1f) * halfSize.y);
-                local.y = MeshGroundHeight(center.x + local.x, center.z + local.z) - center.y + 0.025f;
-                verts[i] = local;
-                uvs[i] = new Vector2(u, v);
-                normals[i] = Vector3.up;
-            }
-        for (int z = 0, t = 0; z < n; z++)
-            for (int x = 0; x < n; x++)
-            {
-                int i = z * (n + 1) + x;
-                tris[t++] = i; tris[t++] = i + n + 1; tris[t++] = i + 1;
-                tris[t++] = i + 1; tris[t++] = i + n + 1; tris[t++] = i + n + 2;
-            }
+        const int segments = 20;
+        float seed = Range(0f, 100f);
+        var verts = new Vector3[segments + 1];
+        var uvs = new Vector2[segments + 1];
+        var tris = new int[segments * 3];
+        verts[0] = new Vector3(0f, 0.015f, 0f);
+        for (int i = 0; i < segments; i++)
+        {
+            float a = i / (float)segments * Mathf.PI * 2f;
+            float r = radius * (0.75f + 0.45f * Mathf.PerlinNoise(Mathf.Cos(a) * 1.3f + seed, Mathf.Sin(a) * 1.3f + seed));
+            float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+            verts[i + 1] = new Vector3(x, GetGroundHeight(center.x + x, center.z + z) - center.y + 0.015f, z);
+            uvs[i + 1] = new Vector2(x, z) * 0.25f;
+            tris[i * 3] = 0;
+            tris[i * 3 + 1] = 1 + (i + 1) % segments;
+            tris[i * 3 + 2] = 1 + i;
+        }
+        uvs[0] = Vector2.zero;
         var mesh = new Mesh { name = "Puddle" };
         mesh.vertices = verts;
         mesh.uv = uvs;
-        mesh.normals = normals;
         mesh.triangles = tris;
-        mesh.RecalculateTangents();
+        mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         return mesh;
     }

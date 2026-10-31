@@ -73,17 +73,6 @@ public static class ProceduralTextures
     public static Texture2D RockNormal { get { if (rockNormal == null) MakeRock(); return rockNormal; } }
     /// <summary>Gentle overlapping ripples, as a tiling normal map, for still water.</summary>
     public static Texture2D WaterNormal => waterNormal != null ? waterNormal : (waterNormal = MakeWaterNormal());
-    static readonly Texture2D[] puddleMasks = new Texture2D[PuddleMaskCount];
-    public const int PuddleMaskCount = 3;
-    /// <summary>
-    /// The shape of a puddle, stretched over one quad (white; the shape is in the alpha): an irregular pool of
-    /// water with a soft, faint fringe of wet ground round it, fading to nothing well inside the quad's edge.
-    /// </summary>
-    public static Texture2D PuddleMask(int variant)
-    {
-        int i = ((variant % PuddleMaskCount) + PuddleMaskCount) % PuddleMaskCount;
-        return puddleMasks[i] != null ? puddleMasks[i] : (puddleMasks[i] = MakePuddleMask(i));
-    }
     /// <summary>The sawn end of a log: growth rings, darker heartwood, a few radial cracks, a rim of bark.</summary>
     public static Texture2D EndGrain => endGrain != null ? endGrain : (endGrain = MakeEndGrain());
     /// <summary>A bloodshot red eyeball with a fibrous, glowing iris (no pupil; the shader draws that).</summary>
@@ -321,35 +310,6 @@ public static class ProceduralTextures
         };
         fabricNormal.SetPixels32(normals);
         fabricNormal.Apply(true);
-    }
-
-    static Texture2D MakePuddleMask(int variant)
-    {
-        const int n = 128;
-        var px = new Color32[n * n];
-        int seed = 300 + variant * 17;
-        for (int y = 0; y < n; y++)
-            for (int x = 0; x < n; x++)
-            {
-                float u = (x + 0.5f) / n, v = (y + 0.5f) / n;
-                float d = new Vector2(u - 0.5f, v - 0.5f).magnitude * 2f; // 0 in the middle, 1 at the quad's edge
-                // A wobbly, lobed outline rather than a circle.
-                float wobble = (Fbm(u, v, 3, 3, seed) - 0.5f) * 0.55f + (Fbm(u, v, 8, 2, seed + 5) - 0.5f) * 0.12f;
-                float r = d + wobble;
-                const float edge = 0.58f;
-                float pool = 1f - Ramp(edge - 0.07f, edge + 0.02f, r);
-                float wet = 1f - Ramp(edge, edge + 0.22f, r);
-                float a = 0.9f * pool + 0.3f * Mathf.Max(0f, wet - pool);
-                a *= 1f - Ramp(0.86f, 0.99f, d); // never reaches the quad's edge
-                px[y * n + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(a));
-            }
-        var tex = new Texture2D(n, n, TextureFormat.RGBA32, true, false)
-        {
-            name = "Puddle Mask " + variant, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4, filterMode = FilterMode.Trilinear,
-        };
-        tex.SetPixels32(px);
-        tex.Apply(true);
-        return tex;
     }
 
     static Texture2D MakeWaterNormal()

@@ -39,7 +39,7 @@ public static class Water
         {
             Vector3 c = WorldWrap.NearestImage(pond.center, feet);
             float dx = feet.x - c.x, dz = feet.z - c.z;
-            if (dx * dx + dz * dz < pond.radius * pond.radius * 1.1f && feet.y < pond.level) // (the water stops at the rim)
+            if (dx * dx + dz * dz < pond.radius * pond.radius * 1.6f && feet.y < pond.level)
             {
                 depth = pond.level - feet.y;
                 return true;
