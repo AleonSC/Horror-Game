@@ -54,6 +54,30 @@ namespace Game.Entities
 
         int nextLeg;
         float swingFor = 0.6f;
+
+        /// <summary>
+        /// The heron's walk: each knee lifted high, the foot hanging limp, held there dead still while it listens,
+        /// then reached forward and set down; the body all but stops while the leg's up, and the head pulls back and
+        /// thrusts forward like a wading bird's, its legs grown or not (grown, each step slower). (Off: even strides.)
+        /// </summary>
+        public bool Heron = true;
+        /// <summary>The heron's step: seconds lifting, holding still, and reaching and setting down.</summary>
+        public float HeronLiftTime = 0.6f, HeronHoldTime = 0.8f, HeronReachTime = 0.75f;
+        /// <summary>How high the heron lifts its foot (a share of a leg's length).</summary>
+        public float HeronLift = 0.85f;
+        /// <summary>
+        /// How fast it's to move just now, as a share of its pace (the heron stops dead while its leg's up, and
+        /// surges as it reaches): the blind one moves at its speed times this.
+        /// </summary>
+        public float Pace { get; private set; } = 1f;
+        /// <summary>A foot lifting (where): for its creak.</summary>
+        public System.Action<Vector3> FootUp;
+        /// <summary>Its neck starting up over the trees (where its head is): for the sound of it.</summary>
+        public System.Action<Vector3> NeckRising;
+        /// <summary>Its head up over the trees (the neck most of the way stretched).</summary>
+        public bool Raised => stretchShown > 0.8f;
+        float nominalSpeed, thrust, thrustV;
+        float stretchAsked;
         Vector3 lastPos;
         bool lastPosSet;
 
@@ -348,6 +372,10 @@ namespace Game.Entities
             float t = Time.time;
             float g = grow * grow * (3f - 2f * grow);
             float legLen = LegRest * (1f + (Growth - 1f) * g);
+            nominalSpeed = speed;
+            // (The neck starting up: once each time it's asked up from low.)
+            if (stretch >= 0.95f && stretchAsked < 0.95f && stretchShown < 0.5f) NeckRising?.Invoke(HeadWorld);
+            stretchAsked = stretch;
             Legs(legLen, g, dt);
             Neck(listen, roar, lean, stretch, dt, t);
             ShowThroughFog();
@@ -377,7 +405,7 @@ namespace Game.Entities
                 // Folded: curling forward and down over the shoulders. Stretched: up, a slow S of a sway. Leaning:
                 // curling right over and down to your face. Roaring: thrown up.
                 float fold = (i < 5 ? 0.32f : 0.06f) * (1f - e) * (1f - roar * 0.7f);
-                float x = fold + lean * 0.17f;
+                float x = fold + lean * 0.17f + (i < 3 ? thrust * 0.05f * (1f - e) : 0f); // (the heron's head bob, folded only)
                 float z = e * Mathf.Sin(t * 0.6f - i * 0.35f) * 0.035f / Mathf.Max(1f, reach); // (a longer neck: a gentler sway, or the head would swing a mile)
                 seg.localRotation = Quaternion.Euler(x * Mathf.Rad2Deg, 0f, z * Mathf.Rad2Deg);
                 total += x;
@@ -430,7 +458,11 @@ namespace Game.Entities
             float speed = vel.magnitude;                       // (world metres a second)
             float stride = 1.35f * len * scale;                // (world)
             Vector3 fwd = speed > 0.05f ? vel / speed : transform.forward;
-            bool walking = speed > 0.15f;
+            // (Walking by the pace it's asked for, not how fast it's going: the heron stands still mid-step.)
+            bool walking = Mathf.Max(speed, nominalSpeed) > 0.15f;
+            bool heron = Heron && walking;
+            float slow = 1f + 0.8f * g; // (grown, its huge legs take longer over each step)
+            if (Vector3.Dot(transform.forward, fwd) < 0.2f || speed < 0.05f) fwd = transform.forward;
 
             for (int i = 0; i < 2; i++)
                 if (!legs[i].placed) { legs[i].at = Ground(UnderHip(i)); legs[i].placed = true; }
@@ -459,20 +491,60 @@ namespace Game.Entities
                     swingFor = walking ? Mathf.Clamp(stride / Mathf.Max(speed, 0.5f) * 0.5f, 0.3f, 1.8f) : 0.45f;
                     Vector3 side = transform.right * (pick == 0 ? -0.35f : 0.35f) * scale;
                     Vector3 to = walking ? pos + fwd * (speed * swingFor + stride * 0.5f) + side : UnderHip(pick);
+                    if (heron)
+                    {
+                        // (Where the body will have got to by the time it's down: slow lifting, still holding, surging on.)
+                        swingFor = (HeronLiftTime + HeronHoldTime + HeronReachTime) * slow;
+                        float travel = nominalSpeed * (0.35f * HeronLiftTime + 0.05f * HeronHoldTime + 1.4f * HeronReachTime) * slow;
+                        to = pos + fwd * (travel + stride * 0.45f) + side;
+                    }
                     leg.to = Ground(to);
+                    if (walking) FootUp?.Invoke(leg.at);
                 }
             }
+            // The heron's pace: slow while a knee's lifting, still while it holds, surging as the foot reaches out.
+            float paceWant = 1f, phaseThrust = 0f;
+            if (heron)
+            {
+                paceWant = 0.6f;
+                float a = HeronLiftTime * slow / swingFor, b = (HeronLiftTime + HeronHoldTime) * slow / swingFor;
+                foreach (var leg in legs)
+                {
+                    if (!leg.swing) continue;
+                    paceWant = leg.u < a ? 0.35f : leg.u < b ? 0.05f : 1.4f;
+                    phaseThrust = leg.u < a ? -0.4f : leg.u < b ? -1f : 1f;
+                }
+            }
+            Pace = Mathf.MoveTowards(Pace, paceWant, dt * 4f);
+            // (The head: pulled back as the knee comes up and while it holds, thrust forward as it steps.)
+            thrustV += (phaseThrust - thrust) * 60f * dt;
+            thrustV *= Mathf.Exp(-10f * dt);
+            thrust += thrustV * dt;
             for (int i = 0; i < 2; i++)
             {
                 var leg = legs[i];
                 if (!leg.swing) continue;
                 leg.u = Mathf.Min(1f, leg.u + dt / swingFor);
+                if (heron)
+                {
+                    // Lifted straight up, the knee high, hardly forward; held there; then reached out and set down.
+                    float a = HeronLiftTime * slow / swingFor, b = (HeronLiftTime + HeronHoldTime) * slow / swingFor;
+                    float along, up;
+                    if (leg.u < a) { float k = leg.u / a; along = 0.1f * k * k * (3f - 2f * k); up = 1f - (1f - k) * (1f - k); }
+                    else if (leg.u < b) { float k = (leg.u - a) / (b - a); along = 0.1f + 0.04f * k; up = 1f + 0.03f * Mathf.Sin(k * Mathf.PI); }
+                    else { float k = (leg.u - b) / (1f - b); float sk = k * k * (3f - 2f * k); along = 0.14f + 0.86f * sk; up = 1f - Mathf.Pow(sk, 1.6f); }
+                    leg.at = Vector3.Lerp(leg.from, leg.to, along);
+                    leg.at.y = Mathf.Lerp(leg.from.y, leg.to.y, along) + len * scale * HeronLift * up;
+                }
+                else
+                {
                 // Up first, the knee drawn high; then reaching far out ahead; then down.
                 float along = Mathf.Pow(Mathf.Max(0f, (leg.u - 0.15f) / 0.85f), 1.5f);
                 along = along * along * (3f - 2f * along);
                 leg.at = Vector3.Lerp(leg.from, leg.to, along);
                 float lift = len * scale * (walking ? 0.6f : 0.25f);
                 leg.at.y = Mathf.Lerp(leg.from.y, leg.to.y, along) + lift * Mathf.Sin(Mathf.PI * Mathf.Pow(leg.u, 0.7f));
+                }
                 if (leg.u >= 1f)
                 {
                     leg.swing = false;
@@ -497,11 +569,13 @@ namespace Game.Entities
                 float d = Mathf.Min(Mathf.Sqrt(dy * dy + dz * dz), len * 1.995f);
                 float baseAngle = Mathf.Atan2(dz, -dy);
                 float alpha = Mathf.Acos(Mathf.Clamp01(d / (2f * len)));
-                SetLeg(leg, len, -(baseAngle + alpha), 2f * alpha);
+                // (A heron's foot hangs limp from the ankle, toes down, while it's up.)
+                float hang = heron && leg.swing ? 60f * Mathf.Sin(Mathf.PI * Mathf.Min(1f, leg.u * 1.15f)) : 0f;
+                SetLeg(leg, len, -(baseAngle + alpha), 2f * alpha, hang);
             }
         }
 
-        static void SetLeg(Leg leg, float len, float a1, float a2)
+        static void SetLeg(Leg leg, float len, float a1, float a2, float hang = 0f)
         {
             leg.thigh.localScale = new Vector3(leg.thigh.localScale.x, len * 0.5f, leg.thigh.localScale.z);
             leg.thigh.localPosition = new Vector3(0f, -len * 0.5f, 0f);
@@ -511,7 +585,7 @@ namespace Game.Entities
             leg.ankle.localPosition = new Vector3(0f, -len, 0f);
             leg.hip.localRotation = Quaternion.Euler(a1 * Mathf.Rad2Deg, 0f, 0f);
             leg.knee.localRotation = Quaternion.Euler(a2 * Mathf.Rad2Deg, 0f, 0f);
-            leg.ankle.localRotation = Quaternion.Euler(-(a1 + a2) * Mathf.Rad2Deg, 0f, 0f); // (the foot flat)
+            leg.ankle.localRotation = Quaternion.Euler(-(a1 + a2) * Mathf.Rad2Deg + hang, 0f, 0f); // (the foot flat, or hanging)
         }
 
         // Where a foot stands under a hip (in the world).

@@ -580,6 +580,102 @@ namespace Game.Audio
             return Normalize(s, 0.95f);
         }
 
+        /// <summary>
+        /// The blind one's foot coming down: a heavy, soft-padded thud into the leaf litter (not a giant's boom),
+        /// the crunch and hiss of leaves and twigs under it, and a dry knock of bone in the ankle a moment after.
+        /// </summary>
+        public static float[] BlindStep(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(1.1f);
+            float lp = 0f, hp = 0f, last = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                lp += (n - lp) * 0.03f;
+                hp = 0.85f * (hp + n - last); last = n;
+                float thud = (float)Math.Sin(2 * Math.PI * (52f + 30f * Decay(t, 14f)) * t) * Decay(t, 7f) * Math.Min(1f, t / 0.006f);
+                float weight = (float)Math.Sin(2 * Math.PI * 31f * t) * Decay(t, 4f) * Math.Min(1f, t / 0.02f) * 0.6f;
+                // (the litter: a crackle that starts with the thud and fizzles out)
+                float crackle = hp * (rng.NextDouble() < 0.04 ? 3f : 0.5f) * Decay(t, 9f) * 0.25f;
+                float knock = 0f;
+                float kt = t - 0.07f;
+                if (kt > 0f) knock = (float)Math.Sin(2 * Math.PI * 420f * kt) * Decay(kt, 60f) * 0.35f + n * Decay(kt, 90f) * 0.2f;
+                s[i] = thud + weight + lp * 2.5f * Decay(t, 6f) + crackle + knock;
+            }
+            return Normalize(Reverb(s, 0.8f, 0.18f, 0.6f), 0.9f);
+        }
+
+        /// <summary>
+        /// The blind one's neck stretching up: vertebra after vertebra popping and cracking as it unfolds, quick at
+        /// first then slower, over a long wet creak of sinew drawn tight, rising.
+        /// </summary>
+        public static float[] NeckStretch(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(3.2f);
+            // The pops: sixteen of them (one a vertebra), spaced out as it goes.
+            var pops = new float[16];
+            float at = 0.05f;
+            for (int k = 0; k < pops.Length; k++) { pops[k] = at; at += 0.07f + 0.012f * k + (float)rng.NextDouble() * 0.05f; }
+            float creak = 0f, bp1 = 0f, bp2 = 0f;
+            double phase = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = Time(i);
+                float n = Noise(rng);
+                float v = 0f;
+                foreach (float p in pops)
+                {
+                    float d = t - p;
+                    if (d < 0f || d > 0.06f) continue;
+                    v += (n * 0.8f + (float)Math.Sin(2 * Math.PI * 1300f * d)) * Decay(d, 120f);
+                    v += (float)Math.Sin(2 * Math.PI * 160f * d) * Decay(d, 40f) * 0.6f; // (the knock in the bone)
+                }
+                // The creak: a stick-slip buzz through a resonance, its pitch climbing as the neck draws out.
+                float f = 70f + 90f * Math.Min(1f, t / 2.6f);
+                phase += f / SampleRate;
+                float stick = (float)(phase - Math.Floor(phase)) < 0.18 ? 1f : 0f;
+                creak += (stick + n * 0.3f - creak) * 0.4f;
+                float fc = 600f + 500f * Math.Min(1f, t / 2.6f), r = 0.97f;
+                float c = 2f * r * (float)Math.Cos(2 * Math.PI * fc / SampleRate);
+                float y = c * bp1 - r * r * bp2 + creak * (1f - r);
+                bp2 = bp1; bp1 = y;
+                float swell = Env(t, 0.4f, 3.0f, 0.6f) * (0.6f + 0.4f * (float)Math.Sin(2 * Math.PI * 1.7 * t));
+                s[i] = v * 0.7f + y * 9f * swell;
+            }
+            return Normalize(Reverb(s, 1.2f, 0.25f, 0.5f), 0.9f);
+        }
+
+        /// <summary>
+        /// The blind one sounding out the dark from high over the trees: a hard, hollow tongue-click (a "tock" big
+        /// enough to carry), and its echoes coming back off the forest, later and duller each time.
+        /// </summary>
+        public static float[] EchoClick(int seed)
+        {
+            var rng = new Random(seed);
+            var s = Make(2.4f);
+            // The click and its echoes: when, how loud, how dulled.
+            float[] at = { 0f, 0.21f, 0.37f, 0.6f, 0.86f, 1.2f };
+            float[] gain = { 1f, 0.32f, 0.22f, 0.15f, 0.1f, 0.06f };
+            for (int e = 0; e < at.Length; e++)
+            {
+                float lp = 0f, dull = 0.9f - e * 0.14f;
+                int start = (int)(at[e] * SampleRate);
+                for (int i = 0; start + i < s.Length && i < SampleRate / 6; i++)
+                {
+                    float d = i / (float)SampleRate;
+                    float tock = (float)Math.Sin(2 * Math.PI * (950f - 300f * Math.Min(1f, d * 30f)) * d) * Decay(d, 70f)
+                               + (float)Math.Sin(2 * Math.PI * 2600f * d) * Decay(d, 260f) * 0.5f
+                               + Noise(rng) * Decay(d, 400f) * 0.6f;
+                    lp += (tock - lp) * Math.Max(0.08f, dull);
+                    s[start + i] += lp * gain[e];
+                }
+            }
+            return Normalize(Reverb(s, 1.6f, 0.3f, 0.6f), 0.95f);
+        }
+
         /// <summary>The giant's chain jolting far off: a deep metallic groan and clank.</summary>
         public static float[] ChainJolt(int seed)
         {

@@ -1621,3 +1621,17 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Neck:** from 8 s, just after the roar, its neck stretches up and up until its head is **arriveNeck** (30 m) above its shoulders, high over the treetops, and it looks round (the head turning this way and that) until it moves off at 14.5 s.
 - **Your view:** your locked gaze follows its head up as the neck rises.
 - **Burn barrel:** light **intensity** 0.8 (from 2.5) over a smaller **range** (6 m, from 9), and flames at **flameBrightness** 0.45 (from 0.7).
+
+## The blind one walks like a heron; its footsteps, its neck, its echolocation
+
+- **The heron's walk** (BlindConfig → Walking → **heronWalk**, on), from the walk mock-ups. Each step goes in three parts:
+  - **Lift** (**heronLiftTime** 0.6 s): the knee rises high (the foot up to **heronLift**, 0.85 of a leg's length), hardly moving forward, the foot hanging limp from the ankle, toes down.
+  - **Hold** (**heronHoldTime** 0.8 s): dead still, listening.
+  - **Reach** (**heronReachTime** 0.75 s): it reaches out and sets the foot down.
+  - **The body:** it creeps on at 35% of its pace while the knee lifts, all but stops (5%) while it holds, and surges (140%) as the foot reaches out. `BlindBody.Pace` sets this, and BlindOne moves at its speed times it.
+  - **The head:** as the knee comes up and while it holds, the head pulls back (the folded neck tipping back); as it steps, the head thrusts forward, like a wading bird's.
+  - **Grown legs:** striding between perches, it walks the same way, each step slower (up to 1.8×).
+  - **Rushing at you:** even strides. It isn't listening then; it's coming.
+- **Footsteps:** a new `Sound.BlindStep` on its own feet (`stepVolume` 0.7): a heavy, padded thud into the leaf litter rather than a giant's boom, the crackle of leaves and twigs under it, and a dry knock of bone in the ankle just after. Grown, its feet still boom (GiantStep). Each lift gives a faint, low joint creak.
+- **Neck stretching:** a new `Sound.NeckStretch` (**neckVolume** 0.8), heard 90 m off, plays each time its neck starts up over the trees from low: sixteen vertebrae popping and cracking one after another, quick then slower, over a long wet creak of drawn sinew rising in pitch.
+- **Echolocation:** while its head is up over the trees (`BlindBody.Raised`), it sounds out the dark with a new `Sound.EchoClick`: a hard, hollow "tock" big enough to carry, and its echoes coming back off the forest, later and duller each time, heard out to **echoRange** (140 m). It plays a run of 1–**echoClicks** (3) clicks, 0.16–0.3 s apart, every **echoEveryMin**–**echoEveryMax** (2.5–5) s. (BlindConfig → Echolocation.)

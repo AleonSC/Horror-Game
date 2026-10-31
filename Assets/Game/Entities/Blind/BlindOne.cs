@@ -80,6 +80,8 @@ namespace Game.Entities
             body.FogShow = s.headThroughFog;
             body.Growth = s.strideGrowth;
             body.FootDown += OnFootDown;
+            body.FootUp += at => { if (State != BlindState.Absent && State != BlindState.Away) PlayAt(Sound.Creak, at + Vector3.up * s.height * 0.4f, 0.18f, Random.Range(0.35f, 0.5f), 25f); };
+            body.NeckRising += at => { if (State != BlindState.Absent && State != BlindState.Away) PlayAt(Sound.NeckStretch, at, s.neckVolume, Random.Range(0.92f, 1.05f), 90f); };
             storm = Storm.Create(s);
             body.gameObject.SetActive(false);
             Services.Register(this);
@@ -348,6 +350,13 @@ namespace Game.Entities
             CheckTake();
             KeepUp(dt);
             body.FogShow = s.headThroughFog; // (live)
+            // The heron's walk (rushing at you, even strides: it's not listening then, it's coming).
+            body.Heron = s.heronWalk && State != BlindState.Rushing;
+            body.HeronLiftTime = s.heronLiftTime;
+            body.HeronHoldTime = s.heronHoldTime;
+            body.HeronReachTime = s.heronReachTime;
+            body.HeronLift = s.heronLift;
+            Echolocate(dt);
             body.Pose(speed, listen, roar, lean, stretch, grow, dt);
         }
 
@@ -596,7 +605,11 @@ namespace Game.Entities
             float reach = 25f + 70f * grown;
             float near = 1f - Mathf.Clamp01(Vector3.Distance(at, player.transform.position) / reach);
             if (Services.TryGet<SoundPlayer>(out var sounds))
-                sounds.Play(Sound.GiantStep, at, MixerNames.Entities, Mathf.Lerp(0.45f, 1f, grown), Random.Range(1.5f, 1.8f) - 0.5f * grown, 60f + 140f * grown);
+            {
+                // Its own feet: a heavy, padded thud into the leaves and a knock of bone; grown, the boom of a giant's.
+                if (grown < 0.25f) sounds.Play(Sound.BlindStep, at, MixerNames.Entities, s.stepVolume, Random.Range(0.85f, 1.05f), 55f);
+                else sounds.Play(Sound.GiantStep, at, MixerNames.Entities, Mathf.Lerp(0.45f, 1f, grown), Random.Range(1.5f, 1.8f) - 0.5f * grown, 60f + 140f * grown);
+            }
             if (near > 0f) player.AddShake((0.5f + 1.6f * grown) * near);
             if (near > 0f && grown > 0.3f) player.AddRumble(grown * near, 1.2f);
             if (grown > 0.2f && s.knocksTrees && Services.TryGet<WorldBuilder>(out var world))
@@ -838,7 +851,7 @@ namespace Game.Entities
             }
 
             speed = Mathf.MoveTowards(speed, maxSpeed, dt * 4f);
-            Vector3 next = pos + dir * Mathf.Min(dist, speed * dt);
+            Vector3 next = pos + dir * Mathf.Min(dist, speed * (body.HasFeet ? body.Pace : 1f) * dt); // (the heron stops mid-step)
             next.y = Mathf.Lerp(pos.y, PlayerSense.GroundHeight(next), 1f - Mathf.Exp(-10f * dt));
             transform.position = next;
             Face(next + dir);
@@ -890,6 +903,34 @@ namespace Game.Entities
             State = next;
             stateTime = 0f;
             if (Services.TryGet<EventBus>(out var events)) events.Publish(new EntityStateChanged(EntityKind.Blind, 1, next.ToString()));
+        }
+
+        // ------------------------------------------------------------------ echolocation
+
+        float nextEcho = -1f;
+        int echoLeft;
+
+        // Its head up over the trees: now and then a run of clicks, sounding out the dark (each with its echoes
+        // coming back off the forest), from up there.
+        void Echolocate(float dt)
+        {
+            if (!body.HasFeet || !body.Raised || State == BlindState.Absent || State == BlindState.Away || State == BlindState.Taking)
+            {
+                nextEcho = -1f;
+                echoLeft = 0;
+                return;
+            }
+            if (nextEcho < 0f) nextEcho = Time.time + Random.Range(0.6f, 1.5f);
+            if (Time.time < nextEcho) return;
+            if (echoLeft <= 0) echoLeft = Random.Range(1, Mathf.Max(1, s.echoClicks) + 1);
+            PlayAt(Sound.EchoClick, body.HeadWorld, s.echoVolume, Random.Range(0.9f, 1.1f), s.echoRange);
+            echoLeft--;
+            nextEcho = Time.time + (echoLeft > 0 ? Random.Range(0.16f, 0.3f) : Random.Range(s.echoEveryMin, Mathf.Max(s.echoEveryMin, s.echoEveryMax)));
+        }
+
+        void PlayAt(Sound sound, Vector3 at, float volume, float pitch, float range)
+        {
+            if (Services.TryGet<SoundPlayer>(out var sounds)) sounds.Play(sound, at, MixerNames.Entities, volume, pitch, range);
         }
 
         void Play(Sound sound, float volume, float pitch, float range)

@@ -103,6 +103,33 @@ namespace Game.Entities
         [Range(0f, 80f), Tooltip("...and then it hears you moving within this, even crouched.")]
         public float hardListenReach = 30f;
 
+        [Header("Walking")]
+        [Tooltip("The heron's walk: each knee lifted high, the foot hanging limp, held there dead still while it listens, then reached forward and set down (the body stopping while the leg's up, its head bobbing like a wading bird's). Striding on grown legs it walks the same way, slower. Rushing at you it takes even strides. Off: even strides always.")]
+        public bool heronWalk = true;
+        [Range(0.2f, 2f), Tooltip("Seconds lifting each knee...")]
+        public float heronLiftTime = 0.6f;
+        [Range(0f, 3f), Tooltip("...holding it still...")]
+        public float heronHoldTime = 0.8f;
+        [Range(0.2f, 2f), Tooltip("...and reaching it forward and setting it down.")]
+        public float heronReachTime = 0.75f;
+        [Range(0.2f, 1.5f), Tooltip("How high it lifts its foot (a share of its leg's length).")]
+        public float heronLift = 0.85f;
+        [Range(0f, 1f), Tooltip("Its footsteps: a heavy, padded thud into the leaves and a knock of bone.")]
+        public float stepVolume = 0.7f;
+
+        [Header("Echolocation")]
+        [Range(0f, 1f), Tooltip("The sound of its neck stretching up (vertebrae popping, sinew creaking).")]
+        public float neckVolume = 0.8f;
+        [Range(1f, 20f), Tooltip("While its head's up over the trees, it clicks to sound out the dark (a hard 'tock' and its echoes off the forest): a run of clicks every this many seconds (shortest)...")]
+        public float echoEveryMin = 2.5f;
+        [Range(1f, 30f), Tooltip("...to this many.")]
+        public float echoEveryMax = 5f;
+        [Range(1, 6), Tooltip("Clicks in each run (up to).")]
+        public int echoClicks = 3;
+        [Range(0f, 1f)] public float echoVolume = 0.9f;
+        [Range(10f, 300f), Tooltip("How far off its clicks carry (metres).")]
+        public float echoRange = 140f;
+
         [Header("Lamps")]
         [Range(0f, 30f), Tooltip("Each time you light a lamp, wherever it is and whatever it's doing (unless it's taking you), it stops dead and listens its hardest: its neck runs up and up until its head is high over the treetops, turned to stare down at you. This long (0: never)...")]
         public float lampWatch = 12f;
