@@ -50,6 +50,12 @@ namespace Game.World
         AudioSource alarmSound;
         float battery, nextAlarmNoise, flash;
         bool lightsOn, alarmOn, seated, chirping;
+
+        [Tooltip("Crashed: its left headlight's stayed on, weak and yellow, flickering now and then (and not on its battery).")]
+        public bool oneLightOn;
+        [Tooltip("How bright that one weak headlight is (candela).")]
+        public float weakLight = 140f;
+        Light weak;
         int seatIndex, shelterId;
         readonly System.Collections.Generic.List<System.IDisposable> subs = new System.Collections.Generic.List<System.IDisposable>();
 
@@ -98,6 +104,17 @@ namespace Game.World
 
             // The lenses that glow (the built-in model's, or yours, by name).
             headlightLenses = Lenses("Headlight L", "Headlight R");
+            // (The headlights' own lights where the lenses are: on a crashed car they've been pushed back.)
+            for (int i = 0; i < headlightLenses.Length && i < 2; i++)
+                headlights[i].transform.position = headlightLenses[i].transform.position + transform.forward * 0.03f;
+            if (oneLightOn && headlightLenses.Length > 0)
+            {
+                weak = MakeLight(LightType.Spot, Vector3.zero, new Color(1f, 0.82f, 0.55f), 22f, weakLight);
+                weak.transform.position = headlightLenses[0].transform.position + transform.forward * 0.03f;
+                weak.transform.localRotation = Quaternion.Euler(6f, -14f, 0f); // (knocked a little aside and down)
+                weak.spotAngle = 50f;
+                weak.innerSpotAngle = 20f;
+            }
             indicatorLenses = Lenses("Indicator L", "Indicator R");
             tailLenses = Lenses("Tail light L", "Tail light R");
             // The headlights themselves can be clicked, and so can the switch on the dashboard.
@@ -250,6 +267,14 @@ namespace Game.World
                 h.intensity = 900f * shown;
             }
             foreach (var r in headlightLenses) Game.Rendering.RuntimeMaterials.SetGlow(r.material, new Color(1f, 0.95f, 0.8f) * (6f * shown));
+            if (weak != null)
+            {
+                // The one that's stayed on: weak, yellow, now and then flickering (a loose wire).
+                float flicker = Random.value < 0.04f ? Random.Range(0.1f, 0.5f) : 0.85f + 0.15f * Mathf.PerlinNoise(Time.time * 2f, 0.4f);
+                weak.enabled = shown <= 0f;
+                weak.intensity = weakLight * flicker;
+                if (shown <= 0f && headlightLenses.Length > 0) Game.Rendering.RuntimeMaterials.SetGlow(headlightLenses[0].material, new Color(1f, 0.8f, 0.5f) * (0.8f * flicker));
+            }
             if (!chirping)
             {
                 foreach (var l in indicators) l.enabled = flash > 0f;

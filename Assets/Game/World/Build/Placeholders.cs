@@ -139,8 +139,14 @@ namespace Game.World.Build
                     new WatchtowerModel(made, Rng(site)).Build(t);
                     break;
                 case StructureKind.Car:
-                    new CarModel(made).Build(t, new System.Random(Mathf.RoundToInt(site.Position.x * 17f + site.Position.y * 7f)));
+                {
+                    var rng = new System.Random(Mathf.RoundToInt(site.Position.x * 17f + site.Position.y * 7f));
+                    var model = new CarModel(made);
+                    model.Build(t, rng);
+                    model.Crash(rng);
+                    CrashSite(t, rng);
                     break;
+                }
                 case StructureKind.LandmarkTree:
                     LandmarkTree(t);
                     break;
@@ -150,6 +156,68 @@ namespace Game.World.Build
             }
             PlaceFittings.Fit(t, site.Kind, loot);
             return root;
+        }
+
+        // Into the pine: the car run off the track head-on into a big tree. The tree, the bark torn off its trunk
+        // where it hit, the car's front folded round it (see CarModel.Crash), the driver's door hanging open, one
+        // headlight still on (Car.oneLightOn), the ruts it tore in the ground coming off the track, glass and
+        // snapped branches strewn round its front.
+        void CrashSite(Transform t, System.Random rng)
+        {
+            float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
+            // The tree: a big one, just off the car's middle, right against its folded front.
+            var (trunk, crown) = ForestMeshes.Oak(rng, 16f, 0, 0.5f);
+            var tree = new GameObject("Crash tree") { layer = Layers.Trees }.transform;
+            tree.SetParent(t, false);
+            tree.localPosition = new Vector3(0.3f, -0.05f, 2.35f);
+            tree.localRotation = Quaternion.Euler(0f, R(0f, 360f), 0f);
+            var tm = trunk.ToMesh("Crash tree trunk");
+            var cm = crown.ToMesh("Crash tree crown");
+            made.Add(tm); made.Add(cm);
+            var tgo = new GameObject("Trunk") { layer = Layers.Trees };
+            tgo.transform.SetParent(tree, false);
+            tgo.AddComponent<MeshFilter>().sharedMesh = tm;
+            tgo.AddComponent<MeshRenderer>().sharedMaterial = bark != null ? bark : darkWood;
+            var cgo = new GameObject("Crown") { layer = Layers.Trees };
+            cgo.transform.SetParent(tree, false);
+            cgo.AddComponent<MeshFilter>().sharedMesh = cm;
+            cgo.AddComponent<MeshRenderer>().sharedMaterial = needles != null ? needles : darkWood;
+            var col = tree.gameObject.AddComponent<CapsuleCollider>();
+            col.radius = 0.55f;
+            col.height = 8f;
+            col.center = new Vector3(0f, 4f, 0f);
+            // The bark torn off where the car hit: pale wood showing, splinters standing out.
+            var fresh = Keep(RuntimeMaterials.Lit("Torn wood", new Color(0.42f, 0.33f, 0.22f), 0.15f));
+            Box(t, new Vector3(0.28f, 0.95f, 1.9f), new Vector3(0.55f, 0.9f, 0.06f), fresh, false).transform.localRotation = Quaternion.Euler(0f, R(-8f, 8f), 0f);
+            for (int i = 0; i < 6; i++)
+                Box(t, new Vector3(R(0.05f, 0.55f), R(0.6f, 1.35f), 1.86f), new Vector3(0.02f, R(0.15f, 0.35f), 0.02f), fresh, false).transform.localRotation = Quaternion.Euler(R(-40f, 40f), 0f, R(-30f, 30f));
+            // The ruts it tore coming off the track: two dark furrows back from its wheels, in short lengths
+            // laid on the ground as it rises and falls.
+            var rutMat = Keep(RuntimeMaterials.Lit("Torn earth", new Color(0.07f, 0.055f, 0.04f), 0.05f));
+            Physics.SyncTransforms(); // (the ground's just been built and placed: let the raycasts see it)
+            for (int side = -1; side <= 1; side += 2)
+                for (int k = 0; k < 14; k++)
+                {
+                    float z = -1.6f - k * 0.75f, x = side * 0.82f - k * 0.09f;
+                    Vector3 local = new Vector3(x, 0f, z);
+                    Vector3 world = t.TransformPoint(local);
+                    float y = Physics.Raycast(world + Vector3.up * 5f, Vector3.down, out var hit, 12f, Layers.Mask(Layers.Ground), QueryTriggerInteraction.Ignore) ? t.InverseTransformPoint(hit.point).y : 0f;
+                    Box(t, new Vector3(x, y + 0.012f, z), new Vector3(0.3f + 0.05f * Mathf.Sin(k), 0.03f, 0.8f), rutMat, false).transform.localRotation = Quaternion.Euler(0f, -7f, 0f);
+                }
+            // Glass and bits of grille strewn round the front, snapped branches down from the tree.
+            var shardMat = Keep(RuntimeMaterials.Glass("Broken glass", new Color(0.4f, 0.42f, 0.43f, 0.8f)));
+            for (int i = 0; i < 26; i++)
+                Box(t, new Vector3(R(-1.4f, 1.6f), 0.015f, R(1.2f, 3.4f)), new Vector3(R(0.03f, 0.08f), 0.006f, R(0.03f, 0.07f)), shardMat, false).transform.localRotation = Quaternion.Euler(0f, R(0f, 360f), 0f);
+            for (int i = 0; i < 5; i++)
+            {
+                var b = Shape(PrimitiveType.Cylinder, t, new Vector3(R(-2f, 2.4f), 0.05f, R(1.5f, 4f)), new Vector3(R(0.05f, 0.09f), R(0.5f, 0.9f), R(0.05f, 0.09f)), bark != null ? bark : darkWood, false);
+                b.transform.localRotation = Quaternion.Euler(90f, R(0f, 360f), 0f);
+            }
+            // (Its front's in the tree: the door, the light.)
+            var car = t.GetComponent<Car>() ?? t.gameObject.AddComponent<Car>();
+            car.oneLightOn = true;
+            foreach (var d in t.GetComponentsInChildren<Door>(true))
+                if (d.name == "Door FL") d.ajar = 0.85f;
         }
 
         static System.Random Rng(StructureSite site) => new System.Random(Mathf.RoundToInt(site.Position.x * 23f + site.Position.y * 31f));

@@ -1656,3 +1656,24 @@ From the undergrowth mock-ups:
   - **lampWeeds** (0.45 per metre of rim) round each lamp's clearing, at 82–108% of its edge, where the light gives out.
 - **The bunker:** its dug way is cleared of the new plants too.
 - **Performance:** the start meadow is the heaviest part, at roughly 200k grass triangles drawn round the start, all instanced. If it costs too much, lower `startMeadow`.
+
+## The car: into the pine
+
+From the car-site mock-ups, the car's site is now "Into the pine": it ran off the track head-on into a big tree.
+- **The car** (`CarModel.Crash`, after `Build`):
+  - everything forward of the front wheel arches is pushed back and folded to about half its length;
+  - the hood is buckled up and twisted, with a crease folded across it;
+  - the front bumper is knocked askew;
+  - the windscreen is crazed pale grey;
+  - the right headlight is smashed dark (renamed, so Car no longer lights it).
+- **The tree:** a big tree (an Oak mesh, 16 m) stands against the folded front, with a capsule collider for its trunk. The bark is torn off where the car hit: pale wood with splinters standing out.
+- **The driver's door** hangs open (its `Door.ajar` 0.85). You can still swing it shut and open again.
+- **One headlight still on** (`Car.oneLightOn`): the left one, weak and yellow (**weakLight** 140 cd, 22 m), knocked a little aside and down.
+  - It flickers now and then, like a loose wire, and doesn't use the battery.
+  - It's off while you have the headlights on properly; both come on then, from where the lenses now are.
+  - It's a beacon you can see through the trees.
+- **Round it:**
+  - two dark ruts, the way it came off the track, laid in short lengths on the ground;
+  - glass strewn round the front;
+  - snapped branches down from the tree.
+- **Loot:** where it was, in the glove box, the trunk and on the back seat.

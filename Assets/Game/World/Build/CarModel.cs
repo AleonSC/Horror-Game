@@ -180,6 +180,47 @@ namespace Game.World.Build
             door.swingTime = 0.6f;
         }
 
+        /// <summary>
+        /// Crashed head-on (into a tree): everything forward of the front wheels' arches pushed back and folded in
+        /// (to about half its length), the hood buckled up and twisted, the front bumper knocked askew, the
+        /// windscreen crazed white, the right headlight smashed dark. Call after <see cref="Build"/>.
+        /// </summary>
+        public void Crash(System.Random rng)
+        {
+            const float from = 1.2f, keep = 0.5f;
+            var crazed = Keep(RuntimeMaterials.Glass("Crazed glass", new Color(0.32f, 0.34f, 0.35f, 0.9f)));
+            foreach (Transform part in t)
+            {
+                if (part.name.StartsWith("Door") || part.name == "Trunk lid") continue;
+                Vector3 p = part.localPosition;
+                if (p.z > from)
+                {
+                    p.z = from + (p.z - from) * keep;
+                    part.localPosition = p;
+                    if (part.localScale.z > 0.5f) part.localScale = new Vector3(part.localScale.x, part.localScale.y, part.localScale.z * 0.62f);
+                }
+                switch (part.name)
+                {
+                    case "Hood":
+                        part.localRotation = Quaternion.Euler(-24f, 4f, 7f);
+                        part.localPosition += new Vector3(0.05f, 0.14f, 0f);
+                        break;
+                    case "Bumper":
+                        if (part.localPosition.z > 0f) part.localRotation = Quaternion.Euler(0f, 11f, -6f);
+                        break;
+                    case "Windscreen":
+                        part.GetComponent<Renderer>().sharedMaterial = crazed;
+                        break;
+                    case "Headlight R":
+                        part.GetComponent<Renderer>().sharedMaterial = Keep(RuntimeMaterials.Lit("Smashed headlight", new Color(0.03f, 0.03f, 0.03f), 0.2f));
+                        part.name = "Headlight R (smashed)";
+                        break;
+                }
+            }
+            // The hood folded up in a crease across its middle.
+            Box(t, "Hood crease", new Vector3(0.02f, 1.2f, from + 0.38f), new Vector3(1.7f, 0.05f, 0.42f), paint, false).transform.localRotation = Quaternion.Euler(-58f, 4f, 7f);
+        }
+
         // A pane of tinted glass from one edge (bottom) to the other (top), this wide.
         void Pane(Transform parent, string name, Vector3 bottom, Vector3 top, float width, bool side = false)
         {
