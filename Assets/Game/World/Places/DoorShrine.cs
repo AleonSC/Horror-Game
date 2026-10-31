@@ -113,7 +113,8 @@ namespace Game.World
                 var lightGo = new GameObject("Stone light");
                 lightGo.transform.SetParent(at, false);
                 lightGo.transform.localPosition = new Vector3(0f, height * 0.58f, depth + 0.5f);
-                lightGo.AddHDLight(LightType.Point);
+                var stoneData = lightGo.AddHDLight(LightType.Point);
+                if (stoneData != null) stoneData.volumetricDimmer = 0f; // (no glowing ball in the mist: just light on the ground and the stone)
                 var l = lightGo.GetComponent<Light>();
                 l.color = glow;
                 l.range = 5f;
@@ -140,7 +141,8 @@ namespace Game.World
                 var lgo = new GameObject("Door light");
                 lgo.transform.SetParent(root, false);
                 lgo.transform.localPosition = new Vector3(0f, 0.3f, side * 0.45f);
-                lgo.AddHDLight(LightType.Point);
+                var doorData = lgo.AddHDLight(LightType.Point);
+                if (doorData != null) doorData.volumetricDimmer = 0f; // (the same: no ball of glowing fog by the door)
                 var dl = lgo.GetComponent<Light>();
                 dl.color = glow;
                 dl.range = 6f;
