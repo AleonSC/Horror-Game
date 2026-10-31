@@ -255,6 +255,12 @@ run read the way it's designed.
   every tree at 0.85x size, **12% of planned spots left empty** (natural gaps). Trees from a pack (section
   10.2) or procedural pines (tapered flared trunk with root lobes, drooping needle boughs as real
   geometry) and dead trees (forked bare branches).
+- **Birches: 40 stands of 3-6**, oaks turned pale, mostly at the edges of clearings and trails: slender,
+  slightly crooked trunks with papery bark scored by dark lenticels and dark almond knots with a brow over
+  them (the "eyes"), and a light, open crown of small yellowing leaves.
+- **Willows: 2-4 per pond, only on the banks**, just up from the waterline and leaning out over the water:
+  a short thick trunk, limbs arching under a broad umbrella crown, and long strands of narrow leaves
+  hanging from all of it to the ground and into the water (you walk through them; they swing in the wind).
 - Each tree: trunk capsule collider on the root, a "sway" pivot for wind (or shader wind), LOD Group.
 - **Bushes: 1,400**, 0.45-1.4 m, three kinds (mound, upright, leaning), leaves as real folded geometry in
   two shades; no colliders: they lean away and rustle as you push through (and make a Noise).

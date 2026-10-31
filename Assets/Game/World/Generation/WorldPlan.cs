@@ -5,7 +5,8 @@ namespace Game.World.Generation
 {
     public enum ClearingKind { Start, Lamp, Glade, OldTree, Structure }
     public enum StructureKind { Shack, Cabin, Campsite, Watchtower, Car, LandmarkTree, Bunker }
-    public enum TreeKind { Pine, Dead }
+    /// <summary>("Pine" is the living tree, an oak now. Birches grow in small stands; willows only on pond banks.)</summary>
+    public enum TreeKind { Pine, Dead, Birch, Willow }
     public enum BushKind { Mound, Upright, Leaning }
 
     /// <summary>A round open space with a ragged edge; trees thin back in over <see cref="Thinning"/> of its radius.</summary>
