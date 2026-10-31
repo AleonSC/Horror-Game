@@ -96,6 +96,9 @@ namespace Game.World.Build
         // The earth's texture repeats every this many metres.
         public const float TrailRepeat = 3f;
 
+        // Inside a patch, the earth eases from the trail's mapping into its own over this many metres.
+        const float PatchBlend = 0.5f;
+
         /// <summary>How often the forest floor's big patches (its detail map, on UV1) repeat (metres).</summary>
         const float PatchTile = 23f;
 
@@ -171,6 +174,10 @@ namespace Game.World.Build
                 });
             }
 
+            // (Inside a patch: how far U goes over the solid earth, just short of where it starts to fade, and
+            // the metres it takes to get there: the texture's own scale, a little drawn out.)
+            float solid = 0.9f * TrailSolidShare(half * 2f);
+            float patchSpan = Mathf.Max(0.3f, solid * outer * 1.5f);
             int edgeSeed = plan.Seed * 13 + 5;
             int fine = Mathf.Max(1, Mathf.RoundToInt(plan.Size / 0.8f)), coarse = Mathf.Max(1, Mathf.RoundToInt(plan.Size / 3f));
             for (int c = 0; c < dist.Length; c++)
@@ -203,10 +210,21 @@ namespace Game.World.Build
                     if (index[k] >= 0) return index[k];
                     float lx = x * TrailStep, lz = z * TrailStep;
                     float wx = origin.x + lx, wz = origin.y + lz;
-                    float d = Mathf.Max(0f, edge[k] + half) / outer; // 0 on the middle line, 1 at the edge of the fade
+                    float fromMiddle = edge[k] + half; // (below 0: deeper in than a trail's middle line, inside a patch)
+                    float d = Mathf.Max(0f, fromMiddle) / outer; // 0 on the middle line, 1 at the edge of the fade
+                    float u = 0.5f - 0.5f * Mathf.Clamp01(d);
+                    if (fromMiddle < 0f)
+                    {
+                        // Inside a patch U would sit on the middle line everywhere and smear that one column of
+                        // the texture across it, so there U runs to and fro over the solid earth instead, across
+                        // the ground at right angles to V (wandering a little, so the turns aren't straight lines).
+                        float sideways = -wx * 0.56f + wz * 0.83f + (PeriodicNoise.Sample(wx, wz, plan.Size, coarse, edgeSeed + 2) - 0.5f) * 1.2f;
+                        float into = Mathf.Clamp01(-fromMiddle / PatchBlend);
+                        u = 0.5f - 0.5f * solid * Mathf.PingPong(sideways / patchSpan, 1f) * into;
+                    }
                     index[k] = verts.Count;
                     verts.Add(new Vector3(lx, GroundAt(plan, wx, wz) + 0.025f, lz));
-                    uv0.Add(new Vector2(0.5f - 0.5f * Mathf.Clamp01(d), (wx * 0.83f + wz * 0.56f) / TrailRepeat));
+                    uv0.Add(new Vector2(u, (wx * 0.83f + wz * 0.56f) / TrailRepeat));
                     uv1.Add(new Vector2(wx, wz) / 1.6f);
                     return index[k];
                 }

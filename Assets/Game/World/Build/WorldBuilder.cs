@@ -131,6 +131,7 @@ namespace Game.World.Build
                 RuntimeMaterials.SetNormalMap(trail, earth.Normals, 1f);
                 RuntimeMaterials.SetMaskMap(trail, earth.Mask);
                 RuntimeMaterials.SetDetail(trail, ForestTextures.TrailGrain, 1, 1.1f);
+                RuntimeMaterials.SetFadingEdges(trail);
             }
             // Water: dark, glassy, gently rippled, and a little see-through, so the shallows show the mud under them.
             var ripples = WaterTextures.Ripples();
