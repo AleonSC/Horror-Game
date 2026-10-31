@@ -278,6 +278,8 @@ namespace Game.Entities
 
             SafeZone safe = null;
             bool playerSafe = zones != null && zones.Contains(target, out safe);
+            // Up the watchtower (or high on its ladder) you're out of its reach: it waits below, watching.
+            bool outOfReach = PlayerSense.OutOfReach(player);
             bool lit = LitByBeam(s.beamMargin);
             bool advancing = false;
 
@@ -293,7 +295,7 @@ namespace Game.Entities
             {
                 if (!LookedAt()) CircleLight(safe, dt);
             }
-            else if (!lit && dist < s.reactDistance)
+            else if (!lit && !outOfReach && dist < s.reactDistance)
             {
                 // Near you in the dark: it grows and comes for you.
                 advancing = true;
@@ -325,7 +327,7 @@ namespace Game.Entities
             UpdateEyes(closeness, eyesLit);
             blue = Mathf.MoveTowards(blue, lit && dist < s.reactDistance ? 0.6f : 0f, dt * 2f);
 
-            if (!playerSafe)
+            if (!playerSafe && !outOfReach)
             {
                 creepTimer -= dt;
                 if (creepTimer <= 0f) TryCreep(dist, target);

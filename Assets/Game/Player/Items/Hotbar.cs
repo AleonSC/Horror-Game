@@ -439,7 +439,9 @@ namespace Game.Player
                     if (!ghostRoom) { Say("No room to set it down there."); break; }
                     Drone.Deploy(player, config.settings, held.Charge, config.art.Lying(ItemKind.Drone), ghostAt);
                     Items.SetLit(slot, true);
-                    Used(ItemKind.Drone, "set it down and flew it");
+                    Play(Sound.Click, 0.5f, 0.9f);
+                    Say("Drone set down. F again flies it, from wherever you are.");
+                    Used(ItemKind.Drone, "set it down");
                     break;
 
                 case ItemKind.Radio:

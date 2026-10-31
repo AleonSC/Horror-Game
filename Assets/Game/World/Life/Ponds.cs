@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Game.World
 {
     /// <summary>
-    /// The ponds (section 6.13): wading slows you and splashes, glowing mushrooms grow round their edges, and frogs
+    /// The ponds (section 6.13) and puddles: wading slows you and splashes (a puddle only splashes), glowing mushrooms grow round their edges, and frogs
     /// croak from them, falling silent when something's near (the silence is the warning).
     /// </summary>
     public sealed class Ponds : MonoBehaviour
@@ -22,7 +22,7 @@ namespace Game.World
         float nextCroak;
         bool hushed;
         System.IDisposable moodSub;
-        System.Func<Vector3, bool> waterAt;
+        System.Func<Vector3, bool> waterAt, puddleAt;
 
         public static Ponds Build(WorldPlan plan, ForestLifeSettings s, WorldWrap wrap, Transform parent)
         {
@@ -40,6 +40,8 @@ namespace Game.World
             // Wading: the player asks whether a point is under water (any copy of the map).
             waterAt = p => plan != null && plan.InWater(Wrap.Into(new Vector2(p.x, p.z), plan.Size)) && p.y < WaterLevel(p) + 0.1f;
             PlayerController.WaterAt = waterAt;
+            puddleAt = p => plan != null && plan.InPuddle(Wrap.Into(new Vector2(p.x, p.z), plan.Size));
+            PlayerController.PuddleAt = puddleAt;
             PlayerController.WadeSpeed = s.wadeSpeed;
 
             glow = RuntimeMaterials.LitGlow("Mushroom", new Color(0.5f, 0.55f, 0.45f), new Color(0.35f, 0.9f, 0.7f) * 0.6f);
@@ -93,6 +95,7 @@ namespace Game.World
             if (glow != null) Destroy(glow);
             // (Only if a newer world hasn't already put in its own.)
             if (PlayerController.WaterAt == waterAt) PlayerController.WaterAt = null;
+            if (PlayerController.PuddleAt == puddleAt) PlayerController.PuddleAt = null;
         }
 
         // The frogs: a chorus from the nearest pond, while all's calm.

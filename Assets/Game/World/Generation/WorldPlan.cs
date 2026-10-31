@@ -76,6 +76,16 @@ namespace Game.World.Generation
         public float Water;   // the water's height
     }
 
+    /// <summary>A puddle: an irregular soft-edged shape (one of a few) on a rotated, stretched quad.</summary>
+    public sealed class Puddle
+    {
+        public Vector2 Centre;
+        public float Radius;      // roughly how far the water reaches (for splashing)
+        public Vector2 HalfSize;  // the quad it's drawn on (the shape fills about 60% of it)
+        public float Angle;       // degrees
+        public int Shape;
+    }
+
     public sealed class LampSite
     {
         public int Index;
@@ -158,7 +168,7 @@ namespace Game.World.Generation
 
         public readonly List<Hill> Hills = new List<Hill>();
         public readonly List<Pond> Ponds = new List<Pond>();
-        public readonly List<Vector2> Puddles = new List<Vector2>();
+        public readonly List<Puddle> Puddles = new List<Puddle>();
         /// <summary>Patches of trodden earth (one under each lamp), drawn like the trails.</summary>
         public readonly List<DirtPatch> Patches = new List<DirtPatch>();
         public readonly List<Clearing> Clearings = new List<Clearing>();
@@ -194,6 +204,14 @@ namespace Game.World.Generation
         {
             foreach (var pond in Ponds)
                 if (Distance(p, pond.Centre) < pond.Radius && GroundAt(p) < pond.Water) return true;
+            return false;
+        }
+
+        /// <summary>Is the point in a puddle?</summary>
+        public bool InPuddle(Vector2 p)
+        {
+            foreach (var pd in Puddles)
+                if (Distance(p, pd.Centre) < pd.Radius) return true;
             return false;
         }
 

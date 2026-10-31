@@ -1105,20 +1105,102 @@ namespace Game.Audio
             }
         }
 
-        /// <summary>A step in water: a splash and slosh.</summary>
-        public static float[] Splash(int seed)
+        /// <summary>
+        /// A step in water, soft rather than a crash: the dull "plosh" of the foot going in (a short burst of
+        /// band-limited noise, low and full wading, a lighter slap in a puddle), droplets falling back, a few bubbles
+        /// ringing as they pop (each a tiny rising whistle), and, wading, the slosh of water round the leg.
+        /// Every seed is a different splash.
+        /// </summary>
+        public static float[] WaterStep(int seed, bool deep)
         {
             var rng = new Random(seed);
-            var s = Make(0.5f);
-            float lp = 0f;
-            for (int i = 0; i < s.Length; i++)
+            float R() => (float)rng.NextDouble();
+            float len = deep ? 0.9f : 0.4f;
+            var s = Make(len);
+            int n = s.Length;
+
+            // The impact.
             {
-                float t = Time(i);
-                lp += (Noise(rng) - lp) * 0.3f;
-                float bubbles = (float)Math.Sin(2 * Math.PI * (600f + 400f * (float)Math.Sin(t * 40f)) * t) * Decay(t, 9f) * 0.2f;
-                s[i] = lp * Decay(t, 7f) + bubbles;
+                float fc = deep ? 320f + 200f * R() : 700f + 400f * R();
+                float rate = deep ? 1f / (0.05f + 0.04f * R()) : 1f / (0.018f + 0.014f * R());
+                float low = 0f, band = 0f;
+                for (int i = 0; i < n; i++)
+                {
+                    float t = Time(i);
+                    Band(Noise(rng), fc, 0.9f, ref low, ref band);
+                    s[i] += band * Math.Min(1f, t / 0.003f) * Decay(t, rate) * (deep ? 1.1f : 0.8f);
+                }
             }
-            return Normalize(s, 0.5f);
+
+            // Droplets falling back: tiny ticks, thickest just after the impact (kept quiet: no hiss).
+            {
+                int count = deep ? 50 : 20;
+                float spread = deep ? 0.45f : 0.16f;
+                for (int g = 0; g < count; g++)
+                {
+                    float t0 = 0.008f + (float)Math.Pow(R(), 1.7f) * spread;
+                    float hz = 1600f + 3400f * R();
+                    float tau = 0.0008f + 0.0016f * R();
+                    float amp = (0.03f + 0.1f * R()) * Decay(t0, 2f / spread);
+                    float ph = R() * 6.2832f;
+                    int i0 = (int)(t0 * SampleRate);
+                    for (int i = i0; i < n && i < i0 + (int)(tau * 8f * SampleRate); i++)
+                    {
+                        float u = (i - i0) / (float)SampleRate;
+                        s[i] += (float)Math.Sin(ph + 2 * Math.PI * hz * u) * Decay(u, 1f / tau) * amp;
+                    }
+                }
+            }
+
+            // Bubbles: each rings at its own pitch, dies quickly and glides slightly up.
+            {
+                int count = deep ? 12 : 5;
+                float spread = deep ? 0.5f : 0.16f;
+                for (int b = 0; b < count; b++)
+                {
+                    float t0 = 0.012f + (float)Math.Pow(R(), 1.4f) * spread;
+                    float f0 = deep ? 300f + 1100f * R() * R() : 700f + 1500f * R();
+                    float damping = 0.043f * f0 + 0.0014f * (float)Math.Pow(f0, 1.5f);
+                    float sweep = 0.1f * damping;
+                    float amp = (0.1f + 0.25f * R()) * Decay(t0, 1f / spread);
+                    int i0 = (int)(t0 * SampleRate);
+                    int life = (int)(7f / damping * SampleRate);
+                    float phase = 0f;
+                    for (int i = i0; i < n && i < i0 + life; i++)
+                    {
+                        float u = (i - i0) / (float)SampleRate;
+                        phase += (float)(2 * Math.PI) * f0 * (1f + sweep * u) / SampleRate;
+                        s[i] += (float)Math.Sin(phase) * Decay(u, damping) * Math.Min(1f, u / 0.0006f) * amp;
+                    }
+                }
+            }
+
+            // The slosh: water swirling and lapping round the leg (low, roughly 150-600 Hz).
+            {
+                float lp = 0f, lp2 = 0f, hp = 0f, lap = 0.7f, lapTo = 0.7f;
+                float body = deep ? 0.55f : 0.1f;
+                for (int i = 0; i < n; i++)
+                {
+                    float t = Time(i);
+                    lp += (Noise(rng) - lp) * 0.09f;
+                    lp2 += (lp - lp2) * 0.09f;
+                    hp += (lp2 - hp) * 0.01f;
+                    if (i % 2000 == 0) lapTo = 0.55f + 0.45f * R();
+                    lap += (lapTo - lap) * 0.001f;
+                    float p = Math.Max(0f, Math.Min(1f, (t - 0.03f) / (len - 0.03f)));
+                    float env = (float)Math.Pow(Math.Sin(Math.PI * Math.Pow(p, 0.6f)), 1.5f);
+                    s[i] += (lp2 - hp) * env * lap * body * 3f;
+                }
+            }
+
+            // Softened a touch, and the very end faded so nothing clicks.
+            float soft = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                soft += (s[i] - soft) * 0.6f;
+                s[i] = soft * Math.Min(1f, (n - i) / (0.02f * SampleRate));
+            }
+            return Normalize(s, deep ? 0.5f : 0.4f);
         }
 
         /// <summary>Hooves drumming away (the deer bolting).</summary>

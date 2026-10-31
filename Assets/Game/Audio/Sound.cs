@@ -19,5 +19,6 @@ namespace Game.Audio
         TreeBreak, TreeRush, TreeImpact, PhoneRing, TvStatic, SprayHiss, GiantGroan,
         ChainSnap, EarRing, FlierCry, DoorThud, StoneWake, BlindRoar, BlindGrowl, CrawlerScreech, CrawlerSkitter, CrawlerBreath,
         FlyBuzz, BlindStep, NeckStretch, EchoClick,
+        Wade2, Wade3, Wade4, Puddle, Puddle2, Puddle3, Puddle4,
     }
 }
