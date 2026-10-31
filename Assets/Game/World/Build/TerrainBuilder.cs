@@ -107,9 +107,10 @@ namespace Game.World.Build
 
         // All the worn trails and the lamps' patches as one surface per chunk, so where trails meet, cross or run
         // into a patch they join up as one: a fine grid over the chunk, each point knowing how far it is from the
-        // nearest trail (or patch edge), with a little noise so the edges wander. U is that distance (0.5 on the
-        // middle line, 0 at the edge of the fade: the texture's alpha); V runs over the ground; UV1 is the ground
-        // itself (for the fine grain). Only the cells with earth in them are kept.
+        // nearest trail (or patch edge), and which, with a little noise so the edges wander. U is that distance
+        // (0.5 on the middle line, 0 at the edge of the fade: the texture's alpha); V runs along whatever it's
+        // nearest (a trail's length, round a patch's edge), so the earth never smears out where a trail runs one
+        // way or another; UV1 is the ground itself (for the fine grain). Only the cells with earth in them are kept.
         static Mesh[] SplitTrails(WorldPlan plan, int across)
         {
             var meshes = new Mesh[across * across];
@@ -119,7 +120,30 @@ namespace Game.World.Build
             int n = Mathf.RoundToInt(ChunkSize / TrailStep);
             int stride = n + 1;
             var dist = new float[across * across][];
-            float[] Field(int cx, int cz)
+            var owners = new int[across * across][];
+
+            // What a point can be nearest: a trail's stretch (owner >= 0, with how far along its trail it starts),
+            // or a patch (owner -1 - its index).
+            var segA = new List<Vector2>();
+            var segB = new List<Vector2>();
+            var segAlong = new List<float>();
+            for (int ti = 0; ti < plan.Trails.Count; ti++)
+            {
+                var trail = plan.Trails[ti];
+                float along = ti * 7.31f; // (each trail its own stretch of the texture)
+                for (int i = 0; i < trail.Points.Count - 1; i++)
+                {
+                    Vector2 a = trail.Points[i];
+                    Vector2 b = a + Wrap.Delta(a, trail.Points[i + 1], plan.Size);
+                    if (trail.Worn[i] && trail.Worn[i + 1])
+                    {
+                        segA.Add(a); segB.Add(b); segAlong.Add(along);
+                    }
+                    along += (b - a).magnitude;
+                }
+            }
+
+            int Chunk(int cx, int cz)
             {
                 cx = ((cx % across) + across) % across;
                 cz = ((cz % across) + across) % across;
@@ -127,20 +151,23 @@ namespace Game.World.Build
                 if (dist[i] == null)
                 {
                     dist[i] = new float[stride * stride];
+                    owners[i] = new int[stride * stride];
                     for (int k = 0; k < dist[i].Length; k++) dist[i][k] = float.MaxValue;
                 }
-                return dist[i];
+                return i;
             }
             // Stamp a shape's distance into every chunk its reach overlaps (unwrapped: a chunk index past the
             // map's edge is the chunk on the other side).
-            void Stamp(Vector2 min, Vector2 max, System.Func<Vector2, float> distanceAt)
+            void Stamp(Vector2 min, Vector2 max, int owner, System.Func<Vector2, float> distanceAt)
             {
                 min -= Vector2.one * outer;
                 max += Vector2.one * outer;
                 for (int cz = Mathf.FloorToInt(min.y / ChunkSize); cz <= Mathf.FloorToInt(max.y / ChunkSize); cz++)
                 for (int cx = Mathf.FloorToInt(min.x / ChunkSize); cx <= Mathf.FloorToInt(max.x / ChunkSize); cx++)
                 {
-                    var field = Field(cx, cz);
+                    int ci = Chunk(cx, cz);
+                    var field = dist[ci];
+                    var own = owners[ci];
                     var origin = new Vector2(cx * ChunkSize, cz * ChunkSize);
                     int x0 = Mathf.Clamp(Mathf.FloorToInt((min.x - origin.x) / TrailStep), 0, n), x1 = Mathf.Clamp(Mathf.CeilToInt((max.x - origin.x) / TrailStep), 0, n);
                     int z0 = Mathf.Clamp(Mathf.FloorToInt((min.y - origin.y) / TrailStep), 0, n), z1 = Mathf.Clamp(Mathf.CeilToInt((max.y - origin.y) / TrailStep), 0, n);
@@ -149,25 +176,23 @@ namespace Game.World.Build
                     {
                         float d = distanceAt(origin + new Vector2(x * TrailStep, z * TrailStep));
                         int k = z * stride + x;
-                        if (d < field[k]) field[k] = d;
+                        if (d < field[k]) { field[k] = d; own[k] = owner; }
                     }
                 }
             }
 
-            foreach (var trail in plan.Trails)
-                for (int i = 0; i < trail.Points.Count - 1; i++)
-                {
-                    if (!trail.Worn[i] || !trail.Worn[i + 1]) continue;
-                    Vector2 a = trail.Points[i];
-                    Vector2 b = a + Wrap.Delta(a, trail.Points[i + 1], plan.Size);
-                    Stamp(Vector2.Min(a, b), Vector2.Max(a, b), p => Segment(p, a, b) - half);
-                }
-            // A patch: inside its ragged edge counts as on a trail (its edge where a trail's would be).
-            foreach (var patch in plan.Patches)
+            for (int s = 0; s < segA.Count; s++)
             {
+                Vector2 a = segA[s], b = segB[s];
+                Stamp(Vector2.Min(a, b), Vector2.Max(a, b), s, p => Segment(p, a, b) - half);
+            }
+            // A patch: inside its ragged edge counts as on a trail (its edge where a trail's would be).
+            for (int pi = 0; pi < plan.Patches.Count; pi++)
+            {
+                var patch = plan.Patches[pi];
                 Vector2 c = patch.Centre;
                 float reach = patch.Radius * 1.25f;
-                Stamp(c - Vector2.one * reach, c + Vector2.one * reach, p =>
+                Stamp(c - Vector2.one * reach, c + Vector2.one * reach, -1 - pi, p =>
                 {
                     Vector2 d = p - c;
                     return d.magnitude - patch.RadiusAt(Mathf.Atan2(d.y, d.x));
@@ -178,12 +203,19 @@ namespace Game.World.Build
             // the metres it takes to get there: the texture's own scale, a little drawn out.)
             float solid = 0.9f * TrailSolidShare(half * 2f);
             float patchSpan = Mathf.Max(0.3f, solid * outer * 1.5f);
+            // Directions over the open middle of a patch, bent just enough to repeat a whole number of times
+            // across the map, so they meet themselves at its edge.
+            float Periodic(float c, float repeat) => Mathf.Max(1f, Mathf.Round(c * plan.Size / repeat)) * repeat / plan.Size;
+            Vector2 alongDir = new Vector2(Periodic(0.83f, TrailRepeat), Periodic(0.56f, TrailRepeat));
+            Vector2 sideDir = new Vector2(-Periodic(0.56f, patchSpan * 2f), Periodic(0.83f, patchSpan * 2f));
             int edgeSeed = plan.Seed * 13 + 5;
             int fine = Mathf.Max(1, Mathf.RoundToInt(plan.Size / 0.8f)), coarse = Mathf.Max(1, Mathf.RoundToInt(plan.Size / 3f));
+            var h = plan.Height;
             for (int c = 0; c < dist.Length; c++)
             {
                 var field = dist[c];
                 if (field == null) continue;
+                var own = owners[c];
                 int cx = c % across, cz = c / across;
                 var origin = new Vector2(cx * ChunkSize, cz * ChunkSize);
                 // Signed distance from the trail's edge, plus wander: 0 at the edge, -half on the middle line.
@@ -198,55 +230,95 @@ namespace Game.World.Build
                                  + (PeriodicNoise.Sample(wx, wz, plan.Size, fine, edgeSeed + 1) - 0.5f) * 0.2f;
                     edge[k] = field[k] + wander;
                 }
+
+                // A point's UV as one owner has it. (inner: the open middle of a patch, mapped flat over the ground.)
+                Vector2 Uv(int k, int owner, bool inner, float wx, float wz)
+                {
+                    float fromMiddle = edge[k] + half; // (below 0: deeper in than a trail's middle line, inside a patch)
+                    float u = 0.5f - 0.5f * Mathf.Clamp01(Mathf.Max(0f, fromMiddle) / outer);
+                    var p = new Vector2(wx, wz);
+                    if (owner >= 0)
+                    {
+                        // Along the trail: how far its nearest point is from the trail's start (carried on past
+                        // the stretch's ends, so a trail's rounded end doesn't fan one line of the texture out).
+                        Vector2 a = segA[owner], d = segB[owner] - a;
+                        Vector2 q = a + Wrap.Delta(a, p, plan.Size);
+                        float len = d.magnitude;
+                        float t = len > 1e-4f ? Vector2.Dot(q - a, d) / len : 0f;
+                        return new Vector2(u, (segAlong[owner] + t) / TrailRepeat);
+                    }
+                    var patch = plan.Patches[-1 - owner];
+                    if (inner)
+                    {
+                        // U runs to and fro over the solid earth crosswise to V (wandering a little, so the turns
+                        // aren't straight lines), easing in from the middle line.
+                        float side = Vector2.Dot(p, sideDir) + (PeriodicNoise.Sample(wx, wz, plan.Size, coarse, edgeSeed + 2) - 0.5f) * 1.2f;
+                        float into = Mathf.Clamp01(-fromMiddle / PatchBlend);
+                        u = 0.5f - 0.5f * solid * Mathf.PingPong(side / patchSpan, 1f) * into;
+                        return new Vector2(u, Vector2.Dot(p, alongDir) / TrailRepeat);
+                    }
+                    // Round the patch's edge, a whole number of repeats the way round.
+                    Vector2 r = Wrap.Delta(patch.Centre, p, plan.Size);
+                    float turns = Mathf.Max(1f, Mathf.Round(2f * Mathf.PI * patch.Radius / TrailRepeat));
+                    return new Vector2(u, (Mathf.Atan2(r.y, r.x) / (2f * Mathf.PI) + 0.5f) * turns + patch.Seed * 0.137f);
+                }
+
                 var verts = new List<Vector3>();
+                var normals = new List<Vector3>();
                 var uv0 = new List<Vector2>();
                 var uv1 = new List<Vector2>();
                 var tris = new List<int>();
-                var index = new int[field.Length];
-                for (int k = 0; k < index.Length; k++) index[k] = -1;
-                int Vertex(int x, int z)
-                {
-                    int k = z * stride + x;
-                    if (index[k] >= 0) return index[k];
-                    float lx = x * TrailStep, lz = z * TrailStep;
-                    float wx = origin.x + lx, wz = origin.y + lz;
-                    float fromMiddle = edge[k] + half; // (below 0: deeper in than a trail's middle line, inside a patch)
-                    float d = Mathf.Max(0f, fromMiddle) / outer; // 0 on the middle line, 1 at the edge of the fade
-                    float u = 0.5f - 0.5f * Mathf.Clamp01(d);
-                    if (fromMiddle < 0f)
-                    {
-                        // Inside a patch U would sit on the middle line everywhere and smear that one column of
-                        // the texture across it, so there U runs to and fro over the solid earth instead, across
-                        // the ground at right angles to V (wandering a little, so the turns aren't straight lines).
-                        float sideways = -wx * 0.56f + wz * 0.83f + (PeriodicNoise.Sample(wx, wz, plan.Size, coarse, edgeSeed + 2) - 0.5f) * 1.2f;
-                        float into = Mathf.Clamp01(-fromMiddle / PatchBlend);
-                        u = 0.5f - 0.5f * solid * Mathf.PingPong(sideways / patchSpan, 1f) * into;
-                    }
-                    index[k] = verts.Count;
-                    verts.Add(new Vector3(lx, GroundAt(plan, wx, wz) + 0.025f, lz));
-                    uv0.Add(new Vector2(u, (wx * 0.83f + wz * 0.56f) / TrailRepeat));
-                    uv1.Add(new Vector2(wx, wz) / 1.6f);
-                    return index[k];
-                }
+                var index = new Dictionary<(int k, int owner, bool inner, int shift), int>();
+                var corner = new int[4];
+                var cornerUv = new Vector2[4];
                 for (int z = 0; z < n; z++)
                 for (int x = 0; x < n; x++)
                 {
                     int k = z * stride + x;
-                    float near = Mathf.Min(Mathf.Min(edge[k], edge[k + 1]), Mathf.Min(edge[k + stride], edge[k + stride + 1]));
-                    if (near >= TrailFade) continue; // (no earth in this cell)
-                    int a = Vertex(x, z), b = Vertex(x + 1, z), cc = Vertex(x, z + 1), d = Vertex(x + 1, z + 1);
+                    corner[0] = k; corner[1] = k + 1; corner[2] = k + stride; corner[3] = k + stride + 1;
+                    // The cell's earth is all mapped by whatever its deepest corner is nearest, so its UVs agree.
+                    int deep = corner[0];
+                    for (int i = 1; i < 4; i++) if (edge[corner[i]] < edge[deep]) deep = corner[i];
+                    if (edge[deep] >= TrailFade) continue; // (no earth in this cell)
+                    int owner = own[deep];
+                    bool inner = owner < 0 && edge[deep] + half < 0f;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int ck = corner[i];
+                        cornerUv[i] = Uv(ck, owner, inner, origin.x + (ck % stride) * TrailStep, origin.y + (ck / stride) * TrailStep);
+                    }
+                    for (int i = 0; i < 4; i++)
+                    {
+                        // (V repeats, so a corner past a wrap — round a patch, over the map's edge — is brought
+                        // back alongside the others rather than the texture squeezed between them.)
+                        int shift = Mathf.RoundToInt(cornerUv[0].y - cornerUv[i].y);
+                        var key = (corner[i], owner, inner, shift);
+                        if (!index.TryGetValue(key, out int vi))
+                        {
+                            int ck = corner[i];
+                            float lx = (ck % stride) * TrailStep, lz = (ck / stride) * TrailStep;
+                            float wx = origin.x + lx, wz = origin.y + lz;
+                            vi = verts.Count;
+                            index[key] = vi;
+                            verts.Add(new Vector3(lx, GroundAt(plan, wx, wz) + 0.025f, lz));
+                            normals.Add(new Vector3(h.Sample(wx - 1f, wz) - h.Sample(wx + 1f, wz), 2f, h.Sample(wx, wz - 1f) - h.Sample(wx, wz + 1f)).normalized);
+                            uv0.Add(cornerUv[i] + new Vector2(0f, shift));
+                            uv1.Add(new Vector2(wx, wz) / 1.6f);
+                        }
+                        corner[i] = vi;
+                    }
                     // (The same split as the ground's own triangles, clockwise from above.)
-                    tris.Add(a); tris.Add(cc); tris.Add(b);
-                    tris.Add(b); tris.Add(cc); tris.Add(d);
+                    tris.Add(corner[0]); tris.Add(corner[2]); tris.Add(corner[1]);
+                    tris.Add(corner[1]); tris.Add(corner[2]); tris.Add(corner[3]);
                 }
                 if (tris.Count == 0) continue;
                 var mesh = new Mesh { name = $"Trail {cx},{cz}" };
                 if (verts.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 mesh.SetVertices(verts);
+                mesh.SetNormals(normals); // (from the ground's own slope, so cells mapped apart still light as one)
                 mesh.SetUVs(0, uv0);
                 mesh.SetUVs(1, uv1);
                 mesh.SetTriangles(tris, 0);
-                mesh.RecalculateNormals();
                 mesh.RecalculateTangents();
                 mesh.RecalculateBounds();
                 meshes[c] = mesh;
