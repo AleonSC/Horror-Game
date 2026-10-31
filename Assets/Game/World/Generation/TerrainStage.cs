@@ -4,7 +4,7 @@ namespace Game.World.Generation
 {
     /// <summary>
     /// Stage 1 (section 3.3): rolling ground from broad and small waves that tile across the map, hills (some
-    /// stretched into ridges) kept away from the start, ponds pressed in as bowls, and puddles on flat ground.
+    /// stretched into ridges) kept away from the start, and ponds pressed in as bowls. (Puddles come last: see PuddleStage.)
     /// </summary>
     public sealed class TerrainStage : IWorldStage
     {
@@ -57,7 +57,6 @@ namespace Game.World.Generation
             }
 
             PlacePonds(plan, s, rng);
-            PlacePuddles(plan, s, rng);
         }
 
         static void PlaceHills(WorldPlan plan, WorldGenSettings s, Rng rng)
@@ -147,17 +146,6 @@ namespace Game.World.Generation
                     plan.Ponds.Add(new Pond { Centre = c, Radius = r, Water = water });
                     break;
                 }
-            }
-        }
-
-        static void PlacePuddles(WorldPlan plan, WorldGenSettings s, Rng rng)
-        {
-            for (int attempt = 0; attempt < s.puddles * 40 && plan.Puddles.Count < s.puddles; attempt++)
-            {
-                var p = rng.InsideSquare(plan.Size);
-                if (plan.Height.Slope(p.x, p.y) > 0.04f || plan.InWater(p)) continue;
-                if (plan.Distance(p, plan.Start) < 6f) continue;
-                plan.Puddles.Add(p);
             }
         }
     }

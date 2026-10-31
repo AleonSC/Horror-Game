@@ -132,17 +132,39 @@ namespace Game.World.Build
                 RuntimeMaterials.SetMaskMap(trail, earth.Mask);
                 RuntimeMaterials.SetDetail(trail, ForestTextures.TrailGrain, 1, 1.1f);
             }
+            // Water: dark, glassy, gently rippled, and a little see-through, so the shallows show the mud under them.
+            var ripples = WaterTextures.Ripples();
+            made.Add(ripples);
             if (art != null && art.water != null) water = fixer.Fix(art.water);
-            else made.Add(water = RuntimeMaterials.Lit("Water", new Color(0.015f, 0.02f, 0.025f), 0.95f));
+            else made.Add(water = WaterMaterial("Water", null, new Color(0.025f, 0.04f, 0.045f, 0.86f), ripples));
 
             var chunks = TerrainBuilder.BuildChunks(plan, root, ground, trail, made);
             foreach (var c in chunks) wrap.Add(c, c.position);
 
             foreach (var pond in plan.Ponds)
             {
-                var w = TerrainBuilder.Water(pond, water, made);
+                var w = TerrainBuilder.Water(plan, pond, water, made);
                 w.transform.SetParent(root, false);
                 wrap.Add(w.transform, new Vector3(pond.Centre.x, pond.Water, pond.Centre.y));
+            }
+            root.gameObject.AddComponent<WaterDrift>().material = water;
+
+            // The puddles: each a soft irregular shape on its own little quad lying on the ground.
+            var puddleMats = new Material[PuddleStage.Shapes];
+            for (int i = 0; i < puddleMats.Length; i++)
+            {
+                var shape = WaterTextures.PuddleShape(i);
+                made.Add(shape);
+                made.Add(puddleMats[i] = WaterMaterial("Puddle " + i, shape, new Color(0.03f, 0.04f, 0.045f, 1f), ripples));
+            }
+            var puddles = new GameObject("Puddles").transform;
+            puddles.SetParent(root, false);
+            foreach (var pd in plan.Puddles)
+            {
+                var go = TerrainBuilder.PuddleQuad(plan, pd, puddleMats[pd.Shape % puddleMats.Length], made, out float groundY);
+                go.transform.SetParent(puddles, false);
+                var at = new Vector3(pd.Centre.x, groundY, pd.Centre.y);
+                wrap.Add(go.transform, at);
             }
 
             float minH = float.MaxValue, maxH = float.MinValue;
@@ -249,6 +271,15 @@ namespace Game.World.Build
             var facing = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
             player.SetSpawn(pos, facing);
             player.Teleport(pos, facing);
+        }
+
+        // See-through lit water: the ripples over a tint (its alpha is how see-through), and a shape texture if any.
+        static Material WaterMaterial(string name, Texture2D shape, Color tint, Texture2D ripples)
+        {
+            var m = RuntimeMaterials.LitBlended(name, tint, 0.93f, shape);
+            RuntimeMaterials.SetNormalMap(m, ripples, 0.6f);
+            if (shape != null) RuntimeMaterials.SetShineFollowsAlpha(m); // (so a puddle's quad never shows)
+            return m;
         }
 
         void Clear()

@@ -92,6 +92,18 @@ namespace Game.Rendering
             HDMaterial.ValidateMaterial(m);
         }
 
+        /// <summary>
+        /// Make a blended material's shine fade with its alpha (by default HDRP keeps a see-through material's full
+        /// shine everywhere, so a soft shape on a quad would show the quad's square edge where a light catches it).
+        /// </summary>
+        public static void SetShineFollowsAlpha(Material m)
+        {
+            m.SetFloat("_EnableBlendModePreserveSpecularLighting", 0f);
+            m.SetFloat("_TransparentWritingMotionVec", 0f);
+            m.SetFloat("_TransparentZWrite", 0f);
+            HDMaterial.ValidateMaterial(m);
+        }
+
         /// <summary>Glass: lit, very smooth, see-through by the colour's alpha (tinted car windows, dirty panes).</summary>
         public static Material Glass(string name, Color tint)
         {

@@ -137,7 +137,7 @@ namespace Game.Audio
             Add(Sound.Croak, SoundSynth.Croak(37));
             Add(Sound.Squeak, SoundSynth.Squeak(38));
             Add(Sound.Caw, SoundSynth.Caw(39));
-            Add(Sound.Splash, SoundSynth.Splash(40));
+            Add(Sound.Splash, SoundSynth.WaterStep(40, true));
             Add(Sound.Hooves, SoundSynth.Hooves(41));
             Add(Sound.Rotors, SoundSynth.Rotors(42));
             Add(Sound.Static, SoundSynth.Static(43));
@@ -183,6 +183,14 @@ namespace Game.Audio
             Add(Sound.BlindStep, SoundSynth.BlindStep(82));
             Add(Sound.NeckStretch, SoundSynth.NeckStretch(83));
             Add(Sound.EchoClick, SoundSynth.EchoClick(84));
+            // Steps in water: Splash is the first wading one; four of each so they don't repeat.
+            Add(Sound.Wade2, SoundSynth.WaterStep(85, true));
+            Add(Sound.Wade3, SoundSynth.WaterStep(86, true));
+            Add(Sound.Wade4, SoundSynth.WaterStep(87, true));
+            Add(Sound.Puddle, SoundSynth.WaterStep(88, false));
+            Add(Sound.Puddle2, SoundSynth.WaterStep(89, false));
+            Add(Sound.Puddle3, SoundSynth.WaterStep(90, false));
+            Add(Sound.Puddle4, SoundSynth.WaterStep(91, false));
         }
 
         void Add(Sound sound, float[] samples)

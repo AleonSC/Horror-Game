@@ -62,6 +62,8 @@ namespace Game.Player
         public static float WadeSpeed = 0.55f;
         /// <summary>Standing in a pond.</summary>
         public bool Wading { get; private set; }
+        /// <summary>Is this point in a puddle? (The world sets it.) Ankle-deep: it splashes but doesn't slow you.</summary>
+        public static System.Func<Vector3, bool> PuddleAt;
 
         /// <summary>The seat you're in (the car), or null.</summary>
         public ISeat Seat { get; private set; }
@@ -223,16 +225,31 @@ namespace Game.Player
         {
             float noise = Crouching ? s.crouchNoise : Running ? s.runNoise : s.walkNoise;
             float volume = s.stepVolume * (Crouching ? 0.35f : Running ? 1.25f : 1f) * Random.Range(0.8f, 1.05f);
-            // Wading: splashes, and louder.
-            if (Wading) { noise *= 1.6f; volume *= 1.5f; }
+            // In water: a splash instead of the step, a little louder than it and heard further, but soft (a slosh
+            // wading, a light slap in a puddle), never the same one twice running.
+            bool puddle = !Wading && PuddleAt != null && PuddleAt(transform.position);
+            if (Wading) { noise *= 1.5f; volume *= 1.15f; }
+            else if (puddle) { noise *= 1.25f; volume *= 0.9f; }
+            Game.Audio.Sound sound = Wading ? Next(wades, ref lastWade) : puddle ? Next(puddles, ref lastPuddle) : NextStep();
             if (Services.TryGet<Game.Audio.SoundPlayer>(out var sounds))
-                sounds.Play(Wading ? Game.Audio.Sound.Splash : NextStep(), transform.position, Game.Audio.MixerNames.Player, volume, Random.Range(0.92f, 1.08f) * (Running ? 1.05f : 1f), 12f);
+                sounds.Play(sound, transform.position, Game.Audio.MixerNames.Player, volume, Random.Range(0.92f, 1.08f) * (Running ? 1.05f : 1f), 12f);
             if (noise > 0f && Services.TryGet<EventBus>(out var events))
                 events.Publish(new NoiseEmitted(transform.position, noise, Crouching ? "creeping" : Running ? "running" : "walking"));
         }
 
         static readonly Game.Audio.Sound[] steps = { Game.Audio.Sound.Step, Game.Audio.Sound.Step2, Game.Audio.Sound.Step3, Game.Audio.Sound.Step4, Game.Audio.Sound.Step5, Game.Audio.Sound.Step6 };
         int lastStep = -1;
+        static readonly Game.Audio.Sound[] wades = { Game.Audio.Sound.Splash, Game.Audio.Sound.Wade2, Game.Audio.Sound.Wade3, Game.Audio.Sound.Wade4 };
+        static readonly Game.Audio.Sound[] puddles = { Game.Audio.Sound.Puddle, Game.Audio.Sound.Puddle2, Game.Audio.Sound.Puddle3, Game.Audio.Sound.Puddle4 };
+        int lastWade = -1, lastPuddle = -1;
+
+        static Game.Audio.Sound Next(Game.Audio.Sound[] set, ref int last)
+        {
+            int i = Random.Range(0, set.Length);
+            if (i == last) i = (i + 1) % set.Length;
+            last = i;
+            return set[i];
+        }
 
         // One of the footsteps, never the same one twice running.
         Game.Audio.Sound NextStep()

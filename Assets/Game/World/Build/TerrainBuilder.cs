@@ -245,7 +245,7 @@ namespace Game.World.Build
 
         // The ground's height here as its mesh has it (straight between the 1 m vertices, split the same way), so
         // the trails lie just on it rather than dipping under it between vertices.
-        static float GroundAt(WorldPlan plan, float wx, float wz)
+        public static float GroundAt(WorldPlan plan, float wx, float wz)
         {
             float x0 = Mathf.Floor(wx), z0 = Mathf.Floor(wz);
             float fx = wx - x0, fz = wz - z0;
@@ -256,29 +256,131 @@ namespace Game.World.Build
             return h11 + (h01 - h11) * (1f - fx) + (h10 - h11) * (1f - fz);
         }
 
-        /// <summary>A pond's water: a disc at its level, a little wider than the pond so its edge is under the bank.</summary>
-        public static GameObject Water(Pond pond, Material water, List<Object> made)
+        /// <summary>
+        /// A pond's water: a flat grid at its level covering only the water the bowl actually holds (cells whose
+        /// ground dips under the level, flooded out from the middle), so it ends at the shore and never hangs out
+        /// over the bank where the land falls away beyond the rim. Where it overlaps the bank the ground hides it.
+        /// Local to the pond's middle, at its water level.
+        /// </summary>
+        public static GameObject Water(WorldPlan plan, Pond pond, Material water, List<Object> made)
         {
-            const int segments = 40;
-            var verts = new Vector3[segments + 1];
-            var tris = new int[segments * 3];
-            float r = pond.Radius + 1.5f;
-            for (int i = 0; i < segments; i++)
+            const float cell = 0.5f;
+            float extent = pond.Radius + 1.5f;
+            int n = Mathf.CeilToInt(extent * 2f / cell);
+            float origin = -n * cell * 0.5f;
+
+            var wet = new bool[(n + 1) * (n + 1)];
+            for (int z = 0; z <= n; z++)
+            for (int x = 0; x <= n; x++)
             {
-                float a = i / (float)segments * Mathf.PI * 2f;
-                verts[i + 1] = new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r);
-                // Clockwise seen from above (Unity's front faces).
-                tris[i * 3] = 0;
-                tris[i * 3 + 1] = (i + 1) % segments + 1;
-                tris[i * 3 + 2] = i + 1;
+                float lx = origin + x * cell, lz = origin + z * cell;
+                wet[z * (n + 1) + x] = lx * lx + lz * lz < extent * extent
+                    && GroundAt(plan, pond.Centre.x + lx, pond.Centre.y + lz) < pond.Water + 0.02f;
             }
-            var mesh = new Mesh { name = "Pond", vertices = verts, triangles = tris };
-            mesh.RecalculateNormals();
+            bool CellWet(int x, int z) =>
+                wet[z * (n + 1) + x] || wet[z * (n + 1) + x + 1] || wet[(z + 1) * (n + 1) + x] || wet[(z + 1) * (n + 1) + x + 1];
+
+            // Flood out from the middle, so a separate hollow nearby isn't filled at this level.
+            var keep = new bool[n * n];
+            var queue = new Queue<Vector2Int>();
+            int mid = n / 2;
+            if (CellWet(mid, mid)) { keep[mid * n + mid] = true; queue.Enqueue(new Vector2Int(mid, mid)); }
+            var steps = new[] { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
+            while (queue.Count > 0)
+            {
+                var c = queue.Dequeue();
+                foreach (var step in steps)
+                {
+                    var q = c + step;
+                    if (q.x < 0 || q.y < 0 || q.x >= n || q.y >= n || keep[q.y * n + q.x] || !CellWet(q.x, q.y)) continue;
+                    keep[q.y * n + q.x] = true;
+                    queue.Enqueue(q);
+                }
+            }
+
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            var index = new int[(n + 1) * (n + 1)];
+            for (int i = 0; i < index.Length; i++) index[i] = -1;
+            int Vertex(int x, int z)
+            {
+                int k = z * (n + 1) + x;
+                if (index[k] >= 0) return index[k];
+                var v = new Vector3(origin + x * cell, 0f, origin + z * cell);
+                index[k] = verts.Count;
+                verts.Add(v);
+                uvs.Add(new Vector2(v.x, v.z) * 0.25f); // ripples the same size whatever the pond
+                return index[k];
+            }
+            for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+            {
+                if (!keep[z * n + x]) continue;
+                int a = Vertex(x, z), b = Vertex(x + 1, z), c = Vertex(x, z + 1), d = Vertex(x + 1, z + 1);
+                // Clockwise seen from above (Unity's front faces), split like the ground.
+                tris.Add(a); tris.Add(c); tris.Add(b);
+                tris.Add(b); tris.Add(c); tris.Add(d);
+            }
+
+            var mesh = new Mesh { name = "Pond", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            var normals = new Vector3[verts.Count];
+            for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.up;
+            mesh.normals = normals;
+            mesh.RecalculateTangents();
             mesh.RecalculateBounds();
             made.Add(mesh);
             var go = new GameObject("Pond") { layer = Layers.Default };
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = water;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = water;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return go;
+        }
+
+        /// <summary>
+        /// A puddle: a small grid lying just on the ground as its mesh has it, rotated and stretched; the material's
+        /// texture puts the puddle's shape on it. Local to the puddle's middle, at the ground there.
+        /// </summary>
+        public static GameObject PuddleQuad(WorldPlan plan, Puddle puddle, Material material, List<Object> made, out float groundY)
+        {
+            const int n = 6;
+            var c = puddle.Centre;
+            groundY = GroundAt(plan, c.x, c.y);
+            var rot = Quaternion.Euler(0f, puddle.Angle, 0f);
+            var verts = new Vector3[(n + 1) * (n + 1)];
+            var uvs = new Vector2[verts.Length];
+            var normals = new Vector3[verts.Length];
+            var tris = new int[n * n * 6];
+            for (int z = 0, i = 0; z <= n; z++)
+            for (int x = 0; x <= n; x++, i++)
+            {
+                float u = x / (float)n, v = z / (float)n;
+                Vector3 local = rot * new Vector3((u * 2f - 1f) * puddle.HalfSize.x, 0f, (v * 2f - 1f) * puddle.HalfSize.y);
+                local.y = GroundAt(plan, c.x + local.x, c.y + local.z) - groundY + 0.025f;
+                verts[i] = local;
+                uvs[i] = new Vector2(u, v);
+                normals[i] = Vector3.up;
+            }
+            for (int z = 0, t = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+            {
+                int i = z * (n + 1) + x;
+                tris[t++] = i; tris[t++] = i + n + 1; tris[t++] = i + 1;
+                tris[t++] = i + 1; tris[t++] = i + n + 1; tris[t++] = i + n + 2;
+            }
+            var mesh = new Mesh { name = "Puddle", vertices = verts, uv = uvs, normals = normals, triangles = tris };
+            mesh.RecalculateTangents();
+            mesh.RecalculateBounds();
+            made.Add(mesh);
+            var go = new GameObject("Puddle") { layer = Layers.Default };
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = material;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return go;
         }
     }

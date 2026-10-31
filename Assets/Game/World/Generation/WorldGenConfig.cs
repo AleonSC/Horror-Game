@@ -44,7 +44,10 @@ namespace Game.World.Generation
         public Vector2 pondRadius = new Vector2(7f, 13f);
         [Tooltip("The middle of a pond is at least this deep (metres).")]
         public float pondDepth = 0.9f;
+        [Tooltip("Bigger puddles (about 1.5-3 m across), in the hollows of flat ground.")]
         public int puddles = 40;
+        [Tooltip("Little puddles (under a metre or so), half of them gathered round the bigger ones.")]
+        public int smallPuddles = 160;
 
         [Header("Layout")]
         public float startClearing = 28f;
