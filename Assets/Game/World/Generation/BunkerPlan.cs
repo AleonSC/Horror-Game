@@ -46,6 +46,8 @@ namespace Game.World.Generation
                 }
                 plan.Trees.RemoveAll(s => In(s.Position));
                 plan.Bushes.RemoveAll(s => In(s.Position));
+                plan.LargeBushes.RemoveAll(s => In(s.Position));
+                plan.Weeds.RemoveAll(s => In(s.Position));
                 plan.Rocks.RemoveAll(s => In(s.Position));
                 plan.Boulders.RemoveAll(s => In(s.Position));
                 plan.Logs.RemoveAll(s => In(s.Position));

@@ -296,6 +296,182 @@ namespace Game.World.Build
 
         static float Range(float min, float max, System.Random rng) => Range(rng, min, max);
 
+        // ------------------------------------------------------------------ the larger undergrowth
+
+        static Vector3 RandomDir(System.Random rng, float yMin, float yMax)
+        {
+            var d = new Vector3(Range(rng, -1f, 1f), Range(rng, yMin, yMax), Range(rng, -1f, 1f));
+            return d.sqrMagnitude < 0.01f ? Vector3.up : d.normalized;
+        }
+
+        static Vector3 Bezier(Vector3 a, Vector3 b, Vector3 c, float t) => a * ((1f - t) * (1f - t)) + b * (2f * (1f - t) * t) + c * (t * t);
+
+        // A stem along a curve, in short tubes.
+        static void Cane(MeshBuilder m, Vector3 a, Vector3 b, Vector3 c, float r0, float r1, int segments, int sides)
+        {
+            Vector3 prev = a;
+            for (int k = 1; k <= segments; k++)
+            {
+                float t = k / (float)segments;
+                Vector3 q = Bezier(a, b, c, t);
+                m.AddTube(prev, q, Mathf.Lerp(r0, r1, (k - 1f) / segments), Mathf.Lerp(r0, r1, t), sides);
+                prev = q;
+            }
+        }
+
+        // A little flat spray (a thin quad hanging a touch), for seed heads and florets.
+        static void Spray(MeshBuilder m, Vector3 at, Vector3 dir, float length, float width)
+        {
+            Vector3 s = Vector3.Cross(dir, Vector3.up);
+            if (s.sqrMagnitude < 1e-4f) s = Vector3.right;
+            s = s.normalized * width;
+            Vector3 e = at + dir * length + Vector3.down * length * 0.1f;
+            int a = m.AddVertex(at - s, new Vector2(0f, 0f)), b = m.AddVertex(at + s, new Vector2(1f, 0f));
+            int c = m.AddVertex(e + s * 0.4f, new Vector2(1f, 1f)), d = m.AddVertex(e - s * 0.4f, new Vector2(0f, 1f));
+            m.AddTriangle(a, b, c);
+            m.AddTriangle(a, c, d);
+        }
+
+        /// <summary>
+        /// The laurel mound (about 2.4 m tall and 3 m across): a dozen and a half stems out of one root, branching
+        /// again, each ending in a clump of big, glossy, dark leaves; a solid rounded shrub nothing shows through.
+        /// Stems and leaves apart (they take different materials).
+        /// </summary>
+        public static (MeshBuilder stems, MeshBuilder leaves) Laurel(System.Random rng)
+        {
+            var stems = new MeshBuilder();
+            var leaves = new MeshBuilder();
+            int count = rng.Next(15, 19);
+            for (int s = 0; s < count; s++)
+            {
+                float a = Range(rng, 0f, Mathf.PI * 2f);
+                var foot = new Vector3(Range(rng, -0.25f, 0.25f), 0f, Range(rng, -0.25f, 0.25f));
+                var mid = new Vector3(Mathf.Cos(a) * Range(rng, 0.3f, 0.9f), Range(rng, 0.6f, 1.2f), Mathf.Sin(a) * Range(rng, 0.3f, 0.9f));
+                stems.AddTube(foot, mid, 0.04f, 0.025f, 4);
+                for (int k = 0; k < 3; k++)
+                {
+                    float b = a + Range(rng, -1f, 1f);
+                    var end = mid + new Vector3(Mathf.Cos(b) * Range(rng, 0.3f, 0.8f), Range(rng, 0.2f, 1.1f), Mathf.Sin(b) * Range(rng, 0.3f, 0.8f));
+                    end.y = Mathf.Min(end.y, 2.3f);
+                    stems.AddTube(mid, end, 0.022f, 0.01f, 3);
+                    for (int l = 0; l < 20; l++)
+                    {
+                        var d = RandomDir(rng, -0.4f, 1f);
+                        Leaf(leaves, end + d * Range(rng, 0.05f, 0.38f), (d + Vector3.down * Range(rng, 0.1f, 0.4f)).normalized, d, Range(rng, 0.16f, 0.26f), rng);
+                    }
+                }
+            }
+            return (stems, leaves);
+        }
+
+        /// <summary>
+        /// The dead thicket (about 2.5 m tall): a shrub that died standing, grey and leafless, its stems forking
+        /// again and again into fine twigs that claw upward; you can just see through it.
+        /// </summary>
+        public static MeshBuilder DeadThicket(System.Random rng)
+        {
+            var m = new MeshBuilder();
+            void Branch(Vector3 from, Vector3 dir, float len, float r, int depth)
+            {
+                Vector3 to = from + dir * len;
+                m.AddTube(from, to, r, r * 0.6f, depth > 2 ? 3 : 4);
+                if (depth >= 4) return;
+                int n = depth < 2 ? 3 : 2;
+                for (int k = 0; k < n; k++)
+                    Branch(to, (dir + new Vector3(Range(rng, -0.8f, 0.8f), Range(rng, 0.1f, 0.6f), Range(rng, -0.8f, 0.8f))).normalized, len * Range(rng, 0.55f, 0.75f), r * 0.6f, depth + 1);
+            }
+            int stems = rng.Next(5, 8);
+            for (int s = 0; s < stems; s++)
+            {
+                float a = Range(rng, 0f, Mathf.PI * 2f);
+                Branch(new Vector3(Range(rng, -0.2f, 0.2f), -0.05f, Range(rng, -0.2f, 0.2f)), new Vector3(Mathf.Cos(a) * 0.4f, 1f, Mathf.Sin(a) * 0.4f).normalized, Range(rng, 0.75f, 1f), 0.045f, 0);
+            }
+            return m;
+        }
+
+        /// <summary>
+        /// A clump of meadow grass a metre tall: a couple of dozen blades, the taller ones carrying drooping seed
+        /// heads. (Scale it to height.)
+        /// </summary>
+        public static MeshBuilder Meadow(System.Random rng)
+        {
+            var m = new MeshBuilder();
+            int blades = rng.Next(18, 26);
+            for (int i = 0; i < blades; i++)
+            {
+                float yaw = Range(rng, 0f, Mathf.PI * 2f), lean = Range(rng, 0.1f, 0.35f), h = Range(rng, 0.65f, 1f), w = Range(rng, 0.01f, 0.018f);
+                var outward = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw));
+                var across = new Vector3(-outward.z, 0f, outward.x) * w;
+                var root = outward * Range(rng, 0f, 0.18f);
+                var mid = root + Vector3.up * h * 0.55f + outward * h * lean * 0.3f;
+                var tip = root + Vector3.up * h + outward * h * lean;
+                int a = m.AddVertex(root - across, new Vector2(0f, 0f)), c = m.AddVertex(root + across, new Vector2(1f, 0f));
+                int d = m.AddVertex(mid - across * 0.7f, new Vector2(0f, 0.55f)), e = m.AddVertex(mid + across * 0.7f, new Vector2(1f, 0.55f));
+                int t = m.AddVertex(tip, new Vector2(0.5f, 1f));
+                m.AddTriangle(a, d, c);
+                m.AddTriangle(c, d, e);
+                m.AddTriangle(d, t, e);
+                if (h > 0.85f && rng.NextDouble() < 0.5)
+                    for (int k = 0; k < 4; k++)
+                        Spray(m, tip + new Vector3(Range(rng, -0.02f, 0.02f), -k * 0.035f, Range(rng, -0.02f, 0.02f)), new Vector3(Range(rng, -0.3f, 0.3f), -1f, Range(rng, -0.3f, 0.3f)).normalized, 0.06f, 0.012f);
+            }
+            return m;
+        }
+
+        /// <summary>
+        /// A weedy patch about a metre and a half across, for the edges of the lamps' clearings: grass, a few small
+        /// ferns, and two or three tall stems of cow parsley, their flat white flower heads at head height. The
+        /// green and the flowers apart (different materials).
+        /// </summary>
+        public static (MeshBuilder green, MeshBuilder flowers) Weeds(System.Random rng)
+        {
+            var green = new MeshBuilder();
+            var flowers = new MeshBuilder();
+            green.Append(GrassClump(rng, 0.7f), Matrix4x4.identity);
+            green.Append(GrassClump(rng, 0.55f), Matrix4x4.Translate(new Vector3(0.4f, 0f, 0.25f)));
+            green.Append(GrassClump(rng, 0.6f), Matrix4x4.Translate(new Vector3(-0.35f, 0f, -0.3f)));
+            // Small ferns: a few fronds out of a crown, their leaflets in pairs.
+            int ferns = rng.Next(1, 3);
+            for (int f = 0; f < ferns; f++)
+            {
+                var crown = new Vector3(Range(rng, -0.5f, 0.5f), 0.03f, Range(rng, -0.5f, 0.5f));
+                for (int k = 0; k < 4; k++)
+                {
+                    float a = k / 4f * Mathf.PI * 2f + Range(rng, -0.3f, 0.3f), len = Range(rng, 0.35f, 0.55f);
+                    var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                    Vector3 tip = crown + dir * len * 0.85f + Vector3.up * len * 0.28f, ctrl = crown + dir * len * 0.3f + Vector3.up * len * 1.2f;
+                    Cane(green, crown, ctrl, tip, 0.006f, 0.002f, 4, 3);
+                    var side = Vector3.Cross(dir, Vector3.up).normalized;
+                    for (int j = 2; j < 10; j++)
+                    {
+                        float t = j / 10f;
+                        Vector3 p = Bezier(crown, ctrl, tip, t);
+                        float size = len * (0.16f * Mathf.Sin(Mathf.PI * Mathf.Min(1f, t * 1.1f)) + 0.02f);
+                        Leaf(green, p, (side + Vector3.down * 0.15f).normalized, Vector3.up, size, rng);
+                        Leaf(green, p, (-side + Vector3.down * 0.15f).normalized, Vector3.up, size, rng);
+                    }
+                }
+            }
+            // Cow parsley: tall stems, a flat umbel of tiny florets on rays at the top.
+            int stalks = rng.Next(2, 4);
+            for (int u = 0; u < stalks; u++)
+            {
+                var foot = new Vector3(Range(rng, -0.45f, 0.45f), 0f, Range(rng, -0.45f, 0.45f));
+                float h = Range(rng, 1.25f, 1.6f);
+                var top = foot + new Vector3(Range(rng, -0.12f, 0.12f), h, Range(rng, -0.12f, 0.12f));
+                Cane(green, foot, Vector3.Lerp(foot, top, 0.5f) + new Vector3(Range(rng, -0.05f, 0.05f), 0f, 0f), top, 0.012f, 0.006f, 4, 3);
+                for (int r = 0; r < 8; r++)
+                {
+                    float a = r / 8f * Mathf.PI * 2f;
+                    var ray = top + new Vector3(Mathf.Cos(a) * 0.13f, 0.04f, Mathf.Sin(a) * 0.13f);
+                    green.AddTube(top, ray, 0.003f, 0.002f, 3);
+                    for (int q = 0; q < 5; q++)
+                        Spray(flowers, ray + new Vector3(Range(rng, -0.035f, 0.035f), Range(rng, 0f, 0.015f), Range(rng, -0.035f, 0.035f)), Vector3.up, 0.016f, 0.013f);
+                }
+            }
+            return (green, flowers);
+        }
+
         // One leaf from its base, pointing along point, its upper face turned toward up: a pointed oval, folded a
         // touch along the midrib, its tip curling down.
         static void Leaf(MeshBuilder b, Vector3 at, Vector3 point, Vector3 up, float length, System.Random rng)

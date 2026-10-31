@@ -1635,3 +1635,24 @@ From the 3D mock-up (Blind One Studies), built into the game (`Entities/Blind/Bl
 - **Footsteps:** a new `Sound.BlindStep` on its own feet (`stepVolume` 0.7): a heavy, padded thud into the leaf litter rather than a giant's boom, the crackle of leaves and twigs under it, and a dry knock of bone in the ankle just after. Grown, its feet still boom (GiantStep). Each lift gives a faint, low joint creak.
 - **Neck stretching:** a new `Sound.NeckStretch` (**neckVolume** 0.8), heard 90 m off, plays each time its neck starts up over the trees from low: sixteen vertebrae popping and cracking one after another, quick then slower, over a long wet creak of drawn sinew rising in pitch.
 - **Echolocation:** while its head is up over the trees (`BlindBody.Raised`), it sounds out the dark with a new `Sound.EchoClick`: a hard, hollow "tock" big enough to carry, and its echoes coming back off the forest, later and duller each time, heard out to **echoRange** (140 m). It plays a run of 1–**echoClicks** (3) clicks, 0.16–0.3 s apart, every **echoEveryMin**–**echoEveryMax** (2.5–5) s. (BlindConfig → Echolocation.)
+
+## Laurel mounds, dead thickets, tall meadow at the start, weeds round the lamps
+
+From the undergrowth mock-ups:
+- **Laurel mounds** (`ForestMeshes.Laurel`, 3 variants, about 3.8k triangles):
+  - **Shape:** 15–18 stems from one root, each branching three ways and ending in a clump of 20 big glossy dark leaves (the game's leaf). About 2.4 m tall and 3 m across: nothing shows through.
+  - **Look:** bark stems and a new glossy "Laurel leaves" material.
+  - **Placement:** WorldGenConfig → Larger undergrowth → **laurels** (160), mostly along clearing and trail edges.
+- **Dead thickets** (`ForestMeshes.DeadThicket`, 3 variants): 5–7 stems forking four times into fine grey twigs, about 2.5 m, in the dead-wood material. **deadThickets** (120), anywhere in the forest.
+- **Both big bushes:**
+  - placed with room round them: no tree within 1.2–1.6 m, nothing on a trail, none within 6 m of the start;
+  - they sway a little and lean away when pushed;
+  - you push through them like the other bushes, rustling (heard by things hunting by sound), over their real size: `Undergrowth` counts them 2.3× (laurel) or 1.9× (thicket) a bush's size.
+- **Tall meadow:**
+  - **Mesh:** tall grass everywhere now uses `ForestMeshes.Meadow`: 18–26 blades, the taller ones carrying drooping seed heads, denser than the old clumps.
+  - **The start:** the starting clearing is filled with it (**startMeadow**: 0.7 clumps per m², about 1,400 clumps), thinning ragged toward the trees. Only **startMeadowGap** (2.5 m) round where you wake is left clear, so you start waist-deep in it.
+- **Weedy edges round the lamps** (`ForestMeshes.Weeds`, 3 variants, in a new `WorldPlan.Weeds` list):
+  - each patch is about 1.5 m across: grass, one or two small ferns, and two or three tall stems of cow parsley with flat umbels of pale florets at head height (a new "Cow parsley" material);
+  - **lampWeeds** (0.45 per metre of rim) round each lamp's clearing, at 82–108% of its edge, where the light gives out.
+- **The bunker:** its dug way is cleared of the new plants too.
+- **Performance:** the start meadow is the heaviest part, at roughly 200k grass triangles drawn round the start, all instanced. If it costs too much, lower `startMeadow`.

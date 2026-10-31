@@ -21,6 +21,64 @@ namespace Game.World.Generation
             PlantTallGrass(plan, s, rng.Fork(4), mask);
             PlantVerges(plan, s, rng.Fork(5), mask);
             PlantGrassPatches(plan, s, rng.Fork(6), mask);
+            PlantLargeBushes(plan, s, rng.Fork(7), mask, trees);
+            PlantStartMeadow(plan, s, rng.Fork(8), mask);
+            PlantLampWeeds(plan, s, rng.Fork(9), mask);
+        }
+
+        // Laurel mounds along the edges of clearings and trails (where the light reaches), dead thickets anywhere;
+        // each with room round it (no tree in it, nothing on a trail).
+        static void PlantLargeBushes(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask, SpatialGrid trees)
+        {
+            int laurels = 0, dead = 0;
+            for (int attempt = 0; attempt < (s.laurels + s.deadThickets) * 40 && (laurels < s.laurels || dead < s.deadThickets); attempt++)
+            {
+                var p = rng.InsideSquare(plan.Size);
+                bool laurel = laurels < s.laurels && (dead >= s.deadThickets || rng.Chance(0.55f));
+                if (!mask.Free(p, 1.8f) || trees.AnyWithin(p, laurel ? 1.6f : 1.2f)) continue;
+                if (plan.Distance(p, plan.Start) < 6f) continue;
+                if (laurel && !rng.Chance(mask.ClearingFactor(p, true) * 0.85f + 0.1f)) continue;
+                plan.LargeBushes.Add(new Spot { Position = p, Size = rng.Range(0.8f, 1.15f), Yaw = rng.Range(0f, 360f), Kind = (byte)(laurel ? 0 : 1), Variant = (byte)rng.Range(0, 4) });
+                if (laurel) laurels++; else dead++;
+            }
+        }
+
+        // The starting clearing full of tall meadow grass: you wake waist-deep in it.
+        static void PlantStartMeadow(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)
+        {
+            foreach (var c in plan.Clearings)
+            {
+                if (c.Kind != ClearingKind.Start) continue;
+                float outer = c.Radius * 1.05f, inner = s.startMeadowGap;
+                int count = Mathf.RoundToInt(Mathf.PI * (outer * outer - inner * inner) * s.startMeadow);
+                for (int i = 0; i < count; i++)
+                {
+                    float a = rng.Angle(), d = Mathf.Sqrt(rng.Range(inner * inner, outer * outer));
+                    // (Thinning out ragged toward the trees.)
+                    if (!rng.Chance(1f - MathUtil.SmoothThreshold(0.7f, 1f, d / outer))) continue;
+                    var p = Wrap.Into(c.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d, plan.Size);
+                    if (!mask.Free(p, 0.2f)) continue;
+                    plan.TallGrass.Add(new Spot { Position = p, Size = rng.Range(s.tallGrassHeight.x, s.tallGrassHeight.y) * 0.95f, Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 4) });
+                }
+            }
+        }
+
+        // Weeds round the rim of each lamp's clearing, where its light gives out.
+        static void PlantLampWeeds(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)
+        {
+            foreach (var l in plan.Lamps)
+            {
+                var c = l.Clearing;
+                if (c == null) continue;
+                int count = Mathf.RoundToInt(2f * Mathf.PI * c.Radius * s.lampWeeds);
+                for (int i = 0; i < count; i++)
+                {
+                    float a = rng.Angle(), d = c.RadiusAt(a) * rng.Range(0.82f, 1.08f);
+                    var p = Wrap.Into(c.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d, plan.Size);
+                    if (!mask.Free(p, 0.6f)) continue;
+                    plan.Weeds.Add(new Spot { Position = p, Size = rng.Range(0.85f, 1.15f), Yaw = rng.Range(0f, 360f), Variant = (byte)rng.Range(0, 3) });
+                }
+            }
         }
 
         static SpatialGrid PlantTrees(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)

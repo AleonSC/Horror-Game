@@ -170,6 +170,10 @@ namespace Game.World.Generation
 
         public readonly List<TreeSpot> Trees = new List<TreeSpot>();
         public readonly List<Spot> Bushes = new List<Spot>();
+        /// <summary>The larger undergrowth: laurel mounds (Kind 0) and dead thickets (Kind 1).</summary>
+        public readonly List<Spot> LargeBushes = new List<Spot>();
+        /// <summary>Weedy patches (grass, small ferns, cow parsley) round the edges of the lamps' clearings.</summary>
+        public readonly List<Spot> Weeds = new List<Spot>();
         public readonly List<Spot> Grass = new List<Spot>();
         public readonly List<Spot> TallGrass = new List<Spot>();
         public readonly List<Spot> Rocks = new List<Spot>();

@@ -132,6 +132,17 @@ namespace Game.World.Generation
         [Tooltip("Tall grass clumps per square metre in a glade's middle.")]
         public float gladeGrassDensity = 0.55f;
         public Vector2 tallGrassHeight = new Vector2(1f, 1.5f);
+        [Header("Larger undergrowth")]
+        [Tooltip("Laurel mounds: big dark rounded shrubs (2.4 m tall, 3 m across) nothing shows through; mostly along the edges of clearings and trails.")]
+        public int laurels = 160;
+        [Tooltip("Dead thickets: grey leafless tangles of twigs (2.5 m), anywhere in the forest.")]
+        public int deadThickets = 120;
+        [Range(0f, 2f), Tooltip("Tall meadow grass clumps per square metre filling the starting clearing (it's waist-high: you start in it).")]
+        public float startMeadow = 0.7f;
+        [Range(0f, 10f), Tooltip("Clear of meadow this far round where you start (metres).")]
+        public float startMeadowGap = 2.5f;
+        [Range(0f, 2f), Tooltip("Weedy patches (grass, ferns, cow parsley) per metre round the rim of each lamp's clearing.")]
+        public float lampWeeds = 0.45f;
 
         [Header("Props")]
         public int rocks = 480;

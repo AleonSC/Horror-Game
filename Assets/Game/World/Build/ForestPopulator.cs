@@ -103,7 +103,9 @@ namespace Game.World.Build
         {
             AddTrees();
             AddBushes();
+            AddLargeBushes();
             AddGrass();
+            AddWeeds();
             AddRocksAndLogs();
         }
 
@@ -272,11 +274,62 @@ namespace Game.World.Build
             }
         }
 
+        // The laurel mounds (stems and glossy leaves, two kinds each) and the dead thickets.
+        void AddLargeBushes()
+        {
+            if (plan.LargeBushes.Count == 0) return;
+            var laurelLeaves = Mat("Laurel leaves", new Color(0.045f, 0.075f, 0.04f), 0.55f, true);
+            var stems = new int[3][];
+            var dead = new int[3];
+            for (int v = 0; v < 3; v++)
+            {
+                var (st, lv) = ForestMeshes.Laurel(new System.Random(plan.Seed * 61 + v));
+                stems[v] = new[]
+                {
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Laurel stems {v}", new[] { Keep(st.ToMesh($"Laurel stems {v}")) }, Bark, new float[0], BushRange, true, Layers.Default)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Laurel leaves {v}", new[] { Keep(lv.ToMesh($"Laurel leaves {v}")) }, laurelLeaves, new float[0], BushRange + 15f, true, Layers.Default)),
+                };
+                dead[v] = renderer.AddKind(InstancedRenderer.Kind.Simple($"Dead thicket {v}", new[] { Keep(ForestMeshes.DeadThicket(new System.Random(plan.Seed * 67 + v)).ToMesh($"Dead thicket {v}")) }, DeadWood, new float[0], BushRange + 15f, true, Layers.Default));
+                foreach (int k in stems[v]) renderer.SetSway(k, BushSway * 0.6f, pushed: true);
+                renderer.SetSway(dead[v], BushSway * 0.4f, pushed: true);
+            }
+            foreach (var b in plan.LargeBushes)
+            {
+                var m = Matrix4x4.TRS(Ground(b.Position) + Vector3.down * 0.05f, Quaternion.Euler(0f, b.Yaw, 0f), Vector3.one * b.Size);
+                if (b.Kind == 0) foreach (int k in stems[b.Variant % 3]) renderer.Add(k, b.Position, m);
+                else renderer.Add(dead[b.Variant % 3], b.Position, m);
+            }
+        }
+
+        // The weeds round the lamps' clearings: their green, and the cow parsley's pale flower heads.
+        void AddWeeds()
+        {
+            if (plan.Weeds.Count == 0) return;
+            var flowers = Mat("Cow parsley", new Color(0.62f, 0.6f, 0.54f), 0.2f, true);
+            var kinds = new int[3][];
+            for (int v = 0; v < 3; v++)
+            {
+                var (g, f) = ForestMeshes.Weeds(new System.Random(plan.Seed * 71 + v));
+                kinds[v] = new[]
+                {
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Weeds {v}", new[] { Keep(g.ToMesh($"Weeds {v}")) }, grassGreen, new float[0], TallGrassRange, false, Layers.Default)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Cow parsley {v}", new[] { Keep(f.ToMesh($"Cow parsley {v}")) }, flowers, new float[0], TallGrassRange, false, Layers.Default)),
+                };
+                foreach (int k in kinds[v]) renderer.SetSway(k, TallGrassSway, pushed: true);
+            }
+            foreach (var w in plan.Weeds)
+            {
+                var m = Matrix4x4.TRS(Ground(w.Position), Quaternion.Euler(0f, w.Yaw, 0f), Vector3.one * w.Size);
+                foreach (int k in kinds[w.Variant % 3]) renderer.Add(k, w.Position, m);
+            }
+        }
+
         void AddGrass()
         {
             var grass = Kinds("Grass", art?.grass, v => ForestMeshes.GrassClump(new System.Random(plan.Seed * 43 + v), 1f).ToMesh($"Grass {v}"), 4,
                               v => v < 2 ? grassDry : grassGreen, GrassRange, false, Layers.Default);
-            var tall = Kinds("Tall grass", art?.tallGrass, v => ForestMeshes.GrassClump(new System.Random(plan.Seed * 47 + v), 1f).ToMesh($"Tall grass {v}"), 4,
+            // (Meadow grass: denser, its tall blades carrying drooping seed heads.)
+            var tall = Kinds("Tall grass", art?.tallGrass, v => ForestMeshes.Meadow(new System.Random(plan.Seed * 47 + v)).ToMesh($"Tall grass {v}"), 4,
                              v => tallGrass, TallGrassRange, false, Layers.Default);
             foreach (int k in grass) renderer.SetSway(k, GrassSway, pushed: true);
             foreach (int k in tall) renderer.SetSway(k, TallGrassSway, pushed: true);

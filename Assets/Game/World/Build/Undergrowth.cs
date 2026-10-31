@@ -23,6 +23,8 @@ namespace Game.World.Build
         {
             mapSize = plan.Size;
             foreach (var b in plan.Bushes) Add(b);
+            // (The big ones too, as big as they are: a laurel's about three metres across, a dead thicket a bit less.)
+            foreach (var b in plan.LargeBushes) { var big = b; big.Size *= b.Kind == 0 ? 2.3f : 1.9f; Add(big); }
         }
 
         void Add(Spot s)
