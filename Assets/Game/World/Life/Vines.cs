@@ -59,12 +59,13 @@ namespace Game.World
             foreach (var t in plan.Trees)
             {
                 if (t.Removed || !rng.Chance(s.vineShare)) continue;
+                if (t.Kind == TreeKind.Willow) continue; // (its own strands hang there)
                 int strands = rng.Range(1, Mathf.Max(1, s.vinesPerTree) + 1);
                 float ground = plan.GroundAt(t.Position);
                 for (int k = 0; k < strands; k++)
                 {
                     float a = rng.Angle();
-                    Vector2 at = t.Position + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * rng.Range(0.6f, t.Kind == TreeKind.Pine ? 1.5f : 1.1f) * t.Scale;
+                    Vector2 at = t.Position + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * rng.Range(0.6f, t.Kind == TreeKind.Pine ? 1.5f : t.Kind == TreeKind.Birch ? 0.9f : 1.1f) * t.Scale;
                     float top = rng.Range(4.5f, 8f) * Mathf.Clamp(t.Scale, 0.7f, 1.3f);
                     float bottom = rng.Range(s.vineLowest, Mathf.Max(s.vineLowest, s.vineHighest));
                     var vine = new Vine
@@ -73,7 +74,7 @@ namespace Game.World
                         Length = Mathf.Max(1f, top - bottom),
                         Thickness = rng.Range(0.012f, 0.022f),
                         Phase = rng.Range(0f, 100f),
-                        Lean = top * (t.Kind == TreeKind.Pine ? ForestPopulator.TreeSway : ForestPopulator.DeadTreeSway),
+                        Lean = top * (t.Kind == TreeKind.Dead ? ForestPopulator.DeadTreeSway : ForestPopulator.TreeSway),
                     };
                     var go = new GameObject("Vine") { layer = Layers.Effects };
                     go.transform.SetParent(transform, false);

@@ -167,6 +167,148 @@ namespace Game.World.Build
 
         static Vector3 RandomWobble(System.Random rng, float amount) => new Vector3(Range(rng, -amount, amount), Range(rng, -amount, amount) * 0.5f, Range(rng, -amount, amount));
 
+        /// <summary>
+        /// A birch: a slender, slightly crooked pale trunk in three lengths, thin branches rising from its upper half
+        /// (shorter toward the top), and a light, open crown of small leaf clumps you can see the sky through.
+        /// </summary>
+        public static (MeshBuilder trunk, MeshBuilder leaves) Birch(System.Random rng, float height, int lod = 0)
+        {
+            var trunk = new MeshBuilder();
+            var leaves = new MeshBuilder();
+            float radius = Range(rng, 0.13f, 0.19f);
+            int sides = lod == 0 ? 8 : lod == 1 ? 6 : 4;
+            var leafRng = new System.Random(rng.Next());
+
+            var points = new Vector3[4];
+            points[0] = Vector3.down * 0.3f;
+            Vector3 drift = Vector3.zero;
+            for (int k = 1; k < 4; k++)
+            {
+                drift += new Vector3(Range(rng, -0.25f, 0.25f), 0f, Range(rng, -0.25f, 0.25f));
+                points[k] = Vector3.up * (height * k / 3f) + drift;
+            }
+            float[] radii = { radius * 1.15f, radius * 0.9f, radius * 0.55f, radius * 0.1f };
+            for (int k = 0; k < 3; k++) trunk.AddTube(points[k], points[k + 1], radii[k], radii[k + 1], sides);
+            Vector3 OnTrunk(float t)
+            {
+                float f = Mathf.Clamp01(t) * 3f;
+                int seg = Mathf.Min(2, (int)f);
+                return Vector3.Lerp(points[seg], points[seg + 1], f - seg);
+            }
+
+            var clumps = new List<(Vector3 at, float size)>();
+            int branches = rng.Next(7, 12);
+            for (int i = 0; i < branches; i++)
+            {
+                float along = Range(rng, 0.45f, 0.95f);
+                Vector3 from = OnTrunk(along);
+                float yaw = Range(rng, 0f, Mathf.PI * 2f);
+                Vector3 dir = new Vector3(Mathf.Cos(yaw), Range(rng, 0.6f, 1.4f), Mathf.Sin(yaw)).normalized;
+                float length = height * Range(rng, 0.12f, 0.22f) * (1.3f - along);
+                Vector3 end = from + dir * length;
+                float br = radius * 0.35f * (1.2f - along);
+                trunk.AddTube(from, end, br, br * 0.2f, Mathf.Max(3, sides - 4));
+                clumps.Add((end, Range(rng, 0.9f, 1.4f)));
+                clumps.Add((Vector3.Lerp(from, end, 0.55f) + Vector3.down * 0.3f, Range(rng, 0.7f, 1.1f)));
+            }
+            clumps.Add((points[3] + Vector3.down * 0.8f, 1.3f));
+
+            // The leaves: small, sparse clumps (far off, fewer and bigger cards, in the same places).
+            int cards = lod == 0 ? 16 : lod == 1 ? 8 : 4;
+            float cardSize = lod == 0 ? 0.9f : lod == 1 ? 1.5f : 2.2f;
+            foreach (var (at, size) in clumps)
+            {
+                var clumpRng = new System.Random(leafRng.Next());
+                float pull = Mathf.Clamp01((size - (cardSize - 0.9f) * 0.5f) / size);
+                for (int c = 0; c < cards; c++)
+                {
+                    Vector3 offset = Random3(clumpRng) * size * Mathf.Sqrt((float)clumpRng.NextDouble());
+                    Vector3 normal = (offset + Vector3.up * size * 0.3f).normalized;
+                    LeafCard(leaves, at + offset * pull, normal, cardSize * Range(clumpRng, 0.8f, 1.25f), clumpRng);
+                }
+            }
+            return (trunk, leaves);
+        }
+
+        /// <summary>
+        /// A willow, leaning out over the water along +z: a short, thick trunk forking low into limbs that arch up and
+        /// out under a broad umbrella of a crown, and from all over it long strands of narrow leaves hanging straight
+        /// down: the outer ones to the ground (and on into the water), the inner ones shorter. Wood and strands apart.
+        /// </summary>
+        public static (MeshBuilder wood, MeshBuilder strands) Willow(System.Random rng, float height, int lod = 0)
+        {
+            var wood = new MeshBuilder();
+            var strands = new MeshBuilder();
+            float radius = Range(rng, 0.38f, 0.5f);
+            int sides = lod == 0 ? 9 : lod == 1 ? 6 : 4;
+            var strandRng = new System.Random(rng.Next());
+
+            Vector3 lean = new Vector3(Range(rng, -0.3f, 0.3f), 0f, Range(rng, 1.2f, 2f));
+            Vector3 fork = Vector3.up * height * Range(rng, 0.28f, 0.34f) + lean;
+            Vector3 mid = Vector3.Lerp(Vector3.zero, fork, 0.5f) + new Vector3(0f, 0f, -0.2f);
+            wood.AddTube(Vector3.down * 0.3f, mid, radius * 1.3f, radius * 1.05f, sides);
+            wood.AddTube(mid, fork, radius * 1.05f, radius * 0.85f, sides);
+
+            float crownR = height * Range(rng, 0.5f, 0.6f);
+            Vector3 crown = new Vector3(0f, height * 0.82f, Range(rng, 2.5f, 3.5f)) + lean * 0.5f;
+            int limbs = rng.Next(4, 7);
+            float turn = Range(rng, 0f, Mathf.PI * 2f);
+            for (int i = 0; i < limbs; i++)
+            {
+                float a = turn + (i + Range(rng, -0.3f, 0.3f)) / limbs * Mathf.PI * 2f;
+                Vector3 end = crown + new Vector3(Mathf.Cos(a) * crownR * 0.65f, Range(rng, -0.5f, 0.6f), Mathf.Sin(a) * crownR * 0.65f);
+                Vector3 bend = Vector3.Lerp(fork, end, 0.5f) + Vector3.up * height * 0.15f;
+                float r0 = radius * Range(rng, 0.5f, 0.6f);
+                wood.AddTube(fork + Vector3.down * 0.3f, bend, r0, r0 * 0.6f, Mathf.Max(4, sides - 2));
+                wood.AddTube(bend, end, r0 * 0.6f, r0 * 0.15f, Mathf.Max(3, sides - 3));
+            }
+
+            // The strands (the same ones at every distance: far off, fewer, wider and in fewer pieces).
+            int count = lod == 0 ? 240 : lod == 1 ? 100 : 45;
+            float width = lod == 0 ? 0.22f : lod == 1 ? 0.4f : 0.65f;
+            int segments = lod == 0 ? 4 : lod == 1 ? 3 : 2;
+            for (int c = 0; c < count; c++)
+            {
+                float a = Range(strandRng, 0f, Mathf.PI * 2f);
+                float out01 = Mathf.Sqrt(Range(strandRng, 0.05f, 1f));
+                float d = crownR * out01;
+                Vector3 outward = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                Vector3 top = crown + outward * d + Vector3.up * (crownR * 0.3f * (1f - out01 * out01) + Range(strandRng, -0.3f, 0.3f));
+                float bottom = Mathf.Lerp(height * 0.45f, Range(strandRng, -0.6f, 0.4f), out01);
+                Strand(strands, top, bottom, outward, width * Range(strandRng, 0.8f, 1.2f), segments, strandRng);
+            }
+            return (wood, strands);
+        }
+
+        // One hanging strand: a narrow ribbon straight down from `top` to the height `bottom`, bowing out a little
+        // and swaying sideways, its face turned outward from the crown (and its shading rounded the same way).
+        static void Strand(MeshBuilder b, Vector3 top, float bottom, Vector3 outward, float width, int segments, System.Random rng)
+        {
+            float length = top.y - bottom;
+            if (length < 0.3f) return;
+            float spin = Range(rng, -0.6f, 0.6f);
+            Vector3 face = Quaternion.AngleAxis(spin * Mathf.Rad2Deg, Vector3.up) * outward;
+            Vector3 side = Vector3.Cross(Vector3.up, face).normalized;
+            Vector3 normal = (outward + Vector3.up * 0.25f).normalized;
+            float bow = Range(rng, 0.1f, 0.35f), sway = Range(rng, -0.25f, 0.25f);
+            int first = b.VertexCount;
+            for (int k = 0; k <= segments; k++)
+            {
+                float t = k / (float)segments;
+                Vector3 p = new Vector3(top.x, top.y - length * t, top.z) + outward * (bow * Mathf.Sin(t * Mathf.PI * 0.8f)) + side * (sway * t * t);
+                float w = width * 0.5f * Mathf.Lerp(1f, 0.55f, t);
+                float v = length * t / 1.5f; // (the texture is a metre and a half of strand)
+                b.AddVertex(p - side * w, new Vector2(0f, v), normal);
+                b.AddVertex(p + side * w, new Vector2(1f, v), normal);
+            }
+            for (int k = 0; k < segments; k++)
+            {
+                int i = first + k * 2;
+                b.AddTriangle(i, i + 2, i + 1);
+                b.AddTriangle(i + 1, i + 2, i + 3);
+            }
+        }
+
         /// <summary>A dead tree: a bare trunk forking into a few crooked limbs. height &lt;= 0: random.</summary>
         public static MeshBuilder DeadTree(System.Random rng, float height = -1f, int lod = 0, bool roots = false)
         {

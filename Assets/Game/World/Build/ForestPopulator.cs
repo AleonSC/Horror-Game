@@ -39,6 +39,8 @@ namespace Game.World.Build
         const float GrassSway = 0.3f, TallGrassSway = 0.35f, BushSway = 0.15f;
         /// <summary>(Public so what hangs from the trees can lean with them.)</summary>
         public const float TreeSway = 0.06f, DeadTreeSway = 0.035f;
+        // (Birches are slender and give more; a willow's strands swing far more than its wood.)
+        const float BirchSway = 0.08f, WillowSway = 0.04f, WillowStrandSway = 0.14f;
         Material bushA, bushB, grassDry, grassGreen, tallGrass, rock, logWood;
 
         /// <param name="livingArt">Your living trees, already extracted (their heights went into the plan), or null.</param>
@@ -125,18 +127,21 @@ namespace Game.World.Build
             var rootedDead = deadArt == null ? BuiltInDead(true) : null;
             if (rootedPine != null) foreach (var set in rootedPine) foreach (int k in set) renderer.SetSway(k, TreeSway);
             if (rootedDead != null) foreach (var set in rootedDead) foreach (int k in set) renderer.SetSway(k, DeadTreeSway);
+            var birch = BuiltInBirches();
+            var willow = BuiltInWillows();
 
             foreach (var t in plan.Trees)
             {
                 if (t.Removed) continue;
                 bool isPine = t.Kind == TreeKind.Pine;
+                bool builtInOnly = t.Kind == TreeKind.Birch || t.Kind == TreeKind.Willow; // (never your own prefabs)
                 // (The breakable tree: its one model, the small dead tree, always the same size.)
-                float size = t.Breakable ? 1f : t.Scale * ((isPine ? livingArt : deadArt) != null ? custom : 1f);
-                var rooted = isPine ? rootedPine : rootedDead;
+                float size = t.Breakable ? 1f : t.Scale * (!builtInOnly && (isPine ? livingArt : deadArt) != null ? custom : 1f);
+                var rooted = builtInOnly ? null : isPine ? rootedPine : rootedDead;
                 bool roots = !t.Breakable && rooted != null && Rooted(t.Position);
                 // (rooted ones sit a touch lower: every root's end well under the soil)
                 var m = Matrix4x4.TRS(Ground(t.Position) + (roots ? Vector3.down * 0.06f * size : Vector3.zero), Quaternion.Euler(0f, t.Yaw, 0f), Vector3.one * size);
-                var kinds = roots ? rooted : isPine ? pine : dead;
+                var kinds = roots ? rooted : isPine ? pine : t.Kind == TreeKind.Birch ? birch : t.Kind == TreeKind.Willow ? willow : dead;
                 int[] drawn = t.Breakable ? breakable : kinds[t.Variant % kinds.Length];
                 foreach (int k in drawn) renderer.Add(k, t.Position, m);
 
@@ -148,7 +153,7 @@ namespace Game.World.Build
                 marker.Matrix = m;
                 marker.Breakable = t.Breakable;
                 var col = treeGo.AddComponent<CapsuleCollider>();
-                col.radius = 0.3f * size;
+                col.radius = (t.Kind == TreeKind.Willow ? 0.45f : t.Kind == TreeKind.Birch ? 0.2f : 0.3f) * size;
                 col.height = 6f * size;
                 col.center = Vector3.up * 3f * size;
             }
@@ -206,6 +211,64 @@ namespace Game.World.Build
                     renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak trunk {v}{rr}", trunks, Bark, TreeLods, TreeRange, true, Layers.Trees)),
                     renderer.AddKind(InstancedRenderer.Kind.Simple($"Oak crown {v}{rr}", crowns, Needles, TreeLods, TreeRange, true, Layers.Trees)),
                 };
+            }
+            return kinds;
+        }
+
+        // Birches: pale bark (with its "eyes"), and small yellowing leaves on the oak's leaf cards.
+        int[][] BuiltInBirches()
+        {
+            var barkTex = TreeTextures.BirchBark(plan.Seed * 43 + 1);
+            made.Add(barkTex);
+            var bark = Mat("Birch bark", Color.white, 0.3f, false, barkTex, new Vector2(1f, 1f / TreeTextures.BirchRepeat));
+            var leaves = Mat("Birch leaves", new Color(0.95f, 0.88f, 0.5f), 0.22f, true, ForestTextures.OakLeaves, Vector2.one);
+            RuntimeMaterials.SetCutout(leaves, ForestTextures.LeafCut);
+            var kinds = new int[TreeShapes.BirchVariants][];
+            for (int v = 0; v < kinds.Length; v++)
+            {
+                var trunks = new Mesh[3];
+                var crowns = new Mesh[3];
+                for (int lod = 0; lod < 3; lod++)
+                {
+                    var (t, c) = ForestMeshes.Birch(new System.Random(plan.Seed * 47 + v), TreeShapes.Height(TreeKind.Birch, v), lod);
+                    trunks[lod] = Keep(t.ToMesh($"Birch {v} trunk LOD{lod}"));
+                    crowns[lod] = Keep(c.ToMesh($"Birch {v} crown LOD{lod}"));
+                }
+                kinds[v] = new[]
+                {
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Birch trunk {v}", trunks, bark, TreeLods, TreeRange, true, Layers.Trees)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Birch crown {v}", crowns, leaves, TreeLods, TreeRange, true, Layers.Trees)),
+                };
+                foreach (int k in kinds[v]) renderer.SetSway(k, BirchSway);
+            }
+            return kinds;
+        }
+
+        // Willows: the oaks' bark on the wood, and the strands of narrow grey-green leaves.
+        int[][] BuiltInWillows()
+        {
+            var strandTex = TreeTextures.WillowStrand(plan.Seed * 53 + 1);
+            made.Add(strandTex);
+            var strandMat = Mat("Willow leaves", new Color(0.42f, 0.5f, 0.32f), 0.25f, true, strandTex, Vector2.one);
+            RuntimeMaterials.SetCutout(strandMat, ForestTextures.LeafCut);
+            var kinds = new int[TreeShapes.WillowVariants][];
+            for (int v = 0; v < kinds.Length; v++)
+            {
+                var woods = new Mesh[3];
+                var strands = new Mesh[3];
+                for (int lod = 0; lod < 3; lod++)
+                {
+                    var (w, st) = ForestMeshes.Willow(new System.Random(plan.Seed * 59 + v), TreeShapes.Height(TreeKind.Willow, v), lod);
+                    woods[lod] = Keep(w.ToMesh($"Willow {v} wood LOD{lod}"));
+                    strands[lod] = Keep(st.ToMesh($"Willow {v} strands LOD{lod}"));
+                }
+                kinds[v] = new[]
+                {
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Willow wood {v}", woods, Bark, TreeLods, TreeRange, true, Layers.Trees)),
+                    renderer.AddKind(InstancedRenderer.Kind.Simple($"Willow strands {v}", strands, strandMat, TreeLods, TreeRange, true, Layers.Trees)),
+                };
+                renderer.SetSway(kinds[v][0], WillowSway);
+                renderer.SetSway(kinds[v][1], WillowStrandSway);
             }
             return kinds;
         }

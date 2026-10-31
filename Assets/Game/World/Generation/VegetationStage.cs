@@ -5,7 +5,7 @@ namespace Game.World.Generation
 {
     /// <summary>
     /// Stage 5 (section 3.6): the forest grown round the layout. Trees in patchy density (dead ones, the odd old
-    /// giant with room round it, natural gaps), bushes, meadow grass and tufts at tree feet, and tall grass in the
+    /// giant with room round it, natural gaps, stands of birches, willows on the pond banks), bushes, meadow grass and tufts at tree feet, and tall grass in the
     /// lamp clearings and glades, and grassy verges along the trails.
     /// </summary>
     public sealed class VegetationStage : IWorldStage
@@ -24,6 +24,86 @@ namespace Game.World.Generation
             PlantLargeBushes(plan, s, rng.Fork(7), mask, trees);
             PlantStartMeadow(plan, s, rng.Fork(8), mask);
             PlantLampWeeds(plan, s, rng.Fork(9), mask);
+            PlantBirches(plan, s, rng.Fork(10), mask);
+            PlantWillows(plan, s, rng.Fork(11));
+        }
+
+        // Stands of birches: a few oaks (and their nearest neighbours) turned into birches, mostly at the edges of
+        // clearings and trails, where the light reaches and their pale trunks catch it.
+        static void PlantBirches(WorldPlan plan, WorldGenSettings s, Rng rng, ForestMask mask)
+        {
+            var trees = plan.Trees;
+            if (trees.Count == 0) return;
+            var near = new System.Collections.Generic.List<(float d, int i)>();
+            for (int stands = 0, attempt = 0; stands < s.birchStands && attempt < s.birchStands * 40; attempt++)
+            {
+                var first = trees[rng.Range(0, trees.Count)];
+                if (first.Kind != TreeKind.Pine || first.OldGiant) continue;
+                if (!rng.Chance(mask.ClearingFactor(first.Position, true) * 0.75f + 0.25f)) continue;
+                near.Clear();
+                for (int i = 0; i < trees.Count; i++)
+                {
+                    var t = trees[i];
+                    if (t.Kind != TreeKind.Pine || t.OldGiant) continue;
+                    float d = plan.Distance(t.Position, first.Position);
+                    if (d < 7f) near.Add((d, i));
+                }
+                near.Sort((a, b) => a.d.CompareTo(b.d));
+                int want = rng.Range(Mathf.RoundToInt(s.birchStandSize.x), Mathf.RoundToInt(s.birchStandSize.y) + 1);
+                for (int k = 0; k < near.Count && k < want; k++)
+                {
+                    var t = trees[near[k].i];
+                    t.Kind = TreeKind.Birch;
+                    t.Variant = (byte)rng.Range(0, TreeShapes.Count(TreeKind.Birch, s));
+                    t.Scale *= rng.Range(0.85f, 1.05f);
+                    trees[near[k].i] = t;
+                }
+                stands++;
+            }
+        }
+
+        // Willows, only on the ponds' banks: each just up from the waterline, facing the water (its trunk leans out
+        // over it and its strands hang down into it), with the trees that stood there cleared for it.
+        static void PlantWillows(WorldPlan plan, WorldGenSettings s, Rng rng)
+        {
+            var placed = new System.Collections.Generic.List<Vector2>();
+            foreach (var pond in plan.Ponds)
+            {
+                int want = rng.Range(Mathf.RoundToInt(s.willowsPerPond.x), Mathf.RoundToInt(s.willowsPerPond.y) + 1);
+                for (int made = 0, attempt = 0; made < want && attempt < 80; attempt++)
+                {
+                    float a = rng.Angle();
+                    var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                    // The shore this way: the first point out from the middle where the ground's above the water.
+                    float shore = -1f;
+                    for (float r = pond.Radius * 0.4f; r < pond.Radius * 1.6f; r += 0.25f)
+                        if (plan.GroundAt(Wrap.Into(pond.Centre + dir * r, plan.Size)) > pond.Water + 0.05f) { shore = r; break; }
+                    if (shore < 0f) continue;
+                    var p = Wrap.Into(pond.Centre + dir * (shore + rng.Range(0.5f, 1.3f)), plan.Size);
+                    if (plan.InWater(p) || plan.InStructure(p, 2.5f) || plan.Distance(p, plan.Start) < s.startClearing) continue;
+                    bool crowded = false;
+                    foreach (var q in placed) if (plan.Distance(p, q) < 7f) { crowded = true; break; }
+                    if (crowded) continue;
+
+                    // Room for it: the trees that stood just here go.
+                    for (int i = 0; i < plan.Trees.Count; i++)
+                    {
+                        var t = plan.Trees[i];
+                        if (!t.Removed && plan.Distance(t.Position, p) < 3.5f) { t.Removed = true; plan.Trees[i] = t; }
+                    }
+                    Vector2 toWater = -dir;
+                    plan.Trees.Add(new TreeSpot
+                    {
+                        Position = p,
+                        Kind = TreeKind.Willow,
+                        Variant = (byte)rng.Range(0, TreeShapes.Count(TreeKind.Willow, s)),
+                        Scale = s.treeScale * rng.Range(0.9f, 1.15f),
+                        Yaw = Mathf.Atan2(toWater.x, toWater.y) * Mathf.Rad2Deg + rng.Range(-20f, 20f), // (its +z, the lean, toward the water)
+                    });
+                    placed.Add(p);
+                    made++;
+                }
+            }
         }
 
         // Laurel mounds along the edges of clearings and trails (where the light reaches), dead thickets anywhere;

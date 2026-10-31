@@ -126,6 +126,12 @@ namespace Game.World.Generation
         public float breakableTrees = 0.3f;
         [Range(0f, 0.5f), Tooltip("Share of planned tree spots left empty (natural gaps).")]
         public float emptyShare = 0.12f;
+        [Tooltip("Stands of pale birches among the oaks, mostly at the edges of clearings and trails.")]
+        public int birchStands = 40;
+        [Tooltip("How many birches in a stand (fewest, most).")]
+        public Vector2 birchStandSize = new Vector2(3f, 6f);
+        [Tooltip("Willows round each pond, on the bank, leaning out over the water (fewest, most).")]
+        public Vector2 willowsPerPond = new Vector2(2f, 4f);
         public int bushes = 3200;
         public Vector2 bushSize = new Vector2(0.45f, 1.4f);
         public int grass = 16000;
