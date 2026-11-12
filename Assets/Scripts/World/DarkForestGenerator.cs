@@ -609,6 +609,7 @@ public class DarkForestGenerator : MonoBehaviour
         var grid = new Dictionary<Vector2Int, List<Vector2>>();
         float cell = Mathf.Max(minTreeSpacing, 0.1f);
         int attempts = treeCount * 15;
+        int rejected = 0;
         PlaceLandmarkTree(parent, half);
 
         for (int a = 0; a < attempts && placed.Count < treeCount; a++)
@@ -653,7 +654,14 @@ public class DarkForestGenerator : MonoBehaviour
                 // Its branches and needles mustn't reach into a shack (or the tower, a tent, the car): if they
                 // would, it isn't there after all.
                 Transform built = parent.GetChild(parent.childCount - 1);
-                if (Intrudes(built, keepOuts))
+                bool intrudes = false;
+                try { intrudes = Intrudes(built, keepOuts); }
+                catch (System.Exception e)
+                {
+                    if (!loggedIntrudeError) Debug.LogWarning("Tree vs building check failed, keeping trees: " + e);
+                    loggedIntrudeError = true;
+                }
+                if (intrudes)
                 {
                     SwayPivots.RemoveRange(sways, SwayPivots.Count - sways);
                     VineAnchors.RemoveRange(vines, VineAnchors.Count - vines);
@@ -662,10 +670,14 @@ public class DarkForestGenerator : MonoBehaviour
                     if (grid.TryGetValue(c, out var list)) list.Remove(p);
                     if (Application.isPlaying) Destroy(built.gameObject);
                     else DestroyImmediate(built.gameObject);
+                    rejected++;
                 }
             }
         }
+        Debug.Log($"Forest: {placed.Count} trees placed ({rejected} dropped for touching buildings, {keepOuts.Count} buildings).");
     }
+
+    bool loggedIntrudeError;
 
     /// <summary>
     /// The lights other than the moon (the scours' glare, the giant's searchlight, fires, floodlights) only
@@ -734,6 +746,12 @@ public class DarkForestGenerator : MonoBehaviour
                     }
                 }
                 if (min.x > max.x) continue;
+                // A box this big isn't a building (some stray mesh); it would wipe out the forest round it.
+                if (max.x - min.x > 30f || max.z - min.z > 30f || float.IsNaN(min.x) || float.IsInfinity(max.x))
+                {
+                    Debug.LogWarning($"Forest: ignoring oversized keep-out box on '{structure.name}' ({max - min}).");
+                    continue;
+                }
                 Vector3 margin = Vector3.one * 0.3f;
                 min -= margin;
                 max += margin;
