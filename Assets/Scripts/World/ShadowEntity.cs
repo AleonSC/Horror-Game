@@ -9,7 +9,7 @@ using UnityEngine.Rendering;
 ///   If a creep would bring it within kill distance, it takes the player (game over).
 /// - If the player approaches while shining the flashlight on it, it vibrates and its eyes widen
 ///   while the player slows down until they can't get any closer. Then it builds to a crescendo,
-///   "poofs" and rematerializes far away with blazing eyes. That's the only way to push it back.
+///   skipping about in jumps that leave afterimages, then stutters out and rematerializes far away with blazing eyes. That's the only way to push it back.
 /// - If the player comes near without the flashlight on it, it slowly grows and advances on them,
 ///   with a pounding audio cue. If it reaches them, they die.
 /// - While the player is inside a lit lamp's light (or holding a lit torch or lighter) it can't hurt them or enter the light.
@@ -201,6 +201,14 @@ public class ShadowEntity : MonoBehaviour
     public float minCrescendoTime = 0.8f;
     [Tooltip("Degrees of camera shake at the peak of the crescendo.")]
     public float maxCameraShake = 2.5f;
+    [Tooltip("Facing it down, it never moves smoothly: it skips this far (metres) at a time at the end of the crescendo...")]
+    public float skipDistance = 0.3f;
+    [Tooltip("...with this many seconds between skips at the start, and...")]
+    public float skipSlowInterval = 0.5f;
+    [Tooltip("...this many at the end.")]
+    public float skipFastInterval = 0.07f;
+    [Tooltip("Seconds an afterimage lingers, flickering out, in each spot it skips away from.")]
+    public float afterimageTime = 0.55f;
     public int fragmentCount = 40;
     public float poofTime = 1.2f;
     public float materializeTime = 1.2f;
@@ -297,6 +305,8 @@ public class ShadowEntity : MonoBehaviour
     float eyeshine;
     float eyeBrightness;   // as shown, eyeshine included
     float crescendoStartBrightness, crescendoStartShine, crescendoStartLight;
+    float skipTimer;     // till its next skip, facing it down
+    int burstSkips = -1; // the last few skips as it's driven off (-1: not yet)
     int seenToggles = -1;
     float lastLitTime = -10f;
     readonly Queue<float> flashTimes = new Queue<float>();
@@ -353,6 +363,7 @@ public class ShadowEntity : MonoBehaviour
     {
         if (fragmentRoot != null) Destroy(fragmentRoot.gameObject);
         if (shinMat != null) Destroy(shinMat);
+        if (ghostEyeMat != null) Destroy(ghostEyeMat);
     }
 
     void Update()
@@ -378,6 +389,7 @@ public class ShadowEntity : MonoBehaviour
         }
 
         UpdateFragments();
+        UpdateAfterimages();
         if (IsVisible) UpdateTwitch(Time.deltaTime);
         UpdateBeamHalo();
 
@@ -726,6 +738,12 @@ public class ShadowEntity : MonoBehaviour
         crescendoStartBrightness = Mathf.Max(eyeBrightness, eyeIntensity);
         crescendoStartShine = eyeshine;
         crescendoStartLight = eyeLight.intensity / Mathf.Max(eyeLightStrength, 0.0001f);
+        // It goes rigid: no more shudder from here, just the skips.
+        visual.localPosition = Vector3.zero;
+        visual.localRotation = Quaternion.identity;
+        visual.localScale = Vector3.one;
+        skipTimer = skipSlowInterval;
+        burstSkips = -1;
         // The sound speeds up to match a shortened crescendo.
         PlaySound(crescendoSound != null ? crescendoSound : ProceduralAudio.DispelBuild, crescendoTime / CrescendoDuration, crescendoVolume);
     }
@@ -879,20 +897,34 @@ public class ShadowEntity : MonoBehaviour
     }
 
     /// <summary>
-    /// Facing it down: held in the light, it shudders harder and harder, stretching, its mouth splitting
-    /// wider, its eyes burning from red to blue. Then it's gone (Dispel).
+    /// Facing it down: held in the light, it goes rigid and never moves smoothly again. It skips a few
+    /// centimetres at a time, leaving afterimages flickering out where it stood, the skips coming faster and
+    /// further, the odd frame dropping out altogether; its mouth splitting wider, its eyes burning from red to
+    /// blue. Then a last burst of skips and it's gone (Dispel).
     /// </summary>
     void UpdateCrescendo()
     {
         FacePlayer();
         if (player != null) player.SetApproachLimit(this, transform.position, reactDistance, stopDistance);
 
+        if (burstSkips >= 0)
+        {
+            UpdateDispelBurst();
+            return;
+        }
+
         timer += Time.deltaTime;
         float c = Mathf.Clamp01(timer / Mathf.Max(CrescendoDuration, 0.01f));
         float e = c * c; // ease in: slow build, violent finish
 
-        Vibrate(Mathf.Lerp(maxVibration, crescendoVibration, e));
-        visual.localScale = new Vector3(1f - 0.15f * e, 1f + 0.2f * e, 1f - 0.15f * e);
+        skipTimer -= Time.deltaTime;
+        if (skipTimer <= 0f)
+        {
+            Skip(Mathf.Lerp(0.03f * scale, skipDistance * scale, e));
+            skipTimer = Mathf.Lerp(skipSlowInterval, skipFastInterval, e) * Random.Range(0.6f, 1.4f);
+        }
+        // Now and then a frame drops out and it isn't there at all (held at 30 a second, so it reads as a cut).
+        SetBodyShown(Hash01(Mathf.FloorToInt(Time.time * 30f), GetInstanceID()) >= 0.1f * e);
 
         float flicker = 1f + Random.Range(-0.3f, 0.3f) * e;
         mouthTarget = Mathf.Lerp(0.7f, 1.5f, e); // stretching wider and wider
@@ -908,18 +940,129 @@ public class ShadowEntity : MonoBehaviour
 
         if (player != null) player.AddCameraShake(maxCameraShake * e);
 
-        if (c >= 1f) Dispel();
+        if (c >= 1f) StartDispel();
     }
 
-    /// <summary>Faced down: it bursts apart in a ghostly breath and is gone. The light pays for it.</summary>
-    void Dispel()
+    /// <summary>Faced down: a last stutter of skips, wide and fast, and it's gone. The light pays for it.</summary>
+    void StartDispel()
     {
-        StartFragments(converge: false);
+        burstSkips = 0;
+        skipTimer = 0f;
+        SetBodyShown(true);
         PlaySound(poofSound != null ? poofSound : ProceduralAudio.Dispel, 1f);
         if (flashlight != null) flashlight.Drain(dismissCost);
+    }
+
+    const int DispelSkips = 6;
+    const float DispelSkipInterval = 0.035f;
+
+    void UpdateDispelBurst()
+    {
+        if (player != null) player.AddCameraShake(maxCameraShake);
+        skipTimer -= Time.deltaTime;
+        if (skipTimer > 0f) return;
+        skipTimer = DispelSkipInterval;
+        if (burstSkips++ < DispelSkips) Skip(skipDistance * 2f * scale);
+        else Dispel();
+    }
+
+    void Dispel()
+    {
+        LeaveAfterimage(); // the last place it stood flickers on a moment after it's gone
+        burstSkips = -1;
         ResetVisual();
         whisper.pitch = Random.Range(0.85f, 1.1f);
         Hide(Random.Range(minRespawnDelay, maxRespawnDelay));
+    }
+
+    /// <summary>Jumps the body to a new spot near where it stands (no in-between), leaving an afterimage behind.</summary>
+    void Skip(float distance)
+    {
+        LeaveAfterimage();
+        visual.localPosition = new Vector3(Random.Range(-1f, 1f), Random.Range(-0.15f, 0.15f), Random.Range(-0.3f, 0.3f)) * distance;
+        visual.localRotation = Quaternion.identity;
+    }
+
+    void SetBodyShown(bool shown)
+    {
+        foreach (var r in bodyRenderers) r.enabled = shown;
+    }
+
+    static float Hash01(int a, int b)
+    {
+        uint h = unchecked((uint)(a * 374761393 + b * 668265263));
+        h = unchecked((h ^ (h >> 13)) * 1274126177u);
+        return ((h ^ (h >> 16)) & 0xFFFFFF) / 16777216f;
+    }
+
+    // ---------------------------------------------------------------- Afterimages
+
+    /// <summary>A snapshot of the body as it stood: each part's mesh, where it was, and what it was drawn with.</summary>
+    class Afterimage
+    {
+        public Mesh[] meshes;
+        public Matrix4x4[] matrices;
+        public Material[] materials;
+        public int count;
+        public float born = -100f;
+    }
+
+    readonly Afterimage[] afterimages = new Afterimage[10];
+    int nextAfterimage;
+    MeshFilter[] bodyFilters;
+    Material ghostEyeMat; // the afterimages' eyes keep the colour they had, whatever the real ones do next
+
+    void LeaveAfterimage()
+    {
+        if (bodyFilters == null)
+        {
+            bodyFilters = new MeshFilter[bodyRenderers.Length];
+            for (int i = 0; i < bodyRenderers.Length; i++) bodyFilters[i] = bodyRenderers[i].GetComponent<MeshFilter>();
+            ghostEyeMat = new Material(eyeMat);
+        }
+        ghostEyeMat.CopyPropertiesFromMaterial(eyeMat);
+
+        var a = afterimages[nextAfterimage];
+        if (a == null)
+        {
+            int n = bodyRenderers.Length;
+            a = afterimages[nextAfterimage] = new Afterimage { meshes = new Mesh[n], matrices = new Matrix4x4[n], materials = new Material[n] };
+        }
+        nextAfterimage = (nextAfterimage + 1) % afterimages.Length;
+
+        a.count = 0;
+        a.born = Time.time;
+        for (int i = 0; i < bodyRenderers.Length; i++)
+        {
+            var r = bodyRenderers[i];
+            var mf = bodyFilters[i];
+            if (!r.gameObject.activeInHierarchy || mf == null || mf.sharedMesh == null) continue;
+            var mat = r.sharedMaterial;
+            if (mat == null || mat.renderQueue >= (int)RenderQueue.Transparent) continue; // not the see-through glare
+            a.meshes[a.count] = mf.sharedMesh;
+            a.matrices[a.count] = r.localToWorldMatrix;
+            a.materials[a.count] = mat == eyeMat ? ghostEyeMat : mat;
+            a.count++;
+        }
+    }
+
+    /// <summary>
+    /// Afterimages don't fade, they flicker out: shown on fewer and fewer frames (held at 20 a second, so each
+    /// flash is a hard cut) until they're gone.
+    /// </summary>
+    void UpdateAfterimages()
+    {
+        int step = Mathf.FloorToInt(Time.time * 20f);
+        for (int g = 0; g < afterimages.Length; g++)
+        {
+            var a = afterimages[g];
+            if (a == null || a.count == 0) continue;
+            float age = Time.time - a.born;
+            if (age >= afterimageTime) { a.count = 0; continue; }
+            if (Hash01(step, g * 7919 + GetInstanceID()) > 1f - age / afterimageTime) continue;
+            for (int i = 0; i < a.count; i++)
+                Graphics.DrawMesh(a.meshes[i], a.matrices[i], a.materials[i], gameObject.layer, null, 0, null, false, false);
+        }
     }
 
     void Poof()
